@@ -266,6 +266,25 @@ export const insertActionPlanSchema = createInsertSchema(actionPlansTable).omit(
 export type InsertActionPlan = z.infer<typeof insertActionPlanSchema>;
 export type ActionPlan = typeof actionPlansTable.$inferSelect;
 
+/**
+ * "Encerrado" = the plan reached the final **Encerramento** stage and is locked
+ * for any change. A plan closes either by full completion (status `completed`
+ * AND an effectiveness verdict recorded — `effective`/`ineffective`) or by
+ * cancellation. Mere `completed` is NOT locked: the effectiveness (Eficácia
+ * stage) is verified *between* concluding the action and closing the plan.
+ * Only an admin (SGI) may reopen an encerrado plan. Mirrored on the web in
+ * `action-plans-client.ts` — keep both in sync.
+ */
+export function isActionPlanEncerrado(
+  plan: Pick<ActionPlan, "status" | "effectivenessResult">,
+): boolean {
+  if (plan.status === "cancelled") return true;
+  return (
+    plan.status === "completed" &&
+    (plan.effectivenessResult === "effective" || plan.effectivenessResult === "ineffective")
+  );
+}
+
 export const insertActionPlanEvidenceSchema = createInsertSchema(actionPlanEvidencesTable).omit({
   id: true,
   uploadedAt: true,

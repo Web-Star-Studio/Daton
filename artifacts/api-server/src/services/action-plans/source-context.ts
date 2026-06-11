@@ -12,6 +12,7 @@ import {
   roadSafetyFactorsTable,
   strategicPlanRiskOpportunityItemsTable,
   swotFactorsTable,
+  unitsTable,
   type ActionPlanSourceRef,
 } from "@workspace/db";
 
@@ -97,14 +98,31 @@ export async function resolveSourceContexts(
 
   // ─── SWOT ────────────────────────────────────────────────────────────────
   const swotFactorIds = idsFor(refs, "swot", "swotFactorId");
-  type SwotRow = { id: number; description: string; type: string; performance: number; relevance: number };
+  type SwotRow = { id: number; description: string; type: string; performance: number; relevance: number; unitName: string | null };
   let swotMap = new Map<number, SwotRow>();
   if (swotFactorIds.length > 0) {
     const rows = await db
-      .select({ id: swotFactorsTable.id, description: swotFactorsTable.description, type: swotFactorsTable.type, performance: swotFactorsTable.performance, relevance: swotFactorsTable.relevance })
+      .select({ id: swotFactorsTable.id, description: swotFactorsTable.description, type: swotFactorsTable.type, performance: swotFactorsTable.performance, relevance: swotFactorsTable.relevance, unitId: swotFactorsTable.unitId })
       .from(swotFactorsTable)
       .where(and(eq(swotFactorsTable.organizationId, orgId), inArray(swotFactorsTable.id, swotFactorIds)));
-    swotMap = new Map(rows.map((r) => [r.id, r]));
+    // Resolve each factor's filial (unit); a null unit means Corporativo.
+    const unitIds = [...new Set(rows.map((r) => r.unitId).filter((id): id is number => id !== null))];
+    const unitNameById = new Map<number, string>();
+    if (unitIds.length > 0) {
+      const us = await db
+        .select({ id: unitsTable.id, name: unitsTable.name })
+        .from(unitsTable)
+        .where(and(eq(unitsTable.organizationId, orgId), inArray(unitsTable.id, unitIds)));
+      for (const u of us) unitNameById.set(u.id, u.name);
+    }
+    swotMap = new Map(rows.map((r) => [r.id, {
+      id: r.id,
+      description: r.description,
+      type: r.type,
+      performance: r.performance,
+      relevance: r.relevance,
+      unitName: r.unitId !== null ? (unitNameById.get(r.unitId) ?? null) : null,
+    }]));
   }
 
   // ─── Nonconformities ───────────────────────────────────────────────────────
@@ -182,7 +200,7 @@ export async function resolveSourceContexts(
 
 type Maps = {
   kpiMap: Map<number, { mvId: number; month: number; value: string | null; indicatorId: number; indicatorName: string; direction: string; year: number; goal: string | null }>;
-  swotMap: Map<number, { id: number; description: string; type: string; performance: number; relevance: number }>;
+  swotMap: Map<number, { id: number; description: string; type: string; performance: number; relevance: number; unitName: string | null }>;
   ncMap: Map<number, { id: number; title: string }>;
   findingMap: Map<number, { id: number; classification: string; description: string }>;
   riskMap: Map<number, { id: number; type: string; title: string }>;
@@ -210,7 +228,8 @@ function resolveOne(r: SourceContextInput, m: Maps): SourceContext {
       const f = typeof ref.swotFactorId === "number" ? m.swotMap.get(ref.swotFactorId) : undefined;
       if (!f) return { label: "SWOT · origem removida", kpi: null };
       const typeLabel = SWOT_TYPE_PT[f.type] ?? f.type;
-      return { label: `SWOT · ${typeLabel} · ${truncate(f.description)} · resultado ${f.performance * f.relevance}`, kpi: null };
+      const filial = f.unitName ?? "Corporativo";
+      return { label: `SWOT · ${typeLabel} · ${filial} · ${truncate(f.description)} · resultado ${f.performance * f.relevance}`, kpi: null };
     }
     case "nonconformity": {
       const nc = typeof ref.nonconformityId === "number" ? m.ncMap.get(ref.nonconformityId) : undefined;

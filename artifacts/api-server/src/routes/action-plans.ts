@@ -6,6 +6,7 @@ import {
   actionPlanEvidencesTable,
   actionPlansTable,
   db,
+  isActionPlanEncerrado,
   type ActionPlanActivityChanges,
 } from "@workspace/db";
 import {
@@ -341,6 +342,24 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
     ));
   if (!existing) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
 
+  // Lock: an encerrado plan (final Encerramento stage / cancelled) is frozen for
+  // everyone. The ONLY permitted mutation is an admin (SGI) reopening it — a
+  // status-only change back to open/in_progress. Any other edit is rejected.
+  if (isActionPlanEncerrado(existing)) {
+    const isAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
+    const target = body.data.status;
+    const isReopen = target === "open" || target === "in_progress";
+    const onlyStatusChanged = Object.entries(body.data).every(([k, v]) => k === "status" || v === undefined);
+    if (!isReopen || !onlyStatusChanged) {
+      res.status(409).json({ error: "Plano encerrado está bloqueado para alterações. Um administrador (SGI) precisa reabri-lo para editar." });
+      return;
+    }
+    if (!isAdmin) {
+      res.status(403).json({ error: "Somente um administrador (SGI) pode reabrir um plano encerrado." });
+      return;
+    }
+  }
+
   const update: Record<string, unknown> = {};
   if (body.data.actionType !== undefined) update.actionType = body.data.actionType;
   if (body.data.title !== undefined) update.title = body.data.title;
@@ -456,6 +475,24 @@ router.delete("/organizations/:orgId/action-plans/:planId", requireAuth, require
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+  const [existing] = await db
+    .select({ status: actionPlansTable.status, effectivenessResult: actionPlansTable.effectivenessResult })
+    .from(actionPlansTable)
+    .where(and(
+      eq(actionPlansTable.id, params.data.planId),
+      eq(actionPlansTable.organizationId, params.data.orgId),
+    ));
+  if (!existing) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+
+  // An encerrado plan can only be removed by an admin (SGI).
+  if (isActionPlanEncerrado(existing)) {
+    const isAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
+    if (!isAdmin) {
+      res.status(403).json({ error: "Somente um administrador (SGI) pode excluir um plano encerrado." });
+      return;
+    }
+  }
+
   const [row] = await db.delete(actionPlansTable)
     .where(and(
       eq(actionPlansTable.id, params.data.planId),
@@ -550,13 +587,17 @@ router.post("/organizations/:orgId/action-plans/:planId/evidences", requireAuth,
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
   const [plan] = await db
-    .select({ id: actionPlansTable.id })
+    .select({ id: actionPlansTable.id, status: actionPlansTable.status, effectivenessResult: actionPlansTable.effectivenessResult })
     .from(actionPlansTable)
     .where(and(
       eq(actionPlansTable.id, params.data.planId),
       eq(actionPlansTable.organizationId, params.data.orgId),
     ));
   if (!plan) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+  if (isActionPlanEncerrado(plan)) {
+    res.status(409).json({ error: "Plano encerrado está bloqueado para alterações. Um administrador (SGI) precisa reabri-lo para anexar evidências." });
+    return;
+  }
 
   // objectPath must point inside the canonical upload prefix produced by
   // /storage/uploads/direct (see employees route for the same guard).
@@ -596,13 +637,17 @@ router.delete("/organizations/:orgId/action-plans/:planId/evidences/:evidenceId"
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
   const [plan] = await db
-    .select({ id: actionPlansTable.id })
+    .select({ id: actionPlansTable.id, status: actionPlansTable.status, effectivenessResult: actionPlansTable.effectivenessResult })
     .from(actionPlansTable)
     .where(and(
       eq(actionPlansTable.id, params.data.planId),
       eq(actionPlansTable.organizationId, params.data.orgId),
     ));
   if (!plan) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+  if (isActionPlanEncerrado(plan)) {
+    res.status(409).json({ error: "Plano encerrado está bloqueado para alterações. Um administrador (SGI) precisa reabri-lo para remover evidências." });
+    return;
+  }
 
   const [row] = await db.delete(actionPlanEvidencesTable)
     .where(and(

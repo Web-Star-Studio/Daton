@@ -6,7 +6,9 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  Lock,
   Paperclip,
+  RotateCcw,
   Save,
   Sparkles,
   Trash2,
@@ -34,6 +36,7 @@ import {
   actionPlanPriorityColor,
   actionPlanStatusColor,
   calendarDateToStorageIso,
+  isActionPlanEncerrado,
   originLink,
   storageIsoToCalendarDate,
   todayCalendarDate,
@@ -62,9 +65,9 @@ const PRIORITY_OPTIONS: ActionPlanPriority[] = ["low", "medium", "high"];
 const TYPE_OPTIONS: ActionPlanType[] = ["corrective", "preventive", "improvement"];
 const MONTH_LABELS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
-function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+function Section({ id, title, action, children }: { id?: string; title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border/60 bg-card/42 p-5 shadow-sm backdrop-blur-md">
+    <section id={id} className="scroll-mt-20 rounded-2xl border border-border/60 bg-card/42 p-5 shadow-sm backdrop-blur-md transition-shadow">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{title}</h3>
         {action}
@@ -87,7 +90,7 @@ export default function ActionPlanFichaPage() {
   const planId = Number.isInteger(parsedPlanId) && parsedPlanId > 0 ? parsedPlanId : null;
 
   const { organization } = useAuth();
-  const { canWrite } = usePermissions();
+  const { canWrite, isAdmin } = usePermissions();
   const orgId = organization!.id;
   const [location, setLocation] = useLocation();
 
@@ -283,6 +286,17 @@ export default function ActionPlanFichaPage() {
     }
   }
 
+  async function handleReopen() {
+    if (!planId) return;
+    if (!window.confirm("Reabrir este plano encerrado? Ele voltará para 'Em andamento' e poderá ser editado novamente.")) return;
+    try {
+      await updatePlan.mutateAsync({ orgId, planId, data: { status: "in_progress" } });
+      toast({ title: "Plano reaberto" });
+    } catch (err) {
+      toast({ title: "Erro ao reabrir", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
+    }
+  }
+
   async function handleDelete() {
     if (!planId) return;
     if (!window.confirm("Excluir esta ação e todas as evidências? Não pode ser desfeito.")) return;
@@ -345,11 +359,15 @@ export default function ActionPlanFichaPage() {
   }
 
   const isClosed = plan.status === "completed" || plan.status === "cancelled";
+  // Encerrado = final Encerramento stage / cancelled → frozen for everyone.
+  // Only an admin (SGI) can reopen it; until then nobody edits (not even admins).
+  const isLocked = isActionPlanEncerrado(plan);
+  const canEdit = canWrite && !isLocked;
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 p-6">
       {/* Top bar */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div id="etapa-encerramento" className="flex scroll-mt-20 flex-wrap items-center gap-2 rounded-lg transition-shadow">
         <Button variant="ghost" size="sm" onClick={() => setLocation("/planos-acao")}>
           <ArrowLeft className="mr-1.5 h-4 w-4" /> Ações
         </Button>
@@ -358,7 +376,7 @@ export default function ActionPlanFichaPage() {
         <Badge variant="secondary" className="px-1.5">{ACTION_TYPE_LABELS[plan.actionType]}</Badge>
         <Badge variant="outline" className="px-1.5 text-muted-foreground">{SOURCE_MODULE_LABELS[plan.sourceModule] ?? plan.sourceModule}</Badge>
         <div className="ml-auto flex gap-2">
-          {canWrite && dirty && (
+          {canEdit && dirty && (
             <Button onClick={handleSave} disabled={updatePlan.isPending}>
               <Save className="mr-1.5 h-4 w-4" /> {updatePlan.isPending ? "Salvando..." : "Salvar"}
             </Button>
@@ -368,13 +386,31 @@ export default function ActionPlanFichaPage() {
               <CheckCircle2 className="mr-1.5 h-4 w-4" /> Concluir ação
             </Button>
           )}
-          {canWrite && (
+          {isAdmin && isLocked && (
+            <Button variant="outline" size="sm" onClick={handleReopen} disabled={updatePlan.isPending}>
+              <RotateCcw className="mr-1.5 h-4 w-4" /> Reabrir
+            </Button>
+          )}
+          {canWrite && (!isLocked || isAdmin) && (
             <Button variant="ghost" size="icon" className="text-destructive" onClick={handleDelete} aria-label="Excluir ação">
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
         </div>
       </div>
+
+      {/* Encerrado lock banner */}
+      {isLocked && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-300/60 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>
+            Plano encerrado — bloqueado para alterações.{" "}
+            {isAdmin
+              ? "Use “Reabrir” para voltar a editar."
+              : "Somente um administrador (SGI) pode reabri-lo."}
+          </span>
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="rounded-2xl border border-border/60 bg-card/42 px-5 py-4 shadow-sm backdrop-blur-md">
@@ -384,15 +420,15 @@ export default function ActionPlanFichaPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* ─── Left column ─────────────────────────────────────────────────── */}
         <div className="space-y-4">
-          <Section title="Identificação e contexto">
+          <Section id="etapa-identificacao" title="Identificação e contexto">
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Título</Label>
-                <Input value={form.title} onChange={(e) => patch("title", e.target.value)} readOnly={!canWrite} />
+                <Input value={form.title} onChange={(e) => patch("title", e.target.value)} readOnly={!canEdit} />
               </div>
               <div className="space-y-1.5">
                 <Label>Descrição do problema</Label>
-                <Textarea value={form.description} onChange={(e) => patch("description", e.target.value)} rows={3} placeholder="Contexto, problema constatado, escopo..." readOnly={!canWrite} />
+                <Textarea value={form.description} onChange={(e) => patch("description", e.target.value)} rows={3} placeholder="Contexto, problema constatado, escopo..." readOnly={!canEdit} />
               </div>
               {/* Origin */}
               <div className="rounded-lg border bg-muted/30 px-3 py-2">
@@ -417,13 +453,13 @@ export default function ActionPlanFichaPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Tipo de ação</Label>
-                  <Select value={form.actionType} onChange={(e) => patch("actionType", e.target.value as ActionPlanType)} disabled={!canWrite}>
+                  <Select value={form.actionType} onChange={(e) => patch("actionType", e.target.value as ActionPlanType)} disabled={!canEdit}>
                     {TYPE_OPTIONS.map((t) => <option key={t} value={t}>{ACTION_TYPE_LABELS[t]}</option>)}
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Status</Label>
-                  <Select value={form.status} onChange={(e) => patch("status", e.target.value as ActionPlanStatus)} disabled={!canWrite}>
+                  <Select value={form.status} onChange={(e) => patch("status", e.target.value as ActionPlanStatus)} disabled={!canEdit}>
                     {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{ACTION_PLAN_STATUS_LABELS[s]}</option>)}
                   </Select>
                 </div>
@@ -436,16 +472,16 @@ export default function ActionPlanFichaPage() {
                     placeholder="Selecione"
                     searchPlaceholder="Buscar usuário..."
                     emptyMessage="Nenhum usuário encontrado"
-                    disabled={!canWrite}
+                    disabled={!canEdit}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Prazo</Label>
-                  <Input type="date" value={form.dueDate} onChange={(e) => patch("dueDate", e.target.value)} readOnly={!canWrite} />
+                  <Input type="date" value={form.dueDate} onChange={(e) => patch("dueDate", e.target.value)} readOnly={!canEdit} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Prioridade</Label>
-                  <Select value={form.priority} onChange={(e) => patch("priority", e.target.value as ActionPlanPriority)} disabled={!canWrite}>
+                  <Select value={form.priority} onChange={(e) => patch("priority", e.target.value as ActionPlanPriority)} disabled={!canEdit}>
                     {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{ACTION_PLAN_PRIORITY_LABELS[p]}</option>)}
                   </Select>
                 </div>
@@ -454,8 +490,9 @@ export default function ActionPlanFichaPage() {
           </Section>
 
           <Section
+            id="etapa-planejamento"
             title="Plano de ação (5W2H)"
-            action={canWrite ? (
+            action={canEdit ? (
               <Button
                 type="button"
                 variant="outline"
@@ -470,7 +507,7 @@ export default function ActionPlanFichaPage() {
               </Button>
             ) : undefined}
           >
-            <Plano5W2H value={form.plan5w2h} onChange={(v) => patch("plan5w2h", v)} readOnly={!canWrite} />
+            <Plano5W2H value={form.plan5w2h} onChange={(v) => patch("plan5w2h", v)} readOnly={!canEdit} />
           </Section>
 
           <Section title="Causa raiz (5 porquês)">
@@ -481,11 +518,11 @@ export default function ActionPlanFichaPage() {
                 setForm((f) => ({ ...f, rootCause, rootCauseWhys: whys }));
                 setDirty(true);
               }}
-              readOnly={!canWrite}
+              readOnly={!canEdit}
             />
           </Section>
 
-          <Section title="Comentários e histórico">
+          <Section id="etapa-execucao" title="Comentários e histórico">
             <ComentariosHistorico orgId={orgId} planId={plan.id} canWrite={canWrite} />
           </Section>
         </div>
@@ -493,11 +530,11 @@ export default function ActionPlanFichaPage() {
         {/* ─── Right column ────────────────────────────────────────────────── */}
         <div className="space-y-4">
           <Section title="Prioridade GUT">
-            <GutInput value={form.gut} onChange={(v) => patch("gut", v)} readOnly={!canWrite} />
+            <GutInput value={form.gut} onChange={(v) => patch("gut", v)} readOnly={!canEdit} />
           </Section>
 
           <Section title="Vínculos normativos e estratégicos">
-            <Vinculos value={form.vinc} onChange={(v) => patch("vinc", v)} readOnly={!canWrite} />
+            <Vinculos value={form.vinc} onChange={(v) => patch("vinc", v)} readOnly={!canEdit} />
             {relatedIndicatorIds.length > 0 && (
               <p className="mt-3 text-[11px] text-muted-foreground">
                 {relatedIndicatorIds.length} indicador(es) relacionado(s) à origem.
@@ -506,8 +543,9 @@ export default function ActionPlanFichaPage() {
           </Section>
 
           <Section
+            id="etapa-evidencia"
             title="Evidências"
-            action={canWrite ? (
+            action={canEdit ? (
               <>
                 <input ref={fileInputRef} type="file" multiple hidden onChange={(e) => void handleFiles(e.target.files)} />
                 <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
@@ -530,7 +568,7 @@ export default function ActionPlanFichaPage() {
                       <a href={resolveApiUrl(`/api/storage${ev.objectPath}`)} target="_blank" rel="noopener noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" title="Baixar" aria-label={`Baixar ${ev.fileName}`}>
                         <Download className="h-4 w-4" />
                       </a>
-                      {canWrite && (
+                      {canEdit && (
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveEvidence(ev.id)} aria-label={`Remover ${ev.fileName}`}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -544,8 +582,8 @@ export default function ActionPlanFichaPage() {
             )}
           </Section>
 
-          <Section title="Avaliação de eficácia">
-            <EficaciaPanel value={form.efic} onChange={(v) => patch("efic", v)} orgUsers={orgUsers} readOnly={!canWrite} />
+          <Section id="etapa-eficacia" title="Avaliação de eficácia">
+            <EficaciaPanel value={form.efic} onChange={(v) => patch("efic", v)} orgUsers={orgUsers} readOnly={!canEdit} />
           </Section>
 
           {/* Meta footer */}

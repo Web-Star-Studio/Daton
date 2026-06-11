@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
+  Building2,
   Check,
   ChevronRight,
   ClipboardList,
@@ -958,6 +959,10 @@ function SwotView({
                     <div className="text-sm font-medium leading-snug">{f.description}</div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
                       <span className={cn("font-semibold tabular-nums", swotResultColor(f.type, f.result, tolerances))}>Resultado {f.result}</span>
+                      <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                        <Building2 className="h-3 w-3 shrink-0" aria-hidden />
+                        {f.unitId !== null ? (unitNameById.get(f.unitId) ?? "—") : "Corporativo"}
+                      </span>
                       {f.perspective && <span>· {f.perspective}</span>}
                       {obj
                         ? <span>· {SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]}: {obj.label}</span>
