@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import {
+  AlertCircle,
   ArrowLeft,
   Calendar,
   CheckCircle2,
   Download,
   ExternalLink,
+  Loader2,
   Lock,
   Paperclip,
   RotateCcw,
@@ -51,6 +53,7 @@ import {
   type ActionPlanPriority,
   type ActionPlanStatus,
   type ActionPlanType,
+  type UpdateActionPlanBody,
 } from "@/lib/action-plans-client";
 import { ActionPlanTimeline } from "./_components/timeline";
 import { GutInput } from "./_components/gut-input";
@@ -128,11 +131,31 @@ export default function ActionPlanFichaPage() {
     vinc: { odsNumbers: [] as number[], normRefs: [] as ActionPlanNormRef[] },
   });
   const [dirty, setDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Edit guard: an encerrado plan (or a read-only role) can't be edited/autosaved.
+  const isLocked = !!plan && isActionPlanEncerrado(plan);
+  const isClosed = !!plan && (plan.status === "completed" || plan.status === "cancelled");
+  const canEdit = canWrite && !isLocked;
+
+  // Refs so async callbacks (autosave, flush-on-leave) read the latest values.
+  const formRef = useRef(form);
+  formRef.current = form;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const savingRef = useRef(false);
+  const hydratedIdRef = useRef<number | null>(null);
+
+  // Hydrate the form ONLY when a different plan loads. Background refetches of the
+  // SAME plan (conclude, evidence add/remove, invalidations) must NOT repopulate
+  // the form — that was silently wiping unsaved edits ("estava completinha, entrei
+  // e está vazio"). Read-only displays (evidences, badges, timeline) read `plan`
+  // directly, so they still refresh.
   useEffect(() => {
-    if (!plan) return;
+    if (!plan || plan.id === hydratedIdRef.current) return;
+    hydratedIdRef.current = plan.id;
     setForm({
       title: plan.title,
       description: plan.description ?? "",
@@ -159,7 +182,90 @@ export default function ActionPlanFichaPage() {
       vinc: { odsNumbers: plan.odsNumbers ?? [], normRefs: plan.normRefs ?? [] },
     });
     setDirty(false);
+    setSaveStatus("idle");
   }, [plan]);
+
+  function buildPayload(f: typeof form): UpdateActionPlanBody {
+    const whys = f.rootCauseWhys.map((w) => w.trim()).filter(Boolean);
+    return {
+      title: f.title.trim(),
+      description: f.description.trim() || null,
+      actionType: f.actionType,
+      status: f.status,
+      priority: f.priority,
+      responsibleUserId: f.responsibleUserId ? Number(f.responsibleUserId) : null,
+      dueDate: f.dueDate ? calendarDateToStorageIso(f.dueDate) : null,
+      correctiveActionDescription: f.correctiveActionDescription.trim() || null,
+      correctiveActionCompletedAt: f.correctiveActionCompletedAt ? calendarDateToStorageIso(f.correctiveActionCompletedAt) : null,
+      gutGravity: f.gut.gravity,
+      gutUrgency: f.gut.urgency,
+      gutTendency: f.gut.tendency,
+      plan5w2h: clean5w2h(f.plan5w2h),
+      rootCause: f.rootCause.trim() || null,
+      rootCauseWhys: whys.length > 0 ? whys : null,
+      effectivenessMethod: f.efic.method || null,
+      effectivenessDueDate: f.efic.dueDate ? calendarDateToStorageIso(f.efic.dueDate) : null,
+      effectivenessEvaluatorUserId: f.efic.evaluatorUserId ? Number(f.efic.evaluatorUserId) : null,
+      effectivenessResult: f.efic.result || null,
+      effectivenessBefore: f.efic.before.trim() || null,
+      effectivenessAfter: f.efic.after.trim() || null,
+      effectivenessComment: f.efic.comment.trim() || null,
+      odsNumbers: f.vinc.odsNumbers,
+      normRefs: f.vinc.normRefs,
+    };
+  }
+
+  // Single persistence path (autosave, manual button, conclude). Serializes
+  // concurrent saves and only clears `dirty` if the form didn't change mid-save,
+  // so keystrokes typed during an in-flight save aren't dropped.
+  async function persist(opts?: { manual?: boolean; extra?: Partial<UpdateActionPlanBody> }): Promise<boolean> {
+    if (!planId) return false;
+    const snapshot = formRef.current;
+    if (!snapshot.title.trim()) {
+      if (opts?.manual) toast({ title: "Informe o título da ação", variant: "destructive" });
+      return false;
+    }
+    if (savingRef.current) return false;
+    savingRef.current = true;
+    setSaveStatus("saving");
+    try {
+      await updatePlan.mutateAsync({ orgId, planId, data: { ...buildPayload(snapshot), ...(opts?.extra ?? {}) } });
+      if (formRef.current === snapshot) setDirty(false);
+      setSaveStatus("saved");
+      return true;
+    } catch (err) {
+      setSaveStatus("error");
+      if (opts?.manual) toast({ title: "Erro ao salvar", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
+      return false;
+    } finally {
+      savingRef.current = false;
+    }
+  }
+
+  // Autosave: ~1s after the user stops typing, while there are unsaved edits and
+  // the plan is editable. The manual "Salvar" button stays as a fallback.
+  useEffect(() => {
+    if (!dirty || !canEdit || !formRef.current.title.trim()) return;
+    const t = setTimeout(() => { void persist(); }, 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, dirty, canEdit]);
+
+  // Warn before closing/refreshing the tab with unsaved edits; flush on unmount.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (dirtyRef.current || savingRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      if (dirtyRef.current) void persist();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sourceContext = plan?.sourceContext;
   const kpiContext = sourceContext?.kpi ?? null;
@@ -172,48 +278,8 @@ export default function ActionPlanFichaPage() {
   }
 
   async function handleSave() {
-    if (!planId) return;
-    if (!form.title.trim()) {
-      toast({ title: "Informe o título da ação", variant: "destructive" });
-      return;
-    }
-    const whys = form.rootCauseWhys.map((w) => w.trim()).filter(Boolean);
-    try {
-      await updatePlan.mutateAsync({
-        orgId,
-        planId,
-        data: {
-          title: form.title.trim(),
-          description: form.description.trim() || null,
-          actionType: form.actionType,
-          status: form.status,
-          priority: form.priority,
-          responsibleUserId: form.responsibleUserId ? Number(form.responsibleUserId) : null,
-          dueDate: form.dueDate ? calendarDateToStorageIso(form.dueDate) : null,
-          correctiveActionDescription: form.correctiveActionDescription.trim() || null,
-          correctiveActionCompletedAt: form.correctiveActionCompletedAt ? calendarDateToStorageIso(form.correctiveActionCompletedAt) : null,
-          gutGravity: form.gut.gravity,
-          gutUrgency: form.gut.urgency,
-          gutTendency: form.gut.tendency,
-          plan5w2h: clean5w2h(form.plan5w2h),
-          rootCause: form.rootCause.trim() || null,
-          rootCauseWhys: whys.length > 0 ? whys : null,
-          effectivenessMethod: form.efic.method || null,
-          effectivenessDueDate: form.efic.dueDate ? calendarDateToStorageIso(form.efic.dueDate) : null,
-          effectivenessEvaluatorUserId: form.efic.evaluatorUserId ? Number(form.efic.evaluatorUserId) : null,
-          effectivenessResult: form.efic.result || null,
-          effectivenessBefore: form.efic.before.trim() || null,
-          effectivenessAfter: form.efic.after.trim() || null,
-          effectivenessComment: form.efic.comment.trim() || null,
-          odsNumbers: form.vinc.odsNumbers,
-          normRefs: form.vinc.normRefs,
-        },
-      });
-      setDirty(false);
-      toast({ title: "Ação atualizada" });
-    } catch (err) {
-      toast({ title: "Erro ao salvar", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
-    }
+    const ok = await persist({ manual: true });
+    if (ok) toast({ title: "Ação salva" });
   }
 
   // Opt-in AI assist: drafts 5W2H + 5-whys from the problem text. Fill-only — it
@@ -274,15 +340,16 @@ export default function ActionPlanFichaPage() {
 
   async function handleConclude() {
     if (!planId) return;
-    try {
-      await updatePlan.mutateAsync({
-        orgId,
-        planId,
-        data: { status: "completed", correctiveActionCompletedAt: calendarDateToStorageIso(todayCalendarDate()) },
-      });
+    const today = todayCalendarDate();
+    // Persist the WHOLE form together with the conclusion (single request), so
+    // concluding never loses unsaved edits and doesn't depend on "Salvar" first.
+    const ok = await persist({
+      manual: true,
+      extra: { status: "completed", correctiveActionCompletedAt: calendarDateToStorageIso(today) },
+    });
+    if (ok) {
+      setForm((f) => ({ ...f, status: "completed", correctiveActionCompletedAt: today }));
       toast({ title: "Ação concluída" });
-    } catch (err) {
-      toast({ title: "Erro ao concluir", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
     }
   }
 
@@ -291,6 +358,7 @@ export default function ActionPlanFichaPage() {
     if (!window.confirm("Reabrir este plano encerrado? Ele voltará para 'Em andamento' e poderá ser editado novamente.")) return;
     try {
       await updatePlan.mutateAsync({ orgId, planId, data: { status: "in_progress" } });
+      setForm((f) => ({ ...f, status: "in_progress" }));
       toast({ title: "Plano reaberto" });
     } catch (err) {
       toast({ title: "Erro ao reabrir", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
@@ -358,28 +426,44 @@ export default function ActionPlanFichaPage() {
     );
   }
 
-  const isClosed = plan.status === "completed" || plan.status === "cancelled";
-  // Encerrado = final Encerramento stage / cancelled → frozen for everyone.
-  // Only an admin (SGI) can reopen it; until then nobody edits (not even admins).
-  const isLocked = isActionPlanEncerrado(plan);
-  const canEdit = canWrite && !isLocked;
-
   return (
     <div className="mx-auto max-w-5xl space-y-5 p-6">
       {/* Top bar */}
       <div id="etapa-encerramento" className="flex scroll-mt-20 flex-wrap items-center gap-2 rounded-lg transition-shadow">
-        <Button variant="ghost" size="sm" onClick={() => setLocation("/planos-acao")}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={async () => {
+            if (dirtyRef.current) await persist();
+            setLocation("/planos-acao");
+          }}
+        >
           <ArrowLeft className="mr-1.5 h-4 w-4" /> Ações
         </Button>
         {plan.code && <span className="text-sm text-muted-foreground">{plan.code}</span>}
         <Badge variant="secondary" className={cn("px-1.5", actionPlanStatusColor(plan.status))}>{ACTION_PLAN_STATUS_LABELS[plan.status]}</Badge>
         <Badge variant="secondary" className="px-1.5">{ACTION_TYPE_LABELS[plan.actionType]}</Badge>
         <Badge variant="outline" className="px-1.5 text-muted-foreground">{SOURCE_MODULE_LABELS[plan.sourceModule] ?? plan.sourceModule}</Badge>
-        <div className="ml-auto flex gap-2">
-          {canEdit && dirty && (
-            <Button onClick={handleSave} disabled={updatePlan.isPending}>
-              <Save className="mr-1.5 h-4 w-4" /> {updatePlan.isPending ? "Salvando..." : "Salvar"}
-            </Button>
+        <div className="ml-auto flex items-center gap-2">
+          {canEdit && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs">
+                {saveStatus === "saving" ? (
+                  <span className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</span>
+                ) : dirty ? (
+                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400"><span className="h-1.5 w-1.5 rounded-full bg-current" /> Alterações não salvas</span>
+                ) : saveStatus === "saved" ? (
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-3.5 w-3.5" /> Salvo</span>
+                ) : saveStatus === "error" ? (
+                  <span className="flex items-center gap-1 text-red-600 dark:text-red-400"><AlertCircle className="h-3.5 w-3.5" /> Erro ao salvar</span>
+                ) : null}
+              </span>
+              {(dirty || saveStatus === "error") && (
+                <Button size="sm" variant={saveStatus === "error" ? "default" : "outline"} onClick={handleSave} disabled={updatePlan.isPending}>
+                  <Save className="mr-1 h-3.5 w-3.5" /> Salvar
+                </Button>
+              )}
+            </div>
           )}
           {canWrite && !isClosed && (
             <Button variant="outline" size="sm" onClick={handleConclude} disabled={updatePlan.isPending}>
