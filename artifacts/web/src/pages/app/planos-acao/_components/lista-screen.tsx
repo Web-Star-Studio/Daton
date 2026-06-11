@@ -156,7 +156,7 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
                       <Badge variant="outline" className="text-[10px] text-muted-foreground">{SOURCE_MODULE_LABELS[p.sourceModule] ?? p.sourceModule}</Badge>
                     </TableCell>
                     <TableCell className="text-sm">{p.responsibleUserName ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className={cn("text-sm whitespace-nowrap", overdue && "text-red-600 dark:text-red-400")}>
+                    <TableCell className={cn("text-sm tabular-nums whitespace-nowrap", overdue && "text-red-600 dark:text-red-400")}>
                       {p.dueDate ? formatCalendarDateBR(p.dueDate) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>
@@ -202,7 +202,7 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
                     {e.responsibleUserName ? ` · ${e.responsibleUserName}` : ""}
                   </div>
                 </div>
-                {e.dueDate && <span className="shrink-0 text-xs text-muted-foreground">{formatCalendarDateBR(e.dueDate)}</span>}
+                {e.dueDate && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatCalendarDateBR(e.dueDate)}</span>}
                 <Badge variant="secondary" className={cn("shrink-0 text-[10px]", actionPlanStatusColor(e.status))}>{ACTION_PLAN_STATUS_LABELS[e.status]}</Badge>
                 <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               </button>
