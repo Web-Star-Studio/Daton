@@ -146,7 +146,7 @@ export default function ActionPlanFichaPage() {
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
   const savingRef = useRef(false);
-  const pendingSaveRef = useRef(false);
+  const pendingSaveRef = useRef<{ opts?: { manual?: boolean; extra?: Partial<UpdateActionPlanBody> } } | null>(null);
   const hydratedIdRef = useRef<number | null>(null);
 
   // Hydrate the form from the server. NEVER overwrite a DIRTY form on a same-plan
@@ -229,9 +229,10 @@ export default function ActionPlanFichaPage() {
       return false;
     }
     if (savingRef.current) {
-      // A save is already in flight; remember to re-run for the newer snapshot
-      // when it finishes, so the latest keystrokes always get persisted.
-      pendingSaveRef.current = true;
+      // A save is already in flight; queue a re-run for when it finishes — keeping
+      // THESE opts so a conclude/reopen's status change is never dropped, and the
+      // latest keystrokes always get persisted.
+      pendingSaveRef.current = { opts };
       return false;
     }
     savingRef.current = true;
@@ -247,9 +248,10 @@ export default function ActionPlanFichaPage() {
       return false;
     } finally {
       savingRef.current = false;
-      if (pendingSaveRef.current) {
-        pendingSaveRef.current = false;
-        void persist();
+      const queued = pendingSaveRef.current;
+      if (queued) {
+        pendingSaveRef.current = null;
+        void persist(queued.opts);
       }
     }
   }
@@ -446,8 +448,12 @@ export default function ActionPlanFichaPage() {
           variant="ghost"
           size="sm"
           onClick={async () => {
-            // Keep the user on the page if a pending save fails, so edits aren't lost.
-            if (dirtyRef.current && !(await persist({ manual: true }))) return;
+            // Flush pending edits before leaving; if the save fails OR the user kept
+            // editing during it, stay on the page so nothing is discarded.
+            if (dirtyRef.current) {
+              await persist({ manual: true });
+              if (dirtyRef.current) return;
+            }
             setLocation("/planos-acao");
           }}
         >
