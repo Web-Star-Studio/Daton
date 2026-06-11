@@ -354,9 +354,18 @@ export default function ActionPlanFichaPage() {
 
   async function handleConclude() {
     if (!planId) return;
+    // Completing may LOCK the plan (encerrado), and a locked plan rejects further
+    // edits — so flush everything typed BEFORE concluding (the loop also catches
+    // keystrokes made during a flush). If a save fails, abort instead of locking
+    // the plan with edits still pending.
+    for (let i = 0; dirtyRef.current && i < 5; i++) {
+      if (!(await persist({ manual: true }))) return;
+    }
+    if (dirtyRef.current) {
+      toast({ title: "Não foi possível salvar antes de concluir — tente novamente", variant: "destructive" });
+      return;
+    }
     const today = todayCalendarDate();
-    // Persist the WHOLE form together with the conclusion (single request), so
-    // concluding never loses unsaved edits and doesn't depend on "Salvar" first.
     const ok = await persist({
       manual: true,
       extra: { status: "completed", correctiveActionCompletedAt: calendarDateToStorageIso(today) },
