@@ -146,15 +146,18 @@ export default function ActionPlanFichaPage() {
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
   const savingRef = useRef(false);
+  const pendingSaveRef = useRef(false);
   const hydratedIdRef = useRef<number | null>(null);
 
-  // Hydrate the form ONLY when a different plan loads. Background refetches of the
-  // SAME plan (conclude, evidence add/remove, invalidations) must NOT repopulate
-  // the form — that was silently wiping unsaved edits ("estava completinha, entrei
-  // e está vazio"). Read-only displays (evidences, badges, timeline) read `plan`
-  // directly, so they still refresh.
+  // Hydrate the form from the server. NEVER overwrite a DIRTY form on a same-plan
+  // refetch — that was silently wiping unsaved edits ("estava completinha, entrei
+  // e está vazio"). But for a new plan, or a CLEAN form, do (re)sync: this also
+  // corrects a stale React Query cache on first paint. Read-only displays
+  // (evidences, badges, timeline) read `plan` directly, so they always refresh.
   useEffect(() => {
-    if (!plan || plan.id === hydratedIdRef.current) return;
+    if (!plan) return;
+    const isNewPlan = plan.id !== hydratedIdRef.current;
+    if (!isNewPlan && dirtyRef.current) return;
     hydratedIdRef.current = plan.id;
     setForm({
       title: plan.title,
@@ -182,7 +185,7 @@ export default function ActionPlanFichaPage() {
       vinc: { odsNumbers: plan.odsNumbers ?? [], normRefs: plan.normRefs ?? [] },
     });
     setDirty(false);
-    setSaveStatus("idle");
+    if (isNewPlan) setSaveStatus("idle");
   }, [plan]);
 
   function buildPayload(f: typeof form): UpdateActionPlanBody {
@@ -225,7 +228,12 @@ export default function ActionPlanFichaPage() {
       if (opts?.manual) toast({ title: "Informe o título da ação", variant: "destructive" });
       return false;
     }
-    if (savingRef.current) return false;
+    if (savingRef.current) {
+      // A save is already in flight; remember to re-run for the newer snapshot
+      // when it finishes, so the latest keystrokes always get persisted.
+      pendingSaveRef.current = true;
+      return false;
+    }
     savingRef.current = true;
     setSaveStatus("saving");
     try {
@@ -239,6 +247,10 @@ export default function ActionPlanFichaPage() {
       return false;
     } finally {
       savingRef.current = false;
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = false;
+        void persist();
+      }
     }
   }
 
@@ -434,7 +446,8 @@ export default function ActionPlanFichaPage() {
           variant="ghost"
           size="sm"
           onClick={async () => {
-            if (dirtyRef.current) await persist();
+            // Keep the user on the page if a pending save fails, so edits aren't lost.
+            if (dirtyRef.current && !(await persist({ manual: true }))) return;
             setLocation("/planos-acao");
           }}
         >
