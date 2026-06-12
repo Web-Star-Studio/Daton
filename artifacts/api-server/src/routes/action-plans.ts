@@ -46,6 +46,7 @@ import { validateSourceRef } from "../services/action-plans/validate-source";
 import { computeActionPlanSummary } from "../services/action-plans/summary";
 import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
+import { notifyActionPlanAssignment } from "../services/action-plans/notify-assignment";
 import { draftActionPlanFromProblem } from "../services/action-plans/ai-draft";
 
 const router: IRouter = Router();
@@ -318,6 +319,9 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     changes: { kind: "snapshot", data: { code, title: row.title, sourceModule: row.sourceModule, status: row.status } },
   });
 
+  // Notify the responsible user if the action is created already assigned to someone else.
+  await notifyActionPlanAssignment(row, req.auth!.userId);
+
   const out = await loadAndSerializePlan(params.data.orgId, row.id);
   res.status(201).json(out);
 });
@@ -443,6 +447,11 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
       DIFF_FIELDS,
     );
     if (diff) await logActionPlanActivity({ ...logBase, action: "updated", changes: diff });
+  }
+
+  // Notify the new responsible user when the assignment changed (skips unassign + self-assign).
+  if (row.responsibleUserId !== existing.responsibleUserId) {
+    await notifyActionPlanAssignment(row, req.auth!.userId);
   }
 
   const out = await loadAndSerializePlan(params.data.orgId, row.id);
