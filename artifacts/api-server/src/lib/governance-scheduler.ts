@@ -1,7 +1,7 @@
 import { schedule as cronSchedule, validate as cronValidate, type ScheduledTask } from "node-cron";
 import { runGovernanceMaintenancePass } from "./governance";
 import { runRegulatoryDocumentAlertsPass } from "../services/regulatory-documents/alerts";
-import { runActionPlanEscalationPass } from "../services/action-plans/escalation";
+import { runActionPlanEscalationPass, runActionPlanEffectivenessEscalationPass } from "../services/action-plans/escalation";
 
 // --- Defaults ---
 //
@@ -89,11 +89,13 @@ export function startGovernanceMaintenanceScheduler() {
     void runPass("governance-maintenance", runGovernanceMaintenancePass);
     void runPass("regulatory-alerts", runRegulatoryDocumentAlertsPass);
     void runPass("action-plan-escalation", runActionPlanEscalationPass);
+    void runPass("action-plan-effectiveness-escalation", runActionPlanEffectivenessEscalationPass);
   }, initialDelayMs);
 
   scheduleIfValid("governance-maintenance", governanceCron, runGovernanceMaintenancePass, timezone);
   scheduleIfValid("regulatory-alerts", regulatoryCron, runRegulatoryDocumentAlertsPass, timezone);
   scheduleIfValid("action-plan-escalation", actionPlanCron, runActionPlanEscalationPass, timezone);
+  scheduleIfValid("action-plan-effectiveness-escalation", actionPlanCron, runActionPlanEffectivenessEscalationPass, timezone);
 }
 
 export function stopGovernanceMaintenanceScheduler() {

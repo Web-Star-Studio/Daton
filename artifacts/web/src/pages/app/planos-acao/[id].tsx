@@ -86,8 +86,8 @@ export default function ActionPlanFichaPage() {
   const parsedPlanId = idStr ? Number(idStr) : NaN;
   const planId = Number.isInteger(parsedPlanId) && parsedPlanId > 0 ? parsedPlanId : null;
 
-  const { organization } = useAuth();
-  const { canWrite } = usePermissions();
+  const { organization, user } = useAuth();
+  const { canWrite, isAdmin } = usePermissions();
   const orgId = organization!.id;
   const [location, setLocation] = useLocation();
 
@@ -545,7 +545,13 @@ export default function ActionPlanFichaPage() {
           </Section>
 
           <Section title="Avaliação de eficácia">
-            <EficaciaPanel value={form.efic} onChange={(v) => patch("efic", v)} orgUsers={orgUsers} readOnly={!canWrite} />
+            <EficaciaPanel
+              value={form.efic}
+              onChange={(v) => patch("efic", v)}
+              orgUsers={orgUsers}
+              readOnly={!canWrite}
+              canEvaluate={isAdmin || (plan.effectivenessEvaluatorUserId != null && plan.effectivenessEvaluatorUserId === user?.id)}
+            />
           </Section>
 
           {/* Meta footer */}

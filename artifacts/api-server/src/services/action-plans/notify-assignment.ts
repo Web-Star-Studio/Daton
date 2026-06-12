@@ -2,57 +2,111 @@ import { eq } from "drizzle-orm";
 import { db, notificationsTable, usersTable } from "@workspace/db";
 import { getResendClient } from "../../lib/resend";
 
-const NOTIFICATION_TYPE = "action_plan_assigned";
 const RELATED_ENTITY_TYPE = "action_plan";
 
-export interface ActionPlanAssignmentTarget {
+export interface ActionPlanNotifyTarget {
   id: number;
   organizationId: number;
   code: string | null;
   title: string;
   dueDate: Date | null;
   responsibleUserId: number | null;
+  effectivenessEvaluatorUserId?: number | null;
+  effectivenessDueDate?: Date | null;
 }
 
 /**
  * Notify the responsible user — in-app + e-mail — that an action plan was just
- * assigned (or re-assigned) to them. Best-effort and self-contained: it never
- * throws, so it can't break the create/update request. Skips when there is no
- * assignee or when the actor assigned the action to themselves (no point pinging
- * yourself). Mirrors the overdue-escalation pass in ./escalation.ts.
+ * assigned (or re-assigned) to them. See {@link deliverAssignment} for the
+ * resilience contract.
  */
 export async function notifyActionPlanAssignment(
-  plan: ActionPlanAssignmentTarget,
+  plan: ActionPlanNotifyTarget,
   actorUserId: number | null,
 ): Promise<void> {
+  const ref = plan.code ? `${plan.code} — ` : "";
+  const due = plan.dueDate ? ` Prazo: ${formatDateBR(plan.dueDate)}.` : "";
+  await deliverAssignment({
+    orgId: plan.organizationId,
+    planId: plan.id,
+    recipientUserId: plan.responsibleUserId ?? null,
+    actorUserId,
+    type: "action_plan_assigned",
+    title: `Ação atribuída a você: ${ref}${plan.title}`,
+    description: `Você foi definido como responsável por esta ação.${due} Abra a ação para registrar o andamento e concluí-la.`,
+    reason: "foi definido como responsável por esta ação",
+  });
+}
+
+/**
+ * Notify the effectiveness evaluator — in-app + e-mail — that they were just
+ * designated (or re-designated) to confirm the effectiveness of an action.
+ */
+export async function notifyActionPlanEvaluatorAssignment(
+  plan: ActionPlanNotifyTarget,
+  actorUserId: number | null,
+): Promise<void> {
+  const ref = plan.code ? `${plan.code} — ` : "";
+  const due = plan.effectivenessDueDate ? ` Prazo de verificação: ${formatDateBR(plan.effectivenessDueDate)}.` : "";
+  await deliverAssignment({
+    orgId: plan.organizationId,
+    planId: plan.id,
+    recipientUserId: plan.effectivenessEvaluatorUserId ?? null,
+    actorUserId,
+    type: "action_plan_evaluator_assigned",
+    title: `Avaliação de eficácia atribuída a você: ${ref}${plan.title}`,
+    description: `Você foi definido como avaliador da eficácia desta ação.${due} Abra a ação para registrar o comparativo antes×depois e emitir o veredito (Eficaz / Não eficaz).`,
+    reason: "foi definido como avaliador da eficácia desta ação",
+  });
+}
+
+/**
+ * Shared delivery core. Best-effort and self-contained: it never throws, so it
+ * can't break the create/update request. Skips when there is no recipient or
+ * when the actor assigned the work to themselves (no point pinging yourself).
+ * Mirrors the overdue-escalation pass in ./escalation.ts.
+ */
+async function deliverAssignment({
+  orgId,
+  planId,
+  recipientUserId,
+  actorUserId,
+  type,
+  title,
+  description,
+  reason,
+}: {
+  orgId: number;
+  planId: number;
+  recipientUserId: number | null;
+  actorUserId: number | null;
+  type: string;
+  title: string;
+  description: string;
+  reason: string;
+}): Promise<void> {
   try {
-    const assignee = plan.responsibleUserId;
-    if (!assignee || assignee === actorUserId) return;
+    if (!recipientUserId || recipientUserId === actorUserId) return;
 
     const [user] = await db
       .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
       .from(usersTable)
-      .where(eq(usersTable.id, assignee))
+      .where(eq(usersTable.id, recipientUserId))
       .limit(1);
     if (!user) return;
 
-    const ref = plan.code ? `${plan.code} — ` : "";
-    const title = `Ação atribuída a você: ${ref}${plan.title}`;
-    const due = plan.dueDate ? ` Prazo: ${formatDateBR(plan.dueDate)}.` : "";
-    const description = `Você foi definido como responsável por esta ação.${due} Abra a ação para registrar o andamento e concluí-la.`;
-
     await db.insert(notificationsTable).values({
-      organizationId: plan.organizationId,
+      organizationId: orgId,
       userId: user.id,
-      type: NOTIFICATION_TYPE,
+      type,
       title,
       description,
       relatedEntityType: RELATED_ENTITY_TYPE,
-      relatedEntityId: plan.id,
+      relatedEntityId: planId,
     });
 
     try {
-      await sendAssignmentEmail({ to: user.email, responsibleName: user.name, title, description, planId: plan.id });
+      await sendAssignmentEmail({ to: user.email, responsibleName: user.name, title, description, planId, reason });
     } catch (err) {
       console.error("[action-plans] failed to send assignment e-mail", err);
     }
@@ -71,12 +125,14 @@ async function sendAssignmentEmail({
   title,
   description,
   planId,
+  reason,
 }: {
   to: string;
   responsibleName: string;
   title: string;
   description: string;
   planId: number;
+  reason: string;
 }) {
   const { client, fromEmail } = await getResendClient();
   const appUrl = process.env.APP_BASE_URL ?? "";
@@ -95,7 +151,7 @@ async function sendAssignmentEmail({
           ? `<p style="margin: 16px 0;"><a href="${link}" style="background:#0f172a;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;">Abrir a ação</a></p>`
           : ""}
         <p style="font-size: 12px; color: #6b7280; margin-top: 24px;">
-          Mensagem automática do Daton. Você está recebendo este aviso porque foi definido como responsável por esta ação.
+          Mensagem automática do Daton. Você está recebendo este aviso porque ${escapeHtml(reason)}.
         </p>
       </div>
     `,

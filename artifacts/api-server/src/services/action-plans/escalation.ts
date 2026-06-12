@@ -1,9 +1,10 @@
-import { and, eq, gte, isNotNull, lt, notInArray } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, lt, ne, notInArray, or } from "drizzle-orm";
 import { actionPlansTable, db, notificationsTable, usersTable } from "@workspace/db";
 import { getResendClient } from "../../lib/resend";
 import { logActionPlanActivity } from "./activity";
 
 const NOTIFICATION_TYPE = "action_plan_overdue";
+const EFFECTIVENESS_NOTIFICATION_TYPE = "action_plan_effectiveness_overdue";
 const RELATED_ENTITY_TYPE = "action_plan";
 const DEFAULT_ORG_CONCURRENCY = 5;
 
@@ -156,6 +157,111 @@ async function processOrg(plans: PlanRow[], todayStart: Date): Promise<{ alertsC
   return result;
 }
 
+/**
+ * Scan for action plans whose effectiveness-verification deadline has passed
+ * without a verdict yet, and escalate to the designated evaluator via in-app
+ * notification + e-mail. Same idempotency/dedupe contract as the overdue pass.
+ */
+export async function runActionPlanEffectivenessEscalationPass(orgId?: number): Promise<ActionPlanEscalationResult> {
+  const result: ActionPlanEscalationResult = { scanned: 0, alertsCreated: 0, emailsSent: 0 };
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const conditions = [
+    isNotNull(actionPlansTable.effectivenessDueDate),
+    lt(actionPlansTable.effectivenessDueDate, todayStart),
+    isNotNull(actionPlansTable.effectivenessEvaluatorUserId),
+    ne(actionPlansTable.status, "cancelled"),
+    or(isNull(actionPlansTable.effectivenessResult), eq(actionPlansTable.effectivenessResult, "pending")),
+  ];
+  if (typeof orgId === "number") conditions.push(eq(actionPlansTable.organizationId, orgId));
+
+  const plans = await db
+    .select({
+      id: actionPlansTable.id,
+      organizationId: actionPlansTable.organizationId,
+      code: actionPlansTable.code,
+      title: actionPlansTable.title,
+      effectivenessDueDate: actionPlansTable.effectivenessDueDate,
+      evaluatorUserId: actionPlansTable.effectivenessEvaluatorUserId,
+    })
+    .from(actionPlansTable)
+    .where(and(...conditions));
+
+  result.scanned = plans.length;
+  if (plans.length === 0) return result;
+
+  const userCache = new Map<number, { id: number; name: string; email: string } | null>();
+
+  for (const plan of plans) {
+    if (!plan.evaluatorUserId || !plan.effectivenessDueDate) continue;
+
+    let user = userCache.get(plan.evaluatorUserId);
+    if (user === undefined) {
+      const [u] = await db
+        .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+        .from(usersTable)
+        .where(eq(usersTable.id, plan.evaluatorUserId))
+        .limit(1);
+      user = u ?? null;
+      userCache.set(plan.evaluatorUserId, user);
+    }
+    if (!user) continue;
+
+    const daysOverdue = Math.max(1, Math.floor((todayStart.getTime() - plan.effectivenessDueDate.getTime()) / 86_400_000));
+    const ref = plan.code ? `${plan.code} — ` : "";
+    const title = `Verificação de eficácia vencida: ${ref}${plan.title}`;
+    const description = `Prazo de verificação expirado em ${formatDateBR(plan.effectivenessDueDate)} (há ${daysOverdue} dia${daysOverdue === 1 ? "" : "s"}). Avalie a eficácia e emita o veredito.`;
+
+    // Dedupe within today (same plan + evaluator + type).
+    const [existing] = await db
+      .select({ id: notificationsTable.id })
+      .from(notificationsTable)
+      .where(
+        and(
+          eq(notificationsTable.organizationId, plan.organizationId),
+          eq(notificationsTable.userId, user.id),
+          eq(notificationsTable.relatedEntityType, RELATED_ENTITY_TYPE),
+          eq(notificationsTable.relatedEntityId, plan.id),
+          eq(notificationsTable.type, EFFECTIVENESS_NOTIFICATION_TYPE),
+          gte(notificationsTable.createdAt, todayStart),
+        ),
+      )
+      .limit(1);
+    if (existing) continue;
+
+    await db.insert(notificationsTable).values({
+      organizationId: plan.organizationId,
+      userId: user.id,
+      type: EFFECTIVENESS_NOTIFICATION_TYPE,
+      title,
+      description,
+      relatedEntityType: RELATED_ENTITY_TYPE,
+      relatedEntityId: plan.id,
+    });
+    result.alertsCreated += 1;
+
+    await logActionPlanActivity({
+      orgId: plan.organizationId,
+      actionPlanId: plan.id,
+      action: "escalated",
+      userId: null,
+      userName: "Sistema",
+      changes: { kind: "note", message: `Verificação de eficácia vencida — ${daysOverdue} dia(s) de atraso. Notificado avaliador: ${user.name}.` },
+    });
+
+    try {
+      await sendOverdueEmail({ to: user.email, responsibleName: user.name, title, description, planId: plan.id, reason: "é o avaliador da eficácia desta ação" });
+      result.emailsSent += 1;
+    } catch (err) {
+      console.error("[action-plans] failed to send effectiveness escalation e-mail", err);
+    }
+  }
+
+  return result;
+}
+
 function formatDateBR(d: Date): string {
   return d.toLocaleDateString("pt-BR");
 }
@@ -166,12 +272,14 @@ async function sendOverdueEmail({
   title,
   description,
   planId,
+  reason = "é o responsável por esta ação",
 }: {
   to: string;
   responsibleName: string;
   title: string;
   description: string;
   planId: number;
+  reason?: string;
 }) {
   const { client, fromEmail } = await getResendClient();
   const appUrl = process.env.APP_BASE_URL ?? "";
@@ -190,7 +298,7 @@ async function sendOverdueEmail({
           ? `<p style="margin: 16px 0;"><a href="${link}" style="background:#0f172a;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;">Abrir a ação</a></p>`
           : ""}
         <p style="font-size: 12px; color: #6b7280; margin-top: 24px;">
-          Mensagem automática do Daton. Você está recebendo este alerta porque é o responsável por esta ação.
+          Mensagem automática do Daton. Você está recebendo este alerta porque ${escapeHtml(reason)}.
         </p>
       </div>
     `,

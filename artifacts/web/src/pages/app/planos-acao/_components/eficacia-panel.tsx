@@ -39,11 +39,14 @@ export function EficaciaPanel({
   onChange,
   orgUsers,
   readOnly = false,
+  canEvaluate = true,
 }: {
   value: EficaciaValue;
   onChange: (next: EficaciaValue) => void;
   orgUsers: { id: number; name: string }[];
   readOnly?: boolean;
+  /** Only the designated evaluator (or an admin) may issue the verdict. */
+  canEvaluate?: boolean;
 }) {
   const set = <K extends keyof EficaciaValue>(key: K, v: EficaciaValue[K]) => onChange({ ...value, [key]: v });
 
@@ -128,7 +131,7 @@ export function EficaciaPanel({
         ) : (
           <Badge variant="secondary" className="bg-muted text-muted-foreground">Não avaliado</Badge>
         )}
-        {!readOnly && (
+        {!readOnly && canEvaluate && (
           <div className="ml-auto flex gap-2">
             <Button
               type="button"
@@ -147,6 +150,11 @@ export function EficaciaPanel({
               <X className="mr-1 h-4 w-4" /> Não eficaz
             </Button>
           </div>
+        )}
+        {!readOnly && !canEvaluate && (
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            Somente o avaliador designado pode emitir o veredito.
+          </span>
         )}
       </div>
     </div>

@@ -46,7 +46,7 @@ import { validateSourceRef } from "../services/action-plans/validate-source";
 import { computeActionPlanSummary } from "../services/action-plans/summary";
 import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
-import { notifyActionPlanAssignment } from "../services/action-plans/notify-assignment";
+import { notifyActionPlanAssignment, notifyActionPlanEvaluatorAssignment } from "../services/action-plans/notify-assignment";
 import { draftActionPlanFromProblem } from "../services/action-plans/ai-draft";
 
 const router: IRouter = Router();
@@ -319,8 +319,9 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     changes: { kind: "snapshot", data: { code, title: row.title, sourceModule: row.sourceModule, status: row.status } },
   });
 
-  // Notify the responsible user if the action is created already assigned to someone else.
+  // Notify the responsible user / evaluator if the action is created already assigned.
   await notifyActionPlanAssignment(row, req.auth!.userId);
+  await notifyActionPlanEvaluatorAssignment(row, req.auth!.userId);
 
   const out = await loadAndSerializePlan(params.data.orgId, row.id);
   res.status(201).json(out);
@@ -407,6 +408,17 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
   if (body.data.effectivenessAfter !== undefined) update.effectivenessAfter = body.data.effectivenessAfter;
   if (body.data.effectivenessComment !== undefined) update.effectivenessComment = body.data.effectivenessComment;
   if (body.data.effectivenessResult !== undefined) {
+    // Verdict lock: only the designated evaluator (or an SGI admin) may issue the
+    // Eficaz/Não eficaz verdict. Designating the evaluator is a separate save.
+    const issuingVerdict = body.data.effectivenessResult === "effective" || body.data.effectivenessResult === "ineffective";
+    if (issuingVerdict && body.data.effectivenessResult !== existing.effectivenessResult) {
+      const isAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
+      const isEvaluator = existing.effectivenessEvaluatorUserId !== null && existing.effectivenessEvaluatorUserId === req.auth!.userId;
+      if (!isEvaluator && !isAdmin) {
+        res.status(403).json({ error: "Somente o avaliador designado pode emitir o veredito de eficácia." });
+        return;
+      }
+    }
     update.effectivenessResult = body.data.effectivenessResult;
     const becameVerdict = body.data.effectivenessResult === "effective" || body.data.effectivenessResult === "ineffective";
     if (becameVerdict && body.data.effectivenessResult !== existing.effectivenessResult) {
@@ -449,9 +461,12 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
     if (diff) await logActionPlanActivity({ ...logBase, action: "updated", changes: diff });
   }
 
-  // Notify the new responsible user when the assignment changed (skips unassign + self-assign).
+  // Notify the new responsible user / evaluator when the assignment changed (skips unassign + self-assign).
   if (row.responsibleUserId !== existing.responsibleUserId) {
     await notifyActionPlanAssignment(row, req.auth!.userId);
+  }
+  if (row.effectivenessEvaluatorUserId !== existing.effectivenessEvaluatorUserId) {
+    await notifyActionPlanEvaluatorAssignment(row, req.auth!.userId);
   }
 
   const out = await loadAndSerializePlan(params.data.orgId, row.id);
