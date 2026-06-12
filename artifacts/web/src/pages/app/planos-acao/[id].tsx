@@ -145,8 +145,8 @@ export default function ActionPlanFichaPage() {
   formRef.current = form;
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
-  const savingRef = useRef(false);
-  const pendingSaveRef = useRef<{ opts?: { manual?: boolean; extra?: Partial<UpdateActionPlanBody> } } | null>(null);
+  const isSavingRef = useRef(false);
+  const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
   const hydratedIdRef = useRef<number | null>(null);
 
   // Hydrate the form from the server. NEVER overwrite a DIRTY form on a same-plan
@@ -218,49 +218,47 @@ export default function ActionPlanFichaPage() {
     };
   }
 
-  // Single persistence path (autosave, manual button, conclude). Serializes
-  // concurrent saves and only clears `dirty` if the form didn't change mid-save,
-  // so keystrokes typed during an in-flight save aren't dropped.
-  async function persist(opts?: { manual?: boolean; extra?: Partial<UpdateActionPlanBody> }): Promise<boolean> {
-    if (!planId) return false;
-    const snapshot = formRef.current;
-    if (!snapshot.title.trim()) {
-      if (opts?.manual) toast({ title: "Informe o título da ação", variant: "destructive" });
-      return false;
-    }
-    if (savingRef.current) {
-      // A save is already in flight; queue a re-run for when it finishes — keeping
-      // THESE opts so a conclude/reopen's status change is never dropped, and the
-      // latest keystrokes always get persisted.
-      pendingSaveRef.current = { opts };
-      return false;
-    }
-    savingRef.current = true;
-    setSaveStatus("saving");
-    try {
-      await updatePlan.mutateAsync({ orgId, planId, data: { ...buildPayload(snapshot), ...(opts?.extra ?? {}) } });
-      if (formRef.current === snapshot) setDirty(false);
-      setSaveStatus("saved");
-      return true;
-    } catch (err) {
-      setSaveStatus("error");
-      if (opts?.manual) toast({ title: "Erro ao salvar", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
-      return false;
-    } finally {
-      savingRef.current = false;
-      const queued = pendingSaveRef.current;
-      if (queued) {
-        pendingSaveRef.current = null;
-        void persist(queued.opts);
+  // Single persistence path (autosave, manual button, conclude). Calls are
+  // SERIALIZED via a promise chain: each runs after the previous one and saves the
+  // LATEST form snapshot at its turn. So an explicit action (conclude / leave)
+  // always lands the newest edits and never collides with an in-flight autosave.
+  // Resolves `true` only when a save actually succeeds (errors/empty title → false).
+  // `silent` suppresses toasts (used by autosave — the header indicator shows state).
+  function persist(opts?: { extra?: Partial<UpdateActionPlanBody>; silent?: boolean }): Promise<boolean> {
+    const run = saveChainRef.current.then(async (): Promise<boolean> => {
+      if (!planId) return false;
+      const snapshot = formRef.current;
+      if (!snapshot.title.trim()) {
+        if (!opts?.silent) toast({ title: "Informe o título da ação", variant: "destructive" });
+        return false;
       }
-    }
+      isSavingRef.current = true;
+      setSaveStatus("saving");
+      try {
+        await updatePlan.mutateAsync({ orgId, planId, data: { ...buildPayload(snapshot), ...(opts?.extra ?? {}) } });
+        // Clear "dirty" only if nothing changed during the save; otherwise the next
+        // chained run (scheduled by the autosave effect) persists the newer edits.
+        if (formRef.current === snapshot) setDirty(false);
+        setSaveStatus("saved");
+        return true;
+      } catch (err) {
+        setSaveStatus("error");
+        if (!opts?.silent) toast({ title: "Erro ao salvar", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
+        return false;
+      } finally {
+        isSavingRef.current = false;
+      }
+    });
+    // Keep the chain alive regardless of this run's outcome.
+    saveChainRef.current = run.then(() => undefined, () => undefined);
+    return run;
   }
 
   // Autosave: ~1s after the user stops typing, while there are unsaved edits and
   // the plan is editable. The manual "Salvar" button stays as a fallback.
   useEffect(() => {
     if (!dirty || !canEdit || !formRef.current.title.trim()) return;
-    const t = setTimeout(() => { void persist(); }, 1000);
+    const t = setTimeout(() => { void persist({ silent: true }); }, 1000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, dirty, canEdit]);
@@ -268,7 +266,7 @@ export default function ActionPlanFichaPage() {
   // Warn before closing/refreshing the tab with unsaved edits; flush on unmount.
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (dirtyRef.current || savingRef.current) {
+      if (dirtyRef.current || isSavingRef.current) {
         e.preventDefault();
         e.returnValue = "";
       }
@@ -276,7 +274,7 @@ export default function ActionPlanFichaPage() {
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
-      if (dirtyRef.current) void persist();
+      if (dirtyRef.current) void persist({ silent: true });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -292,8 +290,7 @@ export default function ActionPlanFichaPage() {
   }
 
   async function handleSave() {
-    const ok = await persist({ manual: true });
-    if (ok) toast({ title: "Ação salva" });
+    if (await persist()) toast({ title: "Ação salva" });
   }
 
   // Opt-in AI assist: drafts 5W2H + 5-whys from the problem text. Fill-only — it
@@ -354,25 +351,19 @@ export default function ActionPlanFichaPage() {
 
   async function handleConclude() {
     if (!planId) return;
-    // Completing may LOCK the plan (encerrado), and a locked plan rejects further
-    // edits — so flush everything typed BEFORE concluding (the loop also catches
-    // keystrokes made during a flush). If a save fails, abort instead of locking
-    // the plan with edits still pending.
-    for (let i = 0; dirtyRef.current && i < 5; i++) {
-      if (!(await persist({ manual: true }))) return;
-    }
-    if (dirtyRef.current) {
-      toast({ title: "Não foi possível salvar antes de concluir — tente novamente", variant: "destructive" });
-      return;
-    }
     const today = todayCalendarDate();
+    // `persist` is serialized, so this runs AFTER any in-flight autosave and saves
+    // the LATEST form together with the completed status, in one atomic request —
+    // nothing typed is stranded, and it never aborts just because a save was running.
     const ok = await persist({
-      manual: true,
+      silent: true,
       extra: { status: "completed", correctiveActionCompletedAt: calendarDateToStorageIso(today) },
     });
     if (ok) {
       setForm((f) => ({ ...f, status: "completed", correctiveActionCompletedAt: today }));
       toast({ title: "Ação concluída" });
+    } else {
+      toast({ title: "Não foi possível concluir — verifique os campos e tente novamente", variant: "destructive" });
     }
   }
 
@@ -460,7 +451,7 @@ export default function ActionPlanFichaPage() {
             // Flush pending edits before leaving; if the save fails OR the user kept
             // editing during it, stay on the page so nothing is discarded.
             if (dirtyRef.current) {
-              await persist({ manual: true });
+              await persist();
               if (dirtyRef.current) return;
             }
             setLocation("/planos-acao");
