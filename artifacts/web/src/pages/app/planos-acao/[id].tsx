@@ -448,12 +448,10 @@ export default function ActionPlanFichaPage() {
           variant="ghost"
           size="sm"
           onClick={async () => {
-            // Flush pending edits before leaving; if the save fails OR the user kept
-            // editing during it, stay on the page so nothing is discarded.
-            if (dirtyRef.current) {
-              await persist();
-              if (dirtyRef.current) return;
-            }
+            // Flush pending edits before leaving; stay only if the save fails (use
+            // the return value — dirtyRef lags a render). Anything typed during the
+            // flush is caught by the unmount flush, so a successful save proceeds.
+            if (dirtyRef.current && !(await persist())) return;
             setLocation("/planos-acao");
           }}
         >
