@@ -129,3 +129,13 @@ export async function assertUserBelongsToOrg(userId: number, orgId: number): Pro
     .where(and(eq(usersTable.id, userId), eq(usersTable.organizationId, orgId)));
   return Boolean(user);
 }
+
+/** Analysts are read-only and can't PATCH, so they can never issue a verdict —
+ * designating one as evaluator would dead-end the effectiveness verification. */
+export async function userIsAnalyst(userId: number, orgId: number): Promise<boolean> {
+  const [user] = await db
+    .select({ role: usersTable.role })
+    .from(usersTable)
+    .where(and(eq(usersTable.id, userId), eq(usersTable.organizationId, orgId)));
+  return user?.role === "analyst";
+}

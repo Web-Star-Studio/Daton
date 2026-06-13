@@ -39,6 +39,7 @@ import {
   serializeComment,
   serializeEvidence,
   serializePlan,
+  userIsAnalyst,
 } from "../services/action-plans/serializers";
 import { gutScore } from "../services/action-plans/gut";
 import { generateActionPlanCode } from "../services/action-plans/code";
@@ -47,6 +48,7 @@ import { validateSourceRef } from "../services/action-plans/validate-source";
 import { computeActionPlanSummary } from "../services/action-plans/summary";
 import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
+import { notifyActionPlanAssignment, notifyActionPlanEvaluatorAssignment } from "../services/action-plans/notify-assignment";
 import { draftActionPlanFromProblem } from "../services/action-plans/ai-draft";
 
 const router: IRouter = Router();
@@ -275,6 +277,27 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     }
   }
 
+  // Governance: designating the effectiveness evaluator is an SGI act — only an
+  // admin may do it, so an operator can't self-assign and bypass the verdict lock.
+  const isSgiAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
+  if (body.data.effectivenessEvaluatorUserId != null && !isSgiAdmin) {
+    res.status(403).json({ error: "Somente um administrador (SGI) pode designar o avaliador de eficácia." });
+    return;
+  }
+  if (body.data.effectivenessEvaluatorUserId != null && await userIsAnalyst(body.data.effectivenessEvaluatorUserId, params.data.orgId)) {
+    res.status(400).json({ error: "O avaliador de eficácia deve ter acesso de escrita — analistas (somente leitura) não podem emitir o veredito." });
+    return;
+  }
+  // Independence: the effectiveness evaluator must differ from the action's responsible.
+  if (
+    body.data.effectivenessEvaluatorUserId != null &&
+    body.data.responsibleUserId != null &&
+    body.data.effectivenessEvaluatorUserId === body.data.responsibleUserId
+  ) {
+    res.status(400).json({ error: "O avaliador da eficácia deve ser diferente do responsável pela ação." });
+    return;
+  }
+
   const actionType = body.data.actionType ?? "corrective";
   const derived = await deriveCreateDefaults(params.data.orgId, body.data.sourceModule, body.data.sourceRef);
   const code = await generateActionPlanCode(params.data.orgId, actionType, new Date().getFullYear());
@@ -318,6 +341,10 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     userName: await currentUserName(req.auth!.userId),
     changes: { kind: "snapshot", data: { code, title: row.title, sourceModule: row.sourceModule, status: row.status } },
   });
+
+  // Notify the responsible user / evaluator if the action is created already assigned.
+  await notifyActionPlanAssignment(row, req.auth!.userId);
+  await notifyActionPlanEvaluatorAssignment(row, req.auth!.userId);
 
   const out = await loadAndSerializePlan(params.data.orgId, row.id);
   res.status(201).json(out);
@@ -415,13 +442,47 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
     if (body.data.effectivenessEvaluatorUserId !== null) {
       const ok = await assertUserBelongsToOrg(body.data.effectivenessEvaluatorUserId, params.data.orgId);
       if (!ok) { res.status(400).json({ error: "effectivenessEvaluatorUserId não corresponde a um usuário desta organização" }); return; }
+      if (await userIsAnalyst(body.data.effectivenessEvaluatorUserId, params.data.orgId)) {
+        res.status(400).json({ error: "O avaliador de eficácia deve ter acesso de escrita — analistas (somente leitura) não podem emitir o veredito." });
+        return;
+      }
+    }
+    // Governance: only an SGI admin may (re)designate or clear the evaluator — this
+    // is what makes the verdict lock effective (an operator can't self-designate).
+    if (body.data.effectivenessEvaluatorUserId !== existing.effectivenessEvaluatorUserId) {
+      const isAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
+      if (!isAdmin) { res.status(403).json({ error: "Somente um administrador (SGI) pode designar o avaliador de eficácia." }); return; }
     }
     update.effectivenessEvaluatorUserId = body.data.effectivenessEvaluatorUserId;
+  }
+  // Independence: the evaluator must differ from the responsible (either side may change here).
+  {
+    const effResponsible = body.data.responsibleUserId !== undefined ? body.data.responsibleUserId : existing.responsibleUserId;
+    const effEvaluator = body.data.effectivenessEvaluatorUserId !== undefined ? body.data.effectivenessEvaluatorUserId : existing.effectivenessEvaluatorUserId;
+    if (effResponsible != null && effEvaluator != null && effResponsible === effEvaluator) {
+      res.status(400).json({ error: "O avaliador da eficácia deve ser diferente do responsável pela ação." });
+      return;
+    }
   }
   if (body.data.effectivenessBefore !== undefined) update.effectivenessBefore = body.data.effectivenessBefore;
   if (body.data.effectivenessAfter !== undefined) update.effectivenessAfter = body.data.effectivenessAfter;
   if (body.data.effectivenessComment !== undefined) update.effectivenessComment = body.data.effectivenessComment;
   if (body.data.effectivenessResult !== undefined) {
+    // Verdict lock: only the designated evaluator (or an SGI admin) may TOUCH the
+    // verdict — set it, change it, OR clear an existing one. Any transition into or
+    // out of a verdict state is gated; designating the evaluator is a separate save.
+    if (body.data.effectivenessResult !== existing.effectivenessResult) {
+      const newIsVerdict = body.data.effectivenessResult === "effective" || body.data.effectivenessResult === "ineffective";
+      const oldIsVerdict = existing.effectivenessResult === "effective" || existing.effectivenessResult === "ineffective";
+      if (newIsVerdict || oldIsVerdict) {
+        const isAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
+        const isEvaluator = existing.effectivenessEvaluatorUserId !== null && existing.effectivenessEvaluatorUserId === req.auth!.userId;
+        if (!isEvaluator && !isAdmin) {
+          res.status(403).json({ error: "Somente o avaliador designado pode emitir ou alterar o veredito de eficácia." });
+          return;
+        }
+      }
+    }
     update.effectivenessResult = body.data.effectivenessResult;
     const becameVerdict = body.data.effectivenessResult === "effective" || body.data.effectivenessResult === "ineffective";
     if (becameVerdict && body.data.effectivenessResult !== existing.effectivenessResult) {
@@ -462,6 +523,14 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
       DIFF_FIELDS,
     );
     if (diff) await logActionPlanActivity({ ...logBase, action: "updated", changes: diff });
+  }
+
+  // Notify the new responsible user / evaluator when the assignment changed (skips unassign + self-assign).
+  if (row.responsibleUserId !== existing.responsibleUserId) {
+    await notifyActionPlanAssignment(row, req.auth!.userId);
+  }
+  if (row.effectivenessEvaluatorUserId !== existing.effectivenessEvaluatorUserId) {
+    await notifyActionPlanEvaluatorAssignment(row, req.auth!.userId);
   }
 
   const out = await loadAndSerializePlan(params.data.orgId, row.id);

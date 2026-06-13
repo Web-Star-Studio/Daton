@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { AlertTriangle, CheckCircle2, ClipboardList, Clock, ExternalLink, Plus, Search, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Clock, ExternalLink, Plus, Search, ShieldCheck, UserCheck } from "lucide-react";
 import { getListOrgUsersQueryKey, useListOrgUsers } from "@workspace/api-client-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,19 +40,23 @@ function StatCard({ label, value, tone, hint, icon: Icon }: { label: string; val
 }
 
 export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWrite: boolean; onNova: () => void }) {
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | ActionPlanStatus>("");
   const [responsibleFilter, setResponsibleFilter] = useState<string>("");
   const [sourceFilter, setSourceFilter] = useState<string>("");
+  const [mineOnly, setMineOnly] = useState(false);
 
   const queryParams = useMemo(() => {
     const p: Record<string, string | number> = {};
     if (statusFilter) p.status = statusFilter;
-    if (responsibleFilter) p.responsibleUserId = Number(responsibleFilter);
+    // "Atribuídas a mim" forces the responsible to the current user, overriding the dropdown.
+    if (mineOnly && user?.id) p.responsibleUserId = user.id;
+    else if (responsibleFilter) p.responsibleUserId = Number(responsibleFilter);
     if (sourceFilter) p.sourceModule = sourceFilter;
     return Object.keys(p).length > 0 ? p : undefined;
-  }, [statusFilter, responsibleFilter, sourceFilter]);
+  }, [statusFilter, responsibleFilter, sourceFilter, mineOnly, user?.id]);
 
   const { data: plans = [], isLoading } = useActionPlans(orgId, queryParams);
   const { data: summary } = useActionPlansSummary(orgId);
@@ -77,14 +82,16 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
   // Governance corrective actions (read-only bridge). They aren't one of the
   // source-filter options, so hide them when a source filter is active.
   const filteredExternal = useMemo(() => {
-    if (sourceFilter) return [];
+    // The governance bridge doesn't expose a responsible user id, so it can't be
+    // reliably narrowed to the current user — hide it under "Atribuídas a mim".
+    if (sourceFilter || mineOnly) return [];
     const q = search.trim().toLowerCase();
     return externalActions.filter((e) => {
       if (statusFilter && e.status !== statusFilter) return false;
       if (!q) return true;
       return [e.title, e.nonconformityTitle, e.responsibleUserName].filter(Boolean).some((s) => String(s).toLowerCase().includes(q));
     });
-  }, [externalActions, search, sourceFilter, statusFilter]);
+  }, [externalActions, search, sourceFilter, statusFilter, mineOnly]);
 
   return (
     <div className="space-y-4">
@@ -108,7 +115,24 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
           <option value="">Todas as origens</option>
           {SOURCE_MODULE_OPTIONS.map((s) => <option key={s} value={s}>{SOURCE_MODULE_LABELS[s]}</option>)}
         </Select>
-        <Select value={responsibleFilter} onChange={(e) => setResponsibleFilter(e.target.value)} className="w-52">
+        {user?.id && (
+          <Button
+            type="button"
+            variant={mineOnly ? "default" : "outline"}
+            size="sm"
+            className="h-9"
+            aria-pressed={mineOnly}
+            onClick={() => setMineOnly((v) => !v)}
+          >
+            <UserCheck className="mr-1.5 h-4 w-4" /> Atribuídas a mim
+          </Button>
+        )}
+        <Select
+          value={responsibleFilter}
+          onChange={(e) => setResponsibleFilter(e.target.value)}
+          className="w-52"
+          disabled={mineOnly}
+        >
           <option value="">Todos os responsáveis</option>
           {orgUsers.map((u) => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
         </Select>
