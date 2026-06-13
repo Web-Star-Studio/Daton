@@ -190,7 +190,7 @@ export default function ActionPlanFichaPage() {
 
   function buildPayload(f: typeof form): UpdateActionPlanBody {
     const whys = f.rootCauseWhys.map((w) => w.trim()).filter(Boolean);
-    return {
+    const body: UpdateActionPlanBody = {
       title: f.title.trim(),
       description: f.description.trim() || null,
       actionType: f.actionType,
@@ -208,14 +208,20 @@ export default function ActionPlanFichaPage() {
       rootCauseWhys: whys.length > 0 ? whys : null,
       effectivenessMethod: f.efic.method || null,
       effectivenessDueDate: f.efic.dueDate ? calendarDateToStorageIso(f.efic.dueDate) : null,
-      effectivenessEvaluatorUserId: f.efic.evaluatorUserId ? Number(f.efic.evaluatorUserId) : null,
-      effectivenessResult: f.efic.result || null,
       effectivenessBefore: f.efic.before.trim() || null,
       effectivenessAfter: f.efic.after.trim() || null,
       effectivenessComment: f.efic.comment.trim() || null,
       odsNumbers: f.vinc.odsNumbers,
       normRefs: f.vinc.normRefs,
     };
+    // Permission-gated fields are sent ONLY by who may change them, so an unrelated
+    // save from a stale form never trips the server gate (or overwrites the value).
+    // Designating the evaluator is an SGI act; issuing the verdict is the evaluator's.
+    const canAssignEvaluator = isAdmin;
+    const canIssueVerdict = isAdmin || (plan?.effectivenessEvaluatorUserId != null && plan.effectivenessEvaluatorUserId === user?.id);
+    if (canAssignEvaluator) body.effectivenessEvaluatorUserId = f.efic.evaluatorUserId ? Number(f.efic.evaluatorUserId) : null;
+    if (canIssueVerdict) body.effectivenessResult = f.efic.result || null;
+    return body;
   }
 
   // Single persistence path (autosave, manual button, conclude). Calls are
