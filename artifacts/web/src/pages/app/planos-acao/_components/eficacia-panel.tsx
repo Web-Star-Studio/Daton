@@ -45,7 +45,7 @@ export function EficaciaPanel({
 }: {
   value: EficaciaValue;
   onChange: (next: EficaciaValue) => void;
-  orgUsers: { id: number; name: string }[];
+  orgUsers: { id: number; name: string; role?: string }[];
   readOnly?: boolean;
   /** Only the designated evaluator (or an admin) may issue the verdict. */
   canEvaluate?: boolean;
@@ -87,7 +87,7 @@ export function EficaciaPanel({
             value={value.evaluatorUserId}
             onChange={(v) => set("evaluatorUserId", v)}
             options={orgUsers
-              .filter((u) => String(u.id) !== responsibleUserId)
+              .filter((u) => String(u.id) !== responsibleUserId && u.role !== "analyst")
               .map((u) => ({ value: String(u.id), label: u.name }))}
             placeholder="Quem confirma a eficácia"
             searchPlaceholder="Buscar usuário..."

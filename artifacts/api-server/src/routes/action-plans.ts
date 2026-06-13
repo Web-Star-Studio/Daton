@@ -39,6 +39,7 @@ import {
   serializeComment,
   serializeEvidence,
   serializePlan,
+  userIsAnalyst,
 } from "../services/action-plans/serializers";
 import { gutScore } from "../services/action-plans/gut";
 import { generateActionPlanCode } from "../services/action-plans/code";
@@ -283,6 +284,10 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     res.status(403).json({ error: "Somente um administrador (SGI) pode designar o avaliador de eficácia." });
     return;
   }
+  if (body.data.effectivenessEvaluatorUserId != null && await userIsAnalyst(body.data.effectivenessEvaluatorUserId, params.data.orgId)) {
+    res.status(400).json({ error: "O avaliador de eficácia deve ter acesso de escrita — analistas (somente leitura) não podem emitir o veredito." });
+    return;
+  }
   // Independence: the effectiveness evaluator must differ from the action's responsible.
   if (
     body.data.effectivenessEvaluatorUserId != null &&
@@ -437,6 +442,10 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
     if (body.data.effectivenessEvaluatorUserId !== null) {
       const ok = await assertUserBelongsToOrg(body.data.effectivenessEvaluatorUserId, params.data.orgId);
       if (!ok) { res.status(400).json({ error: "effectivenessEvaluatorUserId não corresponde a um usuário desta organização" }); return; }
+      if (await userIsAnalyst(body.data.effectivenessEvaluatorUserId, params.data.orgId)) {
+        res.status(400).json({ error: "O avaliador de eficácia deve ter acesso de escrita — analistas (somente leitura) não podem emitir o veredito." });
+        return;
+      }
     }
     // Governance: only an SGI admin may (re)designate or clear the evaluator — this
     // is what makes the verdict lock effective (an operator can't self-designate).
