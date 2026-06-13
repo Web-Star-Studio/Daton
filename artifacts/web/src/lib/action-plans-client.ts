@@ -243,6 +243,21 @@ export const ACTION_PLAN_STAGES = [
   "Encerramento",
 ] as const;
 
+/**
+ * Anchor element ids for each stage (index-aligned with `ACTION_PLAN_STAGES`) so
+ * the timeline stepper can scroll to the matching section on the detail page.
+ * Execução has no dedicated section → points to the activity history (andamento);
+ * Encerramento points to the top header (closure status / Reabrir).
+ */
+export const ACTION_PLAN_STAGE_ANCHORS = [
+  "etapa-identificacao",
+  "etapa-planejamento",
+  "etapa-execucao",
+  "etapa-evidencia",
+  "etapa-eficacia",
+  "etapa-encerramento",
+] as const;
+
 /** Highest reached stage (1–6) for the timeline, derived from the plan state so
  * we never store a stage column that could drift. */
 export function actionPlanStageLevel(plan: ActionPlan): number {
@@ -261,6 +276,23 @@ export function actionPlanStageLevel(plan: ActionPlan): number {
   if (evaluated) level = Math.max(level, 5); // Eficácia
   if (completed && evaluated) level = 6; // Encerramento
   return level;
+}
+
+/**
+ * "Encerrado" = the plan reached the final Encerramento stage and is locked for
+ * any change. Closes by full completion (status `completed` AND an effectiveness
+ * verdict) or by cancellation. Mere `completed` is NOT locked — the effectiveness
+ * (Eficácia) is verified between concluding and closing. Only an admin (SGI) may
+ * reopen it. Mirror of `isActionPlanEncerrado` in `@workspace/db` — keep in sync.
+ */
+export function isActionPlanEncerrado(
+  plan: Pick<ActionPlan, "status" | "effectivenessResult">,
+): boolean {
+  if (plan.status === "cancelled") return true;
+  return (
+    plan.status === "completed" &&
+    (plan.effectivenessResult === "effective" || plan.effectivenessResult === "ineffective")
+  );
 }
 
 // ─── Date helpers (calendar dates, TZ-safe) ────────────────────────────────

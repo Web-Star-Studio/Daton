@@ -204,6 +204,55 @@ export function hasValidFormula(
   return validateFormula(expression, variables).ok;
 }
 
+const OP_GLYPH: Record<string, string> = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+
+function tokenDisplay(t: Token, labelByKey: Map<string, string>): string {
+  if (t.type === "num") return String(t.value);
+  if (t.type === "id") return labelByKey.get(t.value) ?? t.value;
+  if (t.type === "op") return OP_GLYPH[t.value] ?? t.value;
+  return t.type === "lparen" ? "(" : ")";
+}
+
+/**
+ * Walks the token stream checking structural validity: operandos e operadores
+ * devem alternar, e parênteses devem balancear. Pega fórmulas malformadas que
+ * o shunting-yard aceita em silêncio — ex. "a (b - c)" (faltou operador antes
+ * do parêntese) ou "a * 100 /" (operador pendurado no fim) — que antes
+ * passavam na validação mas deixavam o preview "Como será calculado" vazio.
+ */
+function findStructuralError(
+  tokens: Token[],
+  labelByKey: Map<string, string>,
+): string | null {
+  let depth = 0;
+  let prev: Token | null = null;
+  for (const t of tokens) {
+    const prevIsOperand =
+      prev !== null && (prev.type === "num" || prev.type === "id" || prev.type === "rparen");
+    if (t.type === "lparen") {
+      if (prevIsOperand) {
+        return `Faltou um operador (+, −, × ou ÷) entre "${tokenDisplay(prev!, labelByKey)}" e "("`;
+      }
+      depth++;
+    } else if (t.type === "rparen") {
+      if (depth === 0) return "Parêntese fechado sem abertura";
+      if (prev === null || prev.type === "lparen") return "Parênteses vazios: ()";
+      if (prev.type === "op") return `Faltou um valor depois de "${tokenDisplay(prev, labelByKey)}"`;
+      depth--;
+    } else if (t.type === "op") {
+      if (!prevIsOperand) return `Faltou um valor antes de "${tokenDisplay(t, labelByKey)}"`;
+    } else if (prevIsOperand) {
+      return `Faltou um operador (+, −, × ou ÷) entre "${tokenDisplay(prev!, labelByKey)}" e "${tokenDisplay(t, labelByKey)}"`;
+    }
+    prev = t;
+  }
+  if (depth > 0) return "Parêntese aberto sem fechamento";
+  if (prev !== null && prev.type === "op") {
+    return `Fórmula incompleta: faltou um valor depois de "${tokenDisplay(prev, labelByKey)}"`;
+  }
+  return null;
+}
+
 export function validateFormula(
   expression: string,
   variables: FormulaVariable[],
@@ -217,11 +266,9 @@ export function validateFormula(
     return { ok: false, error: e instanceof Error ? e.message : "Erro de sintaxe" };
   }
   if (tokens.length === 0) return { ok: false, error: "Expressão vazia" };
-  try {
-    toRpn(tokens);
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Erro de sintaxe" };
-  }
+  const labelByKey = new Map(variables.map((v) => [v.key.toLowerCase(), v.label]));
+  const structuralError = findStructuralError(tokens, labelByKey);
+  if (structuralError) return { ok: false, error: structuralError };
   const declaredKeys = new Set(variables.map((v) => v.key.toLowerCase()));
   for (const t of tokens) {
     if (t.type === "id" && !declaredKeys.has(t.value)) {
