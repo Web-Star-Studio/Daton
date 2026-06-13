@@ -459,15 +459,19 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
   if (body.data.effectivenessAfter !== undefined) update.effectivenessAfter = body.data.effectivenessAfter;
   if (body.data.effectivenessComment !== undefined) update.effectivenessComment = body.data.effectivenessComment;
   if (body.data.effectivenessResult !== undefined) {
-    // Verdict lock: only the designated evaluator (or an SGI admin) may issue the
-    // Eficaz/Não eficaz verdict. Designating the evaluator is a separate save.
-    const issuingVerdict = body.data.effectivenessResult === "effective" || body.data.effectivenessResult === "ineffective";
-    if (issuingVerdict && body.data.effectivenessResult !== existing.effectivenessResult) {
-      const isAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
-      const isEvaluator = existing.effectivenessEvaluatorUserId !== null && existing.effectivenessEvaluatorUserId === req.auth!.userId;
-      if (!isEvaluator && !isAdmin) {
-        res.status(403).json({ error: "Somente o avaliador designado pode emitir o veredito de eficácia." });
-        return;
+    // Verdict lock: only the designated evaluator (or an SGI admin) may TOUCH the
+    // verdict — set it, change it, OR clear an existing one. Any transition into or
+    // out of a verdict state is gated; designating the evaluator is a separate save.
+    if (body.data.effectivenessResult !== existing.effectivenessResult) {
+      const newIsVerdict = body.data.effectivenessResult === "effective" || body.data.effectivenessResult === "ineffective";
+      const oldIsVerdict = existing.effectivenessResult === "effective" || existing.effectivenessResult === "ineffective";
+      if (newIsVerdict || oldIsVerdict) {
+        const isAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
+        const isEvaluator = existing.effectivenessEvaluatorUserId !== null && existing.effectivenessEvaluatorUserId === req.auth!.userId;
+        if (!isEvaluator && !isAdmin) {
+          res.status(403).json({ error: "Somente o avaliador designado pode emitir ou alterar o veredito de eficácia." });
+          return;
+        }
       }
     }
     update.effectivenessResult = body.data.effectivenessResult;
