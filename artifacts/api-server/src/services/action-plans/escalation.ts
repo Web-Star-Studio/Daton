@@ -1,4 +1,4 @@
-import { and, eq, gte, isNotNull, isNull, lt, ne, notInArray, or } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, lt, notInArray, or } from "drizzle-orm";
 import { actionPlansTable, db, notificationsTable, usersTable } from "@workspace/db";
 import { getResendClient } from "../../lib/resend";
 import { logActionPlanActivity } from "./activity";
@@ -158,9 +158,12 @@ async function processOrg(plans: PlanRow[], todayStart: Date): Promise<{ alertsC
 }
 
 /**
- * Scan for action plans whose effectiveness-verification deadline has passed
- * without a verdict yet, and escalate to the designated evaluator via in-app
- * notification + e-mail. Same idempotency/dedupe contract as the overdue pass.
+ * Scan for action plans in the effectiveness-verification stage — already
+ * `completed` (corrective action concluded) but without a verdict yet — whose
+ * verification deadline has passed, and escalate to the designated evaluator via
+ * in-app notification + e-mail. Only `completed` plans qualify: efficacy is
+ * verified after execution, so open/in_progress actions are never chased here.
+ * Same idempotency/dedupe contract as the overdue pass.
  */
 export async function runActionPlanEffectivenessEscalationPass(orgId?: number): Promise<ActionPlanEscalationResult> {
   const result: ActionPlanEscalationResult = { scanned: 0, alertsCreated: 0, emailsSent: 0 };
@@ -172,7 +175,7 @@ export async function runActionPlanEffectivenessEscalationPass(orgId?: number): 
     isNotNull(actionPlansTable.effectivenessDueDate),
     lt(actionPlansTable.effectivenessDueDate, todayStart),
     isNotNull(actionPlansTable.effectivenessEvaluatorUserId),
-    ne(actionPlansTable.status, "cancelled"),
+    eq(actionPlansTable.status, "completed"),
     or(isNull(actionPlansTable.effectivenessResult), eq(actionPlansTable.effectivenessResult, "pending")),
   ];
   if (typeof orgId === "number") conditions.push(eq(actionPlansTable.organizationId, orgId));
