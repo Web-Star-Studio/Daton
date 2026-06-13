@@ -276,6 +276,23 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     }
   }
 
+  // Governance: designating the effectiveness evaluator is an SGI act — only an
+  // admin may do it, so an operator can't self-assign and bypass the verdict lock.
+  const isSgiAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
+  if (body.data.effectivenessEvaluatorUserId != null && !isSgiAdmin) {
+    res.status(403).json({ error: "Somente um administrador (SGI) pode designar o avaliador de eficácia." });
+    return;
+  }
+  // Independence: the effectiveness evaluator must differ from the action's responsible.
+  if (
+    body.data.effectivenessEvaluatorUserId != null &&
+    body.data.responsibleUserId != null &&
+    body.data.effectivenessEvaluatorUserId === body.data.responsibleUserId
+  ) {
+    res.status(400).json({ error: "O avaliador da eficácia deve ser diferente do responsável pela ação." });
+    return;
+  }
+
   const actionType = body.data.actionType ?? "corrective";
   const derived = await deriveCreateDefaults(params.data.orgId, body.data.sourceModule, body.data.sourceRef);
   const code = await generateActionPlanCode(params.data.orgId, actionType, new Date().getFullYear());
@@ -421,7 +438,22 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
       const ok = await assertUserBelongsToOrg(body.data.effectivenessEvaluatorUserId, params.data.orgId);
       if (!ok) { res.status(400).json({ error: "effectivenessEvaluatorUserId não corresponde a um usuário desta organização" }); return; }
     }
+    // Governance: only an SGI admin may (re)designate or clear the evaluator — this
+    // is what makes the verdict lock effective (an operator can't self-designate).
+    if (body.data.effectivenessEvaluatorUserId !== existing.effectivenessEvaluatorUserId) {
+      const isAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
+      if (!isAdmin) { res.status(403).json({ error: "Somente um administrador (SGI) pode designar o avaliador de eficácia." }); return; }
+    }
     update.effectivenessEvaluatorUserId = body.data.effectivenessEvaluatorUserId;
+  }
+  // Independence: the evaluator must differ from the responsible (either side may change here).
+  {
+    const effResponsible = body.data.responsibleUserId !== undefined ? body.data.responsibleUserId : existing.responsibleUserId;
+    const effEvaluator = body.data.effectivenessEvaluatorUserId !== undefined ? body.data.effectivenessEvaluatorUserId : existing.effectivenessEvaluatorUserId;
+    if (effResponsible != null && effEvaluator != null && effResponsible === effEvaluator) {
+      res.status(400).json({ error: "O avaliador da eficácia deve ser diferente do responsável pela ação." });
+      return;
+    }
   }
   if (body.data.effectivenessBefore !== undefined) update.effectivenessBefore = body.data.effectivenessBefore;
   if (body.data.effectivenessAfter !== undefined) update.effectivenessAfter = body.data.effectivenessAfter;

@@ -690,6 +690,8 @@ export default function ActionPlanFichaPage() {
               orgUsers={orgUsers}
               readOnly={!canEdit}
               canEvaluate={isAdmin || (plan.effectivenessEvaluatorUserId != null && plan.effectivenessEvaluatorUserId === user?.id)}
+              canAssignEvaluator={isAdmin}
+              responsibleUserId={form.responsibleUserId}
             />
           </Section>
 

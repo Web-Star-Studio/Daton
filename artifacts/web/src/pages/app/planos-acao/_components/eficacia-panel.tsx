@@ -40,6 +40,8 @@ export function EficaciaPanel({
   orgUsers,
   readOnly = false,
   canEvaluate = true,
+  canAssignEvaluator = true,
+  responsibleUserId = "",
 }: {
   value: EficaciaValue;
   onChange: (next: EficaciaValue) => void;
@@ -47,6 +49,10 @@ export function EficaciaPanel({
   readOnly?: boolean;
   /** Only the designated evaluator (or an admin) may issue the verdict. */
   canEvaluate?: boolean;
+  /** Only an SGI admin may (re)designate the evaluator. */
+  canAssignEvaluator?: boolean;
+  /** The action's responsible — excluded from evaluator options (must differ). */
+  responsibleUserId?: string;
 }) {
   const set = <K extends keyof EficaciaValue>(key: K, v: EficaciaValue[K]) => onChange({ ...value, [key]: v });
 
@@ -80,12 +86,17 @@ export function EficaciaPanel({
           <SearchableSelect
             value={value.evaluatorUserId}
             onChange={(v) => set("evaluatorUserId", v)}
-            options={orgUsers.map((u) => ({ value: String(u.id), label: u.name }))}
+            options={orgUsers
+              .filter((u) => String(u.id) !== responsibleUserId)
+              .map((u) => ({ value: String(u.id), label: u.name }))}
             placeholder="Quem confirma a eficácia"
             searchPlaceholder="Buscar usuário..."
             emptyMessage="Nenhum usuário encontrado"
-            disabled={readOnly}
+            disabled={readOnly || !canAssignEvaluator}
           />
+          {!readOnly && !canAssignEvaluator && (
+            <p className="text-[11px] text-muted-foreground">Somente um administrador (SGI) pode designar o avaliador.</p>
+          )}
         </div>
       </div>
 
