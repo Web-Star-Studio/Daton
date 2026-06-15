@@ -746,6 +746,7 @@ function CreateDocumentModal({
       onCreated(doc.id);
     } catch (err) {
       if ((err as { status?: number })?.status === 409) {
+        setStep(0); // volta ao passo "Básico" onde o erro do campo Código fica visível
         setError("code", {
           type: "manual",
           message: "Já existe um documento com este código nesta organização.",
