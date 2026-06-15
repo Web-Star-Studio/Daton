@@ -8,7 +8,6 @@ import {
   date,
   unique,
   jsonb,
-  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { organizationsTable } from "./organizations";
 import { organizationContactGroupsTable } from "./organization-contacts";
@@ -16,12 +15,14 @@ import { usersTable } from "./users";
 import { employeesTable } from "./employees";
 
 export type DocumentContentSection = {
-  id: string;
+  id: string; // identificador estável da seção (uuid/nanoid), gerado no client
   title: string;
   body: string; // markdown
   order: number;
 };
 
+// Snapshot dos metadados de identificação congelados na aprovação de uma revisão.
+// O conteúdo das seções é congelado à parte, na coluna content_sections de document_versions.
 export type DocumentVersionMetaSnapshot = {
   title: string;
   code: string | null;
@@ -68,10 +69,9 @@ export const documentsTable = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    uniqueIndex("documents_org_code_unique").on(
-      table.organizationId,
-      table.code,
-    ),
+    // code é opcional; o Postgres trata NULLs como distintos, então vários
+    // documentos por organização podem ficar sem código sem violar a unicidade.
+    unique("documents_org_code_unique").on(table.organizationId, table.code),
   ],
 );
 
