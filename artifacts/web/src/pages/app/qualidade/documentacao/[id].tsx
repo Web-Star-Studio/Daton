@@ -143,6 +143,9 @@ function formatVersionLabel(version: number | null | undefined) {
 
 interface EditFormState {
   title: string;
+  code: string;
+  area: string;
+  applicableNorm: string;
   type: string;
   validityDate: string;
   elaboratorIds: number[];
@@ -497,6 +500,9 @@ export default function DocumentDetailPage() {
     if (!doc) return;
     setEditForm({
       title: doc.title,
+      code: doc.code ?? "",
+      area: doc.area ?? "",
+      applicableNorm: doc.applicableNorm ?? "",
       type: doc.type,
       validityDate: doc.validityDate ?? "",
       elaboratorIds:
@@ -574,23 +580,39 @@ export default function DocumentDetailPage() {
 
   const handleSaveEditDialog = async () => {
     if (!orgId || !editForm) return;
-    await updateMut.mutateAsync({
-      orgId,
-      docId,
-      data: {
-        title: editForm.title.trim(),
-        type: editForm.type,
-        validityDate: editForm.validityDate || undefined,
-        elaboratorIds: editForm.elaboratorIds,
-        criticalReviewerIds: editForm.criticalReviewerIds,
-        unitIds: editForm.unitIds,
-        approverIds: editForm.approverIds,
-        recipientIds: editForm.recipientIds,
-        recipientGroupIds: editForm.recipientGroupIds,
-        referenceIds: editForm.referenceIds,
-        normativeRequirements: editForm.normativeRequirements,
-      } as never,
-    });
+    try {
+      await updateMut.mutateAsync({
+        orgId,
+        docId,
+        data: {
+          title: editForm.title.trim(),
+          code: editForm.code.trim() || undefined,
+          area: editForm.area.trim() || undefined,
+          applicableNorm: editForm.applicableNorm.trim() || undefined,
+          type: editForm.type,
+          validityDate: editForm.validityDate || undefined,
+          elaboratorIds: editForm.elaboratorIds,
+          criticalReviewerIds: editForm.criticalReviewerIds,
+          unitIds: editForm.unitIds,
+          approverIds: editForm.approverIds,
+          recipientIds: editForm.recipientIds,
+          recipientGroupIds: editForm.recipientGroupIds,
+          referenceIds: editForm.referenceIds,
+          normativeRequirements: editForm.normativeRequirements,
+        } as never,
+      });
+    } catch (err) {
+      if ((err as { status?: number })?.status === 409) {
+        toast({
+          title: "Código já utilizado",
+          description:
+            "Já existe um documento com este código nesta organização.",
+          variant: "destructive",
+        });
+        return;
+      }
+      throw err;
+    }
     handleCloseEditDialog();
     invalidate();
   };
@@ -904,20 +926,30 @@ export default function DocumentDetailPage() {
             <InfoField label="Tipo" value={TYPE_LABELS[doc.type] || doc.type} />
           </div>
           <div className="grid grid-cols-2 gap-6">
+            <InfoField label="Código" value={doc.code ?? ""} />
+            <InfoField label="Área / Setor" value={doc.area ?? ""} />
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <InfoField
+              label="Norma aplicável"
+              value={doc.applicableNorm ?? ""}
+            />
             <InfoField
               label="Versão Atual"
               value={formatVersionLabel(doc.currentVersion)}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-6">
             <InfoField
               label="Data de Validade"
               value={formatDate(doc.validityDate)}
             />
-          </div>
-          <div className="grid grid-cols-2 gap-6">
             <InfoField
               label="Criado em"
               value={formatDateTime(doc.createdAt)}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-6">
             <InfoField
               label="Atualizado em"
               value={formatDateTime(doc.updatedAt)}
@@ -1639,6 +1671,41 @@ export default function DocumentDetailPage() {
                     value={editForm.title}
                     onChange={(e) =>
                       setEditForm({ ...editForm, title: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label>Código</Label>
+                    <Input
+                      className="mt-2"
+                      value={editForm.code}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, code: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Área / Setor</Label>
+                    <Input
+                      className="mt-2"
+                      value={editForm.area}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, area: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Norma aplicável</Label>
+                  <Input
+                    className="mt-2"
+                    value={editForm.applicableNorm}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        applicableNorm: e.target.value,
+                      })
                     }
                   />
                 </div>
