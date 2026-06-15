@@ -3146,6 +3146,14 @@ export interface DocumentCommunicationPlan {
   updatedAt?: string | null;
 }
 
+export interface DocumentContentSection {
+  id: string;
+  title: string;
+  /** Markdown */
+  body: string;
+  order: number;
+}
+
 export interface DocumentDetail {
   id: number;
   title: string;
@@ -3170,6 +3178,30 @@ export interface DocumentDetail {
   versions?: DocumentVersion[];
   communicationPlans?: DocumentCommunicationPlan[];
   normativeRequirements?: string[];
+  code?: string | null;
+  area?: string | null;
+  applicableNorm?: string | null;
+  contentSections?: DocumentContentSection[];
+}
+
+export interface UpdateDocumentContentBody {
+  contentSections: DocumentContentSection[];
+}
+
+export interface DocumentVersionMetaSnapshot {
+  title: string;
+  code: string | null;
+  area: string | null;
+  applicableNorm: string | null;
+  normativeRequirements: string[];
+}
+
+export interface DocumentVersionSnapshot {
+  versionNumber: number;
+  changeDescription: string;
+  createdAt: string;
+  contentSections: DocumentContentSection[];
+  metaSnapshot?: DocumentVersionMetaSnapshot | null;
 }
 
 export type OrganizationContactBody =
@@ -3301,6 +3333,9 @@ export interface CreateDocumentBody {
   referenceIds?: number[];
   normativeRequirements?: string[];
   attachments?: CreateDocumentBodyAttachmentsItem[];
+  code?: string | null;
+  area?: string | null;
+  applicableNorm?: string | null;
 }
 
 export interface UpdateDocumentBody {
@@ -3316,6 +3351,9 @@ export interface UpdateDocumentBody {
   recipientGroupIds?: number[];
   referenceIds?: number[];
   normativeRequirements?: string[];
+  code?: string | null;
+  area?: string | null;
+  applicableNorm?: string | null;
 }
 
 export interface DocumentNormativeRequirementsSuggestionBody {

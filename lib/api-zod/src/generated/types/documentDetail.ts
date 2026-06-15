@@ -7,6 +7,7 @@
  */
 import type { DocumentAttachment } from "./documentAttachment";
 import type { DocumentCommunicationPlan } from "./documentCommunicationPlan";
+import type { DocumentContentSection } from "./documentContentSection";
 import type { DocumentDetailApproversItem } from "./documentDetailApproversItem";
 import type { DocumentDetailCriticalReviewersItem } from "./documentDetailCriticalReviewersItem";
 import type { DocumentDetailRecipientsItem } from "./documentDetailRecipientsItem";
@@ -42,4 +43,8 @@ export interface DocumentDetail {
   versions?: DocumentVersion[];
   communicationPlans?: DocumentCommunicationPlan[];
   normativeRequirements?: string[];
+  code?: string | null;
+  area?: string | null;
+  applicableNorm?: string | null;
+  contentSections?: DocumentContentSection[];
 }

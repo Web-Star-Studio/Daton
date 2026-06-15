@@ -19,4 +19,7 @@ export interface UpdateDocumentBody {
   recipientGroupIds?: number[];
   referenceIds?: number[];
   normativeRequirements?: string[];
+  code?: string | null;
+  area?: string | null;
+  applicableNorm?: string | null;
 }

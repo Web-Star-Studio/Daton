@@ -23,4 +23,7 @@ export interface CreateDocumentBody {
   referenceIds?: number[];
   normativeRequirements?: string[];
   attachments?: CreateDocumentBodyAttachmentsItem[];
+  code?: string | null;
+  area?: string | null;
+  applicableNorm?: string | null;
 }
