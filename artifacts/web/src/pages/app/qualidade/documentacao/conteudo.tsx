@@ -102,6 +102,8 @@ function SectionCard({
           value={section.title}
           placeholder="Título da seção"
           onChange={(e) => onChange({ title: e.target.value })}
+          aria-invalid={!section.title.trim()}
+          className={!section.title.trim() ? "border-red-400" : undefined}
         />
         <Button variant="ghost" size="icon" onClick={() => onMove("up")} disabled={index === 0} aria-label="Mover para cima">
           <ChevronUp className="h-4 w-4" />
@@ -193,6 +195,14 @@ export default function DocumentContentEditorPage() {
 
   const handleSave = async () => {
     if (!orgId) return;
+    if (sections.some((s) => !s.title.trim())) {
+      toast({
+        title: "Título obrigatório",
+        description: "Todas as seções precisam de um título antes de salvar.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       const result = await updateMut.mutateAsync({
         orgId,
@@ -202,10 +212,13 @@ export default function DocumentContentEditorPage() {
       setBaseline(sections);
       queryClient.setQueryData(getGetDocumentQueryKey(orgId, docId), result);
       toast({ title: "Conteúdo salvo" });
-    } catch {
+    } catch (err) {
+      const serverMessage =
+        (err as { data?: { error?: string } })?.data?.error ??
+        (err instanceof Error ? err.message : undefined);
       toast({
         title: "Erro ao salvar",
-        description: "Não foi possível salvar o conteúdo.",
+        description: serverMessage ?? "Não foi possível salvar o conteúdo.",
         variant: "destructive",
       });
     }
