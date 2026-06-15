@@ -1,5 +1,9 @@
 import request from "supertest";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { createCompletionMock } = vi.hoisted(() => ({
+  createCompletionMock: vi.fn(),
+}));
 
 // openai is used by normative-requirements suggestions; mock it to avoid
 // real network calls in case any code path touches it during these tests.
@@ -7,9 +11,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: {
     chat: {
       completions: {
-        create: vi.fn().mockResolvedValue({
-          choices: [{ message: { content: '{"suggestions":[]}' } }],
-        }),
+        create: createCompletionMock,
       },
     },
   },
@@ -31,7 +33,7 @@ afterEach(async () => {
   await Promise.all(
     contexts.splice(0).map((context) => cleanupTestContext(context)),
   );
-});
+}, 30000);
 
 /**
  * Helper: create a `procedimento` document with the minimum required relations.
@@ -75,7 +77,7 @@ async function createProcedimentoForTest(
   const recipient = options.noRecipients
     ? null
     : await createTestUser(context, {
-        role: "analyst",
+        role: "operator",
         suffix: "recipient",
         modules: ["documents"],
       });
@@ -154,6 +156,13 @@ async function approveDocument(
 }
 
 describe("documents — content flow", () => {
+  beforeEach(() => {
+    createCompletionMock.mockReset();
+    createCompletionMock.mockResolvedValue({
+      choices: [{ message: { content: '{"suggestions":[]}' } }],
+    });
+  });
+
   // (a) Create a `procedimento` with a code → response `code` matches and
   //     `contentSections` titles equal the template titles.
   it("(a) seeds contentSections from the procedimento template on create", async () => {
@@ -196,7 +205,8 @@ describe("documents — content flow", () => {
 
     const { document } = await createProcedimentoForTest(context);
 
-    // Send sections out of order with extra whitespace in title
+    // PUT /content REPLACES the entire section set; the ids below are
+    // client-authored (not the seeded template ids created on document creation).
     const shuffledSections = [
       { id: "sec-b", title: "  Seção B  ", body: "body B", order: 3 },
       { id: "sec-a", title: "Seção A", body: "body A", order: 1 },
