@@ -2991,8 +2991,16 @@ paths:
       operationId: updateDocumentContent
       tags: [documents]
       parameters:
-        - { name: orgId, in: path, required: true, schema: { type: integer } }
-        - { name: docId, in: path, required: true, schema: { type: integer } }
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
       requestBody:
         required: true
         content:
@@ -3013,9 +3021,21 @@ paths:
       operationId: getDocumentVersionSnapshot
       tags: [documents]
       parameters:
-        - { name: orgId, in: path, required: true, schema: { type: integer } }
-        - { name: docId, in: path, required: true, schema: { type: integer } }
-        - { name: versionNumber, in: path, required: true, schema: { type: integer } }
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: versionNumber
+          in: path
+          required: true
+          schema:
+            type: integer
       responses:
         "200":
           description: Snapshot da revisão
@@ -14940,6 +14960,7 @@ components:
         - status
         - currentVersion
         - createdAt
+        - contentSections
 
     DocumentContentSection:
       type: object
@@ -14949,6 +14970,7 @@ components:
         title: { type: string }
         body: { type: string, description: "Markdown" }
         order: { type: integer }
+
     UpdateDocumentContentBody:
       type: object
       required: [contentSections]
@@ -14956,6 +14978,7 @@ components:
         contentSections:
           type: array
           items: { $ref: "#/components/schemas/DocumentContentSection" }
+
     DocumentVersionMetaSnapshot:
       type: object
       required: [title, code, area, applicableNorm, normativeRequirements]
@@ -14967,6 +14990,7 @@ components:
         normativeRequirements:
           type: array
           items: { type: string }
+
     DocumentVersionSnapshot:
       type: object
       required: [versionNumber, changeDescription, createdAt, contentSections]
@@ -14978,7 +15002,8 @@ components:
           type: array
           items: { $ref: "#/components/schemas/DocumentContentSection" }
         metaSnapshot:
-          allOf: [{ $ref: "#/components/schemas/DocumentVersionMetaSnapshot" }]
+          allOf:
+            - $ref: "#/components/schemas/DocumentVersionMetaSnapshot"
           nullable: true
 
     DocumentDirectRecipient:

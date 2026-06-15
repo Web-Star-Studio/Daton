@@ -3181,7 +3181,7 @@ export interface DocumentDetail {
   code?: string | null;
   area?: string | null;
   applicableNorm?: string | null;
-  contentSections?: DocumentContentSection[];
+  contentSections: DocumentContentSection[];
 }
 
 export interface UpdateDocumentContentBody {

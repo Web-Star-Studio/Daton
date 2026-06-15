@@ -4229,16 +4229,14 @@ export const GetDocumentResponse = zod.object({
   code: zod.string().nullish(),
   area: zod.string().nullish(),
   applicableNorm: zod.string().nullish(),
-  contentSections: zod
-    .array(
-      zod.object({
-        id: zod.string(),
-        title: zod.string(),
-        body: zod.string().describe("Markdown"),
-        order: zod.number(),
-      }),
-    )
-    .optional(),
+  contentSections: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      body: zod.string().describe("Markdown"),
+      order: zod.number(),
+    }),
+  ),
 });
 
 /**
@@ -4472,16 +4470,14 @@ export const UpdateDocumentResponse = zod.object({
   code: zod.string().nullish(),
   area: zod.string().nullish(),
   applicableNorm: zod.string().nullish(),
-  contentSections: zod
-    .array(
-      zod.object({
-        id: zod.string(),
-        title: zod.string(),
-        body: zod.string().describe("Markdown"),
-        order: zod.number(),
-      }),
-    )
-    .optional(),
+  contentSections: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      body: zod.string().describe("Markdown"),
+      order: zod.number(),
+    }),
+  ),
 });
 
 /**
@@ -4771,16 +4767,14 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
   code: zod.string().nullish(),
   area: zod.string().nullish(),
   applicableNorm: zod.string().nullish(),
-  contentSections: zod
-    .array(
-      zod.object({
-        id: zod.string(),
-        title: zod.string(),
-        body: zod.string().describe("Markdown"),
-        order: zod.number(),
-      }),
-    )
-    .optional(),
+  contentSections: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      body: zod.string().describe("Markdown"),
+      order: zod.number(),
+    }),
+  ),
 });
 
 /**
@@ -5085,16 +5079,14 @@ export const SubmitDocumentForReviewResponse = zod.object({
   code: zod.string().nullish(),
   area: zod.string().nullish(),
   applicableNorm: zod.string().nullish(),
-  contentSections: zod
-    .array(
-      zod.object({
-        id: zod.string(),
-        title: zod.string(),
-        body: zod.string().describe("Markdown"),
-        order: zod.number(),
-      }),
-    )
-    .optional(),
+  contentSections: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      body: zod.string().describe("Markdown"),
+      order: zod.number(),
+    }),
+  ),
 });
 
 /**
@@ -5315,16 +5307,14 @@ export const ApproveDocumentResponse = zod.object({
   code: zod.string().nullish(),
   area: zod.string().nullish(),
   applicableNorm: zod.string().nullish(),
-  contentSections: zod
-    .array(
-      zod.object({
-        id: zod.string(),
-        title: zod.string(),
-        body: zod.string().describe("Markdown"),
-        order: zod.number(),
-      }),
-    )
-    .optional(),
+  contentSections: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      body: zod.string().describe("Markdown"),
+      order: zod.number(),
+    }),
+  ),
 });
 
 /**
@@ -5545,16 +5535,14 @@ export const RejectDocumentResponse = zod.object({
   code: zod.string().nullish(),
   area: zod.string().nullish(),
   applicableNorm: zod.string().nullish(),
-  contentSections: zod
-    .array(
-      zod.object({
-        id: zod.string(),
-        title: zod.string(),
-        body: zod.string().describe("Markdown"),
-        order: zod.number(),
-      }),
-    )
-    .optional(),
+  contentSections: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      body: zod.string().describe("Markdown"),
+      order: zod.number(),
+    }),
+  ),
 });
 
 /**
@@ -5771,16 +5759,14 @@ export const DistributeDocumentResponse = zod.object({
   code: zod.string().nullish(),
   area: zod.string().nullish(),
   applicableNorm: zod.string().nullish(),
-  contentSections: zod
-    .array(
-      zod.object({
-        id: zod.string(),
-        title: zod.string(),
-        body: zod.string().describe("Markdown"),
-        order: zod.number(),
-      }),
-    )
-    .optional(),
+  contentSections: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      body: zod.string().describe("Markdown"),
+      order: zod.number(),
+    }),
+  ),
 });
 
 /**
@@ -6017,16 +6003,14 @@ export const UpdateDocumentContentResponse = zod.object({
   code: zod.string().nullish(),
   area: zod.string().nullish(),
   applicableNorm: zod.string().nullish(),
-  contentSections: zod
-    .array(
-      zod.object({
-        id: zod.string(),
-        title: zod.string(),
-        body: zod.string().describe("Markdown"),
-        order: zod.number(),
-      }),
-    )
-    .optional(),
+  contentSections: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      body: zod.string().describe("Markdown"),
+      order: zod.number(),
+    }),
+  ),
 });
 
 export const GetDocumentVersionSnapshotParams = zod.object({
