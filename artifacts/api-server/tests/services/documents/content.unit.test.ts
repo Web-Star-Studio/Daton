@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
+
 import {
   UpdateDocumentContentBodySchema,
   normalizeContentSections,
   buildVersionMetaSnapshot,
 } from "../../../src/services/documents/content";
 
-const section = (over = {}) => ({ id: "a", title: "Objetivo", body: "texto", order: 0, ...over });
+const section = (over: Partial<{ id: string; title: string; body: string; order: number }> = {}) => ({ id: "a", title: "Objetivo", body: "texto", order: 0, ...over });
 
 describe("UpdateDocumentContentBodySchema", () => {
   it("aceita até 50 seções", () => {
@@ -19,6 +20,13 @@ describe("UpdateDocumentContentBodySchema", () => {
   it("rejeita título vazio", () => {
     expect(UpdateDocumentContentBodySchema.safeParse({ contentSections: [section({ title: "   " })] }).success).toBe(false);
   });
+  it("rejeita IDs de seção duplicados", () => {
+    expect(
+      UpdateDocumentContentBodySchema.safeParse({
+        contentSections: [section({ id: "dup" }), section({ id: "dup", order: 1 })],
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("normalizeContentSections", () => {
@@ -30,6 +38,16 @@ describe("normalizeContentSections", () => {
     expect(out.map((s) => s.id)).toEqual(["a", "b"]);
     expect(out.map((s) => s.order)).toEqual([0, 1]);
     expect(out[1].title).toBe("B");
+  });
+
+  it("não muta o array de entrada", () => {
+    const input = [section({ id: "a", order: 1 }), section({ id: "b", order: 0 })];
+    normalizeContentSections(input);
+    expect(input.map((s) => s.id)).toEqual(["a", "b"]);
+  });
+
+  it("array vazio retorna vazio", () => {
+    expect(normalizeContentSections([])).toEqual([]);
   });
 });
 

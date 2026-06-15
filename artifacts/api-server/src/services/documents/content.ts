@@ -10,7 +10,10 @@ export const DocumentContentSectionSchema = z.object({
 
 export const UpdateDocumentContentBodySchema = z.object({
   contentSections: z.array(DocumentContentSectionSchema).max(50),
-});
+}).refine(
+  (data) => new Set(data.contentSections.map((s) => s.id)).size === data.contentSections.length,
+  { message: "IDs de seção duplicados" },
+);
 
 export function normalizeContentSections(
   sections: DocumentContentSection[],
@@ -23,10 +26,10 @@ export function normalizeContentSections(
 
 export function buildVersionMetaSnapshot(doc: {
   title: string;
-  code: string | null;
-  area: string | null;
-  applicableNorm: string | null;
-  normativeRequirements: string[];
+  code: string | null | undefined;
+  area: string | null | undefined;
+  applicableNorm: string | null | undefined;
+  normativeRequirements: string[] | null | undefined;
 }): DocumentVersionMetaSnapshot {
   return {
     title: doc.title,

@@ -28,7 +28,7 @@ export const SECTION_TEMPLATES: Record<string, string[]> = {
 export function seedSectionsForType(type: string): DocumentContentSection[] {
   const titles = SECTION_TEMPLATES[type] ?? SECTION_TEMPLATES.outro;
   return titles.map((title, index) => ({
-    id: `sec-${index + 1}`,
+    id: `sec-${index + 1}`, // IDs de seed; o client pode substituir por IDs estáveis ao editar
     title,
     body: "",
     order: index,
