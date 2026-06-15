@@ -181,8 +181,12 @@ ALTER TABLE documents
   ADD COLUMN IF NOT EXISTS applicable_norm text,
   ADD COLUMN IF NOT EXISTS content_sections jsonb NOT NULL DEFAULT '[]'::jsonb;
 
-CREATE UNIQUE INDEX IF NOT EXISTS documents_org_code_unique
-  ON documents (organization_id, code);
+-- Unicidade (organization_id, code). Use ADD CONSTRAINT UNIQUE para casar com o
+-- `unique()` do schema Drizzle (evita drift se algum dia rodar push). NULLs convivem
+-- (Postgres trata NULL como distinto). ADD CONSTRAINT não é idempotente: se já existir,
+-- pular este comando (verifique com `\d documents`).
+ALTER TABLE documents
+  ADD CONSTRAINT documents_org_code_unique UNIQUE (organization_id, code);
 
 ALTER TABLE document_versions
   ADD COLUMN IF NOT EXISTS content_sections jsonb,
@@ -1070,3 +1074,11 @@ Dependem do client regenerado (Task 1.5) e do schema aplicado (Task 1.2). Serão
 - **Fase 3 — Editor dedicado:** rota nova `/qualidade/documentacao/:id/conteudo` (registrar em `artifacts/web/src/App.tsx:205-209`); componente `MarkdownSectionEditor` (lista de seções + textarea + toolbar + preview `react-markdown`); salvar via `useUpdateDocumentContent`; guarda de não-salvo; read-only fora de draft/rejected (`canEdit` em `[id].tsx:442`).
 - **Fase 4 — Leitura + histórico:** `DocumentContentReader` (render markdown) no detalhe; leitura de snapshot por revisão via `useGetDocumentVersionSnapshot` na aba Versões.
 - **Fase 5 — Export PDF baixável:** `artifacts/web/src/lib/document-pdf.ts` com tokenizador de markdown (unit-testável) + layout `jspdf` (já instalado); botão "Exportar PDF" → download de `.pdf` com texto selecionável.
+
+---
+
+## Follow-ups pós-Fase-1 (do review final, não-bloqueantes)
+
+- **Mapear violação de unicidade `(org, code)` para 409** no create e no PATCH de `routes/documents.ts`. Hoje um `code` duplicado estoura a constraint e cai no handler default do Express (500). **Fazer junto da Fase 2**, quando o frontend passar a enviar `code` (capturar o erro 23505 do Postgres → 409 com mensagem amigável).
+- **Cleanup pré-existente (separado):** a rota antiga `GET .../versions` (coleção) não tem `requireModuleAccess("documents")`, enquanto as rotas novas têm. Alinhar a rota antiga num PR de limpeza.
+- **DDL de deploy:** usar `ALTER TABLE documents ADD CONSTRAINT documents_org_code_unique UNIQUE (organization_id, code)` (não `CREATE UNIQUE INDEX`) para casar com o `unique()` do schema (já ajustado na Task 1.2).
