@@ -82,6 +82,9 @@ const ALLOWED_TYPES = [
 
 const createDocumentSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
+  code: z.string().optional(),
+  area: z.string().optional(),
+  applicableNorm: z.string().optional(),
   type: z.enum([
     "manual",
     "procedimento",
@@ -546,6 +549,9 @@ function CreateDocumentModal({
     resolver: zodResolver(createDocumentSchema),
     defaultValues: {
       title: "",
+      code: "",
+      area: "",
+      applicableNorm: "",
       type: "manual",
       validityDate: new Date().toISOString().split("T")[0],
       elaboratorIds: [],
@@ -711,6 +717,9 @@ function CreateDocumentModal({
         orgId,
         data: {
           title: data.title.trim(),
+          code: data.code?.trim() || undefined,
+          area: data.area?.trim() || undefined,
+          applicableNorm: data.applicableNorm?.trim() || undefined,
           type: data.type,
           validityDate: data.validityDate || undefined,
           elaboratorIds: data.elaboratorIds,
@@ -736,6 +745,13 @@ function CreateDocumentModal({
       setUploadedFiles([]);
       onCreated(doc.id);
     } catch (err) {
+      if ((err as { status?: number })?.status === 409) {
+        setError("code", {
+          type: "manual",
+          message: "Já existe um documento com este código nesta organização.",
+        });
+        return;
+      }
       console.error("Create failed:", err);
     }
   };
@@ -821,6 +837,30 @@ function CreateDocumentModal({
 
             <div className="grid grid-cols-2 gap-6">
               <div>
+                <Label>Código</Label>
+                <Input
+                  placeholder="Ex.: IT-LOG-001"
+                  className="mt-2"
+                  {...register("code")}
+                />
+                {errors.code && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.code.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label>Área / Setor</Label>
+                <Input
+                  placeholder="Ex.: Logística"
+                  className="mt-2"
+                  {...register("area")}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div>
                 <Label>Tipo</Label>
                 <Select {...register("type")} className="mt-2">
                   {TYPE_OPTIONS.map((opt) => (
@@ -843,6 +883,15 @@ function CreateDocumentModal({
                   </p>
                 )}
               </div>
+            </div>
+
+            <div>
+              <Label>Norma aplicável</Label>
+              <Input
+                placeholder="Ex.: ISO 9001"
+                className="mt-2"
+                {...register("applicableNorm")}
+              />
             </div>
           </div>
         )}

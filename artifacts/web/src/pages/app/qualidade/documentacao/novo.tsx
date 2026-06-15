@@ -51,6 +51,9 @@ const ALLOWED_TYPES = [
 
 const createDocumentSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
+  code: z.string().optional(),
+  area: z.string().optional(),
+  applicableNorm: z.string().optional(),
   type: z.enum([
     "manual",
     "procedimento",
@@ -104,6 +107,9 @@ export default function NovoDocumentoPage() {
     resolver: zodResolver(createDocumentSchema),
     defaultValues: {
       title: "",
+      code: "",
+      area: "",
+      applicableNorm: "",
       type: "manual",
       validityDate: new Date().toISOString().split("T")[0],
       elaboratorIds: [],
@@ -260,6 +266,9 @@ export default function NovoDocumentoPage() {
         orgId,
         data: {
           title: data.title.trim(),
+          code: data.code?.trim() || undefined,
+          area: data.area?.trim() || undefined,
+          applicableNorm: data.applicableNorm?.trim() || undefined,
           type: data.type,
           validityDate: data.validityDate || undefined,
           elaboratorIds: data.elaboratorIds,
@@ -286,6 +295,13 @@ export default function NovoDocumentoPage() {
       });
       navigate(`/qualidade/documentacao/${doc.id}`);
     } catch (err) {
+      if ((err as { status?: number })?.status === 409) {
+        setError("code", {
+          type: "manual",
+          message: "Já existe um documento com este código nesta organização.",
+        });
+        return;
+      }
       console.error("Create failed:", err);
     }
   };
@@ -309,6 +325,30 @@ export default function NovoDocumentoPage() {
           {errors.title && (
             <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>
           )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <Label>Código</Label>
+            <Input
+              placeholder="Ex.: IT-LOG-001"
+              className="mt-2"
+              {...register("code")}
+            />
+            {errors.code && (
+              <p className="mt-1 text-xs text-red-500">
+                {errors.code.message}
+              </p>
+            )}
+          </div>
+          <div>
+            <Label>Área / Setor</Label>
+            <Input
+              placeholder="Ex.: Logística"
+              className="mt-2"
+              {...register("area")}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-6">
@@ -346,6 +386,15 @@ export default function NovoDocumentoPage() {
               selectAllLabel="Selecionar todas as filiais"
             />
           </div>
+        </div>
+
+        <div>
+          <Label>Norma aplicável</Label>
+          <Input
+            placeholder="Ex.: ISO 9001"
+            className="mt-2"
+            {...register("applicableNorm")}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-6">
