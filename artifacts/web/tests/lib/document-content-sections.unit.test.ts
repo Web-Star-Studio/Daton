@@ -48,6 +48,10 @@ describe("moveSection", () => {
     expect(moveSection(base, "c", "down")).toBe(base);
     expect(moveSection(moveSection(base, "b", "up"), "a", "down").map((s) => s.order)).toEqual([0, 1, 2]);
   });
+  it("id inexistente é no-op (mesma referência)", () => {
+    const base = [S({ id: "a", order: 0 }), S({ id: "b", order: 1 })];
+    expect(moveSection(base, "zzz", "up")).toBe(base);
+  });
 });
 
 describe("sectionsAreEqual", () => {
@@ -76,5 +80,11 @@ describe("applyLinePrefix", () => {
   it("prefixa cada linha da seleção", () => {
     const r = applyLinePrefix("um\ndois\ntres", 0, 8, "- ");
     expect(r.value).toBe("- um\n- dois\ntres");
+  });
+  it("prefixa linha única (sem newline)", () => {
+    const r = applyLinePrefix("hello world", 2, 7, "> ");
+    expect(r.value).toBe("> hello world");
+    expect(r.selectionStart).toBe(0);
+    expect(r.selectionEnd).toBe("> hello world".length);
   });
 });

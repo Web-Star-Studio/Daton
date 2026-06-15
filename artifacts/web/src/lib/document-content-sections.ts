@@ -9,7 +9,7 @@ export function createSection(title = ""): DocumentContentSection {
 }
 
 export function addSection(sections: DocumentContentSection[], title = ""): DocumentContentSection[] {
-  return reindexOrder([...sections, { ...createSection(title), order: sections.length }]);
+  return reindexOrder([...sections, createSection(title)]);
 }
 
 export function removeSection(sections: DocumentContentSection[], id: string): DocumentContentSection[] {
@@ -60,7 +60,7 @@ export function applyInlineMarkup(value: string, start: number, end: number, mar
 }
 
 export function applyLinePrefix(value: string, start: number, end: number, prefix: string): MarkupResult {
-  const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+  const lineStart = start === 0 ? 0 : value.lastIndexOf("\n", start - 1) + 1;
   const lastCharPos = end > 0 ? end - 1 : 0;
   const afterEnd = value.indexOf("\n", lastCharPos);
   const lineEnd = afterEnd === -1 ? value.length : afterEnd;
