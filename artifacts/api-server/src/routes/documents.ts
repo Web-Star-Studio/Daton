@@ -2215,30 +2215,44 @@ router.put(
       res.status(400).json({ error: body.error.message });
       return;
     }
-    const [doc] = await db
-      .select({ status: documentsTable.status })
-      .from(documentsTable)
-      .where(
-        and(
-          eq(documentsTable.id, params.data.docId),
-          eq(documentsTable.organizationId, params.data.orgId),
-        ),
-      );
-    if (!doc) {
+    const outcome = await db.transaction(async (tx) => {
+      const [doc] = await tx
+        .select({ status: documentsTable.status })
+        .from(documentsTable)
+        .where(
+          and(
+            eq(documentsTable.id, params.data.docId),
+            eq(documentsTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!doc) return "not_found" as const;
+      if (doc.status !== "draft" && doc.status !== "rejected") {
+        return "not_editable" as const;
+      }
+      const contentSections = normalizeContentSections(body.data.contentSections);
+      await tx
+        .update(documentsTable)
+        .set({ contentSections })
+        .where(
+          and(
+            eq(documentsTable.id, params.data.docId),
+            eq(documentsTable.organizationId, params.data.orgId),
+          ),
+        );
+      return "ok" as const;
+    });
+
+    if (outcome === "not_found") {
       res.status(404).json({ error: "Documento não encontrado" });
       return;
     }
-    if (doc.status !== "draft" && doc.status !== "rejected") {
+    if (outcome === "not_editable") {
       res.status(409).json({
         error: "O conteúdo só pode ser editado em rascunho ou após rejeição",
       });
       return;
     }
-    const contentSections = normalizeContentSections(body.data.contentSections);
-    await db
-      .update(documentsTable)
-      .set({ contentSections })
-      .where(eq(documentsTable.id, params.data.docId));
+
     const detail = await getDocumentDetail(params.data.docId, params.data.orgId);
     res.json(detail);
   },
@@ -2984,7 +2998,12 @@ router.post(
           contentSections: documentsTable.contentSections,
         })
         .from(documentsTable)
-        .where(eq(documentsTable.id, docId));
+        .where(
+          and(
+            eq(documentsTable.id, docId),
+            eq(documentsTable.organizationId, orgId),
+          ),
+        );
 
       await tx.insert(documentVersionsTable).values({
         documentId: docId,
