@@ -620,6 +620,13 @@ export default function DocumentDetailPage() {
   useHeaderActions(
     doc ? (
       <div className="flex items-center gap-2">
+        <HeaderActionButton
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/qualidade/documentacao/${docId}/conteudo`)}
+          label="Conteúdo"
+          icon={<FileText className="h-3.5 w-3.5" />}
+        />
         {canEdit && (
           <HeaderActionButton
             size="sm"

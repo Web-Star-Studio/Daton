@@ -38,6 +38,7 @@ import LegislacoesPage from "@/pages/app/qualidade/legislacoes";
 import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
 import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
+import DocumentContentEditorPage from "@/pages/app/qualidade/documentacao/conteudo";
 import SuppliersPage from "@/pages/app/qualidade/fornecedores";
 import SupplierCategoriesPage from "@/pages/app/qualidade/fornecedores/categorias";
 import SupplierCatalogItemsPage from "@/pages/app/qualidade/fornecedores/catalogo-itens";
@@ -197,6 +198,10 @@ function AppPages() {
         component={LegislationDetailPage}
       />
       <Route path="/qualidade/documentacao" component={DocumentacaoPage} />
+      <Route
+        path="/qualidade/documentacao/:id/conteudo"
+        component={DocumentContentEditorPage}
+      />
       <Route
         path="/qualidade/documentacao/:id"
         component={DocumentDetailPage}
