@@ -7,11 +7,28 @@ import {
   integer,
   date,
   unique,
+  jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { organizationsTable } from "./organizations";
 import { organizationContactGroupsTable } from "./organization-contacts";
 import { usersTable } from "./users";
 import { employeesTable } from "./employees";
+
+export type DocumentContentSection = {
+  id: string;
+  title: string;
+  body: string; // markdown
+  order: number;
+};
+
+export type DocumentVersionMetaSnapshot = {
+  title: string;
+  code: string | null;
+  area: string | null;
+  applicableNorm: string | null;
+  normativeRequirements: string[];
+};
 
 export const documentsTable = pgTable(
   "documents",
@@ -31,6 +48,13 @@ export const documentsTable = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    code: text("code"),
+    area: text("area"),
+    applicableNorm: text("applicable_norm"),
+    contentSections: jsonb("content_sections")
+      .$type<DocumentContentSection[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     validityDate: date("validity_date"),
     createdById: integer("created_by_id")
       .notNull()
@@ -43,6 +67,12 @@ export const documentsTable = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
+  (table) => [
+    uniqueIndex("documents_org_code_unique").on(
+      table.organizationId,
+      table.code,
+    ),
+  ],
 );
 
 export type Document = typeof documentsTable.$inferSelect;
@@ -281,6 +311,8 @@ export const documentVersionsTable = pgTable("document_versions", {
     .notNull()
     .references(() => usersTable.id),
   changedFields: text("changed_fields"),
+  contentSections: jsonb("content_sections").$type<DocumentContentSection[]>(),
+  metaSnapshot: jsonb("meta_snapshot").$type<DocumentVersionMetaSnapshot>(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
