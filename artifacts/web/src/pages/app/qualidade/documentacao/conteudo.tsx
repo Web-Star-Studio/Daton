@@ -143,7 +143,7 @@ function SectionCard({
 
 export default function DocumentContentEditorPage() {
   const params = useParams();
-  const docId = Number(params.id);
+  const docId = parseInt(params.id ?? "0", 10);
   const [, navigate] = useLocation();
   const { organization } = useAuth();
   const orgId = organization?.id;
@@ -194,9 +194,13 @@ export default function DocumentContentEditorPage() {
   const handleSave = async () => {
     if (!orgId) return;
     try {
-      await updateMut.mutateAsync({ orgId, docId, data: { contentSections: sections } });
+      const result = await updateMut.mutateAsync({
+        orgId,
+        docId,
+        data: { contentSections: sections },
+      });
       setBaseline(sections);
-      queryClient.invalidateQueries({ queryKey: getGetDocumentQueryKey(orgId, docId) });
+      queryClient.setQueryData(getGetDocumentQueryKey(orgId, docId), result);
       toast({ title: "Conteúdo salvo" });
     } catch {
       toast({
@@ -227,9 +231,7 @@ export default function DocumentContentEditorPage() {
             isLoading={updateMut.isPending}
             label="Salvar"
             icon={<Save className="h-3.5 w-3.5" />}
-          >
-            Salvar
-          </HeaderActionButton>
+          />
         )}
       </div>
     ) : null,
