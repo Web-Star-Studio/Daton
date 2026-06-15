@@ -4,6 +4,7 @@ import {
   UpdateDocumentContentBodySchema,
   normalizeContentSections,
   buildVersionMetaSnapshot,
+  isDuplicateCodeError,
 } from "../../../src/services/documents/content";
 
 const section = (over: Partial<{ id: string; title: string; body: string; order: number }> = {}) => ({ id: "a", title: "Objetivo", body: "texto", order: 0, ...over });
@@ -48,6 +49,22 @@ describe("normalizeContentSections", () => {
 
   it("array vazio retorna vazio", () => {
     expect(normalizeContentSections([])).toEqual([]);
+  });
+});
+
+describe("isDuplicateCodeError", () => {
+  it("reconhece violação 23505 da constraint de código", () => {
+    expect(isDuplicateCodeError({ code: "23505", constraint: "documents_org_code_unique" })).toBe(true);
+  });
+  it("reconhece violação quando encapsulada em .cause (padrão DrizzleQueryError)", () => {
+    const drizzleWrapped = { message: "Failed query", cause: { code: "23505", constraint: "documents_org_code_unique" } };
+    expect(isDuplicateCodeError(drizzleWrapped)).toBe(true);
+  });
+  it("ignora outras violações", () => {
+    expect(isDuplicateCodeError({ code: "23505", constraint: "outra_constraint" })).toBe(false);
+    expect(isDuplicateCodeError({ code: "23502" })).toBe(false);
+    expect(isDuplicateCodeError(new Error("x"))).toBe(false);
+    expect(isDuplicateCodeError(null)).toBe(false);
   });
 });
 

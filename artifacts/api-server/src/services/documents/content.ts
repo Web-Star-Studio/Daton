@@ -24,6 +24,31 @@ export function normalizeContentSections(
     .map((s, index) => ({ ...s, title: s.title.trim(), order: index }));
 }
 
+function isPgUniqueCodeConstraintViolation(target: unknown): boolean {
+  return (
+    typeof target === "object" &&
+    target !== null &&
+    "code" in target &&
+    (target as { code?: string }).code === "23505" &&
+    "constraint" in target &&
+    (target as { constraint?: string }).constraint === "documents_org_code_unique"
+  );
+}
+
+export function isDuplicateCodeError(err: unknown): boolean {
+  if (isPgUniqueCodeConstraintViolation(err)) return true;
+  // Drizzle wraps pg errors in DrizzleQueryError; the original pg error is in .cause
+  if (
+    err !== null &&
+    typeof err === "object" &&
+    "cause" in err &&
+    isPgUniqueCodeConstraintViolation((err as { cause?: unknown }).cause)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function buildVersionMetaSnapshot(doc: {
   title: string;
   code: string | null | undefined;

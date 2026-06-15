@@ -71,6 +71,7 @@ import {
   UpdateDocumentContentBodySchema,
   normalizeContentSections,
   buildVersionMetaSnapshot,
+  isDuplicateCodeError,
 } from "../services/documents/content";
 
 const router: IRouter = Router();
@@ -1264,101 +1265,112 @@ router.post(
       recipientGroupIds,
     );
 
-    const [doc] = await db.transaction(async (tx) => {
-      const [createdDoc] = await tx
-        .insert(documentsTable)
-        .values({
-          organizationId: orgId,
-          title: body.data.title,
-          type: body.data.type,
-          code: body.data.code ?? null,
-          area: body.data.area ?? null,
-          applicableNorm: body.data.applicableNorm ?? null,
-          contentSections: seedSectionsForType(body.data.type),
-          validityDate: body.data.validityDate || null,
-          normativeRequirements,
-          createdById: userId,
-          status: "draft",
-          currentVersion: 0,
-        })
-        .returning();
+    let doc;
+    try {
+      [doc] = await db.transaction(async (tx) => {
+        const [createdDoc] = await tx
+          .insert(documentsTable)
+          .values({
+            organizationId: orgId,
+            title: body.data.title,
+            type: body.data.type,
+            code: body.data.code ?? null,
+            area: body.data.area ?? null,
+            applicableNorm: body.data.applicableNorm ?? null,
+            contentSections: seedSectionsForType(body.data.type),
+            validityDate: body.data.validityDate || null,
+            normativeRequirements,
+            createdById: userId,
+            status: "draft",
+            currentVersion: 0,
+          })
+          .returning();
 
-      if (body.data.unitIds?.length) {
-        await tx.insert(documentUnitsTable).values(
-          body.data.unitIds.map((unitId) => ({
-            documentId: createdDoc.id,
-            unitId,
-          })),
+        if (body.data.unitIds?.length) {
+          await tx.insert(documentUnitsTable).values(
+            body.data.unitIds.map((unitId) => ({
+              documentId: createdDoc.id,
+              unitId,
+            })),
+          );
+        }
+
+        if (elaboratorIds.length > 0) {
+          await tx.insert(documentElaboratorsTable).values(
+            elaboratorIds.map((employeeId) => ({
+              documentId: createdDoc.id,
+              employeeId,
+            })),
+          );
+        }
+
+        await syncDocumentCriticalReviewers(
+          tx,
+          createdDoc.id,
+          criticalReviewerIds,
         );
-      }
+        await startCriticalAnalysisCycle(tx, createdDoc.id, criticalReviewerIds);
 
-      if (elaboratorIds.length > 0) {
-        await tx.insert(documentElaboratorsTable).values(
-          elaboratorIds.map((employeeId) => ({
-            documentId: createdDoc.id,
-            employeeId,
-          })),
+        if (body.data.approverIds?.length) {
+          await tx.insert(documentApproversTable).values(
+            approverIds.map((uid) => ({
+              documentId: createdDoc.id,
+              userId: uid,
+            })),
+          );
+        }
+
+        if (recipientGroupIds.length > 0) {
+          await tx.insert(documentRecipientGroupLinksTable).values(
+            recipientGroupIds.map((groupId) => ({
+              documentId: createdDoc.id,
+              groupId,
+            })),
+          );
+        }
+
+        await replaceDocumentRecipientUserLinks(tx, createdDoc.id, recipientIds);
+
+        await replaceDocumentRecipientsSnapshot(
+          tx,
+          createdDoc.id,
+          resolvedRecipientIds,
         );
+
+        if (body.data.referenceIds?.length) {
+          await tx.insert(documentReferencesTable).values(
+            body.data.referenceIds.map((refId) => ({
+              documentId: createdDoc.id,
+              referencedDocumentId: refId,
+            })),
+          );
+        }
+
+        if (body.data.attachments?.length) {
+          await tx.insert(documentAttachmentsTable).values(
+            body.data.attachments.map((att) => ({
+              documentId: createdDoc.id,
+              versionNumber: 1,
+              fileName: att.fileName,
+              fileSize: att.fileSize,
+              contentType: att.contentType,
+              objectPath: att.objectPath,
+              uploadedById: userId,
+            })),
+          );
+        }
+
+        return [createdDoc] as const;
+      });
+    } catch (err) {
+      if (isDuplicateCodeError(err)) {
+        res.status(409).json({
+          error: "Já existe um documento com este código nesta organização.",
+        });
+        return;
       }
-
-      await syncDocumentCriticalReviewers(
-        tx,
-        createdDoc.id,
-        criticalReviewerIds,
-      );
-      await startCriticalAnalysisCycle(tx, createdDoc.id, criticalReviewerIds);
-
-      if (body.data.approverIds?.length) {
-        await tx.insert(documentApproversTable).values(
-          approverIds.map((uid) => ({
-            documentId: createdDoc.id,
-            userId: uid,
-          })),
-        );
-      }
-
-      if (recipientGroupIds.length > 0) {
-        await tx.insert(documentRecipientGroupLinksTable).values(
-          recipientGroupIds.map((groupId) => ({
-            documentId: createdDoc.id,
-            groupId,
-          })),
-        );
-      }
-
-      await replaceDocumentRecipientUserLinks(tx, createdDoc.id, recipientIds);
-
-      await replaceDocumentRecipientsSnapshot(
-        tx,
-        createdDoc.id,
-        resolvedRecipientIds,
-      );
-
-      if (body.data.referenceIds?.length) {
-        await tx.insert(documentReferencesTable).values(
-          body.data.referenceIds.map((refId) => ({
-            documentId: createdDoc.id,
-            referencedDocumentId: refId,
-          })),
-        );
-      }
-
-      if (body.data.attachments?.length) {
-        await tx.insert(documentAttachmentsTable).values(
-          body.data.attachments.map((att) => ({
-            documentId: createdDoc.id,
-            versionNumber: 1,
-            fileName: att.fileName,
-            fileSize: att.fileSize,
-            contentType: att.contentType,
-            objectPath: att.objectPath,
-            uploadedById: userId,
-          })),
-        );
-      }
-
-      return [createdDoc] as const;
-    });
+      throw err;
+    }
 
     await notifyUsers({
       orgId,
@@ -1880,144 +1892,155 @@ router.patch(
       updates.applicableNorm = body.data.applicableNorm ?? null;
     }
 
-    const nextCriticalReviewerIds = await db.transaction(async (tx) => {
-      const reviewerIds =
-        nextCriticalReviewerIdsInput !== undefined
-          ? nextCriticalReviewerIdsInput
-          : (
-              await tx
-                .selectDistinct({
-                  userId: documentCriticalReviewersTable.userId,
-                })
-                .from(documentCriticalReviewersTable)
-                .where(eq(documentCriticalReviewersTable.documentId, docId))
-            ).map((row) => row.userId);
+    let nextCriticalReviewerIds;
+    try {
+      nextCriticalReviewerIds = await db.transaction(async (tx) => {
+        const reviewerIds =
+          nextCriticalReviewerIdsInput !== undefined
+            ? nextCriticalReviewerIdsInput
+            : (
+                await tx
+                  .selectDistinct({
+                    userId: documentCriticalReviewersTable.userId,
+                  })
+                  .from(documentCriticalReviewersTable)
+                  .where(eq(documentCriticalReviewersTable.documentId, docId))
+              ).map((row) => row.userId);
 
-      await tx
-        .update(documentsTable)
-        .set({
-          ...updates,
-          status: "draft",
-        })
-        .where(eq(documentsTable.id, docId));
-
-      if (body.data.unitIds) {
         await tx
-          .delete(documentUnitsTable)
-          .where(eq(documentUnitsTable.documentId, docId));
-        if (body.data.unitIds.length) {
-          await tx.insert(documentUnitsTable).values(
-            body.data.unitIds.map((uid) => ({
-              documentId: docId,
-              unitId: uid,
-            })),
-          );
+          .update(documentsTable)
+          .set({
+            ...updates,
+            status: "draft",
+          })
+          .where(eq(documentsTable.id, docId));
+
+        if (body.data.unitIds) {
+          await tx
+            .delete(documentUnitsTable)
+            .where(eq(documentUnitsTable.documentId, docId));
+          if (body.data.unitIds.length) {
+            await tx.insert(documentUnitsTable).values(
+              body.data.unitIds.map((uid) => ({
+                documentId: docId,
+                unitId: uid,
+              })),
+            );
+          }
         }
-      }
 
-      if (body.data.elaboratorIds !== undefined) {
-        await tx
-          .delete(documentElaboratorsTable)
-          .where(eq(documentElaboratorsTable.documentId, docId));
-        if (body.data.elaboratorIds.length > 0) {
-          await tx.insert(documentElaboratorsTable).values(
-            body.data.elaboratorIds.map((employeeId) => ({
-              documentId: docId,
-              employeeId,
-            })),
-          );
+        if (body.data.elaboratorIds !== undefined) {
+          await tx
+            .delete(documentElaboratorsTable)
+            .where(eq(documentElaboratorsTable.documentId, docId));
+          if (body.data.elaboratorIds.length > 0) {
+            await tx.insert(documentElaboratorsTable).values(
+              body.data.elaboratorIds.map((employeeId) => ({
+                documentId: docId,
+                employeeId,
+              })),
+            );
+          }
         }
-      }
 
-      if (body.data.criticalReviewerIds !== undefined) {
-        await syncDocumentCriticalReviewers(tx, docId, reviewerIds);
-      }
-
-      if (body.data.approverIds) {
-        await tx
-          .delete(documentApproversTable)
-          .where(eq(documentApproversTable.documentId, docId));
-        if ((nextApproverIds || []).length > 0) {
-          await tx.insert(documentApproversTable).values(
-            nextApproverIds!.map((uid) => ({
-              documentId: docId,
-              userId: uid,
-            })),
-          );
+        if (body.data.criticalReviewerIds !== undefined) {
+          await syncDocumentCriticalReviewers(tx, docId, reviewerIds);
         }
-      }
 
-      const existingRecipientGroupIds =
-        nextRecipientIds === undefined
-          ? (
+        if (body.data.approverIds) {
+          await tx
+            .delete(documentApproversTable)
+            .where(eq(documentApproversTable.documentId, docId));
+          if ((nextApproverIds || []).length > 0) {
+            await tx.insert(documentApproversTable).values(
+              nextApproverIds!.map((uid) => ({
+                documentId: docId,
+                userId: uid,
+              })),
+            );
+          }
+        }
+
+        const existingRecipientGroupIds =
+          nextRecipientIds === undefined
+            ? (
+                await tx
+                  .selectDistinct({ groupId: documentRecipientGroupLinksTable.groupId })
+                  .from(documentRecipientGroupLinksTable)
+                  .where(eq(documentRecipientGroupLinksTable.documentId, docId))
+              ).map((row) => row.groupId)
+            : [];
+
+        if (nextRecipientGroupIds !== undefined) {
+          await tx
+            .delete(documentRecipientGroupLinksTable)
+            .where(eq(documentRecipientGroupLinksTable.documentId, docId));
+          if (nextRecipientGroupIds.length > 0) {
+            await tx.insert(documentRecipientGroupLinksTable).values(
+              nextRecipientGroupIds.map((groupId) => ({
+                documentId: docId,
+                groupId,
+              })),
+            );
+          }
+        }
+
+        if (nextRecipientIds !== undefined || nextRecipientGroupIds !== undefined) {
+          const currentRecipientGroupIds =
+            nextRecipientGroupIds ??
+            (
               await tx
                 .selectDistinct({ groupId: documentRecipientGroupLinksTable.groupId })
                 .from(documentRecipientGroupLinksTable)
                 .where(eq(documentRecipientGroupLinksTable.documentId, docId))
-            ).map((row) => row.groupId)
-          : [];
+            ).map((row) => row.groupId);
 
-      if (nextRecipientGroupIds !== undefined) {
-        await tx
-          .delete(documentRecipientGroupLinksTable)
-          .where(eq(documentRecipientGroupLinksTable.documentId, docId));
-        if (nextRecipientGroupIds.length > 0) {
-          await tx.insert(documentRecipientGroupLinksTable).values(
-            nextRecipientGroupIds.map((groupId) => ({
-              documentId: docId,
-              groupId,
-            })),
+          const currentRecipientIds =
+            nextRecipientIds ??
+            (await getStoredDirectRecipientIds(
+              tx,
+              docId,
+              existingRecipientGroupIds,
+            ));
+
+          await replaceDocumentRecipientUserLinks(tx, docId, currentRecipientIds);
+
+          const resolvedRecipientIds = await resolveRecipientUserIds(
+            orgId,
+            currentRecipientIds,
+            currentRecipientGroupIds,
           );
+
+          await replaceDocumentRecipientsSnapshot(tx, docId, resolvedRecipientIds);
         }
-      }
 
-      if (nextRecipientIds !== undefined || nextRecipientGroupIds !== undefined) {
-        const currentRecipientGroupIds =
-          nextRecipientGroupIds ??
-          (
-            await tx
-              .selectDistinct({ groupId: documentRecipientGroupLinksTable.groupId })
-              .from(documentRecipientGroupLinksTable)
-              .where(eq(documentRecipientGroupLinksTable.documentId, docId))
-          ).map((row) => row.groupId);
-
-        const currentRecipientIds =
-          nextRecipientIds ??
-          (await getStoredDirectRecipientIds(
-            tx,
-            docId,
-            existingRecipientGroupIds,
-          ));
-
-        await replaceDocumentRecipientUserLinks(tx, docId, currentRecipientIds);
-
-        const resolvedRecipientIds = await resolveRecipientUserIds(
-          orgId,
-          currentRecipientIds,
-          currentRecipientGroupIds,
-        );
-
-        await replaceDocumentRecipientsSnapshot(tx, docId, resolvedRecipientIds);
-      }
-
-      if (body.data.referenceIds) {
-        await tx
-          .delete(documentReferencesTable)
-          .where(eq(documentReferencesTable.documentId, docId));
-        if (body.data.referenceIds.length) {
-          await tx.insert(documentReferencesTable).values(
-            body.data.referenceIds.map((refId) => ({
-              documentId: docId,
-              referencedDocumentId: refId,
-            })),
-          );
+        if (body.data.referenceIds) {
+          await tx
+            .delete(documentReferencesTable)
+            .where(eq(documentReferencesTable.documentId, docId));
+          if (body.data.referenceIds.length) {
+            await tx.insert(documentReferencesTable).values(
+              body.data.referenceIds.map((refId) => ({
+                documentId: docId,
+                referencedDocumentId: refId,
+              })),
+            );
+          }
         }
+
+        await startCriticalAnalysisCycle(tx, docId, reviewerIds);
+
+        return reviewerIds;
+      });
+    } catch (err) {
+      if (isDuplicateCodeError(err)) {
+        res.status(409).json({
+          error: "Já existe um documento com este código nesta organização.",
+        });
+        return;
       }
-
-      await startCriticalAnalysisCycle(tx, docId, reviewerIds);
-
-      return reviewerIds;
-    });
+      throw err;
+    }
 
     const detail = await getDocumentDetail(docId, orgId);
     await notifyUsers({

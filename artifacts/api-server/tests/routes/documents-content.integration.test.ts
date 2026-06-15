@@ -280,6 +280,52 @@ describe("documents — content flow", () => {
     expect(putRes.body.error).toBeTruthy();
   });
 
+  // (e) Creating two documents with the same code in the same org returns 409.
+  it("(e) POST /documents retorna 409 ao criar documento com código duplicado na mesma organização", async () => {
+    const context = await createTestContext({
+      seed: "doc-duplicate-code-409",
+      modules: ["documents"],
+    });
+    contexts.push(context);
+
+    const CODE = `DUP-${context.prefix}`;
+
+    // First document: must succeed with 201.
+    await createProcedimentoForTest(context, { code: CODE, noRecipients: true });
+
+    // Second document with the same code: must return 409.
+    const employee = await createEmployee(context, {
+      name: `Elaborador2 ${context.prefix}`,
+    });
+    const criticalReviewer = await createTestUser(context, {
+      role: "operator",
+      suffix: "crit-reviewer2",
+      modules: ["documents"],
+    });
+    const approver = await createTestUser(context, {
+      role: "operator",
+      suffix: "approver2",
+      modules: ["documents"],
+    });
+
+    const dupRes = await request(app)
+      .post(`/api/organizations/${context.organizationId}/documents`)
+      .set(authHeader(context))
+      .send({
+        title: `Documento duplicado ${context.prefix}`,
+        type: "politica",
+        code: CODE,
+        validityDate: "2030-01-01",
+        elaboratorIds: [employee.id],
+        criticalReviewerIds: [criticalReviewer.id],
+        approverIds: [approver.id],
+        recipientIds: [],
+      });
+
+    expect(dupRes.status).toBe(409);
+    expect(dupRes.body.error).toMatch(/código/i);
+  });
+
   // (d) Full approval freezes the snapshot: after editing content and approving
   //     (document with no recipients → becomes `approved`), GET .../versions/1
   //     returns the frozen `contentSections` (matching what was authored) and a
