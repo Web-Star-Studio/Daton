@@ -66,6 +66,12 @@ import {
   listOrganizationContactGroups,
   validateOrgContactGroupIds,
 } from "./organization-contacts.shared";
+import { seedSectionsForType } from "../services/documents/section-templates";
+import {
+  UpdateDocumentContentBodySchema,
+  normalizeContentSections,
+  buildVersionMetaSnapshot,
+} from "../services/documents/content";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -101,6 +107,11 @@ const SuggestDocumentNormativeRequirementsBodySchema = z.object({
   type: z.string().trim().min(1),
   referenceIds: z.array(z.number().int().positive()).optional(),
   currentRequirements: z.array(z.string()).optional(),
+});
+const GetDocumentVersionParams = z.object({
+  orgId: z.coerce.number().int().positive(),
+  docId: z.coerce.number().int().positive(),
+  versionNumber: z.coerce.number().int().min(0),
 });
 async function supportsPendingVersionDescriptionColumn(): Promise<boolean> {
   if (supportsPendingVersionDescriptionColumnCache !== null) {
@@ -685,6 +696,10 @@ async function getDocumentDetail(docId: number, orgId: number) {
       currentVersion: documentsTable.currentVersion,
       normativeRequirements: documentsTable.normativeRequirements,
       validityDate: documentsTable.validityDate,
+      code: documentsTable.code,
+      area: documentsTable.area,
+      applicableNorm: documentsTable.applicableNorm,
+      contentSections: documentsTable.contentSections,
       createdById: documentsTable.createdById,
       createdByName: usersTable.name,
       createdByEmail: usersTable.email,
@@ -947,6 +962,10 @@ async function getDocumentDetail(docId: number, orgId: number) {
       doc.updatedAt instanceof Date
         ? doc.updatedAt.toISOString()
         : doc.updatedAt,
+    code: doc.code ?? null,
+    area: doc.area ?? null,
+    applicableNorm: doc.applicableNorm ?? null,
+    contentSections: doc.contentSections ?? [],
     units: unitRows,
     elaborators:
       elaboratorRows.length > 0
@@ -1252,6 +1271,10 @@ router.post(
           organizationId: orgId,
           title: body.data.title,
           type: body.data.type,
+          code: body.data.code ?? null,
+          area: body.data.area ?? null,
+          applicableNorm: body.data.applicableNorm ?? null,
+          contentSections: seedSectionsForType(body.data.type),
           validityDate: body.data.validityDate || null,
           normativeRequirements,
           createdById: userId,
@@ -1847,6 +1870,15 @@ router.patch(
     if (normalizedNormativeRequirements !== undefined) {
       updates.normativeRequirements = normalizedNormativeRequirements;
     }
+    if (body.data.code !== undefined) {
+      updates.code = body.data.code ?? null;
+    }
+    if (body.data.area !== undefined) {
+      updates.area = body.data.area ?? null;
+    }
+    if (body.data.applicableNorm !== undefined) {
+      updates.applicableNorm = body.data.applicableNorm ?? null;
+    }
 
     const nextCriticalReviewerIds = await db.transaction(async (tx) => {
       const reviewerIds =
@@ -2160,6 +2192,114 @@ router.delete(
     });
 
     res.sendStatus(204);
+  },
+);
+
+router.put(
+  "/organizations/:orgId/documents/:docId/content",
+  requireAuth,
+  requireModuleAccess("documents"),
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = GetDocumentParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    const body = UpdateDocumentContentBodySchema.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+    const [doc] = await db
+      .select({ status: documentsTable.status })
+      .from(documentsTable)
+      .where(
+        and(
+          eq(documentsTable.id, params.data.docId),
+          eq(documentsTable.organizationId, params.data.orgId),
+        ),
+      );
+    if (!doc) {
+      res.status(404).json({ error: "Documento não encontrado" });
+      return;
+    }
+    if (doc.status !== "draft" && doc.status !== "rejected") {
+      res.status(409).json({
+        error: "O conteúdo só pode ser editado em rascunho ou após rejeição",
+      });
+      return;
+    }
+    const contentSections = normalizeContentSections(body.data.contentSections);
+    await db
+      .update(documentsTable)
+      .set({ contentSections })
+      .where(eq(documentsTable.id, params.data.docId));
+    const detail = await getDocumentDetail(params.data.docId, params.data.orgId);
+    res.json(detail);
+  },
+);
+
+router.get(
+  "/organizations/:orgId/documents/:docId/versions/:versionNumber",
+  requireAuth,
+  requireModuleAccess("documents"),
+  async (req, res): Promise<void> => {
+    const params = GetDocumentVersionParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    const [doc] = await db
+      .select({ id: documentsTable.id })
+      .from(documentsTable)
+      .where(
+        and(
+          eq(documentsTable.id, params.data.docId),
+          eq(documentsTable.organizationId, params.data.orgId),
+        ),
+      );
+    if (!doc) {
+      res.status(404).json({ error: "Documento não encontrado" });
+      return;
+    }
+    const [version] = await db
+      .select({
+        versionNumber: documentVersionsTable.versionNumber,
+        changeDescription: documentVersionsTable.changeDescription,
+        createdAt: documentVersionsTable.createdAt,
+        contentSections: documentVersionsTable.contentSections,
+        metaSnapshot: documentVersionsTable.metaSnapshot,
+      })
+      .from(documentVersionsTable)
+      .where(
+        and(
+          eq(documentVersionsTable.documentId, params.data.docId),
+          eq(documentVersionsTable.versionNumber, params.data.versionNumber),
+        ),
+      );
+    if (!version) {
+      res.status(404).json({ error: "Revisão não encontrada" });
+      return;
+    }
+    res.json({
+      versionNumber: version.versionNumber,
+      changeDescription: version.changeDescription,
+      createdAt:
+        version.createdAt instanceof Date
+          ? version.createdAt.toISOString()
+          : version.createdAt,
+      contentSections: version.contentSections ?? [],
+      metaSnapshot: version.metaSnapshot ?? null,
+    });
   },
 );
 
@@ -2834,12 +2974,28 @@ router.post(
           );
       }
 
+      const [docForSnapshot] = await tx
+        .select({
+          title: documentsTable.title,
+          code: documentsTable.code,
+          area: documentsTable.area,
+          applicableNorm: documentsTable.applicableNorm,
+          normativeRequirements: documentsTable.normativeRequirements,
+          contentSections: documentsTable.contentSections,
+        })
+        .from(documentsTable)
+        .where(eq(documentsTable.id, docId));
+
       await tx.insert(documentVersionsTable).values({
         documentId: docId,
         versionNumber: newVersion,
         changeDescription,
         changedById: userId,
         changedFields: "version_approved",
+        contentSections: docForSnapshot?.contentSections ?? [],
+        metaSnapshot: docForSnapshot
+          ? buildVersionMetaSnapshot(docForSnapshot)
+          : null,
       });
 
       const recipients = await tx
