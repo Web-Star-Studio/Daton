@@ -2238,6 +2238,9 @@ router.put(
       res.status(400).json({ error: body.error.message });
       return;
     }
+    const reviewerIds = await getDocumentCriticalReviewerUserIds(
+      params.data.docId,
+    );
     const outcome = await db.transaction(async (tx) => {
       const [doc] = await tx
         .select({ status: documentsTable.status })
@@ -2262,6 +2265,7 @@ router.put(
             eq(documentsTable.organizationId, params.data.orgId),
           ),
         );
+      await startCriticalAnalysisCycle(tx, params.data.docId, reviewerIds);
       return "ok" as const;
     });
 

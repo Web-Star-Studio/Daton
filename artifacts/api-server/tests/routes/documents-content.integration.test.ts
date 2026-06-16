@@ -280,6 +280,52 @@ describe("documents — content flow", () => {
     expect(putRes.body.error).toBeTruthy();
   });
 
+  // (f) After critical analysis is completed, editing content via PUT .../content
+  //     reopens the critical-analysis cycle (re-review required before submit).
+  it("(f) PUT /content reopens critical-analysis cycle after it was completed", async () => {
+    const context = await createTestContext({
+      seed: "doc-content-reopen-cycle",
+      modules: ["documents"],
+    });
+    contexts.push(context);
+
+    const { document, criticalReviewer } = await createProcedimentoForTest(context);
+
+    // Complete the critical analysis so it is no longer pending.
+    await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/documents/${document.id}/critical-analysis/complete`,
+      )
+      .set({ Authorization: `Bearer ${criticalReviewer.token}` })
+      .send({})
+      .expect(200);
+
+    // Edit the content — this must restart the critical-analysis cycle.
+    const putRes = await request(app)
+      .put(
+        `/api/organizations/${context.organizationId}/documents/${document.id}/content`,
+      )
+      .set(authHeader(context))
+      .send({
+        contentSections: [
+          { id: "sec-updated", title: "Objetivo Atualizado", body: "novo conteúdo", order: 0 },
+        ],
+      });
+
+    expect(putRes.status).toBe(200);
+
+    // Attempt to submit — must fail because critical analysis is pending again.
+    const submitRes = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/documents/${document.id}/submit`,
+      )
+      .set(authHeader(context))
+      .send({ changeDescription: "Conteúdo revisado" });
+
+    expect(submitRes.status).toBe(400);
+    expect(submitRes.body.error).toMatch(/análise crítica/i);
+  });
+
   // (e) Creating two documents with the same code in the same org returns 409.
   it("(e) POST /documents retorna 409 ao criar documento com código duplicado na mesma organização", async () => {
     const context = await createTestContext({

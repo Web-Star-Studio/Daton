@@ -607,9 +607,9 @@ export default function DocumentDetailPage() {
         docId,
         data: {
           title: editForm.title.trim(),
-          code: editForm.code.trim() || undefined,
-          area: editForm.area.trim() || undefined,
-          applicableNorm: editForm.applicableNorm.trim() || undefined,
+          code: editForm.code.trim() || null,
+          area: editForm.area.trim() || null,
+          applicableNorm: editForm.applicableNorm.trim() || null,
           type: editForm.type,
           validityDate: editForm.validityDate || undefined,
           elaboratorIds: editForm.elaboratorIds,
