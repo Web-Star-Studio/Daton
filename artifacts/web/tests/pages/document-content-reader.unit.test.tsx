@@ -12,7 +12,7 @@ describe("DocumentContentReader", () => {
         ]}
       />,
     );
-    const headings = screen.getAllByRole("heading");
+    const headings = screen.getAllByRole("heading", { level: 3 });
     expect(headings.map((h) => h.textContent)).toEqual(["Primeiro", "Segundo"]);
     expect(screen.getByText("negrito").tagName).toBe("STRONG");
   });
@@ -20,5 +20,15 @@ describe("DocumentContentReader", () => {
   it("mostra estado vazio quando não há seções", () => {
     render(<DocumentContentReader sections={[]} />);
     expect(screen.getByText(/nenhum conteúdo/i)).toBeInTheDocument();
+  });
+
+  it("usa — quando o título está vazio", () => {
+    render(<DocumentContentReader sections={[{ id: "a", title: "", body: "x", order: 0 }]} />);
+    expect(screen.getByRole("heading", { level: 3 }).textContent).toBe("—");
+  });
+
+  it("mostra placeholder quando o corpo está vazio", () => {
+    render(<DocumentContentReader sections={[{ id: "a", title: "T", body: "", order: 0 }]} />);
+    expect(screen.getByText("Sem conteúdo.")).toBeInTheDocument();
   });
 });

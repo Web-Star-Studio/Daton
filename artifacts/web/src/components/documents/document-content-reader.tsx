@@ -5,7 +5,7 @@ import type { DocumentContentSection } from "@workspace/api-client-react";
 export function DocumentContentReader({
   sections,
 }: {
-  sections: DocumentContentSection[];
+  sections?: DocumentContentSection[];
 }) {
   if (!sections || sections.length === 0) {
     return (
