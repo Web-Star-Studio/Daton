@@ -2233,6 +2233,7 @@ router.put(
       res.status(403).json({ error: "Acesso negado" });
       return;
     }
+    const userId = req.auth!.userId;
     const body = UpdateDocumentContentBodySchema.safeParse(req.body);
     if (!body.success) {
       res.status(400).json({ error: body.error.message });
@@ -2242,6 +2243,7 @@ router.put(
       params.data.docId,
     );
     const outcome = await db.transaction(async (tx) => {
+      await lockDocumentForCriticalAnalysisMutation(tx, params.data.docId);
       const [doc] = await tx
         .select({ status: documentsTable.status })
         .from(documentsTable)
@@ -2258,7 +2260,7 @@ router.put(
       const contentSections = normalizeContentSections(body.data.contentSections);
       await tx
         .update(documentsTable)
-        .set({ contentSections })
+        .set({ contentSections, status: "draft" })
         .where(
           and(
             eq(documentsTable.id, params.data.docId),
@@ -2281,6 +2283,25 @@ router.put(
     }
 
     const detail = await getDocumentDetail(params.data.docId, params.data.orgId);
+    if (reviewerIds.length > 0) {
+      await notifyUsers({
+        orgId: params.data.orgId,
+        userIds: reviewerIds,
+        actorUserId: userId,
+        type: "document_critical_analysis_requested",
+        title: "Documento reenviado para análise crítica",
+        description: `O documento "${detail?.title ?? ""}" teve o conteúdo atualizado e precisa de nova análise crítica.`,
+        docId: params.data.docId,
+      });
+    }
+    await notifyDocumentDraftStakeholders({
+      orgId: params.data.orgId,
+      docId: params.data.docId,
+      actorUserId: userId,
+      type: "document_updated",
+      title: "Documento atualizado",
+      description: `O documento "${detail?.title ?? ""}" teve o conteúdo atualizado.`,
+    });
     res.json(detail);
   },
 );

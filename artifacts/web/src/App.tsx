@@ -326,6 +326,10 @@ function AppPages() {
       />
       <Route path="/app/qualidade/documentacao" component={DocumentacaoPage} />
       <Route
+        path="/app/qualidade/documentacao/:id/conteudo"
+        component={DocumentContentEditorPage}
+      />
+      <Route
         path="/app/qualidade/documentacao/:id"
         component={DocumentDetailPage}
       />

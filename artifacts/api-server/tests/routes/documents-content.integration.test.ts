@@ -1,5 +1,7 @@
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { db, documentsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const { createCompletionMock } = vi.hoisted(() => ({
   createCompletionMock: vi.fn(),
@@ -324,6 +326,51 @@ describe("documents — content flow", () => {
 
     expect(submitRes.status).toBe(400);
     expect(submitRes.body.error).toMatch(/análise crítica/i);
+  });
+
+  // (g) Editing content of a document in `rejected` status resets it to `draft`.
+  //     The `rejected` document status is set directly in the DB (the reject
+  //     API endpoint already resets the document to `draft`; the status guard
+  //     in the handler accepts both `draft` and `rejected` for future-proofing
+  //     and because the schema includes it as a valid value).
+  it("(g) PUT /content resets status from rejected to draft", async () => {
+    const context = await createTestContext({
+      seed: "doc-content-rejected-to-draft",
+      modules: ["documents"],
+    });
+    contexts.push(context);
+
+    const { document } = await createProcedimentoForTest(context);
+
+    // Force the document into `rejected` status directly in the DB, simulating
+    // a document that arrived at this state (e.g. via legacy data or future
+    // approval flow changes).
+    await db
+      .update(documentsTable)
+      .set({ status: "rejected" })
+      .where(eq(documentsTable.id, document.id));
+
+    // Editing content must succeed and reset status to `draft`.
+    const putRes = await request(app)
+      .put(
+        `/api/organizations/${context.organizationId}/documents/${document.id}/content`,
+      )
+      .set(authHeader(context))
+      .send({
+        contentSections: [
+          { id: "sec-1", title: "Objetivo", body: "revisado", order: 0 },
+        ],
+      });
+
+    expect(putRes.status).toBe(200);
+    expect(putRes.body.status).toBe("draft");
+
+    // Confirm the DB was updated as well.
+    const [stored] = await db
+      .select({ status: documentsTable.status })
+      .from(documentsTable)
+      .where(eq(documentsTable.id, document.id));
+    expect(stored?.status).toBe("draft");
   });
 
   // (e) Creating two documents with the same code in the same org returns 409.

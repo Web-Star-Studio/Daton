@@ -46,7 +46,7 @@
 
 - [ ] **Step 1: Ampliar o import do pg-core**
 
-Em `lib/db/src/schema/documents.ts:2-10`, adicionar `jsonb` e `uniqueIndex` ao import:
+Em `lib/db/src/schema/documents.ts:2-10`, adicionar `jsonb` ao import:
 
 ```ts
 import {
@@ -58,7 +58,6 @@ import {
   date,
   unique,
   jsonb,
-  uniqueIndex,
 } from "drizzle-orm/pg-core";
 ```
 
@@ -124,10 +123,7 @@ para:
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    uniqueIndex("documents_org_code_unique").on(
-      table.organizationId,
-      table.code,
-    ),
+    unique("documents_org_code_unique").on(table.organizationId, table.code),
   ],
 );
 ```
