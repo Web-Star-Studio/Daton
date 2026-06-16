@@ -2239,9 +2239,7 @@ router.put(
       res.status(400).json({ error: body.error.message });
       return;
     }
-    const reviewerIds = await getDocumentCriticalReviewerUserIds(
-      params.data.docId,
-    );
+    let reviewerIds: number[] = [];
     const outcome = await db.transaction(async (tx) => {
       await lockDocumentForCriticalAnalysisMutation(tx, params.data.docId);
       const [doc] = await tx
@@ -2257,6 +2255,12 @@ router.put(
       if (doc.status !== "draft" && doc.status !== "rejected") {
         return "not_editable" as const;
       }
+      reviewerIds = (
+        await tx
+          .selectDistinct({ userId: documentCriticalReviewersTable.userId })
+          .from(documentCriticalReviewersTable)
+          .where(eq(documentCriticalReviewersTable.documentId, params.data.docId))
+      ).map((row) => row.userId);
       const contentSections = normalizeContentSections(body.data.contentSections);
       await tx
         .update(documentsTable)

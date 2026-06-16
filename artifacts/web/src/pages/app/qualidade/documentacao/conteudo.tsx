@@ -169,12 +169,14 @@ export default function DocumentContentEditorPage() {
   const [baseline, setBaseline] = useState<DocumentContentSection[]>([]);
   const [discardOpen, setDiscardOpen] = useState(false);
 
+  const initializedDocId = useRef<number | null>(null);
   useEffect(() => {
-    if (doc?.contentSections) {
+    if (doc?.contentSections && initializedDocId.current !== docId) {
       setSections(doc.contentSections);
       setBaseline(doc.contentSections);
+      initializedDocId.current = docId;
     }
-  }, [doc?.contentSections]);
+  }, [doc?.contentSections, docId]);
 
   const isDirty = useMemo(
     () => !sectionsAreEqual(sections, baseline),
