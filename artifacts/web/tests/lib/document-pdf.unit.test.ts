@@ -66,6 +66,9 @@ describe("pdfFilename", () => {
   it("versão 0 (sem aprovação) não recebe sufixo -v", () => {
     expect(pdfFilename({ title: "Doc", code: "PC-1", version: 0, sections: [] })).toBe("PC-1.pdf");
   });
+  it("sanitiza caracteres reservados no código", () => {
+    expect(pdfFilename({ title: "T", code: "DOC/2024:01", sections: [] })).toBe("DOC-2024-01.pdf");
+  });
 });
 
 describe("buildDocumentPdf (smoke)", () => {

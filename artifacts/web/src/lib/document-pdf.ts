@@ -84,7 +84,7 @@ function slugify(value: string): string {
 
 export function pdfFilename(input: DocumentPdfInput): string {
   const base =
-    input.code?.trim().replace(/[/\\]/g, "-") || slugify(input.title) || "documento";
+    input.code?.trim().replace(/[/\\:?*|"<>]/g, "-") || slugify(input.title) || "documento";
   const suffix = input.version ? `-v${input.version}` : "";
   return `${base}${suffix}.pdf`;
 }

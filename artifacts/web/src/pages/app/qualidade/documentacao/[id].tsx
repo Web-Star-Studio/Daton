@@ -658,7 +658,7 @@ export default function DocumentDetailPage() {
               type: TYPE_LABELS[doc.type] || doc.type,
               applicableNorm: doc.applicableNorm,
               version: doc.currentVersion,
-              validityDate: formatDate(doc.validityDate),
+              validityDate: doc.validityDate ? formatDate(doc.validityDate) : null,
               approvedByName:
                 doc.approvers?.find((a) => a.status === "approved")?.name ??
                 null,
