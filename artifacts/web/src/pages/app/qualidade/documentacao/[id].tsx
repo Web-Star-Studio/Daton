@@ -9,6 +9,8 @@ import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import {
   useGetDocument,
   getGetDocumentQueryKey,
+  useGetDocumentVersionSnapshot,
+  getGetDocumentVersionSnapshotQueryKey,
   useUpdateDocument,
   useSubmitDocumentForReview,
   useApproveDocument,
@@ -69,7 +71,9 @@ import {
   RotateCcw,
   Eye,
   Pencil,
+  AlignLeft,
 } from "lucide-react";
+import { DocumentContentReader } from "@/components/documents/document-content-reader";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Análise crítica",
@@ -203,8 +207,9 @@ export default function DocumentDetailPage() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<
-    "info" | "attachments" | "versions" | "flow"
+    "info" | "content" | "attachments" | "versions" | "flow"
   >("info");
+  const [snapshotVersion, setSnapshotVersion] = useState<number | null>(null);
   const [rejectDialog, setRejectDialog] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -239,6 +244,17 @@ export default function DocumentDetailPage() {
       enabled: !!orgId && docId > 0,
     },
   });
+  const { data: snapshot, isLoading: snapshotLoading } =
+    useGetDocumentVersionSnapshot(orgId!, docId, snapshotVersion ?? 0, {
+      query: {
+        queryKey: getGetDocumentVersionSnapshotQueryKey(
+          orgId!,
+          docId,
+          snapshotVersion ?? 0,
+        ),
+        enabled: !!orgId && snapshotVersion !== null,
+      },
+    });
   const isPolicyDocument = doc?.type === "politica";
   const { data: communicationPlans = [] } = useDocumentCommunicationPlans(
     orgId,
@@ -885,6 +901,7 @@ export default function DocumentDetailPage() {
 
   const tabs = [
     { id: "info" as const, label: "Informações", icon: FileText },
+    { id: "content" as const, label: "Conteúdo", icon: AlignLeft },
     { id: "attachments" as const, label: "Anexos", icon: Paperclip },
     { id: "versions" as const, label: "Versões", icon: GitBranch },
     { id: "flow" as const, label: "Fluxo", icon: Users },
@@ -951,12 +968,12 @@ export default function DocumentDetailPage() {
               label="Data de Validade"
               value={formatDate(doc.validityDate)}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-6">
             <InfoField
               label="Criado em"
               value={formatDateTime(doc.createdAt)}
             />
-          </div>
-          <div className="grid grid-cols-2 gap-6">
             <InfoField
               label="Atualizado em"
               value={formatDateTime(doc.updatedAt)}
@@ -1257,6 +1274,10 @@ export default function DocumentDetailPage() {
         </div>
       )}
 
+      {activeTab === "content" && (
+        <DocumentContentReader sections={doc.contentSections} />
+      )}
+
       {activeTab === "attachments" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -1391,7 +1412,11 @@ export default function DocumentDetailPage() {
                   <div className="absolute -left-[29px] top-1 w-4 h-4 rounded-full bg-card border-2 border-foreground/20 flex items-center justify-center">
                     <div className="w-1.5 h-1.5 rounded-full bg-foreground/40" />
                   </div>
-                  <div>
+                  <button
+                    type="button"
+                    onClick={() => setSnapshotVersion(v.versionNumber)}
+                    className="text-left w-full rounded-lg -mx-2 px-2 py-1 hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold">
                         v{v.versionNumber}
@@ -1399,6 +1424,7 @@ export default function DocumentDetailPage() {
                       <span className="text-xs text-muted-foreground">
                         {formatDateTime(v.createdAt)}
                       </span>
+                      <Eye className="h-3.5 w-3.5 text-muted-foreground/60 ml-auto" />
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {v.changeDescription}
@@ -1413,7 +1439,7 @@ export default function DocumentDetailPage() {
                         Campos: {v.changedFields}
                       </p>
                     )}
-                  </div>
+                  </button>
                 </div>
               ))}
             </div>
@@ -2088,6 +2114,37 @@ export default function DocumentDetailPage() {
               Rejeitar
             </Button>
           </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={snapshotVersion !== null}
+        onOpenChange={(open) => {
+          if (!open) setSnapshotVersion(null);
+        }}
+        title={`Conteúdo — v${snapshotVersion ?? ""}`}
+        description="Versão congelada desta revisão (somente leitura)."
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-auto">
+          {snapshotLoading || !snapshot ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : (
+            <>
+              {snapshot.metaSnapshot && (
+                <div className="text-xs text-muted-foreground">
+                  {snapshot.metaSnapshot.title}
+                  {snapshot.metaSnapshot.code
+                    ? ` · ${snapshot.metaSnapshot.code}`
+                    : ""}
+                  {snapshot.metaSnapshot.applicableNorm
+                    ? ` · ${snapshot.metaSnapshot.applicableNorm}`
+                    : ""}
+                  {` · ${formatDateTime(snapshot.createdAt)}`}
+                </div>
+              )}
+              <DocumentContentReader sections={snapshot.contentSections} />
+            </>
+          )}
         </div>
       </Dialog>
 
