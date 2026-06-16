@@ -32,13 +32,13 @@ export function parseInlineRuns(text: string): InlineRun[] {
       runs.push({ text: text.slice(last, m.index), bold: false, italic: false });
     }
     if (m[2] !== undefined) runs.push({ text: m[2], bold: true, italic: false });
-    else runs.push({ text: m[3]!, bold: false, italic: true });
+    else runs.push({ text: m[3] ?? "", bold: false, italic: true });
     last = re.lastIndex;
   }
   if (last < text.length) {
     runs.push({ text: text.slice(last), bold: false, italic: false });
   }
-  return runs.length ? runs : [{ text, bold: false, italic: false }];
+  return runs;
 }
 
 export function parseMarkdownBlocks(body: string): Block[] {
@@ -77,13 +77,14 @@ function slugify(value: string): string {
   return value
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
 
 export function pdfFilename(input: DocumentPdfInput): string {
-  const base = input.code?.trim() || slugify(input.title) || "documento";
+  const base =
+    input.code?.trim().replace(/[/\\]/g, "-") || slugify(input.title) || "documento";
   const suffix = input.version ? `-v${input.version}` : "";
   return `${base}${suffix}.pdf`;
 }
@@ -156,7 +157,7 @@ export function buildDocumentPdf(input: DocumentPdfInput): jsPDF {
     ensureSpace(14);
     const wrapped = doc.splitTextToSize(headerBits, pageW - margin * 2);
     doc.text(wrapped, margin, y);
-    y += 12 * wrapped.length;
+    y += 13 * wrapped.length;
     doc.setTextColor(0);
   }
   y += 6;
