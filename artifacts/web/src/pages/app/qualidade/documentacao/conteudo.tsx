@@ -169,19 +169,23 @@ export default function DocumentContentEditorPage() {
   const [baseline, setBaseline] = useState<DocumentContentSection[]>([]);
   const [discardOpen, setDiscardOpen] = useState(false);
 
-  const initializedDocId = useRef<number | null>(null);
-  useEffect(() => {
-    if (doc?.contentSections && initializedDocId.current !== docId) {
-      setSections(doc.contentSections);
-      setBaseline(doc.contentSections);
-      initializedDocId.current = docId;
-    }
-  }, [doc?.contentSections, docId]);
-
   const isDirty = useMemo(
     () => !sectionsAreEqual(sections, baseline),
     [sections, baseline],
   );
+
+  const initializedDocId = useRef<number | null>(null);
+  useEffect(() => {
+    if (!doc?.contentSections) return;
+    // Adota o conteúdo do servidor ao trocar de documento OU quando o editor
+    // está limpo. Com edição não salva pendente, não sobrescreve (preserva o
+    // trabalho local até salvar ou descartar).
+    if (initializedDocId.current !== docId || !isDirty) {
+      setSections(doc.contentSections);
+      setBaseline(doc.contentSections);
+      initializedDocId.current = docId;
+    }
+  }, [doc?.contentSections, docId, isDirty]);
 
   useEffect(() => {
     if (!isDirty) return;
