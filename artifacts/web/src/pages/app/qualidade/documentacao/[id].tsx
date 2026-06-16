@@ -244,17 +244,21 @@ export default function DocumentDetailPage() {
       enabled: !!orgId && docId > 0,
     },
   });
-  const { data: snapshot, isLoading: snapshotLoading } =
-    useGetDocumentVersionSnapshot(orgId!, docId, snapshotVersion ?? 0, {
-      query: {
-        queryKey: getGetDocumentVersionSnapshotQueryKey(
-          orgId!,
-          docId,
-          snapshotVersion ?? 0,
-        ),
-        enabled: !!orgId && snapshotVersion !== null,
-      },
-    });
+  const snapshotVersionParam = snapshotVersion ?? 0;
+  const {
+    data: snapshot,
+    isLoading: snapshotLoading,
+    isError: snapshotError,
+  } = useGetDocumentVersionSnapshot(orgId!, docId, snapshotVersionParam, {
+    query: {
+      queryKey: getGetDocumentVersionSnapshotQueryKey(
+        orgId!,
+        docId,
+        snapshotVersionParam,
+      ),
+      enabled: !!orgId && docId > 0 && !!snapshotVersion,
+    },
+  });
   const isPolicyDocument = doc?.type === "politica";
   const { data: communicationPlans = [] } = useDocumentCommunicationPlans(
     orgId,
@@ -2126,22 +2130,24 @@ export default function DocumentDetailPage() {
         description="Versão congelada desta revisão (somente leitura)."
       >
         <div className="space-y-4 max-h-[60vh] overflow-auto">
-          {snapshotLoading || !snapshot ? (
+          {snapshotLoading ? (
             <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : snapshotError || !snapshot ? (
+            <p className="text-sm text-red-600">
+              Não foi possível carregar esta revisão.
+            </p>
           ) : (
             <>
-              {snapshot.metaSnapshot && (
-                <div className="text-xs text-muted-foreground">
-                  {snapshot.metaSnapshot.title}
-                  {snapshot.metaSnapshot.code
-                    ? ` · ${snapshot.metaSnapshot.code}`
-                    : ""}
-                  {snapshot.metaSnapshot.applicableNorm
-                    ? ` · ${snapshot.metaSnapshot.applicableNorm}`
-                    : ""}
-                  {` · ${formatDateTime(snapshot.createdAt)}`}
-                </div>
-              )}
+              <div className="text-xs text-muted-foreground">
+                {[
+                  snapshot.metaSnapshot?.title,
+                  snapshot.metaSnapshot?.code,
+                  snapshot.metaSnapshot?.applicableNorm,
+                  formatDateTime(snapshot.createdAt),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
               <DocumentContentReader sections={snapshot.contentSections} />
             </>
           )}

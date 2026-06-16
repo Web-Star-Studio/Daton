@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { DocumentContentSection } from "@workspace/api-client-react";
@@ -7,6 +8,10 @@ export function DocumentContentReader({
 }: {
   sections?: DocumentContentSection[];
 }) {
+  const ordered = useMemo(
+    () => [...(sections ?? [])].sort((a, b) => a.order - b.order),
+    [sections],
+  );
   if (!sections || sections.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-4">
@@ -14,7 +19,6 @@ export function DocumentContentReader({
       </p>
     );
   }
-  const ordered = [...sections].sort((a, b) => a.order - b.order);
   return (
     <div className="space-y-6">
       {ordered.map((section) => (
