@@ -74,6 +74,7 @@ import {
   AlignLeft,
 } from "lucide-react";
 import { DocumentContentReader } from "@/components/documents/document-content-reader";
+import { exportDocumentPdf } from "@/lib/document-pdf";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Análise crítica",
@@ -646,6 +647,26 @@ export default function DocumentDetailPage() {
           onClick={() => navigate(`/qualidade/documentacao/${docId}/conteudo`)}
           label="Conteúdo"
           icon={<FileText className="h-3.5 w-3.5" />}
+        />
+        <HeaderActionButton
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            exportDocumentPdf({
+              title: doc.title,
+              code: doc.code,
+              type: TYPE_LABELS[doc.type] || doc.type,
+              applicableNorm: doc.applicableNorm,
+              version: doc.currentVersion,
+              validityDate: formatDate(doc.validityDate),
+              approvedByName:
+                doc.approvers?.find((a) => a.status === "approved")?.name ??
+                null,
+              sections: doc.contentSections,
+            })
+          }
+          label="Exportar PDF"
+          icon={<Download className="h-3.5 w-3.5" />}
         />
         {canEdit && (
           <HeaderActionButton
