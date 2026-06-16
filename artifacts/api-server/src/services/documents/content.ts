@@ -1,6 +1,13 @@
 import { z } from "zod";
 import type { DocumentContentSection, DocumentVersionMetaSnapshot } from "@workspace/db";
 
+/** Trims a string and converts blank/undefined to null (for optional identification fields). */
+export function blankToNull(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
 export const DocumentContentSectionSchema = z.object({
   id: z.string().min(1).max(64),
   title: z.string().trim().min(1).max(200),

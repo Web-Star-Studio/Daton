@@ -5,6 +5,7 @@ import {
   normalizeContentSections,
   buildVersionMetaSnapshot,
   isDuplicateCodeError,
+  blankToNull,
 } from "../../../src/services/documents/content";
 
 const section = (over: Partial<{ id: string; title: string; body: string; order: number }> = {}) => ({ id: "a", title: "Objetivo", body: "texto", order: 0, ...over });
@@ -65,6 +66,18 @@ describe("isDuplicateCodeError", () => {
     expect(isDuplicateCodeError({ code: "23502" })).toBe(false);
     expect(isDuplicateCodeError(new Error("x"))).toBe(false);
     expect(isDuplicateCodeError(null)).toBe(false);
+  });
+});
+
+describe("blankToNull", () => {
+  it("converte vazio/espaços/undefined/null em null", () => {
+    expect(blankToNull("")).toBeNull();
+    expect(blankToNull("   ")).toBeNull();
+    expect(blankToNull(undefined)).toBeNull();
+    expect(blankToNull(null)).toBeNull();
+  });
+  it("faz trim e preserva valor não-vazio", () => {
+    expect(blankToNull("  IT-LOG-001  ")).toBe("IT-LOG-001");
   });
 });
 

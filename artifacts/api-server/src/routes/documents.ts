@@ -72,6 +72,7 @@ import {
   normalizeContentSections,
   buildVersionMetaSnapshot,
   isDuplicateCodeError,
+  blankToNull,
 } from "../services/documents/content";
 
 const router: IRouter = Router();
@@ -1274,9 +1275,9 @@ router.post(
             organizationId: orgId,
             title: body.data.title,
             type: body.data.type,
-            code: body.data.code ?? null,
-            area: body.data.area ?? null,
-            applicableNorm: body.data.applicableNorm ?? null,
+            code: blankToNull(body.data.code),
+            area: blankToNull(body.data.area),
+            applicableNorm: blankToNull(body.data.applicableNorm),
             contentSections: seedSectionsForType(body.data.type),
             validityDate: body.data.validityDate || null,
             normativeRequirements,
@@ -1883,13 +1884,13 @@ router.patch(
       updates.normativeRequirements = normalizedNormativeRequirements;
     }
     if (body.data.code !== undefined) {
-      updates.code = body.data.code ?? null;
+      updates.code = blankToNull(body.data.code);
     }
     if (body.data.area !== undefined) {
-      updates.area = body.data.area ?? null;
+      updates.area = blankToNull(body.data.area);
     }
     if (body.data.applicableNorm !== undefined) {
-      updates.applicableNorm = body.data.applicableNorm ?? null;
+      updates.applicableNorm = blankToNull(body.data.applicableNorm);
     }
 
     let nextCriticalReviewerIds;
