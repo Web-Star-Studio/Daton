@@ -666,6 +666,21 @@ router.delete("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, 
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+  const [existing] = await db
+    .select({
+      unitId: kpiIndicatorsTable.unitId,
+      responsibleUserId: kpiIndicatorsTable.responsibleUserId,
+      rollupStrategy: kpiIndicatorsTable.rollupStrategy,
+    })
+    .from(kpiIndicatorsTable)
+    .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)));
+  if (!existing) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
+
+  const scope = await getRequesterKpiScope(req);
+  if (!canActOnKpiIndicator(scope, accessFieldsOf(existing), "delete")) {
+    res.status(403).json({ error: "Sem permissão para excluir este indicador" }); return;
+  }
+
   const [row] = await db.delete(kpiIndicatorsTable)
     .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)))
     .returning();
