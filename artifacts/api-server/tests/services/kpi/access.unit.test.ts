@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { canActOnKpiIndicator, type KpiRequesterScope, type KpiIndicatorAccessFields } from "../../../src/services/kpi/access";
+import { canActOnKpiIndicator, isCorporateIndicator, type KpiRequesterScope, type KpiIndicatorAccessFields } from "../../../src/services/kpi/access";
 
 const admin: KpiRequesterScope = { role: "org_admin", userId: 1, unitId: null };
 const platform: KpiRequesterScope = { role: "platform_admin", userId: 9, unitId: null };
@@ -10,6 +10,24 @@ const an: KpiRequesterScope = { role: "analyst", userId: 4, unitId: null };
 const indU10Resp3: KpiIndicatorAccessFields = { unitId: 10, responsibleUserId: 3, isCorporate: false };
 const indU20Resp5: KpiIndicatorAccessFields = { unitId: 20, responsibleUserId: 5, isCorporate: false };
 const corp: KpiIndicatorAccessFields = { unitId: null, responsibleUserId: 5, isCorporate: true };
+
+describe("isCorporateIndicator", () => {
+  it("rollup parent é corporativo", () => {
+    expect(isCorporateIndicator({ rollupStrategy: "avg", unit: null })).toBe(true);
+  });
+  it("unit 'Corporativo' (manual/legado) é corporativo", () => {
+    expect(isCorporateIndicator({ rollupStrategy: null, unit: "Corporativo" })).toBe(true);
+  });
+  it("unit 'corporativo ' (case/espaço) é corporativo", () => {
+    expect(isCorporateIndicator({ rollupStrategy: null, unit: "corporativo " })).toBe(true);
+  });
+  it("unit de filial (ex.: 'POA') não é corporativo", () => {
+    expect(isCorporateIndicator({ rollupStrategy: null, unit: "POA" })).toBe(false);
+  });
+  it("unit null + rollup null não é corporativo (leaf não-casado)", () => {
+    expect(isCorporateIndicator({ rollupStrategy: null, unit: null })).toBe(false);
+  });
+});
 
 describe("canActOnKpiIndicator — view", () => {
   it("admin e platform veem tudo", () => {

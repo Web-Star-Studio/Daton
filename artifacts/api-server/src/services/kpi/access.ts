@@ -1,4 +1,11 @@
 import type { UserRole } from "../../middlewares/auth";
+import { CORPORATE_UNIT_LABEL } from "./units";
+
+/** Corporate = rollup parent OR explicitly labeled with the canonical corporate unit. */
+export function isCorporateIndicator(r: { rollupStrategy: string | null; unit: string | null }): boolean {
+  if (r.rollupStrategy != null) return true;
+  return (r.unit ?? "").trim().toLowerCase() === CORPORATE_UNIT_LABEL.toLowerCase();
+}
 
 export interface KpiRequesterScope {
   role: UserRole;

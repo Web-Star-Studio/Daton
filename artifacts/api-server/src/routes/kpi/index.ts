@@ -41,6 +41,7 @@ import {
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
 import {
   canActOnKpiIndicator,
+  isCorporateIndicator,
   type KpiAction,
   type KpiIndicatorAccessFields,
   type KpiRequesterScope,
@@ -71,7 +72,7 @@ function serializeIndicator(
     formulaExpression: r.formulaExpression,
     unit: r.unit ?? null,
     unitId: r.unitId ?? null,
-    isCorporate: r.rollupStrategy != null,
+    isCorporate: isCorporateIndicator(r),
     responsible: r.responsible ?? null,
     responsibleUserId: r.responsibleUserId ?? null,
     responsibleUserName,
@@ -129,17 +130,17 @@ async function getRequesterKpiScope(req: { auth?: { userId: number; role: KpiReq
 }
 
 /** Campos de acesso a partir de uma row de indicador. */
-function accessFieldsOf(r: { unitId: number | null; responsibleUserId: number | null; rollupStrategy: string | null }): KpiIndicatorAccessFields {
+function accessFieldsOf(r: { unitId: number | null; responsibleUserId: number | null; rollupStrategy: string | null; unit: string | null }): KpiIndicatorAccessFields {
   return {
     unitId: r.unitId ?? null,
     responsibleUserId: r.responsibleUserId ?? null,
-    isCorporate: r.rollupStrategy != null,
+    isCorporate: isCorporateIndicator({ rollupStrategy: r.rollupStrategy, unit: r.unit }),
   };
 }
 
 /**
  * Condição SQL de visibilidade por role. undefined = sem restrição (admin).
- * - manager: própria filial OU corporativo (rollupStrategy not null)
+ * - manager: própria filial OU corporativo (rollup OU rotulado "Corporativo")
  * - operator/analyst: só onde é responsável
  */
 function kpiVisibilityCondition(scope: KpiRequesterScope): SQL | undefined {
@@ -148,6 +149,7 @@ function kpiVisibilityCondition(scope: KpiRequesterScope): SQL | undefined {
     return or(
       scope.unitId !== null ? eq(kpiIndicatorsTable.unitId, scope.unitId) : sql`false`,
       isNotNull(kpiIndicatorsTable.rollupStrategy),
+      sql`lower(trim(${kpiIndicatorsTable.unit})) = ${CORPORATE_UNIT_LABEL.toLowerCase()}`,
     );
   }
   // operator / analyst
@@ -167,6 +169,7 @@ async function authorizeIndicatorAction(
       unitId: kpiIndicatorsTable.unitId,
       responsibleUserId: kpiIndicatorsTable.responsibleUserId,
       rollupStrategy: kpiIndicatorsTable.rollupStrategy,
+      unit: kpiIndicatorsTable.unit,
     })
     .from(kpiIndicatorsTable)
     .where(and(eq(kpiIndicatorsTable.id, indicatorId), eq(kpiIndicatorsTable.organizationId, orgId)));
@@ -577,6 +580,7 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
       unitId: kpiIndicatorsTable.unitId,
       responsibleUserId: kpiIndicatorsTable.responsibleUserId,
       rollupStrategy: kpiIndicatorsTable.rollupStrategy,
+      unit: kpiIndicatorsTable.unit,
     })
     .from(kpiIndicatorsTable)
     .where(and(
