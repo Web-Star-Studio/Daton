@@ -41,7 +41,9 @@ function serializeOrgUser(user: {
   };
 }
 
-router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboarding, requireRole("org_admin"), async (req, res): Promise<void> => {
+// Gerentes podem LER a lista de usuários (read-only) para atribuir o responsável de um indicador.
+// Criar/alterar usuários permanece restrito a org_admin (POST/PATCH/PUT abaixo).
+router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboarding, requireRole("org_admin", "manager"), async (req, res): Promise<void> => {
   const orgId = Number(req.params.orgId);
   if (orgId !== req.auth!.organizationId) {
     res.status(403).json({ error: "Acesso negado" });
