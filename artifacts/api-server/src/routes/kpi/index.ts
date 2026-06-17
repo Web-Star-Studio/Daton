@@ -1223,6 +1223,9 @@ router.get(
     if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
     if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+    const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "view");
+    if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+
     // Find the kpi_monthly_values.id for this (indicator, year, month) inside the org
     const [mv] = await db
       .select({ id: kpiMonthlyValuesTable.id })
