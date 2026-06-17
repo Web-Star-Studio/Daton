@@ -153,6 +153,30 @@ function kpiVisibilityCondition(scope: KpiRequesterScope): SQL | undefined {
   return eq(kpiIndicatorsTable.responsibleUserId, scope.userId);
 }
 
+/** Carrega os campos de acesso de um indicador da org e checa a ação. Retorna
+ * 'ok' | 404 | 403 para o handler responder. */
+async function authorizeIndicatorAction(
+  req: { auth?: { userId: number; role: KpiRequesterScope["role"]; organizationId: number } },
+  orgId: number,
+  indicatorId: number,
+  action: KpiAction,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const [ind] = await db
+    .select({
+      unitId: kpiIndicatorsTable.unitId,
+      responsibleUserId: kpiIndicatorsTable.responsibleUserId,
+      rollupStrategy: kpiIndicatorsTable.rollupStrategy,
+    })
+    .from(kpiIndicatorsTable)
+    .where(and(eq(kpiIndicatorsTable.id, indicatorId), eq(kpiIndicatorsTable.organizationId, orgId)));
+  if (!ind) return { ok: false, status: 404, error: "Indicador não encontrado" };
+  const scope = await getRequesterKpiScope(req);
+  if (!canActOnKpiIndicator(scope, accessFieldsOf(ind), action)) {
+    return { ok: false, status: 403, error: "Sem permissão para esta operação no indicador" };
+  }
+  return { ok: true };
+}
+
 /**
  * Meses (1–12) em que um indicador não-mensal deve ser lançado, conforme a
  * periodicidade e o mês de referência. Vazio quando mensal ou sem referência
@@ -1051,12 +1075,8 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year", requ
   const body = UpsertKpiYearConfigBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  // Verify indicator belongs to org
-  const [indicator] = await db.select({ id: kpiIndicatorsTable.id })
-    .from(kpiIndicatorsTable)
-    .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)));
-
-  if (!indicator) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
+  const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "editDefinition");
+  if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
 
   const goalStr = body.data.goal !== null && body.data.goal !== undefined ? String(body.data.goal) : null;
 
@@ -1087,6 +1107,9 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
 
   const body = UpsertKpiValuesBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "operate");
+  if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
 
   // Garante a existência do yearConfig — se não existe, é criado com
   // carry-forward (goal/seq/objectiveId do ano anterior). Isso elimina a
@@ -1254,6 +1277,9 @@ router.post(
 
     const body = AddKpiMonthJustificationBody.safeParse(req.body);
     if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+    const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "operate");
+    if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
 
     const mv = await ensureMonthlyValueRow(
       params.data.orgId,
