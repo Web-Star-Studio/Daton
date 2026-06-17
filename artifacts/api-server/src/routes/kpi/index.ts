@@ -1320,6 +1320,11 @@ router.post(
     if (!Number.isFinite(orgId)) { res.status(400).json({ error: "orgId inválido" }); return; }
     if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+    const scope = await getRequesterKpiScope(req);
+    if (!canActOnKpiIndicator(scope, { unitId: null, responsibleUserId: null, isCorporate: true }, "createCorporate")) {
+      res.status(403).json({ error: "Sem permissão para criar indicador corporativo" }); return;
+    }
+
     const body = req.body as {
       name?: string;
       strategy?: string;
