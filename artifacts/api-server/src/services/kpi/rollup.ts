@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   kpiIndicatorRollupsTable,
@@ -236,9 +236,13 @@ export interface RollupGoalResult {
 
 /**
  * Calcula a meta/tolerância de um corporativo agregando as metas dos filhos no
- * ano, pela mesma estratégia do valor. Considera só filhos com meta definida
- * (kpi_year_configs.goal != null) naquele ano. Sem filho com meta → computed null.
- * Não aplica carry-forward de meta dos filhos (usa o config do ano).
+ * ano, pela mesma estratégia do valor. Considera só filhos com meta definida.
+ * Sem filho com meta → computed null.
+ *
+ * Carry-forward: para cada filho usa a meta do ano-alvo se existir, senão a meta
+ * mais recente de um ano anterior (mesma regra de carry-forward do endpoint do
+ * ano) — assim o corporativo não fica "—" enquanto os filhos mostram a meta
+ * herdada num ano ainda não aberto.
  */
 export async function computeRollupGoal(
   orgId: number,
@@ -265,18 +269,20 @@ export async function computeRollupGoal(
   if (childLinks.length === 0) return null;
   const childIds = childLinks.map((l) => l.childIndicatorId);
 
-  const childConfigs = await db
-    .select({
-      indicatorId: kpiYearConfigsTable.indicatorId,
-      goal: kpiYearConfigsTable.goal,
-    })
-    .from(kpiYearConfigsTable)
-    .where(and(
-      eq(kpiYearConfigsTable.organizationId, orgId),
-      eq(kpiYearConfigsTable.year, year),
-      inArray(kpiYearConfigsTable.indicatorId, childIds),
-    ));
-  const goalByChild = new Map(childConfigs.map((c) => [c.indicatorId, c.goal]));
+  // Para cada filho: a meta do ano-alvo, ou (carry-forward) a mais recente de
+  // um ano anterior. DISTINCT ON + ORDER BY year DESC com year <= alvo resolve
+  // ambos num query só.
+  const childConfigs = await db.execute<{ indicator_id: number; goal: string | null }>(sql`
+    SELECT DISTINCT ON (indicator_id) indicator_id, goal
+    FROM ${kpiYearConfigsTable}
+    WHERE organization_id = ${orgId}
+      AND indicator_id IN ${childIds}
+      AND year <= ${year}
+    ORDER BY indicator_id, year DESC
+  `);
+  const goalByChild = new Map(
+    childConfigs.rows.map((c) => [Number(c.indicator_id), c.goal]),
+  );
 
   const goals: number[] = [];
   for (const id of childIds) {

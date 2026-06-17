@@ -121,4 +121,41 @@ describe("KPI corporativo: meta calculada", () => {
     expect(corpRow.yearConfig.goal).toBe(3);
     expect(corpRow.yearConfig.isGoalComputed).toBe(true);
   });
+
+  it("usa carry-forward das metas dos filhos num ano não aberto", async () => {
+    const context = await createTestContext({ seed: "kpi-corp-goal-carry" });
+    contexts.push(context);
+    const year = new Date().getFullYear();
+
+    const a = await createLeaf(context, `Cf A ${context.prefix}`, "Piracicaba", 1);
+    const b = await createLeaf(context, `Cf B ${context.prefix}`, "Porto Alegre", 1);
+
+    const corp = await request(app)
+      .post(`/api/organizations/${context.organizationId}/kpi/corporate-indicators`)
+      .set(authHeader(context))
+      .send({
+        name: `Cf - Corporativo ${context.prefix}`,
+        strategy: "sum_values",
+        childIndicatorIds: [a, b],
+        year,
+        measureUnit: "un",
+        direction: "down",
+        periodicity: "monthly",
+        responsibleUserId: context.userId,
+      });
+    expect(corp.status).toBe(201);
+    const corpId = corp.body.indicatorId as number;
+
+    // Ano seguinte: ninguém tem config — os filhos herdam a meta (carry-forward)
+    // e o corporativo deve agregar essas metas herdadas (não ficar "—").
+    const nextYear = year + 1;
+    const yearData = await request(app)
+      .get(`/api/organizations/${context.organizationId}/kpi/years/${nextYear}`)
+      .set(authHeader(context));
+    const corpRow = yearData.body.find(
+      (r: { indicator: { id: number } }) => r.indicator.id === corpId,
+    );
+    expect(corpRow.yearConfig.goal).toBe(2);
+    expect(corpRow.yearConfig.isGoalComputed).toBe(true);
+  });
 });
