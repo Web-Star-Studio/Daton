@@ -224,3 +224,73 @@ export async function computeRollupValue(
   const computed = aggregateByStrategy(values, strategy);
   return { ...baseResult, computed };
 }
+
+export interface RollupGoalResult {
+  computed: number | null;
+  strategy: KpiRollupStrategy;
+  /** Quantos filhos têm meta definida no ano. */
+  childrenWithGoal: number;
+  /** Total de filhos vinculados. */
+  childrenTotal: number;
+}
+
+/**
+ * Calcula a meta/tolerância de um corporativo agregando as metas dos filhos no
+ * ano, pela mesma estratégia do valor. Considera só filhos com meta definida
+ * (kpi_year_configs.goal != null) naquele ano. Sem filho com meta → computed null.
+ * Não aplica carry-forward de meta dos filhos (usa o config do ano).
+ */
+export async function computeRollupGoal(
+  orgId: number,
+  parentIndicatorId: number,
+  year: number,
+): Promise<RollupGoalResult | null> {
+  const [parent] = await db
+    .select({ rollupStrategy: kpiIndicatorsTable.rollupStrategy })
+    .from(kpiIndicatorsTable)
+    .where(and(
+      eq(kpiIndicatorsTable.id, parentIndicatorId),
+      eq(kpiIndicatorsTable.organizationId, orgId),
+    ));
+  if (!parent) return null;
+  const strategy = (parent.rollupStrategy ?? "sum_inputs") as KpiRollupStrategy;
+
+  const childLinks = await db
+    .select({ childIndicatorId: kpiIndicatorRollupsTable.childIndicatorId })
+    .from(kpiIndicatorRollupsTable)
+    .where(and(
+      eq(kpiIndicatorRollupsTable.parentIndicatorId, parentIndicatorId),
+      eq(kpiIndicatorRollupsTable.organizationId, orgId),
+    ));
+  if (childLinks.length === 0) return null;
+  const childIds = childLinks.map((l) => l.childIndicatorId);
+
+  const childConfigs = await db
+    .select({
+      indicatorId: kpiYearConfigsTable.indicatorId,
+      goal: kpiYearConfigsTable.goal,
+    })
+    .from(kpiYearConfigsTable)
+    .where(and(
+      eq(kpiYearConfigsTable.organizationId, orgId),
+      eq(kpiYearConfigsTable.year, year),
+      inArray(kpiYearConfigsTable.indicatorId, childIds),
+    ));
+  const goalByChild = new Map(childConfigs.map((c) => [c.indicatorId, c.goal]));
+
+  const goals: number[] = [];
+  for (const id of childIds) {
+    const g = goalByChild.get(id);
+    if (g !== null && g !== undefined) {
+      const n = parseFloat(g);
+      if (Number.isFinite(n)) goals.push(n);
+    }
+  }
+
+  return {
+    computed: aggregateByStrategy(goals, strategy),
+    strategy,
+    childrenWithGoal: goals.length,
+    childrenTotal: childIds.length,
+  };
+}
