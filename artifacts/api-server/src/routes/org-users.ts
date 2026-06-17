@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db, usersTable, userModulePermissionsTable, unitsTable } from "@workspace/db";
 import { requireAuth, requireCompletedOnboarding, requireRole, APP_MODULES } from "../middlewares/auth";
-import type { AppModule, UserRole } from "../middlewares/auth";
+import type { AppModule } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -159,12 +159,12 @@ router.patch("/organizations/:orgId/users/:userId/role",
       return;
     }
 
-    const { role, unitId } = req.body as { role: string; unitId?: number | null };
-    const validRoles: UserRole[] = ["operator", "analyst", "manager"];
-    if (!validRoles.includes(role as UserRole)) {
-      res.status(400).json({ error: "Cargo inválido. Valores permitidos: operator, analyst, manager" });
-      return;
-    }
+    const parsedBody = z.object({
+      role: z.enum(["operator", "analyst", "manager"]),
+      unitId: z.number().int().nullable().optional(),
+    }).safeParse(req.body);
+    if (!parsedBody.success) { res.status(400).json({ error: "Payload inválido" }); return; }
+    const { role, unitId } = parsedBody.data;
     if (role === "manager" && (unitId === null || unitId === undefined)) {
       res.status(400).json({ error: "Gerente requer uma filial (unitId)" });
       return;
