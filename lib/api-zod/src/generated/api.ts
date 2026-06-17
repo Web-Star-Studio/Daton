@@ -5852,7 +5852,7 @@ export const ListUserOptionsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   email: zod.string(),
-  role: zod.enum(["org_admin", "operator", "analyst"]),
+  role: zod.enum(["org_admin", "manager", "operator", "analyst"]),
 });
 export const ListUserOptionsResponse = zod.array(ListUserOptionsResponseItem);
 

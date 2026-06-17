@@ -11917,7 +11917,7 @@ components:
           type: string
         role:
           type: string
-          enum: [org_admin, operator, analyst]
+          enum: [org_admin, manager, operator, analyst]
       required:
         - id
         - name
