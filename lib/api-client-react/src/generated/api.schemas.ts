@@ -247,6 +247,7 @@ export interface User {
   organizationId: number;
   role: string;
   theme: UserTheme;
+  unitId?: number | null;
   createdAt: string;
 }
 
@@ -1677,6 +1678,7 @@ export type CreateOrgUserBodyRole =
 
 export const CreateOrgUserBodyRole = {
   org_admin: "org_admin",
+  manager: "manager",
   operator: "operator",
   analyst: "analyst",
 } as const;
@@ -1688,6 +1690,7 @@ export interface CreateOrgUserBody {
   password: string;
   role: CreateOrgUserBodyRole;
   modules: AppModule[];
+  unitId?: number | null;
 }
 
 export type CreateOrgUserResponse = OrgUser;
@@ -3471,6 +3474,8 @@ export interface KpiIndicator {
   formulaVariables: KpiFormulaVariable[];
   formulaExpression: string;
   unit?: string | null;
+  /** Filial do indicador. null = corporativo ou legado não-classificado. */
+  unitId?: number | null;
   /** Deprecated — kept for backward compatibility. Use responsibleUserId. */
   responsible?: string | null;
   responsibleUserId?: number | null;
@@ -3519,6 +3524,7 @@ export interface CreateKpiIndicatorBody {
   formulaVariables: KpiFormulaVariable[];
   formulaExpression: string;
   unit?: string;
+  unitId?: number | null;
   responsible?: string;
   responsibleUserId?: number | null;
   measureUnit?: string;
@@ -3564,6 +3570,7 @@ export interface UpdateKpiIndicatorBody {
   formulaVariables?: KpiFormulaVariable[];
   formulaExpression?: string;
   unit?: string;
+  unitId?: number | null;
   responsible?: string;
   responsibleUserId?: number | null;
   measureUnit?: string;
@@ -6031,10 +6038,12 @@ export type UpdateUserRoleBodyRole =
 export const UpdateUserRoleBodyRole = {
   operator: "operator",
   analyst: "analyst",
+  manager: "manager",
 } as const;
 
 export type UpdateUserRoleBody = {
   role: UpdateUserRoleBodyRole;
+  unitId?: number | null;
 };
 
 export type UpdateUserModulesBody = {

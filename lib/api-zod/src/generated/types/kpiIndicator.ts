@@ -17,6 +17,8 @@ export interface KpiIndicator {
   formulaVariables: KpiFormulaVariable[];
   formulaExpression: string;
   unit?: string | null;
+  /** Filial do indicador. null = corporativo ou legado não-classificado. */
+  unitId?: number | null;
   /** Deprecated — kept for backward compatibility. Use responsibleUserId. */
   responsible?: string | null;
   responsibleUserId?: number | null;
