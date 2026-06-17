@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, desc, eq, ilike, inArray, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
 import {
   actionPlansTable,
   db,
@@ -145,7 +145,7 @@ function kpiVisibilityCondition(scope: KpiRequesterScope): SQL | undefined {
   if (scope.role === "manager") {
     return or(
       scope.unitId !== null ? eq(kpiIndicatorsTable.unitId, scope.unitId) : sql`false`,
-      sql`${kpiIndicatorsTable.rollupStrategy} is not null`,
+      isNotNull(kpiIndicatorsTable.rollupStrategy),
     );
   }
   // operator / analyst
