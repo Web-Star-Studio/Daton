@@ -36,6 +36,32 @@ export interface RollupComputeResult {
 }
 
 /**
+ * Agrega uma lista de números pela estratégia de rollup. Usada tanto pelo
+ * valor (computeRollupValue) quanto pela meta (computeRollupGoal). Lista vazia
+ * → null. `sum_inputs` aqui age como soma (só relevante p/ meta; no valor o
+ * sum_inputs é tratado antes, via fórmula do pai).
+ */
+export function aggregateByStrategy(
+  values: number[],
+  strategy: KpiRollupStrategy,
+): number | null {
+  if (values.length === 0) return null;
+  switch (strategy) {
+    case "sum_values":
+    case "sum_inputs":
+      return values.reduce((acc, v) => acc + v, 0);
+    case "average":
+      return values.reduce((acc, v) => acc + v, 0) / values.length;
+    case "min":
+      return Math.min(...values);
+    case "max":
+      return Math.max(...values);
+    default:
+      return null;
+  }
+}
+
+/**
  * Aplica a fórmula do pai sobre inputs agregados. Retorna null se a fórmula
  * falhar (ex: divisão por zero) ou se os inputs estiverem incompletos.
  */
@@ -195,25 +221,6 @@ export async function computeRollupValue(
 
   // Estratégias baseadas em `value` das filhas
   const values = withData.map((b) => b.value!).filter((v): v is number => Number.isFinite(v));
-  if (values.length === 0) return { ...baseResult, computed: null };
-
-  let computed: number;
-  switch (strategy) {
-    case "sum_values":
-      computed = values.reduce((acc, v) => acc + v, 0);
-      break;
-    case "average":
-      computed = values.reduce((acc, v) => acc + v, 0) / values.length;
-      break;
-    case "min":
-      computed = Math.min(...values);
-      break;
-    case "max":
-      computed = Math.max(...values);
-      break;
-    default:
-      return { ...baseResult, computed: null };
-  }
-
+  const computed = aggregateByStrategy(values, strategy);
   return { ...baseResult, computed };
 }
