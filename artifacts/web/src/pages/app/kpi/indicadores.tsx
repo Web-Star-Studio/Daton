@@ -385,12 +385,10 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
 
   useHeaderActions(
     <div className="flex gap-2">
-      {(scope.role === "org_admin" || scope.role === "platform_admin") && (
-        <Button variant="outline" size="sm" onClick={() => setObjectivesDialog(true)}>
-          <Target className="h-4 w-4 mr-1.5" />
-          Objetivos
-        </Button>
-      )}
+      <Button variant="outline" size="sm" onClick={() => setObjectivesDialog(true)}>
+        <Target className="h-4 w-4 mr-1.5" />
+        Objetivos
+      </Button>
       {canCreate &&
         (viewMode === "corporates" ? (
           <HeaderActionButton
