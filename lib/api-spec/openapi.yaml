@@ -15733,6 +15733,9 @@ components:
           type: integer
           nullable: true
           description: Filial do indicador. null = corporativo ou legado não-classificado.
+        isCorporate:
+          type: boolean
+          description: True quando é indicador corporativo (rollup). Espelha rollupStrategy != null.
         responsible:
           type: string
           nullable: true

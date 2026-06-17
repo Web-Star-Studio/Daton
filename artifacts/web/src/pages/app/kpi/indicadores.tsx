@@ -265,8 +265,9 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
   const accessOf = (ind: KpiIndicator) => ({
     unitId: ind.unitId ?? null,
     responsibleUserId: ind.responsibleUserId ?? null,
-    isCorporate:
-      (ind.unit ?? "").trim().toLowerCase() === CORPORATE_UNIT_LABEL.toLowerCase(),
+    // Sinal autoritativo vindo do backend (rollupStrategy != null) — mesma
+    // definição usada pela matriz de acesso no servidor. Espelha o contrato.
+    isCorporate: ind.isCorporate ?? false,
   });
   const canCreate =
     scope.role === "org_admin" ||

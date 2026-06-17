@@ -13279,6 +13279,12 @@ export const ListKpiIndicatorsResponseItem = zod.object({
     .describe(
       "Filial do indicador. null = corporativo ou legado não-classificado.",
     ),
+  isCorporate: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True quando é indicador corporativo (rollup). Espelha rollupStrategy != null.",
+    ),
   responsible: zod
     .string()
     .nullish()
@@ -13447,6 +13453,12 @@ export const UpdateKpiIndicatorResponse = zod.object({
     .describe(
       "Filial do indicador. null = corporativo ou legado não-classificado.",
     ),
+  isCorporate: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True quando é indicador corporativo (rollup). Espelha rollupStrategy != null.",
+    ),
   responsible: zod
     .string()
     .nullish()
@@ -13534,6 +13546,12 @@ export const ListKpiYearDataResponseItem = zod.object({
       .nullish()
       .describe(
         "Filial do indicador. null = corporativo ou legado não-classificado.",
+      ),
+    isCorporate: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True quando é indicador corporativo (rollup). Espelha rollupStrategy != null.",
       ),
     responsible: zod
       .string()

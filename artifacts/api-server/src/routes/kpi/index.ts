@@ -71,6 +71,7 @@ function serializeIndicator(
     formulaExpression: r.formulaExpression,
     unit: r.unit ?? null,
     unitId: r.unitId ?? null,
+    isCorporate: r.rollupStrategy != null,
     responsible: r.responsible ?? null,
     responsibleUserId: r.responsibleUserId ?? null,
     responsibleUserName,

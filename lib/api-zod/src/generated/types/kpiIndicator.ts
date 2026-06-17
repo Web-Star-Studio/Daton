@@ -19,6 +19,8 @@ export interface KpiIndicator {
   unit?: string | null;
   /** Filial do indicador. null = corporativo ou legado não-classificado. */
   unitId?: number | null;
+  /** True quando é indicador corporativo (rollup). Espelha rollupStrategy != null. */
+  isCorporate?: boolean;
   /** Deprecated — kept for backward compatibility. Use responsibleUserId. */
   responsible?: string | null;
   responsibleUserId?: number | null;
