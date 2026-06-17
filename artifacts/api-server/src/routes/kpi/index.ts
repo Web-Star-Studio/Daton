@@ -1361,7 +1361,13 @@ router.post(
 
     // Filhos precisam pertencer à org e NÃO ser corporativos.
     const childRows = await db
-      .select({ id: kpiIndicatorsTable.id, unit: kpiIndicatorsTable.unit })
+      .select({
+        id: kpiIndicatorsTable.id,
+        unit: kpiIndicatorsTable.unit,
+        unitId: kpiIndicatorsTable.unitId,
+        responsibleUserId: kpiIndicatorsTable.responsibleUserId,
+        rollupStrategy: kpiIndicatorsTable.rollupStrategy,
+      })
       .from(kpiIndicatorsTable)
       .where(and(eq(kpiIndicatorsTable.organizationId, orgId), inArray(kpiIndicatorsTable.id, childIds)));
     if (childRows.length !== childIds.length) {
@@ -1387,6 +1393,15 @@ router.post(
         childIndicatorIds: alreadyLinked.map((l) => l.childIndicatorId),
       });
       return;
+    }
+
+    // Escopo: cada filho precisa estar dentro da visibilidade do requisitante.
+    // Admin passa trivialmente (view → true); gerente só pode agregar filhos da própria filial.
+    for (const child of childRows) {
+      if (!canActOnKpiIndicator(scope, accessFieldsOf(child), "view")) {
+        res.status(403).json({ error: "Sem permissão sobre um dos indicadores-filhos selecionados" });
+        return;
+      }
     }
 
     const strategy = body.strategy as KpiRollupStrategy;
