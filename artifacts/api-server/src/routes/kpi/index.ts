@@ -136,6 +136,23 @@ function accessFieldsOf(r: { unitId: number | null; responsibleUserId: number | 
 }
 
 /**
+ * Condição SQL de visibilidade por role. undefined = sem restrição (admin).
+ * - manager: própria filial OU corporativo (rollupStrategy not null)
+ * - operator/analyst: só onde é responsável
+ */
+function kpiVisibilityCondition(scope: KpiRequesterScope): SQL | undefined {
+  if (scope.role === "org_admin" || scope.role === "platform_admin") return undefined;
+  if (scope.role === "manager") {
+    return or(
+      scope.unitId !== null ? eq(kpiIndicatorsTable.unitId, scope.unitId) : sql`false`,
+      sql`${kpiIndicatorsTable.rollupStrategy} is not null`,
+    );
+  }
+  // operator / analyst
+  return eq(kpiIndicatorsTable.responsibleUserId, scope.userId);
+}
+
+/**
  * Meses (1–12) em que um indicador não-mensal deve ser lançado, conforme a
  * periodicidade e o mês de referência. Vazio quando mensal ou sem referência
  * válida — nesse caso não há restrição (todos os meses contam).
@@ -352,10 +369,14 @@ router.get("/organizations/:orgId/kpi/indicators", requireAuth, async (req, res)
   const query = ListKpiIndicatorsQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 
+  const scope = await getRequesterKpiScope(req);
+
   const conditions = [eq(kpiIndicatorsTable.organizationId, params.data.orgId)];
   if (query.data.unit) {
     conditions.push(ilike(kpiIndicatorsTable.unit, `%${query.data.unit}%`));
   }
+  const visibility = kpiVisibilityCondition(scope);
+  if (visibility) conditions.push(visibility);
 
   const rows = await db
     .select({
