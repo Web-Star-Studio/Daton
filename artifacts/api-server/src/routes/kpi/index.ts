@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, desc, eq, ilike, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import {
   actionPlansTable,
   db,
@@ -38,6 +38,12 @@ import {
   UpsertKpiYearConfigParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
+import {
+  canActOnKpiIndicator,
+  type KpiAction,
+  type KpiIndicatorAccessFields,
+  type KpiRequesterScope,
+} from "../../services/kpi/access";
 import { evaluateFormula, validateFormula } from "../../lib/formula-evaluator";
 import {
   detectVariableRenames,
@@ -63,6 +69,7 @@ function serializeIndicator(
     formulaVariables: r.formulaVariables,
     formulaExpression: r.formulaExpression,
     unit: r.unit ?? null,
+    unitId: r.unitId ?? null,
     responsible: r.responsible ?? null,
     responsibleUserId: r.responsibleUserId ?? null,
     responsibleUserName,
@@ -99,6 +106,32 @@ function serializeYearConfig(r: typeof kpiYearConfigsTable.$inferSelect) {
     goal: r.goal !== null && r.goal !== undefined ? parseFloat(r.goal) : null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * Resolve o escopo do solicitante para o módulo KPI. Faz lookup do unitId só
+ * quando role=manager (fonte sempre fresca, sem depender do token).
+ */
+async function getRequesterKpiScope(req: { auth?: { userId: number; role: KpiRequesterScope["role"] } }): Promise<KpiRequesterScope> {
+  const { userId, role } = req.auth!;
+  let unitId: number | null = null;
+  if (role === "manager") {
+    const [u] = await db
+      .select({ unitId: usersTable.unitId })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId));
+    unitId = u?.unitId ?? null;
+  }
+  return { role, userId, unitId };
+}
+
+/** Campos de acesso a partir de uma row de indicador. */
+function accessFieldsOf(r: { unitId: number | null; responsibleUserId: number | null; rollupStrategy: string | null }): KpiIndicatorAccessFields {
+  return {
+    unitId: r.unitId ?? null,
+    responsibleUserId: r.responsibleUserId ?? null,
+    isCorporate: r.rollupStrategy != null,
   };
 }
 
