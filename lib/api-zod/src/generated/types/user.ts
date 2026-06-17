@@ -14,5 +14,6 @@ export interface User {
   organizationId: number;
   role: string;
   theme: UserTheme;
+  unitId?: number | null;
   createdAt: string;
 }

@@ -32,6 +32,7 @@ function serializeAuthUser(user: {
   email: string;
   organizationId: number;
   role: string;
+  unitId: number | null;
   theme: string;
   createdAt: Date;
 }) {
@@ -41,6 +42,7 @@ function serializeAuthUser(user: {
     email: user.email,
     organizationId: user.organizationId,
     role: user.role,
+    unitId: user.unitId ?? null,
     theme: user.theme,
     createdAt: user.createdAt.toISOString(),
   };
@@ -53,6 +55,7 @@ function serializeMeResponse(
     email: string;
     organizationId: number;
     role: string;
+    unitId: number | null;
     theme: string;
     createdAt: Date;
   },
