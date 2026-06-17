@@ -640,11 +640,15 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
   const query = ListKpiYearDataQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 
-  // Fetch all indicators (optionally filtered by unit)
+  const scope = await getRequesterKpiScope(req);
+
+  // Fetch all indicators (optionally filtered by unit), restritos ao escopo do solicitante
   const indicatorConditions = [eq(kpiIndicatorsTable.organizationId, params.data.orgId)];
   if (query.data.unit) {
     indicatorConditions.push(ilike(kpiIndicatorsTable.unit, `%${query.data.unit}%`));
   }
+  const visibility = kpiVisibilityCondition(scope);
+  if (visibility) indicatorConditions.push(visibility);
 
   const indicators = await db.select().from(kpiIndicatorsTable)
     .where(and(...indicatorConditions))
