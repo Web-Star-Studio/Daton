@@ -442,7 +442,7 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
   }
 
   // Resolve a filial alvo: aceita unitId (preferido) e mantém o texto `unit`.
-  let targetUnitId: number | null = typeof (req.body?.unitId) === "number" ? req.body.unitId : null;
+  const targetUnitId: number | null = typeof (req.body?.unitId) === "number" ? req.body.unitId : null;
   let unitText: string | null = normalizeKpiUnit(body.data.unit);
   if (targetUnitId !== null) {
     const [unitRow] = await db
@@ -690,20 +690,8 @@ router.delete("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, 
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
-  const [existing] = await db
-    .select({
-      unitId: kpiIndicatorsTable.unitId,
-      responsibleUserId: kpiIndicatorsTable.responsibleUserId,
-      rollupStrategy: kpiIndicatorsTable.rollupStrategy,
-    })
-    .from(kpiIndicatorsTable)
-    .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)));
-  if (!existing) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
-
-  const scope = await getRequesterKpiScope(req);
-  if (!canActOnKpiIndicator(scope, accessFieldsOf(existing), "delete")) {
-    res.status(403).json({ error: "Sem permissão para excluir este indicador" }); return;
-  }
+  const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "delete");
+  if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
 
   const [row] = await db.delete(kpiIndicatorsTable)
     .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)))
