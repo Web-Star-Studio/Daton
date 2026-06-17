@@ -9,6 +9,7 @@ import {
   kpiMonthlyValuesTable,
   kpiObjectivesTable,
   kpiYearConfigsTable,
+  unitsTable,
   usersTable,
   type KpiMonthlyValueJustification as DbKpiMonthlyValueJustification,
   type KpiRollupStrategy,
@@ -416,13 +417,34 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
     responsibleText = user.name;
   }
 
+  // Resolve a filial alvo: aceita unitId (preferido) e mantém o texto `unit`.
+  let targetUnitId: number | null = typeof (req.body?.unitId) === "number" ? req.body.unitId : null;
+  let unitText: string | null = normalizeKpiUnit(body.data.unit);
+  if (targetUnitId !== null) {
+    const [unitRow] = await db
+      .select({ id: unitsTable.id, name: unitsTable.name })
+      .from(unitsTable)
+      .where(and(eq(unitsTable.id, targetUnitId), eq(unitsTable.organizationId, params.data.orgId)));
+    if (!unitRow) { res.status(400).json({ error: "unitId não corresponde a uma filial desta organização" }); return; }
+    unitText = unitRow.name;
+  }
+
+  const scope = await getRequesterKpiScope(req);
+  const canCreate = canActOnKpiIndicator(
+    scope,
+    { unitId: targetUnitId, responsibleUserId, isCorporate: false },
+    "createUnit",
+  );
+  if (!canCreate) { res.status(403).json({ error: "Sem permissão para criar indicador nesta filial" }); return; }
+
   const [row] = await db.insert(kpiIndicatorsTable).values({
     organizationId: params.data.orgId,
     name: body.data.name,
     measurement: body.data.measurement,
     formulaVariables: body.data.formulaVariables,
     formulaExpression: body.data.formulaExpression,
-    unit: normalizeKpiUnit(body.data.unit),
+    unit: unitText,
+    unitId: targetUnitId,
     responsible: responsibleText,
     responsibleUserId,
     measureUnit: body.data.measureUnit ?? null,
