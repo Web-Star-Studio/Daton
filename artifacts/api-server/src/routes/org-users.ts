@@ -3,7 +3,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db, usersTable, userModulePermissionsTable, unitsTable } from "@workspace/db";
-import { requireAuth, requireCompletedOnboarding, requireRole, APP_MODULES } from "../middlewares/auth";
+import { requireAuth, requireCompletedOnboarding, requireRole, requireModuleAccess, APP_MODULES } from "../middlewares/auth";
 import type { AppModule } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -43,7 +43,7 @@ function serializeOrgUser(user: {
 
 // Gerentes podem LER a lista de usuários (read-only) para atribuir o responsável de um indicador.
 // Criar/alterar usuários permanece restrito a org_admin (POST/PATCH/PUT abaixo).
-router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboarding, requireRole("org_admin", "manager"), async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboarding, requireRole("org_admin", "manager"), requireModuleAccess("kpi"), async (req, res): Promise<void> => {
   const orgId = Number(req.params.orgId);
   if (orgId !== req.auth!.organizationId) {
     res.status(403).json({ error: "Acesso negado" });
