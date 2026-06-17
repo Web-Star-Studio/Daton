@@ -13551,6 +13551,20 @@ export const ListKpiYearDataResponseItem = zod.object({
     year: zod.number(),
     seq: zod.number().nullish(),
     goal: zod.number().nullish(),
+    isGoalComputed: zod
+      .boolean()
+      .optional()
+      .describe("True quando a meta foi calculada das filiais (corporativo)."),
+    goalChildrenWithData: zod
+      .number()
+      .nullish()
+      .describe(
+        "Filiais com meta consideradas no cálculo (só quando isGoalComputed).",
+      ),
+    goalChildrenTotal: zod
+      .number()
+      .nullish()
+      .describe("Total de filiais vinculadas (só quando isGoalComputed)."),
     createdAt: zod.string(),
     updatedAt: zod.string(),
   }),
@@ -13655,6 +13669,20 @@ export const UpsertKpiYearConfigResponse = zod.object({
   year: zod.number(),
   seq: zod.number().nullish(),
   goal: zod.number().nullish(),
+  isGoalComputed: zod
+    .boolean()
+    .optional()
+    .describe("True quando a meta foi calculada das filiais (corporativo)."),
+  goalChildrenWithData: zod
+    .number()
+    .nullish()
+    .describe(
+      "Filiais com meta consideradas no cálculo (só quando isGoalComputed).",
+    ),
+  goalChildrenTotal: zod
+    .number()
+    .nullish()
+    .describe("Total de filiais vinculadas (só quando isGoalComputed)."),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
