@@ -27,6 +27,7 @@ describe("canActOnKpiIndicator — view", () => {
     expect(canActOnKpiIndicator(op, indU10Resp3, "view")).toBe(true);
     expect(canActOnKpiIndicator(op, indU20Resp5, "view")).toBe(false);
     expect(canActOnKpiIndicator(an, indU10Resp3, "view")).toBe(false); // resp=3, an=4
+    expect(canActOnKpiIndicator(an, { unitId: null, responsibleUserId: 4, isCorporate: false }, "view")).toBe(true); // analyst owns it
   });
 });
 

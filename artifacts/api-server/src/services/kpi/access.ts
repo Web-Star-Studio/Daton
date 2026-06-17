@@ -11,7 +11,7 @@ export interface KpiIndicatorAccessFields {
   /** Filial do indicador; null = corporativo ou legado não-casado. */
   unitId: number | null;
   responsibleUserId: number | null;
-  /** rollupStrategy != null. */
+  /** True when this is a corporate (rollup) indicator. */
   isCorporate: boolean;
 }
 
@@ -53,6 +53,8 @@ export function canActOnKpiIndicator(
         return inMyUnit; // ind.unitId = filial alvo
       case "createCorporate":
         return true;
+      default:
+        return false;
     }
   }
 
