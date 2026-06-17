@@ -486,6 +486,20 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
   if (body.data.name !== undefined) updateData.name = body.data.name;
   if (body.data.measurement !== undefined) updateData.measurement = body.data.measurement;
   if (body.data.unit !== undefined) updateData.unit = normalizeKpiUnit(body.data.unit);
+  if (typeof req.body?.unitId === "number" || req.body?.unitId === null) {
+    const newUnitId: number | null = req.body.unitId;
+    if (newUnitId === null) {
+      updateData.unitId = null;
+    } else {
+      const [unitRow] = await db
+        .select({ id: unitsTable.id, name: unitsTable.name })
+        .from(unitsTable)
+        .where(and(eq(unitsTable.id, newUnitId), eq(unitsTable.organizationId, params.data.orgId)));
+      if (!unitRow) { res.status(400).json({ error: "unitId não corresponde a uma filial desta organização" }); return; }
+      updateData.unitId = unitRow.id;
+      updateData.unit = unitRow.name;
+    }
+  }
   if (body.data.responsibleUserId !== undefined) {
     const newUserId = body.data.responsibleUserId;
     if (newUserId === null) {
@@ -535,6 +549,9 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
     .select({
       formulaExpression: kpiIndicatorsTable.formulaExpression,
       formulaVariables: kpiIndicatorsTable.formulaVariables,
+      unitId: kpiIndicatorsTable.unitId,
+      responsibleUserId: kpiIndicatorsTable.responsibleUserId,
+      rollupStrategy: kpiIndicatorsTable.rollupStrategy,
     })
     .from(kpiIndicatorsTable)
     .where(and(
@@ -542,6 +559,11 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
       eq(kpiIndicatorsTable.organizationId, params.data.orgId),
     ));
   if (!current) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
+
+  const scope = await getRequesterKpiScope(req);
+  if (!canActOnKpiIndicator(scope, accessFieldsOf(current), "editDefinition")) {
+    res.status(403).json({ error: "Sem permissão para editar este indicador" }); return;
+  }
 
   const newExpression = typeof updateData.formulaExpression === "string"
     ? updateData.formulaExpression
