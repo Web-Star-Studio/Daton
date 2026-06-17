@@ -1260,15 +1260,24 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                   ))}
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Tolerância ({year})</Label>
-                <Input
-                  type="number"
-                  value={indicatorForm.goal}
-                  onChange={(e) => setIndicatorForm((f) => ({ ...f, goal: e.target.value }))}
-                  placeholder="Ex: 95"
-                />
-              </div>
+              {editingIndicator && isCorporateUnit(editingIndicator.unit) ? (
+                <div className="space-y-1.5">
+                  <Label>Tolerância ({year})</Label>
+                  <p className="rounded-md border bg-muted/30 px-3 py-2 text-[12px] text-muted-foreground">
+                    Calculada automaticamente das filiais.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label>Tolerância ({year})</Label>
+                  <Input
+                    type="number"
+                    value={indicatorForm.goal}
+                    onChange={(e) => setIndicatorForm((f) => ({ ...f, goal: e.target.value }))}
+                    placeholder="Ex: 95"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1452,6 +1461,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
         orgId={orgId}
         year={year}
         indicators={indicators}
+        childGoals={new Map(yearRows.map((r) => [r.indicator.id, r.yearConfig.goal ?? null]))}
       />
     </div>
   );
