@@ -11888,6 +11888,9 @@ components:
           type: string
         role:
           type: string
+        unitId:
+          type: integer
+          nullable: true
         createdAt:
           type: string
           format: date-time

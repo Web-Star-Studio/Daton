@@ -5770,6 +5770,7 @@ export const ListOrgUsersResponse = zod.object({
       name: zod.string(),
       email: zod.string(),
       role: zod.string(),
+      unitId: zod.number().nullish(),
       createdAt: zod.string().datetime({}),
       modules: zod.array(
         zod.enum([
