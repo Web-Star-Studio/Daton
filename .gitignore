@@ -62,3 +62,6 @@ __pycache__/
 
 # Diário de bordo: consolidados/PDF são gerados a partir dos fragmentos (branch `diario`)
 docs/diario/*.pdf
+
+# Superpowers subagent-driven-development working files
+/sdd/
