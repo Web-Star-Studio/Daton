@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import {
   db,
   kpiIndicatorsTable,
@@ -44,6 +44,7 @@ export const kpiPendenciaProvider: PendenciaProvider = {
           eq(kpiIndicatorsTable.organizationId, ctx.orgId),
           isNotNull(kpiIndicatorsTable.responsibleUserId),
           inArray(kpiIndicatorsTable.responsibleUserId, ctx.responsibleUserIds),
+          isNull(kpiIndicatorsTable.rollupStrategy),
         ),
       );
     if (indicators.length === 0) return [];

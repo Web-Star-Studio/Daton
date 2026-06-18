@@ -73,6 +73,31 @@ describe("nonconformityPendenciaProvider", () => {
       updatedById: ctx.userId,
     });
 
+    // canceled NC → ignored
+    await db.insert(nonconformitiesTable).values({
+      organizationId: ctx.organizationId,
+      originType: "process",
+      title: `NC cancelada ${ctx.prefix}`,
+      description: "desc",
+      status: "canceled",
+      responsibleUserId: ctx.userId,
+      createdById: ctx.userId,
+      updatedById: ctx.userId,
+    });
+
+    // canceled CA → ignored
+    await db.insert(correctiveActionsTable).values({
+      organizationId: ctx.organizationId,
+      nonconformityId: openNc.id,
+      title: `Ação cancelada ${ctx.prefix}`,
+      description: "desc",
+      status: "canceled",
+      responsibleUserId: ctx.userId,
+      dueDate: "2026-06-10",
+      createdById: ctx.userId,
+      updatedById: ctx.userId,
+    });
+
     const items = await nonconformityPendenciaProvider.listPending({
       orgId: ctx.organizationId,
       responsibleUserIds: [ctx.userId],

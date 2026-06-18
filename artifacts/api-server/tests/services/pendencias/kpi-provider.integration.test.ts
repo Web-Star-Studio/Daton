@@ -58,6 +58,41 @@ describe("kpiPendenciaProvider", () => {
     expect(items[0].link.route).toBe("/app/kpi/lancamentos");
   });
 
+  it("emits nothing for a rollup/corporate indicator even with no monthly values", async () => {
+    const ctx = await createTestContext({ seed: "pend-kpi-rollup" });
+    contexts.push(ctx);
+
+    const [indicator] = await db
+      .insert(kpiIndicatorsTable)
+      .values({
+        organizationId: ctx.organizationId,
+        name: `Indicador Rollup ${ctx.prefix}`,
+        measurement: "Taxa",
+        direction: "up",
+        periodicity: "monthly",
+        responsibleUserId: ctx.userId,
+        rollupStrategy: "sum_inputs",
+      })
+      .returning({ id: kpiIndicatorsTable.id });
+
+    await db.insert(kpiYearConfigsTable).values({
+      organizationId: ctx.organizationId,
+      indicatorId: indicator.id,
+      year: 2026,
+    });
+
+    // Rollup indicators are compose-on-read — no manual feed is ever written.
+    // The provider must NOT emit a "Lançamento em atraso" pendência for them.
+    const items = await kpiPendenciaProvider.listPending({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId],
+      now: new Date(2026, 5, 15),
+      dueSoonDays: 7,
+    });
+
+    expect(items).toHaveLength(0);
+  });
+
   it("emits nothing when the indicator belongs to another responsible", async () => {
     const ctx = await createTestContext({ seed: "pend-kpi-other" });
     contexts.push(ctx);
