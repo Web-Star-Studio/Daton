@@ -12,6 +12,7 @@ export interface OrgUser {
   name: string;
   email: string;
   role: string;
+  unitId?: number | null;
   createdAt: string;
   modules: AppModule[];
 }

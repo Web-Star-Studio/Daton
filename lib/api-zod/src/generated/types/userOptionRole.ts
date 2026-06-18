@@ -11,6 +11,7 @@ export type UserOptionRole =
 
 export const UserOptionRole = {
   org_admin: "org_admin",
+  manager: "manager",
   operator: "operator",
   analyst: "analyst",
 } as const;

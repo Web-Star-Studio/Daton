@@ -11,6 +11,7 @@ export type CreateOrgUserBodyRole =
 
 export const CreateOrgUserBodyRole = {
   org_admin: "org_admin",
+  manager: "manager",
   operator: "operator",
   analyst: "analyst",
 } as const;
