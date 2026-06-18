@@ -85,6 +85,7 @@ import {
   kpiMonthlyValuesTable,
   kpiYearConfigsTable,
   actionPlansTable,
+  regulatoryDocumentsTable,
 } from "@workspace/db";
 
 type CleanupTransaction = Pick<typeof db, "delete">;
@@ -707,6 +708,10 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(unitLegislationsTable)
         .where(inArray(unitLegislationsTable.unitId, unitIds));
+      // regulatory_documents FKs to units (no cascade) — must delete before unitsTable
+      await tx
+        .delete(regulatoryDocumentsTable)
+        .where(inArray(regulatoryDocumentsTable.unitId, unitIds));
     }
 
     if (legislationIds.length > 0) {
