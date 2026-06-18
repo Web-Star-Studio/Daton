@@ -3256,7 +3256,10 @@ paths:
               properties:
                 role:
                   type: string
-                  enum: [operator, analyst]
+                  enum: [operator, analyst, manager]
+                unitId:
+                  type: integer
+                  nullable: true
               required:
                 - role
       responses:
@@ -9809,6 +9812,9 @@ components:
         theme:
           type: string
           enum: [light, dark, system]
+        unitId:
+          type: integer
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -11940,6 +11946,9 @@ components:
           type: string
         role:
           type: string
+        unitId:
+          type: integer
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -11966,7 +11975,7 @@ components:
           type: string
         role:
           type: string
-          enum: [org_admin, operator, analyst]
+          enum: [org_admin, manager, operator, analyst]
       required:
         - id
         - name
@@ -11986,11 +11995,14 @@ components:
           minLength: 6
         role:
           type: string
-          enum: [org_admin, operator, analyst]
+          enum: [org_admin, manager, operator, analyst]
         modules:
           type: array
           items:
             $ref: "#/components/schemas/AppModule"
+        unitId:
+          type: integer
+          nullable: true
       required:
         - name
         - email
@@ -15851,6 +15863,13 @@ components:
         unit:
           type: string
           nullable: true
+        unitId:
+          type: integer
+          nullable: true
+          description: Filial do indicador. null = corporativo ou legado não-classificado.
+        isCorporate:
+          type: boolean
+          description: True quando é indicador corporativo (rollup). Espelha rollupStrategy != null.
         responsible:
           type: string
           nullable: true
@@ -15918,6 +15937,9 @@ components:
           type: string
         unit:
           type: string
+        unitId:
+          type: integer
+          nullable: true
         responsible:
           type: string
         responsibleUserId:
@@ -15977,6 +15999,9 @@ components:
           type: string
         unit:
           type: string
+        unitId:
+          type: integer
+          nullable: true
         responsible:
           type: string
         responsibleUserId:
@@ -16023,6 +16048,17 @@ components:
         goal:
           type: number
           nullable: true
+        isGoalComputed:
+          type: boolean
+          description: True quando a meta foi calculada das filiais (corporativo).
+        goalChildrenWithData:
+          type: integer
+          nullable: true
+          description: Filiais com meta consideradas no cálculo (só quando isGoalComputed).
+        goalChildrenTotal:
+          type: integer
+          nullable: true
+          description: Total de filiais vinculadas (só quando isGoalComputed).
         createdAt:
           type: string
         updatedAt:

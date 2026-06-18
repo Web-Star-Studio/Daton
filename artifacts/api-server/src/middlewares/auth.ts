@@ -15,7 +15,7 @@ const JWT_SECRET: string = getJwtSecret();
 const ORGANIZATION_AUTH_STATE_TTL_MS = 30_000;
 const ORGANIZATION_AUTH_STATE_CLEANUP_INTERVAL_MS = 60_000;
 
-export type UserRole = "platform_admin" | "org_admin" | "operator" | "analyst";
+export type UserRole = "platform_admin" | "org_admin" | "operator" | "analyst" | "manager";
 
 export const APP_MODULES = [
   "documents",

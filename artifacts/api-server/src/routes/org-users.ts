@@ -2,25 +2,32 @@ import { Router, type IRouter } from "express";
 import { eq, and, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { db, usersTable, userModulePermissionsTable } from "@workspace/db";
-import { requireAuth, requireCompletedOnboarding, requireRole, APP_MODULES } from "../middlewares/auth";
-import type { AppModule, UserRole } from "../middlewares/auth";
+import { db, usersTable, userModulePermissionsTable, unitsTable } from "@workspace/db";
+import { requireAuth, requireCompletedOnboarding, requireRole, requireModuleAccess, APP_MODULES } from "../middlewares/auth";
+import type { AppModule } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-const createOrgUserBodySchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  password: z.string().min(6),
-  role: z.enum(["org_admin", "operator", "analyst"]),
-  modules: z.array(z.enum(APP_MODULES)).default([]),
-});
+const createOrgUserBodySchema = z
+  .object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    password: z.string().min(6),
+    role: z.enum(["org_admin", "manager", "operator", "analyst"]),
+    modules: z.array(z.enum(APP_MODULES)).default([]),
+    unitId: z.number().int().nullable().optional(),
+  })
+  .refine((d) => d.role !== "manager" || (d.unitId !== null && d.unitId !== undefined), {
+    message: "Gerente requer uma filial (unitId)",
+    path: ["unitId"],
+  });
 
 function serializeOrgUser(user: {
   id: number;
   name: string;
   email: string;
   role: string;
+  unitId: number | null;
   createdAt: Date;
 }, modules: string[]) {
   return {
@@ -28,12 +35,15 @@ function serializeOrgUser(user: {
     name: user.name,
     email: user.email,
     role: user.role,
+    unitId: user.unitId ?? null,
     createdAt: user.createdAt.toISOString(),
     modules,
   };
 }
 
-router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboarding, requireRole("org_admin"), async (req, res): Promise<void> => {
+// Gerentes podem LER a lista de usuários (read-only) para atribuir o responsável de um indicador.
+// Criar/alterar usuários permanece restrito a org_admin (POST/PATCH/PUT abaixo).
+router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboarding, requireRole("org_admin", "manager"), requireModuleAccess("kpi"), async (req, res): Promise<void> => {
   const orgId = Number(req.params.orgId);
   if (orgId !== req.auth!.organizationId) {
     res.status(403).json({ error: "Acesso negado" });
@@ -45,6 +55,7 @@ router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboardin
     name: usersTable.name,
     email: usersTable.email,
     role: usersTable.role,
+    unitId: usersTable.unitId,
     createdAt: usersTable.createdAt,
   }).from(usersTable).where(eq(usersTable.organizationId, orgId));
 
@@ -79,6 +90,15 @@ router.post("/organizations/:orgId/users",
     }
 
     const { name, email, password, role, modules } = parsed.data;
+    const unitId = role === "manager" ? parsed.data.unitId ?? null : null;
+
+    if (unitId !== null) {
+      const [unitRow] = await db
+        .select({ id: unitsTable.id })
+        .from(unitsTable)
+        .where(and(eq(unitsTable.id, unitId), eq(unitsTable.organizationId, orgId)));
+      if (!unitRow) { res.status(400).json({ error: "Filial (unitId) inválida para esta organização" }); return; }
+    }
 
     const [existingUser] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email));
     if (existingUser) {
@@ -97,6 +117,7 @@ router.post("/organizations/:orgId/users",
           passwordHash,
           organizationId: orgId,
           role,
+          unitId,
         }).returning();
 
         if (normalizedModules.length > 0) {
@@ -138,10 +159,14 @@ router.patch("/organizations/:orgId/users/:userId/role",
       return;
     }
 
-    const { role } = req.body as { role: string };
-    const validRoles: UserRole[] = ["operator", "analyst"];
-    if (!validRoles.includes(role as UserRole)) {
-      res.status(400).json({ error: "Cargo inválido. Valores permitidos: operator, analyst" });
+    const parsedBody = z.object({
+      role: z.enum(["operator", "analyst", "manager"]),
+      unitId: z.number().int().nullable().optional(),
+    }).safeParse(req.body);
+    if (!parsedBody.success) { res.status(400).json({ error: "Payload inválido" }); return; }
+    const { role, unitId } = parsedBody.data;
+    if (role === "manager" && (unitId === null || unitId === undefined)) {
+      res.status(400).json({ error: "Gerente requer uma filial (unitId)" });
       return;
     }
 
@@ -164,7 +189,18 @@ router.patch("/organizations/:orgId/users/:userId/role",
       return;
     }
 
-    await db.update(usersTable).set({ role }).where(eq(usersTable.id, userId));
+    const nextUnitId = role === "manager" ? unitId ?? null : null;
+    if (nextUnitId !== null) {
+      const [unitRow] = await db
+        .select({ id: unitsTable.id })
+        .from(unitsTable)
+        .where(and(eq(unitsTable.id, nextUnitId), eq(unitsTable.organizationId, orgId)));
+      if (!unitRow) {
+        res.status(400).json({ error: "Filial (unitId) inválida para esta organização" });
+        return;
+      }
+    }
+    await db.update(usersTable).set({ role, unitId: nextUnitId }).where(eq(usersTable.id, userId));
     res.json({ message: "Cargo atualizado com sucesso" });
   }
 );

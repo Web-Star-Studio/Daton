@@ -45,6 +45,7 @@ export const LoginResponse = zod.object({
     organizationId: zod.number(),
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
+    unitId: zod.number().nullish(),
     createdAt: zod.string().datetime({}),
   }),
   token: zod.string(),
@@ -68,6 +69,7 @@ export const GetMeResponse = zod.object({
     organizationId: zod.number(),
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
+    unitId: zod.number().nullish(),
     createdAt: zod.string().datetime({}),
   }),
   organization: zod.object({
@@ -187,6 +189,7 @@ export const UpdateMeResponse = zod.object({
     organizationId: zod.number(),
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
+    unitId: zod.number().nullish(),
     createdAt: zod.string().datetime({}),
   }),
   organization: zod.object({
@@ -6111,6 +6114,7 @@ export const ListOrgUsersResponse = zod.object({
       name: zod.string(),
       email: zod.string(),
       role: zod.string(),
+      unitId: zod.number().nullish(),
       createdAt: zod.string().datetime({}),
       modules: zod.array(
         zod.enum([
@@ -6147,7 +6151,7 @@ export const CreateOrgUserBody = zod.object({
   name: zod.string(),
   email: zod.string().email(),
   password: zod.string().min(createOrgUserBodyPasswordMin),
-  role: zod.enum(["org_admin", "operator", "analyst"]),
+  role: zod.enum(["org_admin", "manager", "operator", "analyst"]),
   modules: zod.array(
     zod.enum([
       "documents",
@@ -6166,6 +6170,7 @@ export const CreateOrgUserBody = zod.object({
       "swot",
     ]),
   ),
+  unitId: zod.number().nullish(),
 });
 
 /**
@@ -6191,7 +6196,7 @@ export const ListUserOptionsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   email: zod.string(),
-  role: zod.enum(["org_admin", "operator", "analyst"]),
+  role: zod.enum(["org_admin", "manager", "operator", "analyst"]),
 });
 export const ListUserOptionsResponse = zod.array(ListUserOptionsResponseItem);
 
@@ -6204,7 +6209,8 @@ export const UpdateUserRoleParams = zod.object({
 });
 
 export const UpdateUserRoleBody = zod.object({
-  role: zod.enum(["operator", "analyst"]),
+  role: zod.enum(["operator", "analyst", "manager"]),
+  unitId: zod.number().nullish(),
 });
 
 export const UpdateUserRoleResponse = zod.object({
@@ -13611,6 +13617,18 @@ export const ListKpiIndicatorsResponseItem = zod.object({
   ),
   formulaExpression: zod.string(),
   unit: zod.string().nullish(),
+  unitId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Filial do indicador. null = corporativo ou legado não-classificado.",
+    ),
+  isCorporate: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True quando é indicador corporativo (rollup). Espelha rollupStrategy != null.",
+    ),
   responsible: zod
     .string()
     .nullish()
@@ -13675,6 +13693,7 @@ export const CreateKpiIndicatorBody = zod.object({
   ),
   formulaExpression: zod.string(),
   unit: zod.string().optional(),
+  unitId: zod.number().nullish(),
   responsible: zod.string().optional(),
   responsibleUserId: zod.number().nullish(),
   measureUnit: zod.string().optional(),
@@ -13728,6 +13747,7 @@ export const UpdateKpiIndicatorBody = zod.object({
     .optional(),
   formulaExpression: zod.string().optional(),
   unit: zod.string().optional(),
+  unitId: zod.number().nullish(),
   responsible: zod.string().optional(),
   responsibleUserId: zod.number().nullish(),
   measureUnit: zod.string().optional(),
@@ -13771,6 +13791,18 @@ export const UpdateKpiIndicatorResponse = zod.object({
   ),
   formulaExpression: zod.string(),
   unit: zod.string().nullish(),
+  unitId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Filial do indicador. null = corporativo ou legado não-classificado.",
+    ),
+  isCorporate: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True quando é indicador corporativo (rollup). Espelha rollupStrategy != null.",
+    ),
   responsible: zod
     .string()
     .nullish()
@@ -13853,6 +13885,18 @@ export const ListKpiYearDataResponseItem = zod.object({
     ),
     formulaExpression: zod.string(),
     unit: zod.string().nullish(),
+    unitId: zod
+      .number()
+      .nullish()
+      .describe(
+        "Filial do indicador. null = corporativo ou legado não-classificado.",
+      ),
+    isCorporate: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True quando é indicador corporativo (rollup). Espelha rollupStrategy != null.",
+      ),
     responsible: zod
       .string()
       .nullish()
@@ -13895,6 +13939,20 @@ export const ListKpiYearDataResponseItem = zod.object({
     year: zod.number(),
     seq: zod.number().nullish(),
     goal: zod.number().nullish(),
+    isGoalComputed: zod
+      .boolean()
+      .optional()
+      .describe("True quando a meta foi calculada das filiais (corporativo)."),
+    goalChildrenWithData: zod
+      .number()
+      .nullish()
+      .describe(
+        "Filiais com meta consideradas no cálculo (só quando isGoalComputed).",
+      ),
+    goalChildrenTotal: zod
+      .number()
+      .nullish()
+      .describe("Total de filiais vinculadas (só quando isGoalComputed)."),
     createdAt: zod.string(),
     updatedAt: zod.string(),
   }),
@@ -13999,6 +14057,20 @@ export const UpsertKpiYearConfigResponse = zod.object({
   year: zod.number(),
   seq: zod.number().nullish(),
   goal: zod.number().nullish(),
+  isGoalComputed: zod
+    .boolean()
+    .optional()
+    .describe("True quando a meta foi calculada das filiais (corporativo)."),
+  goalChildrenWithData: zod
+    .number()
+    .nullish()
+    .describe(
+      "Filiais com meta consideradas no cálculo (só quando isGoalComputed).",
+    ),
+  goalChildrenTotal: zod
+    .number()
+    .nullish()
+    .describe("Total de filiais vinculadas (só quando isGoalComputed)."),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
