@@ -81,6 +81,9 @@ import {
   sgqProcessesTable,
   sgqProcessRevisionsTable,
   operationalPlansTable,
+  kpiIndicatorsTable,
+  kpiMonthlyValuesTable,
+  kpiYearConfigsTable,
 } from "@workspace/db";
 
 type CleanupTransaction = Pick<typeof db, "delete">;
@@ -725,6 +728,24 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(operationalPlansTable)
         .where(inArray(operationalPlansTable.organizationId, orgIds));
+
+      // KPI tables: monthly values → year configs → indicators (all FK to org)
+      const kpiConfigIds = await tx
+        .select({ id: kpiYearConfigsTable.id })
+        .from(kpiYearConfigsTable)
+        .where(inArray(kpiYearConfigsTable.organizationId, orgIds))
+        .then((rows) => rows.map((r) => r.id));
+      if (kpiConfigIds.length > 0) {
+        await tx
+          .delete(kpiMonthlyValuesTable)
+          .where(inArray(kpiMonthlyValuesTable.yearConfigId, kpiConfigIds));
+      }
+      await tx
+        .delete(kpiYearConfigsTable)
+        .where(inArray(kpiYearConfigsTable.organizationId, orgIds));
+      await tx
+        .delete(kpiIndicatorsTable)
+        .where(inArray(kpiIndicatorsTable.organizationId, orgIds));
     }
 
     if (userIds.length > 0) {
