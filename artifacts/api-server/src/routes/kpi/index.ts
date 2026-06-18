@@ -46,6 +46,7 @@ import {
 } from "../../services/kpi/formula-rename";
 import { normalizeKpiUnit, CORPORATE_UNIT_LABEL } from "../../services/kpi/units";
 import { computeRollupValue } from "../../services/kpi/rollup";
+import { computeFeedStatus, expectedMonthsFor } from "../../services/kpi/feed-status";
 
 const router: IRouter = Router();
 
@@ -100,66 +101,6 @@ function serializeYearConfig(r: typeof kpiYearConfigsTable.$inferSelect) {
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
-}
-
-/**
- * Meses (1–12) em que um indicador não-mensal deve ser lançado, conforme a
- * periodicidade e o mês de referência. Vazio quando mensal ou sem referência
- * válida — nesse caso não há restrição (todos os meses contam).
- */
-function expectedMonthsFor(
-  periodicity: string,
-  referenceMonth: number | null,
-): number[] {
-  if (!referenceMonth || referenceMonth < 1 || referenceMonth > 12) return [];
-  const at = (offset: number) => ((referenceMonth - 1 + offset) % 12) + 1;
-  if (periodicity === "annual") return [at(0)];
-  if (periodicity === "semiannual") return [at(0), at(6)];
-  if (periodicity === "quarterly") return [at(0), at(3), at(6), at(9)];
-  return [];
-}
-
-function computeFeedStatus(
-  monthValues: (number | null)[],
-  periodicity: string,
-  referenceMonth: number | null,
-  year: number,
-): "fed" | "overdue" {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1; // 1-indexed
-
-  // Quantos meses do ano selecionado já viraram exigíveis (passaram).
-  //   - ano passado : todos os 12 são exigíveis
-  //   - ano corrente: 1..currentMonth-1 (o mês corrente ainda está em curso)
-  //   - ano futuro  : 0 (nada cobrável ainda)
-  const maxMonthDue =
-    year < currentYear ? 12 : year > currentYear ? 0 : currentMonth - 1;
-
-  if (maxMonthDue === 0) return "fed";
-
-  // Periodicidades mensais: vencido se algum mês exigível está vazio.
-  if (
-    periodicity === "monthly" ||
-    periodicity === "monthly_15d" ||
-    periodicity === "monthly_45d"
-  ) {
-    for (let m = 1; m <= maxMonthDue; m++) {
-      if (monthValues[m - 1] === null) return "overdue";
-    }
-    return "fed";
-  }
-
-  // Não mensais: precisam do mês de referência. Vencido quando um mês
-  // esperado que já chegou (mês ≤ maxMonthDue) continua sem lançamento.
-  if (!referenceMonth || referenceMonth < 1 || referenceMonth > 12) {
-    return "fed"; // sem mês de referência — não há como cobrar
-  }
-  const expected = expectedMonthsFor(periodicity, referenceMonth);
-  for (const m of expected) {
-    if (m <= maxMonthDue && monthValues[m - 1] === null) return "overdue";
-  }
-  return "fed";
 }
 
 /**
