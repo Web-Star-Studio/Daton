@@ -59,14 +59,6 @@ function inheritReferenceMonth(children: { referenceMonth?: number | null }[]): 
   return best;
 }
 
-/** Parse de número no formato pt-BR: "13.232,50" → 13232.5, "1,2" → 1.2. */
-function parseBrNumber(s: string): number | null {
-  const t = s.trim();
-  if (!t) return null;
-  const n = Number(t.replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-}
-
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -74,6 +66,8 @@ interface Props {
   year: number;
   indicators: KpiIndicator[];
   onCreated?: (indicatorId: number) => void;
+  /** Meta (tolerância) do ano por indicador-filho, p/ a prévia calculada. */
+  childGoals: Map<number, number | null>;
 }
 
 export function CorporateCreateDialog({
@@ -83,6 +77,7 @@ export function CorporateCreateDialog({
   year,
   indicators,
   onCreated,
+  childGoals,
 }: Props) {
   const queryClient = useQueryClient();
   const createCorp = useCreateKpiCorporateIndicator();
@@ -96,7 +91,6 @@ export function CorporateCreateDialog({
   const [strategy, setStrategy] = useState<Strategy>("average");
   const [name, setName] = useState("");
   const [nameEdited, setNameEdited] = useState(false);
-  const [goal, setGoal] = useState("");
   const [responsibleName, setResponsibleName] = useState("");
   const [refMonth, setRefMonth] = useState<number | null>(null);
   const [refEdited, setRefEdited] = useState(false);
@@ -197,24 +191,35 @@ export function CorporateCreateDialog({
     setStrategy("average");
     setName("");
     setNameEdited(false);
-    setGoal("");
     setResponsibleName("");
     setRefMonth(null);
     setRefEdited(false);
   }
 
-  // Tolerância e responsável são obrigatórios.
-  const goalNum = parseBrNumber(goal);
-  const goalValid = goalNum != null;
   const responsibleUserId =
     orgUsers.find((u) => u.name === responsibleName)?.id ?? null;
+
+  // Prévia da meta calculada: agrega as metas dos filhos selecionados pela
+  // estratégia escolhida (mesma regra do backend). Filhos sem meta ficam de fora.
+  const computedGoalPreview = useMemo(() => {
+    const goals = selectedList
+      .map((c) => childGoals.get(c.id))
+      .filter((g): g is number => typeof g === "number" && Number.isFinite(g));
+    if (goals.length === 0) return null;
+    switch (strategy) {
+      case "sum_values": return goals.reduce((a, v) => a + v, 0);
+      case "average": return goals.reduce((a, v) => a + v, 0) / goals.length;
+      case "min": return Math.min(...goals);
+      case "max": return Math.max(...goals);
+      default: return null;
+    }
+  }, [selectedList, childGoals, strategy]);
 
   // Não-mensal só pode ser criado com um mês de referência definido.
   const canSubmit =
     effectiveName.trim().length > 0 &&
     selectedIds.size >= 2 &&
     (!isNonMonthly || referenceMonth != null) &&
-    goalValid &&
     responsibleUserId != null;
 
   async function handleCreate() {
@@ -227,7 +232,6 @@ export function CorporateCreateDialog({
           strategy,
           childIndicatorIds: [...selectedIds],
           year,
-          goal: goalNum,
           measureUnit,
           direction,
           periodicity,
@@ -405,25 +409,21 @@ export function CorporateCreateDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Tolerância / meta *</Label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              placeholder="Ex.: 1,2"
-            />
-            {goalNum != null ? (
-              <p className="text-[11px] text-muted-foreground">
-                Prévia:{" "}
-                <span className="font-medium text-foreground/80">
-                  {formatKpiValue(goalNum, measureUnit)}
+            <Label>Tolerância / meta (calculada)</Label>
+            <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              {computedGoalPreview != null ? (
+                <span className="font-medium text-foreground/90">
+                  {formatKpiValue(computedGoalPreview, measureUnit)}
                 </span>
-              </p>
-            ) : null}
+              ) : (
+                <span className="text-muted-foreground">
+                  Selecione filiais com meta definida.
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-muted-foreground">
-              Unidade herdada das filiais: {measureUnit || "—"} · Período:{" "}
-              {PERIODICITY_LABELS[periodicity as keyof typeof PERIODICITY_LABELS] ?? periodicity}
+              Calculada das filiais pela estratégia escolhida — atualiza sozinha
+              se a meta de uma filial mudar.
             </p>
           </div>
 
@@ -441,7 +441,7 @@ export function CorporateCreateDialog({
 
       <DialogFooter className="items-center">
         <span className="mr-auto text-[11px] text-muted-foreground">
-          * Tolerância e responsável são obrigatórios.
+          * Responsável obrigatório.
         </span>
         <Button
           variant="ghost"

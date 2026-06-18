@@ -15914,6 +15914,17 @@ components:
         goal:
           type: number
           nullable: true
+        isGoalComputed:
+          type: boolean
+          description: True quando a meta foi calculada das filiais (corporativo).
+        goalChildrenWithData:
+          type: integer
+          nullable: true
+          description: Filiais com meta consideradas no cálculo (só quando isGoalComputed).
+        goalChildrenTotal:
+          type: integer
+          nullable: true
+          description: Total de filiais vinculadas (só quando isGoalComputed).
         createdAt:
           type: string
         updatedAt:

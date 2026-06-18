@@ -53,7 +53,7 @@ import {
   type FormulaVar,
 } from "../../services/kpi/formula-rename";
 import { normalizeKpiUnit, CORPORATE_UNIT_LABEL } from "../../services/kpi/units";
-import { computeRollupValue } from "../../services/kpi/rollup";
+import { computeRollupValue, computeRollupGoal, type RollupGoalResult } from "../../services/kpi/rollup";
 
 const router: IRouter = Router();
 
@@ -98,7 +98,14 @@ function serializeObjective(r: typeof kpiObjectivesTable.$inferSelect) {
   };
 }
 
-function serializeYearConfig(r: typeof kpiYearConfigsTable.$inferSelect) {
+function serializeYearConfig(
+  r: typeof kpiYearConfigsTable.$inferSelect,
+  computedGoal?: {
+    computed: number | null;
+    childrenWithGoal: number;
+    childrenTotal: number;
+  } | null,
+) {
   return {
     id: r.id,
     organizationId: r.organizationId,
@@ -106,7 +113,14 @@ function serializeYearConfig(r: typeof kpiYearConfigsTable.$inferSelect) {
     objectiveId: r.objectiveId ?? null,
     year: r.year,
     seq: r.seq ?? null,
-    goal: r.goal !== null && r.goal !== undefined ? parseFloat(r.goal) : null,
+    goal: computedGoal
+      ? computedGoal.computed
+      : r.goal !== null && r.goal !== undefined
+        ? parseFloat(r.goal)
+        : null,
+    isGoalComputed: computedGoal ? true : false,
+    goalChildrenWithData: computedGoal ? computedGoal.childrenWithGoal : null,
+    goalChildrenTotal: computedGoal ? computedGoal.childrenTotal : null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
@@ -981,6 +995,14 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     valuesByYearConfigId.set(yc.id, monthMap);
   }
 
+  // ─── Rollup da META (tolerância) on-read ─────────────────────────────────
+  // Uma vez por corporativo (a meta é por ano, não por mês).
+  const computedGoalByIndicatorId = new Map<number, RollupGoalResult>();
+  for (const ind of rollupIndicators) {
+    const goalResult = await computeRollupGoal(params.data.orgId, ind.id, params.data.year);
+    if (goalResult) computedGoalByIndicatorId.set(ind.id, goalResult);
+  }
+
   // Build response — todos os indicadores aparecem em qualquer ano. Os que
   // não tinham config no ano alvo já receberam um sintético acima (carry-
   // forward), então sempre há um `yc` pra mapear.
@@ -1028,7 +1050,7 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         : null;
       return {
         indicator: serializeIndicator(ind, responsibleUserName),
-        yearConfig: serializeYearConfig(yc),
+        yearConfig: serializeYearConfig(yc, computedGoalByIndicatorId.get(ind.id) ?? null),
         objective: objective ? serializeObjective(objective) : null,
         monthlyValues: monthlyCells.map((c, i) => ({
           month: i + 1,
@@ -1071,7 +1093,17 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year", requ
   const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "editDefinition");
   if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
 
-  const goalStr = body.data.goal !== null && body.data.goal !== undefined ? String(body.data.goal) : null;
+  // Corporativo: meta é derivada das filiais — qualquer goal manual é ignorado.
+  // (authorizeIndicatorAction já garantiu org + 404; aqui só precisamos da strategy.)
+  const [indicator] = await db.select({ rollupStrategy: kpiIndicatorsTable.rollupStrategy })
+    .from(kpiIndicatorsTable)
+    .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)));
+  const isCorporate = indicator?.rollupStrategy != null;
+  const goalStr = isCorporate
+    ? null
+    : body.data.goal !== null && body.data.goal !== undefined
+      ? String(body.data.goal)
+      : null;
 
   const [row] = await db.insert(kpiYearConfigsTable).values({
     organizationId: params.data.orgId,
@@ -1350,9 +1382,6 @@ router.post(
     if (!body.periodicity || typeof body.periodicity !== "string") {
       res.status(400).json({ error: "periodicity obrigatório" }); return;
     }
-    if (body.goal == null || !Number.isFinite(Number(body.goal))) {
-      res.status(400).json({ error: "Tolerância obrigatória" }); return;
-    }
     if (body.responsibleUserId == null || !Number.isFinite(Number(body.responsibleUserId))) {
       res.status(400).json({ error: "Responsável obrigatório" }); return;
     }
@@ -1449,7 +1478,7 @@ router.post(
         organizationId: orgId,
         indicatorId: created.id,
         year,
-        goal: body.goal != null ? String(body.goal) : null,
+        goal: null, // meta do corporativo é sempre calculada das filiais
       });
 
       return created.id;

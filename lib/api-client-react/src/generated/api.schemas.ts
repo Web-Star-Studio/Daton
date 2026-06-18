@@ -3597,6 +3597,12 @@ export interface KpiYearConfig {
   year: number;
   seq?: number | null;
   goal?: number | null;
+  /** True quando a meta foi calculada das filiais (corporativo). */
+  isGoalComputed?: boolean;
+  /** Filiais com meta consideradas no cálculo (só quando isGoalComputed). */
+  goalChildrenWithData?: number | null;
+  /** Total de filiais vinculadas (só quando isGoalComputed). */
+  goalChildrenTotal?: number | null;
   createdAt: string;
   updatedAt: string;
 }

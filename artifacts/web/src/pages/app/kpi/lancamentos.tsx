@@ -39,6 +39,7 @@ import {
   useUpsertKpiValuesWithInvalidation,
   useUpsertKpiYearConfigWithInvalidation,
 } from "@/lib/kpi-client";
+import { isCorporateUnit } from "@/lib/kpi-constants";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -817,15 +818,24 @@ export default function KpiAlimentacaoPage({
                   placeholder="1"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>Tolerância *</Label>
-                <Input
-                  type="number"
-                  value={configForm.goal}
-                  onChange={(e) => setConfigForm((f) => ({ ...f, goal: e.target.value }))}
-                  placeholder="Ex: 98.9"
-                />
-              </div>
+              {configDialog && isCorporateUnit(configDialog.indicator.unit) ? (
+                <div className="space-y-1.5">
+                  <Label>Tolerância</Label>
+                  <p className="rounded-md border bg-muted/30 px-3 py-2 text-[12px] text-muted-foreground">
+                    Calculada automaticamente das filiais.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label>Tolerância *</Label>
+                  <Input
+                    type="number"
+                    value={configForm.goal}
+                    onChange={(e) => setConfigForm((f) => ({ ...f, goal: e.target.value }))}
+                    placeholder="Ex: 98.9"
+                  />
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
