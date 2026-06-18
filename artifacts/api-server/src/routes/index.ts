@@ -33,6 +33,7 @@ import assetMaintenanceRouter from "./asset-maintenance";
 import workEnvironmentRouter from "./work-environment";
 import measurementResourcesRouter from "./measurement-resources";
 import regulatoryDocumentsRouter from "./regulatory-documents";
+import pendenciasRouter from "./pendencias";
 const router: IRouter = Router();
 
 function requireModuleAccessForPaths(
@@ -158,6 +159,7 @@ router.use(
   roadSafetyRouter,
 );
 router.use(requireAuth, requireCompletedOnboarding, actionPlansRouter);
+router.use(requireAuth, requireCompletedOnboarding, pendenciasRouter);
 router.use(
   requireAuth,
   requireCompletedOnboarding,
