@@ -46,6 +46,8 @@ export const LoginResponse = zod.object({
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
     createdAt: zod.string().datetime({}),
+    lastLoginAt: zod.string().datetime({}).nullable(),
+    primaryUnitId: zod.number().nullable(),
   }),
   token: zod.string(),
 });
@@ -69,6 +71,8 @@ export const GetMeResponse = zod.object({
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
     createdAt: zod.string().datetime({}),
+    lastLoginAt: zod.string().datetime({}).nullable(),
+    primaryUnitId: zod.number().nullable(),
   }),
   organization: zod.object({
     id: zod.number(),
@@ -163,6 +167,12 @@ export const GetMeResponse = zod.object({
       "swot",
     ]),
   ),
+  filial: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+    })
+    .nullable(),
 });
 
 /**
@@ -188,6 +198,8 @@ export const UpdateMeResponse = zod.object({
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
     createdAt: zod.string().datetime({}),
+    lastLoginAt: zod.string().datetime({}).nullable(),
+    primaryUnitId: zod.number().nullable(),
   }),
   organization: zod.object({
     id: zod.number(),
@@ -282,6 +294,12 @@ export const UpdateMeResponse = zod.object({
       "swot",
     ]),
   ),
+  filial: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+    })
+    .nullable(),
 });
 
 /**
@@ -5786,6 +5804,7 @@ export const ListOrgUsersResponse = zod.object({
           "swot",
         ]),
       ),
+      primaryUnitId: zod.number().nullable(),
     }),
   ),
 });
@@ -5822,6 +5841,7 @@ export const CreateOrgUserBody = zod.object({
       "swot",
     ]),
   ),
+  primaryUnitId: zod.number().nullish(),
 });
 
 /**
@@ -5865,6 +5885,45 @@ export const UpdateUserRoleBody = zod.object({
 
 export const UpdateUserRoleResponse = zod.object({
   message: zod.string(),
+});
+
+/**
+ * @summary Set a user's primary filial (unit)
+ */
+export const UpdateUserUnitParams = zod.object({
+  orgId: zod.coerce.number(),
+  userId: zod.coerce.number(),
+});
+
+export const UpdateUserUnitBody = zod.object({
+  primaryUnitId: zod.number().nullable(),
+});
+
+export const UpdateUserUnitResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  role: zod.string(),
+  createdAt: zod.string().datetime({}),
+  modules: zod.array(
+    zod.enum([
+      "documents",
+      "legislations",
+      "employees",
+      "units",
+      "departments",
+      "positions",
+      "governance",
+      "suppliers",
+      "environmental",
+      "kpi",
+      "roadSafety",
+      "assets",
+      "regulatoryDocuments",
+      "swot",
+    ]),
+  ),
+  primaryUnitId: zod.number().nullable(),
 });
 
 /**

@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, and, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { db, usersTable, userModulePermissionsTable } from "@workspace/db";
+import { db, usersTable, userModulePermissionsTable, unitsTable } from "@workspace/db";
 import { requireAuth, requireCompletedOnboarding, requireRole, APP_MODULES } from "../middlewares/auth";
 import type { AppModule, UserRole } from "../middlewares/auth";
 
@@ -14,6 +14,7 @@ const createOrgUserBodySchema = z.object({
   password: z.string().min(6),
   role: z.enum(["org_admin", "operator", "analyst"]),
   modules: z.array(z.enum(APP_MODULES)).default([]),
+  primaryUnitId: z.number().int().positive().nullable().optional(),
 });
 
 function serializeOrgUser(user: {
@@ -22,6 +23,7 @@ function serializeOrgUser(user: {
   email: string;
   role: string;
   createdAt: Date;
+  primaryUnitId: number | null;
 }, modules: string[]) {
   return {
     id: user.id,
@@ -30,7 +32,17 @@ function serializeOrgUser(user: {
     role: user.role,
     createdAt: user.createdAt.toISOString(),
     modules,
+    primaryUnitId: user.primaryUnitId ?? null,
   };
+}
+
+// Ensures a unit belongs to the org before linking it to a user (prevents cross-org assignment).
+async function unitBelongsToOrg(unitId: number, orgId: number): Promise<boolean> {
+  const [unit] = await db
+    .select({ id: unitsTable.id })
+    .from(unitsTable)
+    .where(and(eq(unitsTable.id, unitId), eq(unitsTable.organizationId, orgId)));
+  return Boolean(unit);
 }
 
 router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboarding, requireRole("org_admin"), async (req, res): Promise<void> => {
@@ -46,6 +58,7 @@ router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboardin
     email: usersTable.email,
     role: usersTable.role,
     createdAt: usersTable.createdAt,
+    primaryUnitId: usersTable.primaryUnitId,
   }).from(usersTable).where(eq(usersTable.organizationId, orgId));
 
   const userIds = users.map((user) => user.id);
@@ -78,7 +91,12 @@ router.post("/organizations/:orgId/users",
       return;
     }
 
-    const { name, email, password, role, modules } = parsed.data;
+    const { name, email, password, role, modules, primaryUnitId } = parsed.data;
+
+    if (primaryUnitId != null && !(await unitBelongsToOrg(primaryUnitId, orgId))) {
+      res.status(400).json({ error: "Filial inválida" });
+      return;
+    }
 
     const [existingUser] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email));
     if (existingUser) {
@@ -97,6 +115,7 @@ router.post("/organizations/:orgId/users",
           passwordHash,
           organizationId: orgId,
           role,
+          primaryUnitId: primaryUnitId ?? null,
         }).returning();
 
         if (normalizedModules.length > 0) {
@@ -211,6 +230,55 @@ router.put("/organizations/:orgId/users/:userId/modules",
     }
 
     res.json({ message: "Permissões atualizadas com sucesso", modules });
+  }
+);
+
+const updateUserUnitBodySchema = z.object({
+  primaryUnitId: z.number().int().positive().nullable(),
+});
+
+router.patch("/organizations/:orgId/users/:userId/unit",
+  requireAuth,
+  requireCompletedOnboarding,
+  requireRole("org_admin"),
+  async (req, res): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    const userId = Number(req.params.userId);
+
+    if (orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+
+    const parsed = updateUserUnitBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const { primaryUnitId } = parsed.data;
+
+    if (primaryUnitId != null && !(await unitBelongsToOrg(primaryUnitId, orgId))) {
+      res.status(400).json({ error: "Filial inválida" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(usersTable)
+      .set({ primaryUnitId })
+      .where(and(eq(usersTable.id, userId), eq(usersTable.organizationId, orgId)))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Usuário não encontrado" });
+      return;
+    }
+
+    const perms = await db
+      .select()
+      .from(userModulePermissionsTable)
+      .where(eq(userModulePermissionsTable.userId, userId));
+
+    res.json(serializeOrgUser(updated, perms.map((p) => p.module)));
   }
 );
 

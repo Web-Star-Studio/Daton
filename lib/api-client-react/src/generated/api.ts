@@ -191,6 +191,7 @@ import type {
   MessageResponse,
   NonconformityDetail,
   NonconformityEffectivenessReviewBody,
+  OrgUser,
   Organization,
   OrganizationContact,
   OrganizationContactBody,
@@ -304,6 +305,7 @@ import type {
   UpdateUserModules200,
   UpdateUserModulesBody,
   UpdateUserRoleBody,
+  UpdateUserUnitBody,
   UpdateWorkEnvironmentControlBody,
   UpsertKpiValuesBody,
   UpsertKpiYearConfigBody,
@@ -11617,6 +11619,94 @@ export const useUpdateUserRole = <
   TContext
 > => {
   return useMutation(getUpdateUserRoleMutationOptions(options));
+};
+
+/**
+ * @summary Set a user's primary filial (unit)
+ */
+export const getUpdateUserUnitUrl = (orgId: number, userId: number) => {
+  return `/api/organizations/${orgId}/users/${userId}/unit`;
+};
+
+export const updateUserUnit = async (
+  orgId: number,
+  userId: number,
+  updateUserUnitBody: UpdateUserUnitBody,
+  options?: RequestInit,
+): Promise<OrgUser> => {
+  return customFetch<OrgUser>(getUpdateUserUnitUrl(orgId, userId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateUserUnitBody),
+  });
+};
+
+export const getUpdateUserUnitMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateUserUnit>>,
+    TError,
+    { orgId: number; userId: number; data: BodyType<UpdateUserUnitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateUserUnit>>,
+  TError,
+  { orgId: number; userId: number; data: BodyType<UpdateUserUnitBody> },
+  TContext
+> => {
+  const mutationKey = ["updateUserUnit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateUserUnit>>,
+    { orgId: number; userId: number; data: BodyType<UpdateUserUnitBody> }
+  > = (props) => {
+    const { orgId, userId, data } = props ?? {};
+
+    return updateUserUnit(orgId, userId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateUserUnitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateUserUnit>>
+>;
+export type UpdateUserUnitMutationBody = BodyType<UpdateUserUnitBody>;
+export type UpdateUserUnitMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set a user's primary filial (unit)
+ */
+export const useUpdateUserUnit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateUserUnit>>,
+    TError,
+    { orgId: number; userId: number; data: BodyType<UpdateUserUnitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateUserUnit>>,
+  TError,
+  { orgId: number; userId: number; data: BodyType<UpdateUserUnitBody> },
+  TContext
+> => {
+  return useMutation(getUpdateUserUnitMutationOptions(options));
 };
 
 /**

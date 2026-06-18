@@ -14,4 +14,6 @@ export interface OrgUser {
   role: string;
   createdAt: string;
   modules: AppModule[];
+  /** @nullable */
+  primaryUnitId: number | null;
 }

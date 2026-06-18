@@ -3209,6 +3209,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  /organizations/{orgId}/users/{userId}/unit:
+    patch:
+      operationId: updateUserUnit
+      tags: [organizations]
+      summary: Set a user's primary filial (unit)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                primaryUnitId:
+                  type: ["integer", "null"]
+              required:
+                - primaryUnitId
+      responses:
+        "200":
+          description: Primary unit updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgUser"
+
   /organizations/{orgId}/users/{userId}/modules:
     put:
       operationId: updateUserModules
@@ -9754,6 +9789,11 @@ components:
         createdAt:
           type: string
           format: date-time
+        lastLoginAt:
+          type: ["string", "null"]
+          format: date-time
+        primaryUnitId:
+          type: ["integer", "null"]
       required:
         - id
         - name
@@ -9762,6 +9802,8 @@ components:
         - role
         - theme
         - createdAt
+        - lastLoginAt
+        - primaryUnitId
 
     MeResponse:
       type: object
@@ -9774,10 +9816,21 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AppModule"
+        filial:
+          type: ["object", "null"]
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+          required:
+            - id
+            - name
       required:
         - user
         - organization
         - modules
+        - filial
 
     Organization:
       type: object
@@ -11889,6 +11942,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AppModule"
+        primaryUnitId:
+          type: ["integer", "null"]
       required:
         - id
         - name
@@ -11896,6 +11951,7 @@ components:
         - role
         - createdAt
         - modules
+        - primaryUnitId
 
     UserOption:
       type: object
@@ -11933,6 +11989,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AppModule"
+        primaryUnitId:
+          type: ["integer", "null"]
       required:
         - name
         - email

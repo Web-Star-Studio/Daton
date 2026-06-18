@@ -15,4 +15,6 @@ export interface CreateOrgUserBody {
   password: string;
   role: CreateOrgUserBodyRole;
   modules: AppModule[];
+  /** @nullable */
+  primaryUnitId?: number | null;
 }

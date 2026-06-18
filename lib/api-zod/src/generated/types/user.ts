@@ -15,4 +15,8 @@ export interface User {
   role: string;
   theme: UserTheme;
   createdAt: string;
+  /** @nullable */
+  lastLoginAt: string | null;
+  /** @nullable */
+  primaryUnitId: number | null;
 }

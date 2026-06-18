@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Badge } from "@/components/ui/badge";
 import { OrganizationContactsCatalogSection } from "@/components/settings/OrganizationContactsCatalogSection";
 import { OrganizationContactGroupsSection } from "@/components/settings/OrganizationContactGroupsSection";
@@ -43,6 +44,9 @@ import {
   useCreateOrgUser,
   useUpdateUserRole,
   useUpdateUserModules,
+  useUpdateUserUnit,
+  useListUnits,
+  getListUnitsQueryKey,
   getListOrgUsersQueryKey,
   type AppModule,
   type UpdateUserRoleBodyRole,
@@ -56,6 +60,7 @@ type CreateUserFormData = {
   password: string;
   role: "org_admin" | "operator" | "analyst";
   modules: OrgUserModule[];
+  primaryUnitId: number | null;
 };
 
 type InviteFormData = {
@@ -111,6 +116,7 @@ const emptyCreateUserForm: CreateUserFormData = {
   password: "",
   role: "analyst",
   modules: [],
+  primaryUnitId: null,
 };
 
 const emptyInviteForm: InviteFormData = {
@@ -287,6 +293,17 @@ export function OrganizationUsersSettingsSection() {
   const createOrgUserMut = useCreateOrgUser();
   const updateRoleMut = useUpdateUserRole();
   const updateModulesMut = useUpdateUserModules();
+  const updateUnitMut = useUpdateUserUnit();
+  const { data: units = [] } = useListUnits(orgId!, {
+    query: {
+      queryKey: getListUnitsQueryKey(orgId!),
+      enabled: !!orgId && isOrgAdmin,
+    },
+  });
+  const unitOptions = useMemo(
+    () => units.map((u) => ({ value: String(u.id), label: u.name })),
+    [units],
+  );
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
   const [createUserError, setCreateUserError] = useState("");
   const createUserForm = useForm<CreateUserFormData>({
@@ -299,11 +316,14 @@ export function OrganizationUsersSettingsSection() {
     email: string;
     role: string;
     modules: AppModule[];
+    primaryUnitId: number | null;
   } | null>(null);
   const [editRole, setEditRole] = useState<UpdateUserRoleBodyRole>("operator");
   const [editModules, setEditModules] = useState<AppModule[]>([]);
+  const [editPrimaryUnitId, setEditPrimaryUnitId] = useState<number | null>(null);
   const createUserRole = createUserForm.watch("role");
   const createUserModules = createUserForm.watch("modules") || [];
+  const createUserPrimaryUnitId = createUserForm.watch("primaryUnitId");
 
   const excludedEmployeeEmails = useMemo(() => {
     const set = new Set<string>();
@@ -606,11 +626,13 @@ export function OrganizationUsersSettingsSection() {
                                   email: u.email,
                                   role: u.role,
                                   modules: u.modules,
+                                  primaryUnitId: u.primaryUnitId ?? null,
                                 });
                                 setEditRole(
                                   u.role === "analyst" ? "analyst" : "operator",
                                 );
                                 setEditModules([...u.modules]);
+                                setEditPrimaryUnitId(u.primaryUnitId ?? null);
                                 setPermDialogOpen(true);
                               }}
                               className="cursor-pointer rounded p-1.5 text-muted-foreground transition-colors hover:text-foreground"
@@ -992,6 +1014,7 @@ export function OrganizationUsersSettingsSection() {
                   password: data.password,
                   role: data.role,
                   modules: data.role === "org_admin" ? [] : data.modules,
+                  primaryUnitId: data.primaryUnitId ?? null,
                 },
               });
               queryClient.invalidateQueries({
@@ -1092,6 +1115,27 @@ export function OrganizationUsersSettingsSection() {
                     : createUserRole === "operator"
                       ? "Operadores podem editar os módulos atribuídos."
                       : "Analistas possuem acesso de visualização aos módulos atribuídos."}
+                </p>
+              </div>
+              <div>
+                <Label>Filial</Label>
+                <SearchableSelect
+                  value={
+                    createUserPrimaryUnitId != null
+                      ? String(createUserPrimaryUnitId)
+                      : ""
+                  }
+                  onChange={(v) =>
+                    createUserForm.setValue(
+                      "primaryUnitId",
+                      v ? Number(v) : null,
+                    )
+                  }
+                  options={unitOptions}
+                  placeholder="Sem filial"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Filial à qual o usuário pertence (opcional).
                 </p>
               </div>
             </div>
@@ -1200,6 +1244,17 @@ export function OrganizationUsersSettingsSection() {
               </p>
             </div>
             <div>
+              <Label>Filial</Label>
+              <SearchableSelect
+                value={
+                  editPrimaryUnitId != null ? String(editPrimaryUnitId) : ""
+                }
+                onChange={(v) => setEditPrimaryUnitId(v ? Number(v) : null)}
+                options={unitOptions}
+                placeholder="Sem filial"
+              />
+            </div>
+            <div>
               <Label>Módulos</Label>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {ALL_MODULES.map((mod) => (
@@ -1240,7 +1295,9 @@ export function OrganizationUsersSettingsSection() {
               <Button
                 size="sm"
                 isLoading={
-                  updateRoleMut.isPending || updateModulesMut.isPending
+                  updateRoleMut.isPending ||
+                  updateModulesMut.isPending ||
+                  updateUnitMut.isPending
                 }
                 onClick={async () => {
                   if (!editingUser) return;
@@ -1262,6 +1319,14 @@ export function OrganizationUsersSettingsSection() {
                         orgId,
                         userId: editingUser.id,
                         data: { modules: editModules },
+                      });
+                    }
+
+                    if (editPrimaryUnitId !== editingUser.primaryUnitId) {
+                      await updateUnitMut.mutateAsync({
+                        orgId,
+                        userId: editingUser.id,
+                        data: { primaryUnitId: editPrimaryUnitId },
                       });
                     }
 

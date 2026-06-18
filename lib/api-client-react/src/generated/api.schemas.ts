@@ -248,12 +248,24 @@ export interface User {
   role: string;
   theme: UserTheme;
   createdAt: string;
+  /** @nullable */
+  lastLoginAt: string | null;
+  /** @nullable */
+  primaryUnitId: number | null;
 }
 
 export interface AuthResponse {
   user: User;
   token: string;
 }
+
+/**
+ * @nullable
+ */
+export type MeResponseFilial = {
+  id: number;
+  name: string;
+} | null;
 
 export type OnboardingStatus =
   (typeof OnboardingStatus)[keyof typeof OnboardingStatus];
@@ -397,6 +409,8 @@ export interface MeResponse {
   user: User;
   organization: Organization;
   modules: AppModule[];
+  /** @nullable */
+  filial: MeResponseFilial;
 }
 
 export interface UpdateOrganizationBody {
@@ -1654,6 +1668,8 @@ export interface OrgUser {
   role: string;
   createdAt: string;
   modules: AppModule[];
+  /** @nullable */
+  primaryUnitId: number | null;
 }
 
 export type UserOptionRole =
@@ -1688,6 +1704,8 @@ export interface CreateOrgUserBody {
   password: string;
   role: CreateOrgUserBodyRole;
   modules: AppModule[];
+  /** @nullable */
+  primaryUnitId?: number | null;
 }
 
 export type CreateOrgUserResponse = OrgUser;
@@ -6035,6 +6053,11 @@ export const UpdateUserRoleBodyRole = {
 
 export type UpdateUserRoleBody = {
   role: UpdateUserRoleBodyRole;
+};
+
+export type UpdateUserUnitBody = {
+  /** @nullable */
+  primaryUnitId: number | null;
 };
 
 export type UpdateUserModulesBody = {
