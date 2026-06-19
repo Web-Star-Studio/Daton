@@ -28,14 +28,49 @@ router.get("/organizations/:orgId/pendencias", requireAuth, async (req, res): Pr
   }
   const { scope, unitId, dueSoonDays } = parsed.data;
 
+  // Caller identity (incl. their own filial). Needed BEFORE scope resolution
+  // because a manager's scope=unit is locked to their own unitId; also feeds
+  // the panel header block.
+  const [me] = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      role: usersTable.role,
+      lastLoginAt: usersTable.lastLoginAt,
+      unitId: usersTable.unitId,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+
   const isAdmin = role === "org_admin" || role === "platform_admin";
-  if (scope !== "mine" && !isAdmin) {
+  const isManager = role === "manager";
+
+  // scope=org is admin-only.
+  if (scope === "org" && !isAdmin) {
     res.status(403).json({ error: "Sem permissão para este escopo" });
     return;
   }
-  if (scope === "unit" && !unitId) {
-    res.status(400).json({ error: "unitId é obrigatório para scope=unit" });
-    return;
+
+  // Resolve the effective filial for scope=unit: admins pick any filial,
+  // managers are locked to their own, everyone else is forbidden.
+  let effectiveUnitId: number | undefined;
+  if (scope === "unit") {
+    if (isAdmin) {
+      if (!unitId) {
+        res.status(400).json({ error: "unitId é obrigatório para scope=unit" });
+        return;
+      }
+      effectiveUnitId = unitId;
+    } else if (isManager) {
+      if (!me?.unitId) {
+        res.status(403).json({ error: "Gerente sem filial vinculada" });
+        return;
+      }
+      effectiveUnitId = me.unitId; // locked to the manager's own filial; param ignored
+    } else {
+      res.status(403).json({ error: "Sem permissão para este escopo" });
+      return;
+    }
   }
 
   // Resolve the responsible users for the requested scope.
@@ -46,7 +81,7 @@ router.get("/organizations/:orgId/pendencias", requireAuth, async (req, res): Pr
     const rows = await db
       .select({ id: usersTable.id })
       .from(usersTable)
-      .where(and(eq(usersTable.organizationId, orgId), eq(usersTable.unitId, unitId!)));
+      .where(and(eq(usersTable.organizationId, orgId), eq(usersTable.unitId, effectiveUnitId!)));
     responsibleUserIds = rows.map((r) => r.id);
   } else {
     const rows = await db
@@ -63,18 +98,6 @@ router.get("/organizations/:orgId/pendencias", requireAuth, async (req, res): Pr
     now,
     dueSoonDays,
   });
-
-  // Caller identity block for the panel header.
-  const [me] = await db
-    .select({
-      id: usersTable.id,
-      name: usersTable.name,
-      role: usersTable.role,
-      lastLoginAt: usersTable.lastLoginAt,
-      unitId: usersTable.unitId,
-    })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId));
 
   let filial: { id: number; name: string } | null = null;
   if (me?.unitId) {

@@ -80,4 +80,58 @@ describe("GET /organizations/:orgId/pendencias", () => {
 
     expect(res.status).toBe(403);
   });
+
+  it("lets a manager see their own filial's pendências (scope=unit)", async () => {
+    const ctx = await createTestContext({ seed: "pend-mgr-unit", role: "manager" });
+    contexts.push(ctx);
+    const unit = await createUnit(ctx, `Filial ${ctx.prefix}`);
+    await db.update(usersTable).set({ unitId: unit.id }).where(eq(usersTable.id, ctx.userId));
+    const member = await createTestUser(ctx, { role: "operator", suffix: "op" });
+    await db.update(usersTable).set({ unitId: unit.id }).where(eq(usersTable.id, member.id));
+    await seedOverduePlan(ctx.organizationId, member.id, `Plano do membro ${ctx.prefix}`);
+    await seedOverduePlan(ctx.organizationId, ctx.userId, `Plano do gestor ${ctx.prefix}`);
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/pendencias?scope=unit`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    expect(res.body.scope).toBe("unit");
+    const titles = res.body.items.map((i: { title: string }) => i.title);
+    expect(titles).toContain(`Plano do membro ${ctx.prefix}`);
+    expect(titles).toContain(`Plano do gestor ${ctx.prefix}`);
+  });
+
+  it("ignores a manager's unitId param and stays locked to their own filial", async () => {
+    const ctx = await createTestContext({ seed: "pend-mgr-lock", role: "manager" });
+    contexts.push(ctx);
+    const ownUnit = await createUnit(ctx, `Própria ${ctx.prefix}`);
+    const otherUnit = await createUnit(ctx, `Outra ${ctx.prefix}`);
+    await db.update(usersTable).set({ unitId: ownUnit.id }).where(eq(usersTable.id, ctx.userId));
+    await seedOverduePlan(ctx.organizationId, ctx.userId, `Plano do gestor ${ctx.prefix}`);
+    const otherMember = await createTestUser(ctx, { role: "operator", suffix: "other" });
+    await db.update(usersTable).set({ unitId: otherUnit.id }).where(eq(usersTable.id, otherMember.id));
+    await seedOverduePlan(ctx.organizationId, otherMember.id, `Plano de outra filial ${ctx.prefix}`);
+
+    // Manager explicitly asks for the OTHER unit — must be ignored.
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/pendencias?scope=unit&unitId=${otherUnit.id}`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    const titles = res.body.items.map((i: { title: string }) => i.title);
+    expect(titles).toContain(`Plano do gestor ${ctx.prefix}`);
+    expect(titles).not.toContain(`Plano de outra filial ${ctx.prefix}`);
+  });
+
+  it("forbids a manager from scope=org (403)", async () => {
+    const ctx = await createTestContext({ seed: "pend-mgr-org", role: "manager" });
+    contexts.push(ctx);
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/pendencias?scope=org`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(403);
+  });
 });
