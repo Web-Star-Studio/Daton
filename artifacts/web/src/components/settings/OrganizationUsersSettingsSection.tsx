@@ -1017,7 +1017,7 @@ export function OrganizationUsersSettingsSection() {
                   password: data.password,
                   role: data.role,
                   modules: data.role === "org_admin" ? [] : data.modules,
-                  unitId: data.role === "manager" ? data.unitId : null,
+                  unitId: data.role === "org_admin" ? null : data.unitId ?? null,
                 },
               });
               queryClient.invalidateQueries({
@@ -1122,9 +1122,9 @@ export function OrganizationUsersSettingsSection() {
                         ? "Operadores podem editar os módulos atribuídos."
                         : "Analistas possuem acesso de visualização aos módulos atribuídos."}
                 </p>
-                {createUserRole === "manager" && (
+                {createUserRole !== "org_admin" && (
                   <div className="mt-3">
-                    <Label>Filial do gerente</Label>
+                    <Label>Filial{createUserRole === "manager" ? "" : " (opcional)"}</Label>
                     <Select
                       value={createUserForm.watch("unitId") ?? ""}
                       onChange={(e) =>
@@ -1265,36 +1265,35 @@ export function OrganizationUsersSettingsSection() {
                     ? "Pode visualizar e editar dados dos módulos atribuídos."
                     : "Somente visualização dos módulos atribuídos."}
               </p>
-              {editRole === "manager" && (
-                <div className="mt-3">
-                  <Label>Filial do gerente</Label>
-                  <Select
-                    value={editUnitId ?? ""}
-                    onChange={(e) => {
-                      setEditUnitId(
-                        e.target.value ? Number(e.target.value) : null,
-                      );
-                      if (e.target.value) setEditUnitError("");
-                    }}
-                  >
-                    <option value="">Selecione uma filial</option>
-                    {orgUnits.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </Select>
-                  {editUnitError && (
-                    <p className="mt-1 text-xs text-destructive">
-                      {editUnitError}
-                    </p>
-                  )}
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    O gerente verá e gerenciará os indicadores desta filial (e os
-                    corporativos).
+              <div className="mt-3">
+                <Label>Filial{editRole === "manager" ? "" : " (opcional)"}</Label>
+                <Select
+                  value={editUnitId ?? ""}
+                  onChange={(e) => {
+                    setEditUnitId(
+                      e.target.value ? Number(e.target.value) : null,
+                    );
+                    if (e.target.value) setEditUnitError("");
+                  }}
+                >
+                  <option value="">Selecione uma filial</option>
+                  {orgUnits.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </Select>
+                {editUnitError && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {editUnitError}
                   </p>
-                </div>
-              )}
+                )}
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {editRole === "manager"
+                    ? "O gerente verá e gerenciará os indicadores desta filial (e os corporativos)."
+                    : "A filial define o escopo do painel de pendências deste usuário."}
+                </p>
+              </div>
             </div>
             <div>
               <Label>Módulos</Label>
@@ -1347,8 +1346,7 @@ export function OrganizationUsersSettingsSection() {
                     return;
                   }
 
-                  const nextUnitId =
-                    editRole === "manager" ? editUnitId : null;
+                  const nextUnitId = editUnitId ?? null;
 
                   try {
                     const roleChanged = editRole !== editingUser.role;
