@@ -46,7 +46,7 @@ router.get("/organizations/:orgId/pendencias", requireAuth, async (req, res): Pr
     const rows = await db
       .select({ id: usersTable.id })
       .from(usersTable)
-      .where(and(eq(usersTable.organizationId, orgId), eq(usersTable.primaryUnitId, unitId!)));
+      .where(and(eq(usersTable.organizationId, orgId), eq(usersTable.unitId, unitId!)));
     responsibleUserIds = rows.map((r) => r.id);
   } else {
     const rows = await db
@@ -71,17 +71,17 @@ router.get("/organizations/:orgId/pendencias", requireAuth, async (req, res): Pr
       name: usersTable.name,
       role: usersTable.role,
       lastLoginAt: usersTable.lastLoginAt,
-      primaryUnitId: usersTable.primaryUnitId,
+      unitId: usersTable.unitId,
     })
     .from(usersTable)
     .where(eq(usersTable.id, userId));
 
   let filial: { id: number; name: string } | null = null;
-  if (me?.primaryUnitId) {
+  if (me?.unitId) {
     const [unit] = await db
       .select({ id: unitsTable.id, name: unitsTable.name })
       .from(unitsTable)
-      .where(eq(unitsTable.id, me.primaryUnitId));
+      .where(eq(unitsTable.id, me.unitId));
     filial = unit ?? null;
   }
 

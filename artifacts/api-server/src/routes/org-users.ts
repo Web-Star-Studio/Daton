@@ -3,49 +3,47 @@ import { eq, and, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db, usersTable, userModulePermissionsTable, unitsTable } from "@workspace/db";
-import { requireAuth, requireCompletedOnboarding, requireRole, APP_MODULES } from "../middlewares/auth";
-import type { AppModule, UserRole } from "../middlewares/auth";
+import { requireAuth, requireCompletedOnboarding, requireRole, requireModuleAccess, APP_MODULES } from "../middlewares/auth";
+import type { AppModule } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-const createOrgUserBodySchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  password: z.string().min(6),
-  role: z.enum(["org_admin", "operator", "analyst"]),
-  modules: z.array(z.enum(APP_MODULES)).default([]),
-  primaryUnitId: z.number().int().positive().nullable().optional(),
-});
+const createOrgUserBodySchema = z
+  .object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    password: z.string().min(6),
+    role: z.enum(["org_admin", "manager", "operator", "analyst"]),
+    modules: z.array(z.enum(APP_MODULES)).default([]),
+    unitId: z.number().int().nullable().optional(),
+  })
+  .refine((d) => d.role !== "manager" || (d.unitId !== null && d.unitId !== undefined), {
+    message: "Gerente requer uma filial (unitId)",
+    path: ["unitId"],
+  });
 
 function serializeOrgUser(user: {
   id: number;
   name: string;
   email: string;
   role: string;
+  unitId: number | null;
   createdAt: Date;
-  primaryUnitId: number | null;
 }, modules: string[]) {
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
+    unitId: user.unitId ?? null,
     createdAt: user.createdAt.toISOString(),
     modules,
-    primaryUnitId: user.primaryUnitId ?? null,
   };
 }
 
-// Ensures a unit belongs to the org before linking it to a user (prevents cross-org assignment).
-async function unitBelongsToOrg(unitId: number, orgId: number): Promise<boolean> {
-  const [unit] = await db
-    .select({ id: unitsTable.id })
-    .from(unitsTable)
-    .where(and(eq(unitsTable.id, unitId), eq(unitsTable.organizationId, orgId)));
-  return Boolean(unit);
-}
-
-router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboarding, requireRole("org_admin"), async (req, res): Promise<void> => {
+// Gerentes podem LER a lista de usuários (read-only) para atribuir o responsável de um indicador.
+// Criar/alterar usuários permanece restrito a org_admin (POST/PATCH/PUT abaixo).
+router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboarding, requireRole("org_admin", "manager"), requireModuleAccess("kpi"), async (req, res): Promise<void> => {
   const orgId = Number(req.params.orgId);
   if (orgId !== req.auth!.organizationId) {
     res.status(403).json({ error: "Acesso negado" });
@@ -57,8 +55,8 @@ router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboardin
     name: usersTable.name,
     email: usersTable.email,
     role: usersTable.role,
+    unitId: usersTable.unitId,
     createdAt: usersTable.createdAt,
-    primaryUnitId: usersTable.primaryUnitId,
   }).from(usersTable).where(eq(usersTable.organizationId, orgId));
 
   const userIds = users.map((user) => user.id);
@@ -91,11 +89,17 @@ router.post("/organizations/:orgId/users",
       return;
     }
 
-    const { name, email, password, role, modules, primaryUnitId } = parsed.data;
+    const { name, email, password, role, modules } = parsed.data;
+    // Filial é opcional para qualquer papel (obrigatória só p/ manager, via refine
+    // no schema) — usada também na identidade/escopo das Pendências.
+    const unitId = parsed.data.unitId ?? null;
 
-    if (primaryUnitId != null && !(await unitBelongsToOrg(primaryUnitId, orgId))) {
-      res.status(400).json({ error: "Filial inválida" });
-      return;
+    if (unitId !== null) {
+      const [unitRow] = await db
+        .select({ id: unitsTable.id })
+        .from(unitsTable)
+        .where(and(eq(unitsTable.id, unitId), eq(unitsTable.organizationId, orgId)));
+      if (!unitRow) { res.status(400).json({ error: "Filial (unitId) inválida para esta organização" }); return; }
     }
 
     const [existingUser] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email));
@@ -115,7 +119,7 @@ router.post("/organizations/:orgId/users",
           passwordHash,
           organizationId: orgId,
           role,
-          primaryUnitId: primaryUnitId ?? null,
+          unitId,
         }).returning();
 
         if (normalizedModules.length > 0) {
@@ -157,10 +161,14 @@ router.patch("/organizations/:orgId/users/:userId/role",
       return;
     }
 
-    const { role } = req.body as { role: string };
-    const validRoles: UserRole[] = ["operator", "analyst"];
-    if (!validRoles.includes(role as UserRole)) {
-      res.status(400).json({ error: "Cargo inválido. Valores permitidos: operator, analyst" });
+    const parsedBody = z.object({
+      role: z.enum(["operator", "analyst", "manager"]),
+      unitId: z.number().int().nullable().optional(),
+    }).safeParse(req.body);
+    if (!parsedBody.success) { res.status(400).json({ error: "Payload inválido" }); return; }
+    const { role, unitId } = parsedBody.data;
+    if (role === "manager" && (unitId === null || unitId === undefined)) {
+      res.status(400).json({ error: "Gerente requer uma filial (unitId)" });
       return;
     }
 
@@ -183,7 +191,19 @@ router.patch("/organizations/:orgId/users/:userId/role",
       return;
     }
 
-    await db.update(usersTable).set({ role }).where(eq(usersTable.id, userId));
+    // Mantém a filial para qualquer papel (não zera ao trocar de cargo).
+    const nextUnitId = unitId ?? null;
+    if (nextUnitId !== null) {
+      const [unitRow] = await db
+        .select({ id: unitsTable.id })
+        .from(unitsTable)
+        .where(and(eq(unitsTable.id, nextUnitId), eq(unitsTable.organizationId, orgId)));
+      if (!unitRow) {
+        res.status(400).json({ error: "Filial (unitId) inválida para esta organização" });
+        return;
+      }
+    }
+    await db.update(usersTable).set({ role, unitId: nextUnitId }).where(eq(usersTable.id, userId));
     res.json({ message: "Cargo atualizado com sucesso" });
   }
 );
@@ -230,55 +250,6 @@ router.put("/organizations/:orgId/users/:userId/modules",
     }
 
     res.json({ message: "Permissões atualizadas com sucesso", modules });
-  }
-);
-
-const updateUserUnitBodySchema = z.object({
-  primaryUnitId: z.number().int().positive().nullable(),
-});
-
-router.patch("/organizations/:orgId/users/:userId/unit",
-  requireAuth,
-  requireCompletedOnboarding,
-  requireRole("org_admin"),
-  async (req, res): Promise<void> => {
-    const orgId = Number(req.params.orgId);
-    const userId = Number(req.params.userId);
-
-    if (orgId !== req.auth!.organizationId) {
-      res.status(403).json({ error: "Acesso negado" });
-      return;
-    }
-
-    const parsed = updateUserUnitBodySchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
-    const { primaryUnitId } = parsed.data;
-
-    if (primaryUnitId != null && !(await unitBelongsToOrg(primaryUnitId, orgId))) {
-      res.status(400).json({ error: "Filial inválida" });
-      return;
-    }
-
-    const [updated] = await db
-      .update(usersTable)
-      .set({ primaryUnitId })
-      .where(and(eq(usersTable.id, userId), eq(usersTable.organizationId, orgId)))
-      .returning();
-
-    if (!updated) {
-      res.status(404).json({ error: "Usuário não encontrado" });
-      return;
-    }
-
-    const perms = await db
-      .select()
-      .from(userModulePermissionsTable)
-      .where(eq(userModulePermissionsTable.userId, userId));
-
-    res.json(serializeOrgUser(updated, perms.map((p) => p.module)));
   }
 );
 

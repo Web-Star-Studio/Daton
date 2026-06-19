@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from "
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetMe, getGetMeQueryKey, type User, type Organization } from "@workspace/api-client-react";
 
-type UserRole = "platform_admin" | "org_admin" | "operator" | "analyst";
+type UserRole = "platform_admin" | "org_admin" | "operator" | "analyst" | "manager";
 type AppModule =
   | "documents"
   | "legislations"
@@ -29,6 +29,8 @@ interface AuthContextType {
   login: (token: string) => void;
   logout: () => void;
   refreshAuth: () => Promise<void>;
+  userId: number | null;
+  unitId: number | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -73,6 +75,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const role = (data?.user?.role as UserRole) || null;
   const modules = data?.modules || [];
+  const userId = data?.user?.id ?? null;
+  const unitId = (data?.user as { unitId?: number | null } | undefined)?.unitId ?? null;
 
   return (
     <AuthContext.Provider
@@ -86,6 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         refreshAuth,
+        userId,
+        unitId,
       }}
     >
       {children}

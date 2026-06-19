@@ -81,6 +81,7 @@ import {
   sgqProcessesTable,
   sgqProcessRevisionsTable,
   operationalPlansTable,
+  kpiObjectivesTable,
   kpiIndicatorsTable,
   kpiMonthlyValuesTable,
   kpiYearConfigsTable,
@@ -773,6 +774,18 @@ export async function cleanupTestData(prefix: string) {
     }
 
     await deleteStandaloneUsers(tx, standaloneUserIds);
+
+    if (orgIds.length > 0) {
+      // KPI tables must be deleted before organizations (no cascade on FK to orgs).
+      // Deleting kpiIndicatorsTable cascades to kpiYearConfigs → kpiMonthlyValues
+      // → kpiMonthlyValueJustifications, and to kpiIndicatorRollups.
+      await tx
+        .delete(kpiObjectivesTable)
+        .where(inArray(kpiObjectivesTable.organizationId, orgIds));
+      await tx
+        .delete(kpiIndicatorsTable)
+        .where(inArray(kpiIndicatorsTable.organizationId, orgIds));
+    }
 
     await tx
       .delete(organizationsTable)

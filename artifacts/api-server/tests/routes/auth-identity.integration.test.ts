@@ -55,14 +55,14 @@ describe("auth identity (F1)", () => {
     expect(after[0].lastLoginAt).not.toBeNull();
   });
 
-  it("returns lastLoginAt, primaryUnitId and resolved filial from /auth/me", async () => {
+  it("returns lastLoginAt, unitId and resolved filial from /auth/me", async () => {
     const context = await createTestContext({ seed: "auth-me-identity" });
     contexts.push(context);
     const unit = await createUnit(context, `Filial POA ${context.prefix}`);
 
     await db
       .update(usersTable)
-      .set({ primaryUnitId: unit.id, lastLoginAt: new Date() })
+      .set({ unitId: unit.id, lastLoginAt: new Date() })
       .where(eq(usersTable.id, context.userId));
 
     const res = await request(app)
@@ -70,7 +70,7 @@ describe("auth identity (F1)", () => {
       .set(authHeader(context));
 
     expect(res.status).toBe(200);
-    expect(res.body.user.primaryUnitId).toBe(unit.id);
+    expect(res.body.user.unitId).toBe(unit.id);
     expect(typeof res.body.user.lastLoginAt).toBe("string");
     expect(res.body.filial).toMatchObject({ id: unit.id });
     expect(res.body.filial.name).toContain("Filial POA");

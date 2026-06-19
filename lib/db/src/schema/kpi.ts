@@ -4,6 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
 import { usersTable } from "./users";
+import { unitsTable } from "./units";
 
 export type KpiDirection = "up" | "down";
 export type KpiPeriodicity =
@@ -58,6 +59,10 @@ export const kpiIndicatorsTable = pgTable("kpi_indicators", {
     .default(sql`'[]'::jsonb`),
   formulaExpression: text("formula_expression").notNull().default(""),
   unit: varchar("unit", { length: 200 }),
+  // FK real para a filial. null = corporativo (rollup) OU legado não-casado
+  // pelo backfill. Fonte de verdade do escopo de visibilidade (a coluna texto
+  // `unit` é mantida por compatibilidade/legado de imports Excel).
+  unitId: integer("unit_id").references(() => unitsTable.id, { onDelete: "set null" }),
   responsible: varchar("responsible", { length: 200 }),
   responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
   measureUnit: varchar("measure_unit", { length: 50 }),

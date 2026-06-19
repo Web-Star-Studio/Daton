@@ -34,7 +34,7 @@ describe("GET /organizations/:orgId/pendencias", () => {
     const ctx = await createTestContext({ seed: "pend-ep-mine" });
     contexts.push(ctx);
     const unit = await createUnit(ctx, `Filial ${ctx.prefix}`);
-    await db.update(usersTable).set({ primaryUnitId: unit.id }).where(eq(usersTable.id, ctx.userId));
+    await db.update(usersTable).set({ unitId: unit.id }).where(eq(usersTable.id, ctx.userId));
     await seedOverduePlan(ctx.organizationId, ctx.userId, `Meu plano ${ctx.prefix}`);
 
     const res = await request(app)
@@ -55,7 +55,7 @@ describe("GET /organizations/:orgId/pendencias", () => {
     contexts.push(ctx);
     const unit = await createUnit(ctx, `Filial ${ctx.prefix}`);
     const member = await createTestUser(ctx, { role: "operator", suffix: "op" });
-    await db.update(usersTable).set({ primaryUnitId: unit.id }).where(eq(usersTable.id, member.id));
+    await db.update(usersTable).set({ unitId: unit.id }).where(eq(usersTable.id, member.id));
     await seedOverduePlan(ctx.organizationId, member.id, `Plano do membro ${ctx.prefix}`);
 
     const res = await request(app)

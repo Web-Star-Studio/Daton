@@ -32,10 +32,10 @@ function serializeAuthUser(user: {
   email: string;
   organizationId: number;
   role: string;
+  unitId: number | null;
   theme: string;
   createdAt: Date;
   lastLoginAt: Date | null;
-  primaryUnitId: number | null;
 }) {
   return {
     id: user.id,
@@ -43,10 +43,10 @@ function serializeAuthUser(user: {
     email: user.email,
     organizationId: user.organizationId,
     role: user.role,
+    unitId: user.unitId ?? null,
     theme: user.theme,
     createdAt: user.createdAt.toISOString(),
     lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
-    primaryUnitId: user.primaryUnitId ?? null,
   };
 }
 
@@ -57,10 +57,10 @@ function serializeMeResponse(
     email: string;
     organizationId: number;
     role: string;
+    unitId: number | null;
     theme: string;
     createdAt: Date;
     lastLoginAt: Date | null;
-    primaryUnitId: number | null;
   },
   organization: Parameters<typeof serializeOrganization>[0],
   modules: string[],
@@ -196,11 +196,11 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
     .where(eq(userModulePermissionsTable.userId, userId));
 
   let filial: { id: number; name: string } | null = null;
-  if (user.primaryUnitId) {
+  if (user.unitId) {
     const [unit] = await db
       .select({ id: unitsTable.id, name: unitsTable.name })
       .from(unitsTable)
-      .where(eq(unitsTable.id, user.primaryUnitId));
+      .where(eq(unitsTable.id, user.unitId));
     filial = unit ?? null;
   }
 
@@ -270,11 +270,11 @@ router.patch("/auth/me", requireAuth, async (req, res): Promise<void> => {
     .where(eq(userModulePermissionsTable.userId, userId));
 
   let filial: { id: number; name: string } | null = null;
-  if (updatedUser.primaryUnitId) {
+  if (updatedUser.unitId) {
     const [unit] = await db
       .select({ id: unitsTable.id, name: unitsTable.name })
       .from(unitsTable)
-      .where(eq(unitsTable.id, updatedUser.primaryUnitId));
+      .where(eq(unitsTable.id, updatedUser.unitId));
     filial = unit ?? null;
   }
 

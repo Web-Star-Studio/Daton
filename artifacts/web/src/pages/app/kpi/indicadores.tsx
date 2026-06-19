@@ -73,6 +73,7 @@ import {
   validateFormula,
 } from "@/lib/formula-evaluator";
 import { CORPORATE_UNIT_LABEL, isCorporateUnit } from "@/lib/kpi-constants";
+import { canActOnKpiIndicator, type KpiRequesterScope } from "@/lib/kpi-access";
 import type { StatusFilter } from "./_components/summary-tiles";
 import { getIndicatorStatus, type CardStatus } from "./_components/indicator-card";
 import { CorporateRollupsTab } from "./_components/corporate-rollups-tab";
@@ -147,6 +148,7 @@ type IndicatorFormData = {
   /** Natural-language formula text — parsed into variables + expression on save. */
   formulaText: string;
   unit: string;
+  unitId: number | null;
   responsibleUserName: string;
   responsibleUserId: number | null;
   measureUnit: string;
@@ -163,6 +165,7 @@ const defaultIndicatorForm = (): IndicatorFormData => ({
   name: "",
   formulaText: "",
   unit: "",
+  unitId: null,
   responsibleUserName: "",
   responsibleUserId: null,
   measureUnit: "",
@@ -188,6 +191,7 @@ function buildEditFormFromIndicator(
     name: ind.name,
     formulaText,
     unit: ind.unit ?? "",
+    unitId: ind.unitId ?? null,
     responsibleUserName: ind.responsibleUserName ?? ind.responsible ?? "",
     responsibleUserId: ind.responsibleUserId ?? null,
     measureUnit: ind.measureUnit ?? "",
@@ -250,8 +254,25 @@ interface KpiIndicadoresPageProps {
 }
 
 export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPageProps = {}) {
-  const { organization } = useAuth();
+  const { organization, role, userId, unitId } = useAuth();
   const orgId = organization!.id;
+
+  const scope: KpiRequesterScope = {
+    role: (role ?? "analyst") as KpiRequesterScope["role"],
+    userId: userId ?? -1,
+    unitId,
+  };
+  const accessOf = (ind: KpiIndicator) => ({
+    unitId: ind.unitId ?? null,
+    responsibleUserId: ind.responsibleUserId ?? null,
+    // Sinal autoritativo vindo do backend (rollupStrategy != null) — mesma
+    // definição usada pela matriz de acesso no servidor. Espelha o contrato.
+    isCorporate: ind.isCorporate ?? false,
+  });
+  const canCreate =
+    scope.role === "org_admin" ||
+    scope.role === "platform_admin" ||
+    scope.role === "manager";
 
   usePageTitle("Indicadores");
   usePageSubtitle("Cadastro de KPIs e objetivos estratégicos");
@@ -368,23 +389,24 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
         <Target className="h-4 w-4 mr-1.5" />
         Objetivos
       </Button>
-      {viewMode === "corporates" ? (
-        <HeaderActionButton
-          label="Novo corporativo"
-          icon={<Plus className="h-4 w-4" />}
-          onClick={() => setCorporateCreateOpen(true)}
-        />
-      ) : (
-        <HeaderActionButton
-          label="Novo Indicador"
-          icon={<Plus className="h-4 w-4" />}
-          onClick={() => {
-            setEditingIndicator(null);
-            setIndicatorForm(defaultIndicatorForm());
-            setIndicatorDialog(true);
-          }}
-        />
-      )}
+      {canCreate &&
+        (viewMode === "corporates" ? (
+          <HeaderActionButton
+            label="Novo corporativo"
+            icon={<Plus className="h-4 w-4" />}
+            onClick={() => setCorporateCreateOpen(true)}
+          />
+        ) : (
+          <HeaderActionButton
+            label="Novo Indicador"
+            icon={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              setEditingIndicator(null);
+              setIndicatorForm(defaultIndicatorForm());
+              setIndicatorDialog(true);
+            }}
+          />
+        ))}
     </div>,
   );
 
@@ -521,6 +543,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           formulaVariables: parsed.variables,
           formulaExpression: parsed.expression,
           unit: indicatorForm.unit || undefined,
+          unitId: indicatorForm.unitId,
           responsibleUserId: indicatorForm.responsibleUserId,
           measureUnit: indicatorForm.measureUnit || undefined,
           direction: indicatorForm.direction,
@@ -552,6 +575,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           formulaVariables: parsed.variables,
           formulaExpression: parsed.expression,
           unit: indicatorForm.unit || undefined,
+          unitId: indicatorForm.unitId ?? undefined,
           responsibleUserId: indicatorForm.responsibleUserId ?? undefined,
           measureUnit: indicatorForm.measureUnit || undefined,
           direction: indicatorForm.direction,
@@ -902,6 +926,8 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                     ? Math.min(100, Math.round(Math.abs(result / goal) * 100))
                     : 0;
                 const focused = focusedIndicatorId === ind.id;
+                const canEdit = canActOnKpiIndicator(scope, accessOf(ind), "editDefinition");
+                const canDeleteInd = canActOnKpiIndicator(scope, accessOf(ind), "delete");
                 return (
                   <TableRow
                     key={ind.id}
@@ -1015,31 +1041,37 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                       {ind.responsibleUserName ?? "—"}
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            aria-label="Ações do indicador"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditIndicator(ind)}>
-                            <Pencil className="mr-2 h-3.5 w-3.5" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setDeleteConfirm(ind)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-3.5 w-3.5" />
-                            Remover
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {(canEdit || canDeleteInd) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              aria-label="Ações do indicador"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {canEdit && (
+                              <DropdownMenuItem onClick={() => handleEditIndicator(ind)}>
+                                <Pencil className="mr-2 h-3.5 w-3.5" />
+                                Editar
+                              </DropdownMenuItem>
+                            )}
+                            {canDeleteInd && (
+                              <DropdownMenuItem
+                                onClick={() => setDeleteConfirm(ind)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                Remover
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -1112,7 +1144,10 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
             <Label>Unidade / filial</Label>
             <SearchableStringSelect
               value={indicatorForm.unit}
-              onChange={(v) => setIndicatorForm((f) => ({ ...f, unit: v }))}
+              onChange={(v) => {
+                const u = orgUnits.find((x) => x.name === v);
+                setIndicatorForm((f) => ({ ...f, unit: v, unitId: u?.id ?? null }));
+              }}
               options={orgUnitOptions}
               placeholder="Selecione uma unidade"
               searchPlaceholder="Buscar unidade..."
@@ -1260,15 +1295,24 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                   ))}
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Tolerância ({year})</Label>
-                <Input
-                  type="number"
-                  value={indicatorForm.goal}
-                  onChange={(e) => setIndicatorForm((f) => ({ ...f, goal: e.target.value }))}
-                  placeholder="Ex: 95"
-                />
-              </div>
+              {editingIndicator && isCorporateUnit(editingIndicator.unit) ? (
+                <div className="space-y-1.5">
+                  <Label>Tolerância ({year})</Label>
+                  <p className="rounded-md border bg-muted/30 px-3 py-2 text-[12px] text-muted-foreground">
+                    Calculada automaticamente das filiais.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label>Tolerância ({year})</Label>
+                  <Input
+                    type="number"
+                    value={indicatorForm.goal}
+                    onChange={(e) => setIndicatorForm((f) => ({ ...f, goal: e.target.value }))}
+                    placeholder="Ex: 95"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1452,6 +1496,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
         orgId={orgId}
         year={year}
         indicators={indicators}
+        childGoals={new Map(yearRows.map((r) => [r.indicator.id, r.yearConfig.goal ?? null]))}
       />
     </div>
   );
