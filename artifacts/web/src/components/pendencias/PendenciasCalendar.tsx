@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   addMonths,
   eachDayOfInterval,
@@ -40,6 +40,10 @@ export function PendenciasCalendar({
   const [selected, setSelected] = useState<string | null>(null);
   const selectedItems = selected ? (byDay.get(selected) ?? []) : [];
 
+  useEffect(() => {
+    setSelected(null);
+  }, [month]);
+
   function keyOf(d: Date): string {
     return format(d, "yyyy-MM-dd");
   }
@@ -47,8 +51,8 @@ export function PendenciasCalendar({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-[15px] font-semibold capitalize text-foreground">
-          {format(month, "MMMM 'de' yyyy", { locale: ptBR })}
+        <h2 className="text-[15px] font-semibold text-foreground">
+          {format(month, "MMMM 'de' yyyy", { locale: ptBR }).replace(/^\w/, (c) => c.toUpperCase())}
         </h2>
         <div className="flex items-center gap-1">
           <button
