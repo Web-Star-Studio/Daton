@@ -15,6 +15,5 @@ export interface User {
   role: string;
   theme: UserTheme;
   unitId?: number | null;
-  lastLoginAt?: string | null;
   createdAt: string;
 }
