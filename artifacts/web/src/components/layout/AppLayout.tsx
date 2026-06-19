@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Leaf,
   Landmark,
+  ListChecks,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -631,6 +632,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex-1 space-y-1 overflow-y-auto px-2.5 py-5">
+          <Link
+            href="/pendencias"
+            className={cn(
+              "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+              isActive("/pendencias")
+                ? "font-medium text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <div className="flex items-center">
+              <ListChecks className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
+              {isSidebarOpen && <span>Suas Pendências</span>}
+            </div>
+          </Link>
+
           <div
             ref={organizacaoRef}
             onMouseEnter={() =>
