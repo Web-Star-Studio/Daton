@@ -4,6 +4,7 @@ import {
   priorityOf,
   formatRelativeDue,
   formatLastAccess,
+  itemsByDay,
   URGENCY_META,
   type Pendencia,
 } from "@/lib/pendencias-format";
@@ -71,5 +72,19 @@ describe("formatLastAccess", () => {
     expect(formatLastAccess("2026-06-15T08:12:00", NOW)).toBe("hoje às 08:12");
     expect(formatLastAccess("2026-06-12T14:30:00", NOW)).toBe("12/06 às 14:30");
     expect(formatLastAccess(null, NOW)).toBe("—");
+  });
+});
+
+describe("itemsByDay", () => {
+  it("buckets dated items by YYYY-MM-DD and drops null-due items", () => {
+    const map = itemsByDay([
+      item("a", "overdue", "2026-06-10"),
+      item("b", "due_soon", "2026-06-10"),
+      item("c", "no_due", null),
+      item("d", "upcoming", "2026-07-01T08:00:00.000Z"),
+    ]);
+    expect(map.get("2026-06-10")?.map((i) => i.id)).toEqual(["a", "b"]);
+    expect(map.has("2026-07-01")).toBe(true);
+    expect([...map.values()].flat().some((i) => i.id === "c")).toBe(false);
   });
 });

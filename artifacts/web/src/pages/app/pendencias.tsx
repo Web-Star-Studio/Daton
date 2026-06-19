@@ -19,7 +19,8 @@ import { useListUnits, getListUnitsQueryKey } from "@workspace/api-client-react"
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
 
-import { ArrowUpRight, Building2, CheckCircle2, Clock, PartyPopper, ShieldCheck, User } from "lucide-react";
+import { ArrowUpRight, Building2, CalendarDays, CheckCircle2, Clock, List, PartyPopper, ShieldCheck, User } from "lucide-react";
+import { PendenciasCalendar } from "@/components/pendencias/PendenciasCalendar";
 
 function UserIdentityBlock({ user }: { user: PendenciasResponse["user"] }) {
   const now = new Date();
@@ -150,6 +151,8 @@ export default function SuasPendenciasPage() {
   // Scope state — settable by admins via the selector below; operators are always "mine".
   const [scope, setScope] = useState<PendenciasScope>("mine");
   const [unitId, setUnitId] = useState<number | null>(null);
+  const [view, setView] = useState<"list" | "calendar">("list");
+  const [calMonth, setCalMonth] = useState<Date>(() => new Date());
 
   const { data: units = [] } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId && isAdmin },
@@ -209,19 +212,45 @@ export default function SuasPendenciasPage() {
         <>
           <UserIdentityBlock user={data.user} />
           <SummaryCards counts={data.counts} />
-          {(() => {
-            const now = new Date();
-            const groups = groupByPriority(data.items);
-            const empty = groups.p1.length + groups.p2.length + groups.p3.length === 0;
-            if (empty) return <EmptyState />;
-            return (
-              <div className="space-y-6">
-                <PrioritySection title={URGENCY_META.overdue.sectionTitle} priority="P1" items={groups.p1} now={now} />
-                <PrioritySection title={URGENCY_META.due_soon.sectionTitle} priority="P2" items={groups.p2} now={now} />
-                <PrioritySection title={URGENCY_META.no_due.sectionTitle} priority="P3" items={groups.p3} now={now} />
-              </div>
-            );
-          })()}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setView("list")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors",
+                view === "list" ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <List className="h-3.5 w-3.5" /> Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("calendar")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors",
+                view === "calendar" ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <CalendarDays className="h-3.5 w-3.5" /> Calendário
+            </button>
+          </div>
+          {view === "list" ? (
+            (() => {
+              const now = new Date();
+              const groups = groupByPriority(data.items);
+              const empty = groups.p1.length + groups.p2.length + groups.p3.length === 0;
+              if (empty) return <EmptyState />;
+              return (
+                <div className="space-y-6">
+                  <PrioritySection title={URGENCY_META.overdue.sectionTitle} priority="P1" items={groups.p1} now={now} />
+                  <PrioritySection title={URGENCY_META.due_soon.sectionTitle} priority="P2" items={groups.p2} now={now} />
+                  <PrioritySection title={URGENCY_META.no_due.sectionTitle} priority="P3" items={groups.p3} now={now} />
+                </div>
+              );
+            })()
+          ) : (
+            <PendenciasCalendar items={data.items} month={calMonth} onMonthChange={setCalMonth} />
+          )}
           {data.completedToday.length > 0 && (
             <section className="space-y-2.5">
               <h2 className="flex items-center gap-2 text-[13px] font-semibold text-foreground">

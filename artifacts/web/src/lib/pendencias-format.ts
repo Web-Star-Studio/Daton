@@ -127,6 +127,18 @@ export function formatRelativeDue(dueDate: string | null, now: Date): string {
   return `vence em ${diff} dias`;
 }
 
+export function itemsByDay(items: Pendencia[]): Map<string, Pendencia[]> {
+  const map = new Map<string, Pendencia[]>();
+  for (const it of items) {
+    if (!it.dueDate) continue;
+    const d = it.dueDate.slice(0, 10); // "YYYY-MM-DD"
+    const list = map.get(d);
+    if (list) list.push(it);
+    else map.set(d, [it]);
+  }
+  return map;
+}
+
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
