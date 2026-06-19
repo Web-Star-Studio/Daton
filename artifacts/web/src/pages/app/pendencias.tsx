@@ -15,6 +15,9 @@ import {
   type PendenciasResponse,
   type Pendencia,
 } from "@/lib/pendencias-client";
+import { useListUnits, getListUnitsQueryKey } from "@workspace/api-client-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { cn } from "@/lib/utils";
 
 import { ArrowUpRight, Building2, Clock, PartyPopper, ShieldCheck, User } from "lucide-react";
 
@@ -144,9 +147,13 @@ export default function SuasPendenciasPage() {
   const { isAdmin } = usePermissions();
   const orgId = organization?.id;
 
-  // Scope state (the selector itself is added in Task 6; operators are always "mine").
-  const [scope] = useState<PendenciasScope>("mine");
-  const [unitId] = useState<number | null>(null);
+  // Scope state — settable by admins via the selector below; operators are always "mine".
+  const [scope, setScope] = useState<PendenciasScope>("mine");
+  const [unitId, setUnitId] = useState<number | null>(authUser ? null : null);
+
+  const { data: units = [] } = useListUnits(orgId!, {
+    query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId && isAdmin },
+  });
 
   const { data, isLoading, isError } = usePendencias(orgId, { scope, unitId });
 
@@ -167,8 +174,36 @@ export default function SuasPendenciasPage() {
       {data && (
         <>
           <UserIdentityBlock user={data.user} />
+          {isAdmin && (
+            <div className="flex flex-wrap items-center gap-2">
+              {(["mine", "unit", "org"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setScope(s)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
+                    scope === s
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {s === "mine" ? "Minhas" : s === "unit" ? "Por filial" : "Organização"}
+                </button>
+              ))}
+              {scope === "unit" && (
+                <div className="w-56">
+                  <SearchableSelect
+                    value={unitId != null ? String(unitId) : ""}
+                    onChange={(v) => setUnitId(v ? Number(v) : null)}
+                    options={units.map((u) => ({ value: String(u.id), label: u.name }))}
+                    placeholder="Selecione a filial"
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <SummaryCards counts={data.counts} />
-          {/* Priority list and scope selector (Task 6) render here. */}
           {(() => {
             const now = new Date();
             const groups = groupByPriority(data.items);

@@ -24,6 +24,10 @@ const response: PendenciasResponse = {
   completedToday: [],
 };
 
+vi.mock("@workspace/api-client-react", () => ({
+  useListUnits: () => ({ data: [] }),
+  getListUnitsQueryKey: () => ["units"],
+}));
 vi.mock("@/lib/pendencias-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/pendencias-format")>(
     "@/lib/pendencias-format",
