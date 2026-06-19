@@ -190,6 +190,21 @@ describe("SuasPendenciasPage — manager scope toggle", () => {
     });
     expect(mockPendencias).toHaveBeenLastCalledWith(9, expect.objectContaining({ scope: "mine" }));
   });
+
+  it("falls back to no selector and scope=mine for a manager without a filial", () => {
+    mockAuth.mockReturnValue({
+      organization: { id: 9 },
+      user: { id: 2, name: "Maria Gestora", role: "manager" },
+      role: "manager",
+      unitId: null,
+    });
+    mockPendencias.mockReturnValue({ data: response, isLoading: false, isError: false });
+    render(<SuasPendenciasPage />);
+    expect(screen.queryByText("Minha filial")).not.toBeInTheDocument();
+    expect(screen.queryByText("Só as minhas")).not.toBeInTheDocument();
+    expect(screen.queryByText("Por filial")).not.toBeInTheDocument();
+    expect(mockPendencias).toHaveBeenLastCalledWith(9, expect.objectContaining({ scope: "mine" }));
+  });
 });
 
 describe("SuasPendenciasPage — admin scope selector (regression)", () => {
