@@ -34,4 +34,25 @@ describe("PendenciasCalendar", () => {
     const arg = onMonthChange.mock.calls[0][0] as Date;
     expect(arg.getMonth()).toBe(6); // July (0-indexed)
   });
+
+  it("renders item chips with titles and a +N overflow, and opens the day detail on click", async () => {
+    const items = [
+      item("Alvará de funcionamento", "2026-06-14"),
+      item("Matriz de treinamento", "2026-06-14"),
+      item("Plano de contingência", "2026-06-14"),
+    ];
+    render(
+      <PendenciasCalendar items={items} month={new Date(2026, 5, 1)} onMonthChange={vi.fn()} />,
+    );
+    // First two titles show as chips in the day cell.
+    expect(screen.getByText("Alvará de funcionamento")).toBeInTheDocument();
+    expect(screen.getByText("Matriz de treinamento")).toBeInTheDocument();
+    // Third item overflows into the "+N mais" line.
+    expect(screen.getByText("+1 mais")).toBeInTheDocument();
+    // The third title is NOT shown as a chip until the day is opened.
+    expect(screen.queryByText("Plano de contingência")).not.toBeInTheDocument();
+    // Clicking the day opens the detail panel listing the overflow item.
+    await userEvent.click(screen.getByLabelText(/Dia 14: 3 pendência/));
+    expect(screen.getByText("Plano de contingência")).toBeInTheDocument();
+  });
 });

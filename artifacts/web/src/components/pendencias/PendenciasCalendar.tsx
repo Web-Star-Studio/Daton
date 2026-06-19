@@ -14,14 +14,15 @@ import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
-import { itemsByDay, URGENCY_META, type Pendencia } from "@/lib/pendencias-format";
+import { itemsByDay, type Pendencia } from "@/lib/pendencias-format";
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-const DOT_COLOR: Record<"danger" | "warning" | "info", string> = {
-  danger: "bg-red-500",
-  warning: "bg-amber-500",
-  info: "bg-blue-500",
+const CHIP_STYLE: Record<Pendencia["urgency"], string> = {
+  overdue: "bg-red-500/10 text-red-700 dark:text-red-300",
+  due_soon: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  upcoming: "bg-slate-500/10 text-slate-600 dark:text-slate-300",
+  no_due: "bg-slate-500/10 text-slate-600 dark:text-slate-300", // never plotted (no dueDate); mapped for type completeness
 };
 
 export function PendenciasCalendar({
@@ -85,6 +86,7 @@ export function PendenciasCalendar({
           const dayItems = byDay.get(k) ?? [];
           const inMonth = isSameMonth(d, month);
           const isSelected = selected === k;
+          const showChips = inMonth && dayItems.length > 0;
           return (
             <button
               key={k}
@@ -92,22 +94,31 @@ export function PendenciasCalendar({
               aria-label={dayItems.length > 0 ? `Dia ${format(d, "d")}: ${dayItems.length} pendência(s)` : undefined}
               onClick={() => setSelected(dayItems.length > 0 ? k : null)}
               className={cn(
-                "flex aspect-square flex-col items-center justify-start rounded-lg border p-1 text-[12px] transition-colors",
+                "flex min-h-[92px] flex-col gap-1 rounded-lg border p-1.5 text-left text-[12px] transition-colors",
                 inMonth ? "border-border/60" : "border-transparent text-muted-foreground/40",
                 isSelected ? "ring-2 ring-foreground" : "hover:bg-muted/30",
                 dayItems.length > 0 && "font-medium",
               )}
             >
-              <span>{format(d, "d")}</span>
-              {dayItems.length > 0 && (
-                <span className="mt-auto flex items-center gap-0.5">
-                  {dayItems.slice(0, 3).map((it) => (
+              <span className="text-[11px]">{format(d, "d")}</span>
+              {showChips && (
+                <span className="flex flex-col gap-0.5">
+                  {dayItems.slice(0, 2).map((it) => (
                     <span
                       key={it.id}
-                      className={cn("h-1.5 w-1.5 rounded-full", DOT_COLOR[URGENCY_META[it.urgency].badgeVariant])}
-                    />
+                      className={cn(
+                        "truncate rounded px-1 py-0.5 text-[10px] font-normal leading-tight",
+                        CHIP_STYLE[it.urgency],
+                      )}
+                    >
+                      {it.title}
+                    </span>
                   ))}
-                  <span className="ml-0.5 text-[10px] text-muted-foreground">{dayItems.length}</span>
+                  {dayItems.length > 2 && (
+                    <span className="px-1 text-[10px] font-normal text-muted-foreground">
+                      +{dayItems.length - 2} mais
+                    </span>
+                  )}
                 </span>
               )}
             </button>
