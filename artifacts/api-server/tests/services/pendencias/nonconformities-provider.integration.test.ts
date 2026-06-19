@@ -113,4 +113,50 @@ describe("nonconformityPendenciaProvider", () => {
     expect(byId.get(`corrective_action:${overdueCa.id}`)?.source).toBe("nonconformity");
     expect(byId.get(`corrective_action:${overdueCa.id}`)?.dueDate).toBe("2026-06-10");
   });
+
+  it("listCompletedToday returns NCs closed + corrective actions done today", async () => {
+    const ctx = await createTestContext({ seed: "pend-nc-done" });
+    contexts.push(ctx);
+    const now = new Date(2026, 5, 15, 10, 0, 0);
+
+    const [nc] = await db
+      .insert(nonconformitiesTable)
+      .values({
+        organizationId: ctx.organizationId,
+        originType: "process",
+        title: `NC fechada hoje ${ctx.prefix}`,
+        description: "d",
+        status: "closed",
+        responsibleUserId: ctx.userId,
+        createdById: ctx.userId,
+        updatedById: ctx.userId,
+        closedAt: new Date(2026, 5, 15, 9, 0, 0),
+      })
+      .returning({ id: nonconformitiesTable.id });
+
+    const [ca] = await db
+      .insert(correctiveActionsTable)
+      .values({
+        organizationId: ctx.organizationId,
+        nonconformityId: nc.id,
+        title: `Ação feita hoje ${ctx.prefix}`,
+        description: "d",
+        status: "done",
+        responsibleUserId: ctx.userId,
+        createdById: ctx.userId,
+        updatedById: ctx.userId,
+        updatedAt: new Date(2026, 5, 15, 9, 30, 0),
+      })
+      .returning({ id: correctiveActionsTable.id });
+
+    const items = await nonconformityPendenciaProvider.listCompletedToday!({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId],
+      now,
+      dueSoonDays: 7,
+    });
+    const ids = items.map((i) => i.id);
+    expect(ids).toContain(`nonconformity:${nc.id}`);
+    expect(ids).toContain(`corrective_action:${ca.id}`);
+  });
 });

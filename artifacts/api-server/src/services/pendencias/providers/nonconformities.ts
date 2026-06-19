@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, notInArray } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lt, notInArray } from "drizzle-orm";
 import { db, nonconformitiesTable, correctiveActionsTable } from "@workspace/db";
 import {
   classifyUrgency,
@@ -6,6 +6,7 @@ import {
   type PendenciaProvider,
   type PendenciaProviderContext,
 } from "../types";
+import { dayBounds } from "./action-plans";
 
 const NC_STATUS_LABELS: Record<string, string> = {
   open: "Aberta",
@@ -91,6 +92,82 @@ export const nonconformityPendenciaProvider: PendenciaProvider = {
       });
     }
 
+    return items;
+  },
+
+  async listCompletedToday(ctx: PendenciaProviderContext): Promise<Pendencia[]> {
+    if (ctx.responsibleUserIds.length === 0) return [];
+    const { start, end } = dayBounds(ctx.now);
+
+    const ncs = await db
+      .select({
+        id: nonconformitiesTable.id,
+        title: nonconformitiesTable.title,
+        responsibleUserId: nonconformitiesTable.responsibleUserId,
+      })
+      .from(nonconformitiesTable)
+      .where(
+        and(
+          eq(nonconformitiesTable.organizationId, ctx.orgId),
+          isNotNull(nonconformitiesTable.responsibleUserId),
+          inArray(nonconformitiesTable.responsibleUserId, ctx.responsibleUserIds),
+          inArray(nonconformitiesTable.status, ["closed", "canceled"]),
+          gte(nonconformitiesTable.closedAt, start),
+          lt(nonconformitiesTable.closedAt, end),
+        ),
+      );
+
+    const cas = await db
+      .select({
+        id: correctiveActionsTable.id,
+        title: correctiveActionsTable.title,
+        nonconformityId: correctiveActionsTable.nonconformityId,
+        responsibleUserId: correctiveActionsTable.responsibleUserId,
+      })
+      .from(correctiveActionsTable)
+      .where(
+        and(
+          eq(correctiveActionsTable.organizationId, ctx.orgId),
+          isNotNull(correctiveActionsTable.responsibleUserId),
+          inArray(correctiveActionsTable.responsibleUserId, ctx.responsibleUserIds),
+          inArray(correctiveActionsTable.status, ["done", "canceled"]),
+          gte(correctiveActionsTable.updatedAt, start),
+          lt(correctiveActionsTable.updatedAt, end),
+        ),
+      );
+
+    const todayIso = `${ctx.now.getFullYear()}-${String(ctx.now.getMonth() + 1).padStart(2, "0")}-${String(ctx.now.getDate()).padStart(2, "0")}`;
+    const items: Pendencia[] = [];
+    for (const nc of ncs) {
+      if (nc.responsibleUserId === null) continue;
+      items.push({
+        id: `nonconformity:${nc.id}`,
+        source: "nonconformity",
+        sourceLabel: "Não conformidade",
+        title: nc.title,
+        statusLabel: "Encerrada hoje",
+        dueDate: todayIso,
+        urgency: "no_due",
+        responsibleUserId: nc.responsibleUserId,
+        link: { route: NC_ROUTE, ctaLabel: "Ver" },
+        meta: { nonconformityId: nc.id, completed: true },
+      });
+    }
+    for (const ca of cas) {
+      if (ca.responsibleUserId === null) continue;
+      items.push({
+        id: `corrective_action:${ca.id}`,
+        source: "nonconformity",
+        sourceLabel: "Ação corretiva",
+        title: ca.title,
+        statusLabel: "Concluída hoje",
+        dueDate: todayIso,
+        urgency: "no_due",
+        responsibleUserId: ca.responsibleUserId,
+        link: { route: NC_ROUTE, ctaLabel: "Ver" },
+        meta: { correctiveActionId: ca.id, nonconformityId: ca.nonconformityId, completed: true },
+      });
+    }
     return items;
   },
 };
