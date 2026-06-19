@@ -57,7 +57,7 @@ router.get("/organizations/:orgId/pendencias", requireAuth, async (req, res): Pr
   }
 
   const now = new Date();
-  const { items, counts } = await aggregatePendencias({
+  const { items, counts, completedToday } = await aggregatePendencias({
     orgId,
     responsibleUserIds,
     now,
@@ -96,7 +96,7 @@ router.get("/organizations/:orgId/pendencias", requireAuth, async (req, res): Pr
     scope,
     counts,
     items,
-    completedToday: [],
+    completedToday,
   });
 });
 

@@ -47,7 +47,8 @@ describe("GET /organizations/:orgId/pendencias", () => {
     expect(res.body.user.filial).toMatchObject({ id: unit.id });
     expect(res.body.counts.overdue).toBeGreaterThanOrEqual(1);
     expect(res.body.items.some((i: { source: string }) => i.source === "action_plan")).toBe(true);
-    expect(res.body.completedToday).toEqual([]);
+    expect(Array.isArray(res.body.completedToday)).toBe(true);
+    expect(typeof res.body.counts.completedToday).toBe("number");
   });
 
   it("lets an org_admin see a filial's pendências (scope=unit)", async () => {

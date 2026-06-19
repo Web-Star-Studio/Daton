@@ -56,5 +56,24 @@ describe("aggregatePendencias", () => {
     expect(counts.overdue).toBe(1);
     expect(counts.bySource.action_plan).toBe(1);
     expect(counts.bySource.regulatory_document).toBe(1);
+
+    await db.insert(actionPlansTable).values({
+      organizationId: ctx.organizationId,
+      sourceModule: "manual",
+      sourceRef: { manualContext: "t" },
+      title: "Plano encerrado hoje",
+      status: "completed",
+      responsibleUserId: ctx.userId,
+      closedAt: NOW,
+    });
+    const res2 = await aggregatePendencias({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId],
+      now: NOW,
+      dueSoonDays: 7,
+    });
+    expect(res2.completedToday.some((i) => i.title === "Plano encerrado hoje")).toBe(true);
+    expect(res2.counts.completedToday).toBe(res2.completedToday.length);
+    expect(res2.counts.completedToday).toBeGreaterThanOrEqual(1);
   });
 });
