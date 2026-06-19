@@ -36,8 +36,8 @@ vi.mock("@/lib/pendencias-client", async () => {
   return { ...actual, usePendencias: vi.fn() };
 });
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ organization: { id: 9 }, user: { id: 1, name: "João Silva", role: "operator" }, unitId: 7 }),
-  usePermissions: vi.fn().mockReturnValue({ isAdmin: false, role: "operator" }),
+  useAuth: vi.fn(),
+  usePermissions: vi.fn(),
 }));
 vi.mock("@/contexts/LayoutContext", () => ({
   usePageTitle: vi.fn(),
@@ -45,48 +45,54 @@ vi.mock("@/contexts/LayoutContext", () => ({
 }));
 
 import { usePendencias } from "@/lib/pendencias-client";
-import { usePermissions } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 
-describe("SuasPendenciasPage — identity + cards", () => {
+const mockPendencias = usePendencias as unknown as ReturnType<typeof vi.fn>;
+const mockAuth = useAuth as unknown as ReturnType<typeof vi.fn>;
+const mockPermissions = usePermissions as unknown as ReturnType<typeof vi.fn>;
+
+describe("SuasPendenciasPage — operator (identity, cards, no selector)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-19T12:00:00"));
-    (usePermissions as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ isAdmin: false, role: "operator" });
+    mockAuth.mockReturnValue({
+      organization: { id: 9 },
+      user: { id: 1, name: "João Silva", role: "operator" },
+      role: "operator",
+      unitId: 7,
+    });
+    mockPermissions.mockReturnValue({ isAdmin: false, role: "operator" });
   });
   afterEach(() => {
     vi.useRealTimers();
   });
 
   it("renders the user block and summary counts", () => {
-    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: response,
-      isLoading: false,
-      isError: false,
-    });
+    mockPendencias.mockReturnValue({ data: response, isLoading: false, isError: false });
     render(<SuasPendenciasPage />);
     expect(screen.getByText("João Silva")).toBeInTheDocument();
-    expect(screen.getByText("POA")).toBeInTheDocument(); // filial
-    expect(screen.getByText("Operador")).toBeInTheDocument(); // perfil
-    expect(screen.getByText(/hoje às 08:12/)).toBeInTheDocument(); // último acesso
+    expect(screen.getByText("POA")).toBeInTheDocument();
+    expect(screen.getByText("Operador")).toBeInTheDocument();
+    expect(screen.getByText(/hoje às 08:12/)).toBeInTheDocument();
     expect(screen.getByText("Total em aberto")).toBeInTheDocument();
   });
 
+  it("shows no scope selector for an operator", () => {
+    mockPendencias.mockReturnValue({ data: response, isLoading: false, isError: false });
+    render(<SuasPendenciasPage />);
+    expect(screen.queryByText("Por filial")).not.toBeInTheDocument();
+    expect(screen.queryByText("Organização")).not.toBeInTheDocument();
+    expect(screen.queryByText("Minha filial")).not.toBeInTheDocument();
+  });
+
   it("renders loading state", () => {
-    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-    });
+    mockPendencias.mockReturnValue({ data: undefined, isLoading: true, isError: false });
     render(<SuasPendenciasPage />);
     expect(screen.getByText("Carregando…")).toBeInTheDocument();
   });
 
   it("renders error state", () => {
-    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: true,
-    });
+    mockPendencias.mockReturnValue({ data: undefined, isLoading: false, isError: true });
     render(<SuasPendenciasPage />);
     expect(screen.getByText(/Não foi possível carregar/)).toBeInTheDocument();
   });
@@ -108,18 +114,14 @@ describe("SuasPendenciasPage — identity + cards", () => {
         },
       ],
     };
-    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: withItems,
-      isLoading: false,
-      isError: false,
-    });
+    mockPendencias.mockReturnValue({ data: withItems, isLoading: false, isError: false });
     const { rerender } = render(<SuasPendenciasPage />);
     expect(screen.getByText("Fazer agora")).toBeInTheDocument();
     expect(screen.getByText("Revisar procedimento de carga")).toBeInTheDocument();
     const cta = screen.getByRole("link", { name: /Ver plano/ });
     expect(cta).toHaveAttribute("href", "/planos-acao/5");
 
-    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    mockPendencias.mockReturnValue({
       data: { ...response, items: [], counts: { ...response.counts, total: 0, overdue: 0, dueSoon: 0 } },
       isLoading: false,
       isError: false,
@@ -147,14 +149,46 @@ describe("SuasPendenciasPage — identity + cards", () => {
       ],
       counts: { ...response.counts, total: 0, overdue: 0, dueSoon: 0, completedToday: 1 },
     };
-    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: withDone,
-      isLoading: false,
-      isError: false,
-    });
+    mockPendencias.mockReturnValue({ data: withDone, isLoading: false, isError: false });
     render(<SuasPendenciasPage />);
     expect(screen.getByText("Concluídos hoje")).toBeInTheDocument();
     expect(screen.getByText("Plano encerrado")).toBeInTheDocument();
+  });
+});
+
+describe("SuasPendenciasPage — manager scope toggle", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-19T12:00:00"));
+    mockAuth.mockReturnValue({
+      organization: { id: 9 },
+      user: { id: 2, name: "Maria Gestora", role: "manager" },
+      role: "manager",
+      unitId: 7,
+    });
+    mockPermissions.mockReturnValue({ isAdmin: false, role: "manager" });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("defaults a manager to their filial and offers the two-button toggle", () => {
+    mockPendencias.mockReturnValue({ data: { ...response, scope: "unit" }, isLoading: false, isError: false });
+    render(<SuasPendenciasPage />);
+    expect(screen.getByText("Minha filial")).toBeInTheDocument();
+    expect(screen.getByText("Só as minhas")).toBeInTheDocument();
+    expect(screen.queryByText("Organização")).not.toBeInTheDocument();
+    // Default scope is the manager's own unit.
+    expect(mockPendencias).toHaveBeenLastCalledWith(9, expect.objectContaining({ scope: "unit", unitId: 7 }));
+  });
+
+  it("switches to 'Só as minhas' when toggled", () => {
+    mockPendencias.mockReturnValue({ data: { ...response, scope: "unit" }, isLoading: false, isError: false });
+    render(<SuasPendenciasPage />);
+    act(() => {
+      screen.getByText("Só as minhas").click();
+    });
+    expect(mockPendencias).toHaveBeenLastCalledWith(9, expect.objectContaining({ scope: "mine" }));
   });
 });
 
@@ -162,28 +196,26 @@ describe("SuasPendenciasPage — admin scope selector (regression)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-19T12:00:00"));
-    (usePermissions as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ isAdmin: true, role: "org_admin" });
+    mockAuth.mockReturnValue({
+      organization: { id: 9 },
+      user: { id: 1, name: "João Silva", role: "org_admin" },
+      role: "org_admin",
+      unitId: null,
+    });
+    mockPermissions.mockReturnValue({ isAdmin: true, role: "org_admin" });
   });
   afterEach(() => {
     vi.useRealTimers();
   });
 
   it("scope buttons render outside the data guard — visible when data is undefined", () => {
-    // Simulate scope=unit with no unit selected: query is disabled, data stays undefined.
-    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-    });
+    mockPendencias.mockReturnValue({ data: undefined, isLoading: false, isError: false });
     render(<SuasPendenciasPage />);
 
-    // All three scope buttons must be present even though data is undefined.
     expect(screen.getByText("Minhas")).toBeInTheDocument();
     expect(screen.getByText("Por filial")).toBeInTheDocument();
     expect(screen.getByText("Organização")).toBeInTheDocument();
 
-    // Clicking "Por filial" (scope → "unit", unitId still null) should surface the
-    // guidance hint instead of a blank screen.
     act(() => {
       screen.getByText("Por filial").click();
     });

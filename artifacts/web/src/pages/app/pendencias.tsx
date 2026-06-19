@@ -144,13 +144,16 @@ function EmptyState() {
 export default function SuasPendenciasPage() {
   usePageTitle("Suas pendências");
   usePageSubtitle("Tudo que está sob a sua responsabilidade e precisa de ação");
-  const { organization, user: authUser } = useAuth();
+  const { organization, user: authUser, role, unitId: myUnitId } = useAuth();
   const { isAdmin } = usePermissions();
   const orgId = organization?.id;
+  const isManager = role === "manager";
+  const managerHasUnit = isManager && myUnitId != null;
 
-  // Scope state — settable by admins via the selector below; operators are always "mine".
-  const [scope, setScope] = useState<PendenciasScope>("mine");
-  const [unitId, setUnitId] = useState<number | null>(null);
+  // Scope state — admins pick via the selector; managers default to their own
+  // filial with a 2-way toggle; everyone else is always "mine".
+  const [scope, setScope] = useState<PendenciasScope>(() => (managerHasUnit ? "unit" : "mine"));
+  const [unitId, setUnitId] = useState<number | null>(() => (managerHasUnit ? myUnitId : null));
   const [view, setView] = useState<"list" | "calendar">("list");
   const [calMonth, setCalMonth] = useState<Date>(() => new Date());
 
@@ -196,6 +199,38 @@ export default function SuasPendenciasPage() {
               />
             </div>
           )}
+        </div>
+      )}
+
+      {managerHasUnit && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setScope("unit");
+              setUnitId(myUnitId);
+            }}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
+              scope === "unit"
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Minha filial
+          </button>
+          <button
+            type="button"
+            onClick={() => setScope("mine")}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
+              scope === "mine"
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Só as minhas
+          </button>
         </div>
       )}
 
