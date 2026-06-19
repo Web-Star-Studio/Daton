@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { db, regulatoryDocumentsTable } from "@workspace/db";
+import { db, regulatoryDocumentsTable, regulatoryDocumentRenewalsTable } from "@workspace/db";
 import {
   cleanupTestContext,
   createTestContext,
@@ -52,5 +52,40 @@ describe("regulatoryDocumentPendenciaProvider", () => {
     expect(byId.get(`regulatory_document:${aVencerId}`)?.urgency).toBe("due_soon");
     expect(byId.get(`regulatory_document:${vencidoId}`)?.dueDate).toBe("2026-05-01");
     expect(byId.get(`regulatory_document:${aVencerId}`)?.link.route).toBe("/qualidade/regulatorios");
+  });
+
+  it("listCompletedToday returns renewals marked renovado today", async () => {
+    const ctx = await createTestContext({ seed: "pend-reg-done" });
+    contexts.push(ctx);
+    const unit = await createUnit(ctx, `Filial ${ctx.prefix}`);
+    const now = new Date(2026, 5, 15, 10, 0, 0);
+    const [doc] = await db
+      .insert(regulatoryDocumentsTable)
+      .values({
+        organizationId: ctx.organizationId,
+        unitId: unit.id,
+        identifierType: "alvara",
+        issuingBody: "Prefeitura",
+        responsibleUserId: ctx.userId,
+        expirationDate: "2026-07-01",
+        status: "a_vencer",
+      })
+      .returning({ id: regulatoryDocumentsTable.id });
+    await db.insert(regulatoryDocumentRenewalsTable).values({
+      organizationId: ctx.organizationId,
+      documentId: doc.id,
+      status: "renovado",
+      updatedAt: new Date(2026, 5, 15, 9, 0, 0),
+    });
+
+    const items = await regulatoryDocumentPendenciaProvider.listCompletedToday!({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId],
+      now,
+      dueSoonDays: 7,
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe(`regulatory_document:${doc.id}`);
+    expect(items[0].statusLabel).toBe("Renovado hoje");
   });
 });
