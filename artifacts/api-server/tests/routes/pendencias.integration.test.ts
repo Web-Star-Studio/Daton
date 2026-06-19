@@ -134,4 +134,28 @@ describe("GET /organizations/:orgId/pendencias", () => {
 
     expect(res.status).toBe(403);
   });
+
+  it("forbids an operator from scope=unit (403)", async () => {
+    const ctx = await createTestContext({ seed: "pend-op-unit-403", role: "operator" });
+    contexts.push(ctx);
+    const unit = await createUnit(ctx, `Filial ${ctx.prefix}`);
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/pendencias?scope=unit&unitId=${unit.id}`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(403);
+  });
+
+  it("forbids a manager without a filial from scope=unit (403)", async () => {
+    const ctx = await createTestContext({ seed: "pend-mgr-nofilial-403", role: "manager" });
+    contexts.push(ctx);
+    // manager has no unitId set → the locked-filial resolution must 403
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/pendencias?scope=unit`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(403);
+  });
 });
