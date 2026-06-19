@@ -91,8 +91,8 @@ export function PendenciasCalendar({
             <button
               key={k}
               type="button"
-              aria-label={dayItems.length > 0 ? `Dia ${format(d, "d")}: ${dayItems.length} pendência(s)` : undefined}
-              onClick={() => setSelected(dayItems.length > 0 ? k : null)}
+              aria-label={showChips ? `Dia ${format(d, "d")}: ${dayItems.length} pendência(s)` : undefined}
+              onClick={() => setSelected(showChips ? k : null)}
               className={cn(
                 "flex min-h-[92px] flex-col gap-1 rounded-lg border p-1.5 text-left text-[12px] transition-colors",
                 inMonth ? "border-border/60" : "border-transparent text-muted-foreground/40",
