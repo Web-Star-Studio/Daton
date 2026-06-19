@@ -149,7 +149,7 @@ export default function SuasPendenciasPage() {
 
   // Scope state — settable by admins via the selector below; operators are always "mine".
   const [scope, setScope] = useState<PendenciasScope>("mine");
-  const [unitId, setUnitId] = useState<number | null>(authUser ? null : null);
+  const [unitId, setUnitId] = useState<number | null>(null);
 
   const { data: units = [] } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId && isAdmin },
@@ -166,43 +166,48 @@ export default function SuasPendenciasPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Suas pendências</h1>
       </div>
 
+      {isAdmin && (
+        <div className="flex flex-wrap items-center gap-2">
+          {(["mine", "unit", "org"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setScope(s)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
+                scope === s
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {s === "mine" ? "Minhas" : s === "unit" ? "Por filial" : "Organização"}
+            </button>
+          ))}
+          {scope === "unit" && (
+            <div className="w-56">
+              <SearchableSelect
+                value={unitId != null ? String(unitId) : ""}
+                onChange={(v) => setUnitId(v ? Number(v) : null)}
+                options={units.map((u) => ({ value: String(u.id), label: u.name }))}
+                placeholder="Selecione a filial"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
       {isError && (
         <p className="text-sm text-destructive">Não foi possível carregar suas pendências.</p>
       )}
 
+      {scope === "unit" && unitId == null && (
+        <p className="text-sm text-muted-foreground">Selecione uma filial para ver as pendências.</p>
+      )}
+
       {data && (
         <>
           <UserIdentityBlock user={data.user} />
-          {isAdmin && (
-            <div className="flex flex-wrap items-center gap-2">
-              {(["mine", "unit", "org"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setScope(s)}
-                  className={cn(
-                    "rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
-                    scope === s
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {s === "mine" ? "Minhas" : s === "unit" ? "Por filial" : "Organização"}
-                </button>
-              ))}
-              {scope === "unit" && (
-                <div className="w-56">
-                  <SearchableSelect
-                    value={unitId != null ? String(unitId) : ""}
-                    onChange={(v) => setUnitId(v ? Number(v) : null)}
-                    options={units.map((u) => ({ value: String(u.id), label: u.name }))}
-                    placeholder="Selecione a filial"
-                  />
-                </div>
-              )}
-            </div>
-          )}
           <SummaryCards counts={data.counts} />
           {(() => {
             const now = new Date();

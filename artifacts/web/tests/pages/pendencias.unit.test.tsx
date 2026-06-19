@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SuasPendenciasPage from "@/pages/app/pendencias";
 import type { PendenciasResponse } from "@/lib/pendencias-format";
@@ -36,7 +36,7 @@ vi.mock("@/lib/pendencias-client", async () => {
 });
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ organization: { id: 9 }, user: { id: 1, name: "João Silva", role: "operator" }, unitId: 7 }),
-  usePermissions: () => ({ isAdmin: false, role: "operator" }),
+  usePermissions: vi.fn().mockReturnValue({ isAdmin: false, role: "operator" }),
 }));
 vi.mock("@/contexts/LayoutContext", () => ({
   usePageTitle: vi.fn(),
@@ -44,11 +44,13 @@ vi.mock("@/contexts/LayoutContext", () => ({
 }));
 
 import { usePendencias } from "@/lib/pendencias-client";
+import { usePermissions } from "@/contexts/AuthContext";
 
 describe("SuasPendenciasPage — identity + cards", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-19T12:00:00"));
+    (usePermissions as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ isAdmin: false, role: "operator" });
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -123,5 +125,38 @@ describe("SuasPendenciasPage — identity + cards", () => {
     });
     rerender(<SuasPendenciasPage />);
     expect(screen.getByText(/Você está em dia/)).toBeInTheDocument();
+  });
+});
+
+describe("SuasPendenciasPage — admin scope selector (regression)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-19T12:00:00"));
+    (usePermissions as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ isAdmin: true, role: "org_admin" });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("scope buttons render outside the data guard — visible when data is undefined", () => {
+    // Simulate scope=unit with no unit selected: query is disabled, data stays undefined.
+    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    });
+    render(<SuasPendenciasPage />);
+
+    // All three scope buttons must be present even though data is undefined.
+    expect(screen.getByText("Minhas")).toBeInTheDocument();
+    expect(screen.getByText("Por filial")).toBeInTheDocument();
+    expect(screen.getByText("Organização")).toBeInTheDocument();
+
+    // Clicking "Por filial" (scope → "unit", unitId still null) should surface the
+    // guidance hint instead of a blank screen.
+    act(() => {
+      screen.getByText("Por filial").click();
+    });
+    expect(screen.getByText(/Selecione uma filial para ver as pendências/)).toBeInTheDocument();
   });
 });

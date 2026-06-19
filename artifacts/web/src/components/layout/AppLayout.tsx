@@ -357,6 +357,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       if (pageTitle && normalizedLocation !== "/planos-acao") {
         crumbs.push({ label: pageTitle });
       }
+    } else if (normalizedLocation.startsWith("/pendencias")) {
+      crumbs.push({ label: "Suas Pendências" });
     } else if (normalizedLocation.startsWith("/configuracoes")) {
       crumbs.push({ label: "Configurações" });
 
