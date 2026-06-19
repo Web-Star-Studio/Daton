@@ -46,7 +46,6 @@ export const LoginResponse = zod.object({
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
     unitId: zod.number().nullish(),
-    lastLoginAt: zod.string().datetime({}).nullish(),
     createdAt: zod.string().datetime({}),
   }),
   token: zod.string(),
@@ -71,7 +70,6 @@ export const GetMeResponse = zod.object({
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
     unitId: zod.number().nullish(),
-    lastLoginAt: zod.string().datetime({}).nullish(),
     createdAt: zod.string().datetime({}),
   }),
   organization: zod.object({
@@ -167,12 +165,6 @@ export const GetMeResponse = zod.object({
       "swot",
     ]),
   ),
-  filial: zod
-    .object({
-      id: zod.number(),
-      name: zod.string(),
-    })
-    .nullable(),
 });
 
 /**
@@ -198,7 +190,6 @@ export const UpdateMeResponse = zod.object({
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
     unitId: zod.number().nullish(),
-    lastLoginAt: zod.string().datetime({}).nullish(),
     createdAt: zod.string().datetime({}),
   }),
   organization: zod.object({
@@ -294,12 +285,6 @@ export const UpdateMeResponse = zod.object({
       "swot",
     ]),
   ),
-  filial: zod
-    .object({
-      id: zod.number(),
-      name: zod.string(),
-    })
-    .nullable(),
 });
 
 /**

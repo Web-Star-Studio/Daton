@@ -9757,10 +9757,6 @@ components:
         unitId:
           type: integer
           nullable: true
-        lastLoginAt:
-          type: string
-          format: date-time
-          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -9784,22 +9780,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AppModule"
-        filial:
-          type: object
-          nullable: true
-          properties:
-            id:
-              type: integer
-            name:
-              type: string
-          required:
-            - id
-            - name
       required:
         - user
         - organization
         - modules
-        - filial
 
     Organization:
       type: object

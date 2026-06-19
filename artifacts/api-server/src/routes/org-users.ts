@@ -90,9 +90,7 @@ router.post("/organizations/:orgId/users",
     }
 
     const { name, email, password, role, modules } = parsed.data;
-    // Filial é opcional para qualquer papel (obrigatória só p/ manager, via refine
-    // no schema) — usada também na identidade/escopo das Pendências.
-    const unitId = parsed.data.unitId ?? null;
+    const unitId = role === "manager" ? parsed.data.unitId ?? null : null;
 
     if (unitId !== null) {
       const [unitRow] = await db
@@ -191,8 +189,7 @@ router.patch("/organizations/:orgId/users/:userId/role",
       return;
     }
 
-    // Mantém a filial para qualquer papel (não zera ao trocar de cargo).
-    const nextUnitId = unitId ?? null;
+    const nextUnitId = role === "manager" ? unitId ?? null : null;
     if (nextUnitId !== null) {
       const [unitRow] = await db
         .select({ id: unitsTable.id })
