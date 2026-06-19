@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SuasPendenciasPage from "@/pages/app/pendencias";
 import type { PendenciasResponse } from "@/lib/pendencias-format";
 
@@ -42,6 +42,14 @@ vi.mock("@/contexts/LayoutContext", () => ({
 import { usePendencias } from "@/lib/pendencias-client";
 
 describe("SuasPendenciasPage — identity + cards", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-19T12:00:00"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders the user block and summary counts", () => {
     (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       data: response,
@@ -54,5 +62,25 @@ describe("SuasPendenciasPage — identity + cards", () => {
     expect(screen.getByText("Operador")).toBeInTheDocument(); // perfil
     expect(screen.getByText(/hoje às 08:12/)).toBeInTheDocument(); // último acesso
     expect(screen.getByText("Total em aberto")).toBeInTheDocument();
+  });
+
+  it("renders loading state", () => {
+    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+    });
+    render(<SuasPendenciasPage />);
+    expect(screen.getByText("Carregando…")).toBeInTheDocument();
+  });
+
+  it("renders error state", () => {
+    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    });
+    render(<SuasPendenciasPage />);
+    expect(screen.getByText(/Não foi possível carregar/)).toBeInTheDocument();
   });
 });
