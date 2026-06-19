@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select } from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Badge } from "@/components/ui/badge";
 import { OrganizationContactsCatalogSection } from "@/components/settings/OrganizationContactsCatalogSection";
 import { OrganizationContactGroupsSection } from "@/components/settings/OrganizationContactGroupsSection";
@@ -41,12 +40,11 @@ import {
   useDeleteInvitation,
   getListInvitationsQueryKey,
   useListOrgUsers,
+  useListUnits,
+  getListUnitsQueryKey,
   useCreateOrgUser,
   useUpdateUserRole,
   useUpdateUserModules,
-  useUpdateUserUnit,
-  useListUnits,
-  getListUnitsQueryKey,
   getListOrgUsersQueryKey,
   type AppModule,
   type UpdateUserRoleBodyRole,
@@ -58,9 +56,9 @@ type CreateUserFormData = {
   name: string;
   email: string;
   password: string;
-  role: "org_admin" | "operator" | "analyst";
+  role: "org_admin" | "manager" | "operator" | "analyst";
   modules: OrgUserModule[];
-  primaryUnitId: number | null;
+  unitId: number | null;
 };
 
 type InviteFormData = {
@@ -72,6 +70,7 @@ type InviteFormData = {
 const ROLE_LABELS: Record<string, string> = {
   platform_admin: "Admin Plataforma",
   org_admin: "Administrador",
+  manager: "Gerente",
   operator: "Operador",
   analyst: "Analista",
 };
@@ -116,7 +115,7 @@ const emptyCreateUserForm: CreateUserFormData = {
   password: "",
   role: "analyst",
   modules: [],
-  primaryUnitId: null,
+  unitId: null,
 };
 
 const emptyInviteForm: InviteFormData = {
@@ -290,20 +289,12 @@ export function OrganizationUsersSettingsSection() {
       },
     },
   );
+  const { data: orgUnits = [] } = useListUnits(orgId!, {
+    query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
+  });
   const createOrgUserMut = useCreateOrgUser();
   const updateRoleMut = useUpdateUserRole();
   const updateModulesMut = useUpdateUserModules();
-  const updateUnitMut = useUpdateUserUnit();
-  const { data: units = [] } = useListUnits(orgId!, {
-    query: {
-      queryKey: getListUnitsQueryKey(orgId!),
-      enabled: !!orgId && isOrgAdmin,
-    },
-  });
-  const unitOptions = useMemo(
-    () => units.map((u) => ({ value: String(u.id), label: u.name })),
-    [units],
-  );
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
   const [createUserError, setCreateUserError] = useState("");
   const createUserForm = useForm<CreateUserFormData>({
@@ -315,15 +306,15 @@ export function OrganizationUsersSettingsSection() {
     name: string;
     email: string;
     role: string;
+    unitId: number | null;
     modules: AppModule[];
-    primaryUnitId: number | null;
   } | null>(null);
   const [editRole, setEditRole] = useState<UpdateUserRoleBodyRole>("operator");
+  const [editUnitId, setEditUnitId] = useState<number | null>(null);
+  const [editUnitError, setEditUnitError] = useState("");
   const [editModules, setEditModules] = useState<AppModule[]>([]);
-  const [editPrimaryUnitId, setEditPrimaryUnitId] = useState<number | null>(null);
   const createUserRole = createUserForm.watch("role");
   const createUserModules = createUserForm.watch("modules") || [];
-  const createUserPrimaryUnitId = createUserForm.watch("primaryUnitId");
 
   const excludedEmployeeEmails = useMemo(() => {
     const set = new Set<string>();
@@ -625,14 +616,18 @@ export function OrganizationUsersSettingsSection() {
                                   name: u.name,
                                   email: u.email,
                                   role: u.role,
+                                  unitId: u.unitId ?? null,
                                   modules: u.modules,
-                                  primaryUnitId: u.primaryUnitId ?? null,
                                 });
                                 setEditRole(
-                                  u.role === "analyst" ? "analyst" : "operator",
+                                  u.role === "manager" ||
+                                    u.role === "analyst"
+                                    ? (u.role as UpdateUserRoleBodyRole)
+                                    : "operator",
                                 );
+                                setEditUnitId(u.unitId ?? null);
+                                setEditUnitError("");
                                 setEditModules([...u.modules]);
-                                setEditPrimaryUnitId(u.primaryUnitId ?? null);
                                 setPermDialogOpen(true);
                               }}
                               className="cursor-pointer rounded p-1.5 text-muted-foreground transition-colors hover:text-foreground"
@@ -1005,6 +1000,14 @@ export function OrganizationUsersSettingsSection() {
               return;
             }
 
+            if (data.role === "manager" && !data.unitId) {
+              createUserForm.setError("unitId", {
+                type: "manual",
+                message: "Selecione a filial do gerente",
+              });
+              return;
+            }
+
             try {
               await createOrgUserMut.mutateAsync({
                 orgId,
@@ -1014,7 +1017,7 @@ export function OrganizationUsersSettingsSection() {
                   password: data.password,
                   role: data.role,
                   modules: data.role === "org_admin" ? [] : data.modules,
-                  primaryUnitId: data.primaryUnitId ?? null,
+                  unitId: data.role === "manager" ? data.unitId : null,
                 },
               });
               queryClient.invalidateQueries({
@@ -1106,37 +1109,50 @@ export function OrganizationUsersSettingsSection() {
                 <Label>Cargo</Label>
                 <Select {...createUserForm.register("role")}>
                   <option value="org_admin">Administrador</option>
+                  <option value="manager">Gerente</option>
                   <option value="operator">Operador</option>
                   <option value="analyst">Analista</option>
                 </Select>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   {createUserRole === "org_admin"
                     ? "Administradores da organização recebem acesso total."
-                    : createUserRole === "operator"
-                      ? "Operadores podem editar os módulos atribuídos."
-                      : "Analistas possuem acesso de visualização aos módulos atribuídos."}
+                    : createUserRole === "manager"
+                      ? "Gerentes administram os indicadores da filial selecionada (e os corporativos)."
+                      : createUserRole === "operator"
+                        ? "Operadores podem editar os módulos atribuídos."
+                        : "Analistas possuem acesso de visualização aos módulos atribuídos."}
                 </p>
-              </div>
-              <div>
-                <Label>Filial</Label>
-                <SearchableSelect
-                  value={
-                    createUserPrimaryUnitId != null
-                      ? String(createUserPrimaryUnitId)
-                      : ""
-                  }
-                  onChange={(v) =>
-                    createUserForm.setValue(
-                      "primaryUnitId",
-                      v ? Number(v) : null,
-                    )
-                  }
-                  options={unitOptions}
-                  placeholder="Sem filial"
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Filial à qual o usuário pertence (opcional).
-                </p>
+                {createUserRole === "manager" && (
+                  <div className="mt-3">
+                    <Label>Filial do gerente</Label>
+                    <Select
+                      value={createUserForm.watch("unitId") ?? ""}
+                      onChange={(e) =>
+                        createUserForm.setValue(
+                          "unitId",
+                          e.target.value ? Number(e.target.value) : null,
+                          { shouldValidate: true },
+                        )
+                      }
+                    >
+                      <option value="">Selecione uma filial</option>
+                      {orgUnits.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </Select>
+                    {createUserForm.formState.errors.unitId && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {createUserForm.formState.errors.unitId.message as string}
+                      </p>
+                    )}
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      O gerente verá e gerenciará os indicadores desta filial (e os
+                      corporativos).
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1230,29 +1246,55 @@ export function OrganizationUsersSettingsSection() {
               <Label>Cargo</Label>
               <Select
                 value={editRole}
-                onChange={(e) =>
-                  setEditRole(e.target.value as UpdateUserRoleBodyRole)
-                }
+                onChange={(e) => {
+                  const nextRole = e.target.value as UpdateUserRoleBodyRole;
+                  setEditRole(nextRole);
+                  if (nextRole !== "manager") {
+                    setEditUnitError("");
+                  }
+                }}
               >
                 <option value="operator">Operador</option>
                 <option value="analyst">Analista</option>
+                <option value="manager">Gerente</option>
               </Select>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                {editRole === "operator"
-                  ? "Pode visualizar e editar dados dos módulos atribuídos."
-                  : "Somente visualização dos módulos atribuídos."}
+                {editRole === "manager"
+                  ? "Gerentes administram os indicadores da filial selecionada (e os corporativos)."
+                  : editRole === "operator"
+                    ? "Pode visualizar e editar dados dos módulos atribuídos."
+                    : "Somente visualização dos módulos atribuídos."}
               </p>
-            </div>
-            <div>
-              <Label>Filial</Label>
-              <SearchableSelect
-                value={
-                  editPrimaryUnitId != null ? String(editPrimaryUnitId) : ""
-                }
-                onChange={(v) => setEditPrimaryUnitId(v ? Number(v) : null)}
-                options={unitOptions}
-                placeholder="Sem filial"
-              />
+              {editRole === "manager" && (
+                <div className="mt-3">
+                  <Label>Filial do gerente</Label>
+                  <Select
+                    value={editUnitId ?? ""}
+                    onChange={(e) => {
+                      setEditUnitId(
+                        e.target.value ? Number(e.target.value) : null,
+                      );
+                      if (e.target.value) setEditUnitError("");
+                    }}
+                  >
+                    <option value="">Selecione uma filial</option>
+                    {orgUnits.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </Select>
+                  {editUnitError && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {editUnitError}
+                    </p>
+                  )}
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    O gerente verá e gerenciará os indicadores desta filial (e os
+                    corporativos).
+                  </p>
+                </div>
+              )}
             </div>
             <div>
               <Label>Módulos</Label>
@@ -1295,19 +1337,28 @@ export function OrganizationUsersSettingsSection() {
               <Button
                 size="sm"
                 isLoading={
-                  updateRoleMut.isPending ||
-                  updateModulesMut.isPending ||
-                  updateUnitMut.isPending
+                  updateRoleMut.isPending || updateModulesMut.isPending
                 }
                 onClick={async () => {
                   if (!editingUser) return;
 
+                  if (editRole === "manager" && !editUnitId) {
+                    setEditUnitError("Selecione a filial do gerente.");
+                    return;
+                  }
+
+                  const nextUnitId =
+                    editRole === "manager" ? editUnitId : null;
+
                   try {
-                    if (editRole !== editingUser.role) {
+                    const roleChanged = editRole !== editingUser.role;
+                    const unitChanged =
+                      (nextUnitId ?? null) !== (editingUser.unitId ?? null);
+                    if (roleChanged || unitChanged) {
                       await updateRoleMut.mutateAsync({
                         orgId,
                         userId: editingUser.id,
-                        data: { role: editRole },
+                        data: { role: editRole, unitId: nextUnitId },
                       });
                     }
 
@@ -1319,14 +1370,6 @@ export function OrganizationUsersSettingsSection() {
                         orgId,
                         userId: editingUser.id,
                         data: { modules: editModules },
-                      });
-                    }
-
-                    if (editPrimaryUnitId !== editingUser.primaryUnitId) {
-                      await updateUnitMut.mutateAsync({
-                        orgId,
-                        userId: editingUser.id,
-                        data: { primaryUnitId: editPrimaryUnitId },
                       });
                     }
 

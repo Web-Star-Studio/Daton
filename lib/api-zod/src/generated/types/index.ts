@@ -522,7 +522,6 @@ export * from "./updateUserModules200";
 export * from "./updateUserModulesBody";
 export * from "./updateUserRoleBody";
 export * from "./updateUserRoleBodyRole";
-export * from "./updateUserUnitBody";
 export * from "./updateWorkEnvironmentControlBody";
 export * from "./updateWorkEnvironmentControlBodyFactorType";
 export * from "./updateWorkEnvironmentControlBodyFrequency";

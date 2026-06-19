@@ -14,9 +14,7 @@ export interface User {
   organizationId: number;
   role: string;
   theme: UserTheme;
+  unitId?: number | null;
+  lastLoginAt?: string | null;
   createdAt: string;
-  /** @nullable */
-  lastLoginAt: string | null;
-  /** @nullable */
-  primaryUnitId: number | null;
 }

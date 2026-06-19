@@ -247,11 +247,9 @@ export interface User {
   organizationId: number;
   role: string;
   theme: UserTheme;
+  unitId?: number | null;
+  lastLoginAt?: string | null;
   createdAt: string;
-  /** @nullable */
-  lastLoginAt: string | null;
-  /** @nullable */
-  primaryUnitId: number | null;
 }
 
 export interface AuthResponse {
@@ -259,9 +257,6 @@ export interface AuthResponse {
   token: string;
 }
 
-/**
- * @nullable
- */
 export type MeResponseFilial = {
   id: number;
   name: string;
@@ -409,7 +404,6 @@ export interface MeResponse {
   user: User;
   organization: Organization;
   modules: AppModule[];
-  /** @nullable */
   filial: MeResponseFilial;
 }
 
@@ -1666,10 +1660,9 @@ export interface OrgUser {
   name: string;
   email: string;
   role: string;
+  unitId?: number | null;
   createdAt: string;
   modules: AppModule[];
-  /** @nullable */
-  primaryUnitId: number | null;
 }
 
 export type UserOptionRole =
@@ -1677,6 +1670,7 @@ export type UserOptionRole =
 
 export const UserOptionRole = {
   org_admin: "org_admin",
+  manager: "manager",
   operator: "operator",
   analyst: "analyst",
 } as const;
@@ -1693,6 +1687,7 @@ export type CreateOrgUserBodyRole =
 
 export const CreateOrgUserBodyRole = {
   org_admin: "org_admin",
+  manager: "manager",
   operator: "operator",
   analyst: "analyst",
 } as const;
@@ -1704,8 +1699,7 @@ export interface CreateOrgUserBody {
   password: string;
   role: CreateOrgUserBodyRole;
   modules: AppModule[];
-  /** @nullable */
-  primaryUnitId?: number | null;
+  unitId?: number | null;
 }
 
 export type CreateOrgUserResponse = OrgUser;
@@ -3489,6 +3483,10 @@ export interface KpiIndicator {
   formulaVariables: KpiFormulaVariable[];
   formulaExpression: string;
   unit?: string | null;
+  /** Filial do indicador. null = corporativo ou legado não-classificado. */
+  unitId?: number | null;
+  /** True quando é indicador corporativo (rollup). Espelha rollupStrategy != null. */
+  isCorporate?: boolean;
   /** Deprecated — kept for backward compatibility. Use responsibleUserId. */
   responsible?: string | null;
   responsibleUserId?: number | null;
@@ -3537,6 +3535,7 @@ export interface CreateKpiIndicatorBody {
   formulaVariables: KpiFormulaVariable[];
   formulaExpression: string;
   unit?: string;
+  unitId?: number | null;
   responsible?: string;
   responsibleUserId?: number | null;
   measureUnit?: string;
@@ -3582,6 +3581,7 @@ export interface UpdateKpiIndicatorBody {
   formulaVariables?: KpiFormulaVariable[];
   formulaExpression?: string;
   unit?: string;
+  unitId?: number | null;
   responsible?: string;
   responsibleUserId?: number | null;
   measureUnit?: string;
@@ -3604,6 +3604,12 @@ export interface KpiYearConfig {
   year: number;
   seq?: number | null;
   goal?: number | null;
+  /** True quando a meta foi calculada das filiais (corporativo). */
+  isGoalComputed?: boolean;
+  /** Filiais com meta consideradas no cálculo (só quando isGoalComputed). */
+  goalChildrenWithData?: number | null;
+  /** Total de filiais vinculadas (só quando isGoalComputed). */
+  goalChildrenTotal?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -6049,15 +6055,12 @@ export type UpdateUserRoleBodyRole =
 export const UpdateUserRoleBodyRole = {
   operator: "operator",
   analyst: "analyst",
+  manager: "manager",
 } as const;
 
 export type UpdateUserRoleBody = {
   role: UpdateUserRoleBodyRole;
-};
-
-export type UpdateUserUnitBody = {
-  /** @nullable */
-  primaryUnitId: number | null;
+  unitId?: number | null;
 };
 
 export type UpdateUserModulesBody = {

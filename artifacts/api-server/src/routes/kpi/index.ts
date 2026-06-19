@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, desc, eq, ilike, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
 import {
   actionPlansTable,
   db,
@@ -9,6 +9,7 @@ import {
   kpiMonthlyValuesTable,
   kpiObjectivesTable,
   kpiYearConfigsTable,
+  unitsTable,
   usersTable,
   type KpiMonthlyValueJustification as DbKpiMonthlyValueJustification,
   type KpiRollupStrategy,
@@ -38,6 +39,13 @@ import {
   UpsertKpiYearConfigParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
+import {
+  canActOnKpiIndicator,
+  isCorporateIndicator,
+  type KpiAction,
+  type KpiIndicatorAccessFields,
+  type KpiRequesterScope,
+} from "../../services/kpi/access";
 import { evaluateFormula, validateFormula } from "../../lib/formula-evaluator";
 import {
   detectVariableRenames,
@@ -45,7 +53,7 @@ import {
   type FormulaVar,
 } from "../../services/kpi/formula-rename";
 import { normalizeKpiUnit, CORPORATE_UNIT_LABEL } from "../../services/kpi/units";
-import { computeRollupValue } from "../../services/kpi/rollup";
+import { computeRollupValue, computeRollupGoal, type RollupGoalResult } from "../../services/kpi/rollup";
 
 const router: IRouter = Router();
 
@@ -63,6 +71,8 @@ function serializeIndicator(
     formulaVariables: r.formulaVariables,
     formulaExpression: r.formulaExpression,
     unit: r.unit ?? null,
+    unitId: r.unitId ?? null,
+    isCorporate: isCorporateIndicator(r),
     responsible: r.responsible ?? null,
     responsibleUserId: r.responsibleUserId ?? null,
     responsibleUserName,
@@ -88,7 +98,14 @@ function serializeObjective(r: typeof kpiObjectivesTable.$inferSelect) {
   };
 }
 
-function serializeYearConfig(r: typeof kpiYearConfigsTable.$inferSelect) {
+function serializeYearConfig(
+  r: typeof kpiYearConfigsTable.$inferSelect,
+  computedGoal?: {
+    computed: number | null;
+    childrenWithGoal: number;
+    childrenTotal: number;
+  } | null,
+) {
   return {
     id: r.id,
     organizationId: r.organizationId,
@@ -96,10 +113,86 @@ function serializeYearConfig(r: typeof kpiYearConfigsTable.$inferSelect) {
     objectiveId: r.objectiveId ?? null,
     year: r.year,
     seq: r.seq ?? null,
-    goal: r.goal !== null && r.goal !== undefined ? parseFloat(r.goal) : null,
+    goal: computedGoal
+      ? computedGoal.computed
+      : r.goal !== null && r.goal !== undefined
+        ? parseFloat(r.goal)
+        : null,
+    isGoalComputed: computedGoal ? true : false,
+    goalChildrenWithData: computedGoal ? computedGoal.childrenWithGoal : null,
+    goalChildrenTotal: computedGoal ? computedGoal.childrenTotal : null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
+}
+
+/**
+ * Resolve o escopo do solicitante para o módulo KPI. Faz lookup do unitId só
+ * quando role=manager (fonte sempre fresca, sem depender do token).
+ */
+async function getRequesterKpiScope(req: { auth?: { userId: number; role: KpiRequesterScope["role"] } }): Promise<KpiRequesterScope> {
+  const { userId, role } = req.auth!;
+  let unitId: number | null = null;
+  if (role === "manager") {
+    const [u] = await db
+      .select({ unitId: usersTable.unitId })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId));
+    unitId = u?.unitId ?? null;
+  }
+  return { role, userId, unitId };
+}
+
+/** Campos de acesso a partir de uma row de indicador. */
+function accessFieldsOf(r: { unitId: number | null; responsibleUserId: number | null; rollupStrategy: string | null; unit: string | null }): KpiIndicatorAccessFields {
+  return {
+    unitId: r.unitId ?? null,
+    responsibleUserId: r.responsibleUserId ?? null,
+    isCorporate: isCorporateIndicator({ rollupStrategy: r.rollupStrategy, unit: r.unit }),
+  };
+}
+
+/**
+ * Condição SQL de visibilidade por role. undefined = sem restrição (admin).
+ * - manager: própria filial OU corporativo (rollup OU rotulado "Corporativo")
+ * - operator/analyst: só onde é responsável
+ */
+function kpiVisibilityCondition(scope: KpiRequesterScope): SQL | undefined {
+  if (scope.role === "org_admin" || scope.role === "platform_admin") return undefined;
+  if (scope.role === "manager") {
+    return or(
+      scope.unitId !== null ? eq(kpiIndicatorsTable.unitId, scope.unitId) : sql`false`,
+      isNotNull(kpiIndicatorsTable.rollupStrategy),
+      sql`lower(trim(${kpiIndicatorsTable.unit})) = ${CORPORATE_UNIT_LABEL.toLowerCase()}`,
+    );
+  }
+  // operator / analyst
+  return eq(kpiIndicatorsTable.responsibleUserId, scope.userId);
+}
+
+/** Carrega os campos de acesso de um indicador da org e checa a ação. Retorna
+ * 'ok' | 404 | 403 para o handler responder. */
+async function authorizeIndicatorAction(
+  req: { auth?: { userId: number; role: KpiRequesterScope["role"]; organizationId: number } },
+  orgId: number,
+  indicatorId: number,
+  action: KpiAction,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const [ind] = await db
+    .select({
+      unitId: kpiIndicatorsTable.unitId,
+      responsibleUserId: kpiIndicatorsTable.responsibleUserId,
+      rollupStrategy: kpiIndicatorsTable.rollupStrategy,
+      unit: kpiIndicatorsTable.unit,
+    })
+    .from(kpiIndicatorsTable)
+    .where(and(eq(kpiIndicatorsTable.id, indicatorId), eq(kpiIndicatorsTable.organizationId, orgId)));
+  if (!ind) return { ok: false, status: 404, error: "Indicador não encontrado" };
+  const scope = await getRequesterKpiScope(req);
+  if (!canActOnKpiIndicator(scope, accessFieldsOf(ind), action)) {
+    return { ok: false, status: 403, error: "Sem permissão para esta operação no indicador" };
+  }
+  return { ok: true };
 }
 
 /**
@@ -319,10 +412,14 @@ router.get("/organizations/:orgId/kpi/indicators", requireAuth, async (req, res)
   const query = ListKpiIndicatorsQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 
+  const scope = await getRequesterKpiScope(req);
+
   const conditions = [eq(kpiIndicatorsTable.organizationId, params.data.orgId)];
   if (query.data.unit) {
     conditions.push(ilike(kpiIndicatorsTable.unit, `%${query.data.unit}%`));
   }
+  const visibility = kpiVisibilityCondition(scope);
+  if (visibility) conditions.push(visibility);
 
   const rows = await db
     .select({
@@ -362,13 +459,34 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
     responsibleText = user.name;
   }
 
+  // Resolve a filial alvo: aceita unitId (preferido) e mantém o texto `unit`.
+  const targetUnitId: number | null = typeof (req.body?.unitId) === "number" ? req.body.unitId : null;
+  let unitText: string | null = normalizeKpiUnit(body.data.unit);
+  if (targetUnitId !== null) {
+    const [unitRow] = await db
+      .select({ id: unitsTable.id, name: unitsTable.name })
+      .from(unitsTable)
+      .where(and(eq(unitsTable.id, targetUnitId), eq(unitsTable.organizationId, params.data.orgId)));
+    if (!unitRow) { res.status(400).json({ error: "unitId não corresponde a uma filial desta organização" }); return; }
+    unitText = unitRow.name;
+  }
+
+  const scope = await getRequesterKpiScope(req);
+  const canCreate = canActOnKpiIndicator(
+    scope,
+    { unitId: targetUnitId, responsibleUserId, isCorporate: false },
+    "createUnit",
+  );
+  if (!canCreate) { res.status(403).json({ error: "Sem permissão para criar indicador nesta filial" }); return; }
+
   const [row] = await db.insert(kpiIndicatorsTable).values({
     organizationId: params.data.orgId,
     name: body.data.name,
     measurement: body.data.measurement,
     formulaVariables: body.data.formulaVariables,
     formulaExpression: body.data.formulaExpression,
-    unit: normalizeKpiUnit(body.data.unit),
+    unit: unitText,
+    unitId: targetUnitId,
     responsible: responsibleText,
     responsibleUserId,
     measureUnit: body.data.measureUnit ?? null,
@@ -410,6 +528,20 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
   if (body.data.name !== undefined) updateData.name = body.data.name;
   if (body.data.measurement !== undefined) updateData.measurement = body.data.measurement;
   if (body.data.unit !== undefined) updateData.unit = normalizeKpiUnit(body.data.unit);
+  if (typeof req.body?.unitId === "number" || req.body?.unitId === null) {
+    const newUnitId: number | null = req.body.unitId;
+    if (newUnitId === null) {
+      updateData.unitId = null;
+    } else {
+      const [unitRow] = await db
+        .select({ id: unitsTable.id, name: unitsTable.name })
+        .from(unitsTable)
+        .where(and(eq(unitsTable.id, newUnitId), eq(unitsTable.organizationId, params.data.orgId)));
+      if (!unitRow) { res.status(400).json({ error: "unitId não corresponde a uma filial desta organização" }); return; }
+      updateData.unitId = unitRow.id;
+      updateData.unit = unitRow.name;
+    }
+  }
   if (body.data.responsibleUserId !== undefined) {
     const newUserId = body.data.responsibleUserId;
     if (newUserId === null) {
@@ -459,6 +591,10 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
     .select({
       formulaExpression: kpiIndicatorsTable.formulaExpression,
       formulaVariables: kpiIndicatorsTable.formulaVariables,
+      unitId: kpiIndicatorsTable.unitId,
+      responsibleUserId: kpiIndicatorsTable.responsibleUserId,
+      rollupStrategy: kpiIndicatorsTable.rollupStrategy,
+      unit: kpiIndicatorsTable.unit,
     })
     .from(kpiIndicatorsTable)
     .where(and(
@@ -466,6 +602,11 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
       eq(kpiIndicatorsTable.organizationId, params.data.orgId),
     ));
   if (!current) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
+
+  const scope = await getRequesterKpiScope(req);
+  if (!canActOnKpiIndicator(scope, accessFieldsOf(current), "editDefinition")) {
+    res.status(403).json({ error: "Sem permissão para editar este indicador" }); return;
+  }
 
   const newExpression = typeof updateData.formulaExpression === "string"
     ? updateData.formulaExpression
@@ -568,6 +709,9 @@ router.delete("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, 
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+  const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "delete");
+  if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+
   const [row] = await db.delete(kpiIndicatorsTable)
     .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)))
     .returning();
@@ -586,11 +730,15 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
   const query = ListKpiYearDataQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 
-  // Fetch all indicators (optionally filtered by unit)
+  const scope = await getRequesterKpiScope(req);
+
+  // Fetch all indicators (optionally filtered by unit), restritos ao escopo do solicitante
   const indicatorConditions = [eq(kpiIndicatorsTable.organizationId, params.data.orgId)];
   if (query.data.unit) {
     indicatorConditions.push(ilike(kpiIndicatorsTable.unit, `%${query.data.unit}%`));
   }
+  const visibility = kpiVisibilityCondition(scope);
+  if (visibility) indicatorConditions.push(visibility);
 
   const indicators = await db.select().from(kpiIndicatorsTable)
     .where(and(...indicatorConditions))
@@ -847,6 +995,14 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     valuesByYearConfigId.set(yc.id, monthMap);
   }
 
+  // ─── Rollup da META (tolerância) on-read ─────────────────────────────────
+  // Uma vez por corporativo (a meta é por ano, não por mês).
+  const computedGoalByIndicatorId = new Map<number, RollupGoalResult>();
+  for (const ind of rollupIndicators) {
+    const goalResult = await computeRollupGoal(params.data.orgId, ind.id, params.data.year);
+    if (goalResult) computedGoalByIndicatorId.set(ind.id, goalResult);
+  }
+
   // Build response — todos os indicadores aparecem em qualquer ano. Os que
   // não tinham config no ano alvo já receberam um sintético acima (carry-
   // forward), então sempre há um `yc` pra mapear.
@@ -894,7 +1050,7 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         : null;
       return {
         indicator: serializeIndicator(ind, responsibleUserName),
-        yearConfig: serializeYearConfig(yc),
+        yearConfig: serializeYearConfig(yc, computedGoalByIndicatorId.get(ind.id) ?? null),
         objective: objective ? serializeObjective(objective) : null,
         monthlyValues: monthlyCells.map((c, i) => ({
           month: i + 1,
@@ -934,14 +1090,20 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year", requ
   const body = UpsertKpiYearConfigBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  // Verify indicator belongs to org
-  const [indicator] = await db.select({ id: kpiIndicatorsTable.id })
+  const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "editDefinition");
+  if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+
+  // Corporativo: meta é derivada das filiais — qualquer goal manual é ignorado.
+  // (authorizeIndicatorAction já garantiu org + 404; aqui só precisamos da strategy.)
+  const [indicator] = await db.select({ rollupStrategy: kpiIndicatorsTable.rollupStrategy })
     .from(kpiIndicatorsTable)
     .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)));
-
-  if (!indicator) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
-
-  const goalStr = body.data.goal !== null && body.data.goal !== undefined ? String(body.data.goal) : null;
+  const isCorporate = indicator?.rollupStrategy != null;
+  const goalStr = isCorporate
+    ? null
+    : body.data.goal !== null && body.data.goal !== undefined
+      ? String(body.data.goal)
+      : null;
 
   const [row] = await db.insert(kpiYearConfigsTable).values({
     organizationId: params.data.orgId,
@@ -970,6 +1132,9 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
 
   const body = UpsertKpiValuesBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "operate");
+  if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
 
   // Garante a existência do yearConfig — se não existe, é criado com
   // carry-forward (goal/seq/objectiveId do ano anterior). Isso elimina a
@@ -1095,6 +1260,9 @@ router.get(
     if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
     if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+    const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "view");
+    if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+
     // Find the kpi_monthly_values.id for this (indicator, year, month) inside the org
     const [mv] = await db
       .select({ id: kpiMonthlyValuesTable.id })
@@ -1138,6 +1306,9 @@ router.post(
     const body = AddKpiMonthJustificationBody.safeParse(req.body);
     if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+    const auth = await authorizeIndicatorAction(req, params.data.orgId, params.data.indicatorId, "operate");
+    if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+
     const mv = await ensureMonthlyValueRow(
       params.data.orgId,
       params.data.indicatorId,
@@ -1177,6 +1348,11 @@ router.post(
     if (!Number.isFinite(orgId)) { res.status(400).json({ error: "orgId inválido" }); return; }
     if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+    const scope = await getRequesterKpiScope(req);
+    if (!canActOnKpiIndicator(scope, { unitId: null, responsibleUserId: null, isCorporate: true }, "createCorporate")) {
+      res.status(403).json({ error: "Sem permissão para criar indicador corporativo" }); return;
+    }
+
     const body = req.body as {
       name?: string;
       strategy?: string;
@@ -1206,9 +1382,6 @@ router.post(
     if (!body.periodicity || typeof body.periodicity !== "string") {
       res.status(400).json({ error: "periodicity obrigatório" }); return;
     }
-    if (body.goal == null || !Number.isFinite(Number(body.goal))) {
-      res.status(400).json({ error: "Tolerância obrigatória" }); return;
-    }
     if (body.responsibleUserId == null || !Number.isFinite(Number(body.responsibleUserId))) {
       res.status(400).json({ error: "Responsável obrigatório" }); return;
     }
@@ -1222,7 +1395,13 @@ router.post(
 
     // Filhos precisam pertencer à org e NÃO ser corporativos.
     const childRows = await db
-      .select({ id: kpiIndicatorsTable.id, unit: kpiIndicatorsTable.unit })
+      .select({
+        id: kpiIndicatorsTable.id,
+        unit: kpiIndicatorsTable.unit,
+        unitId: kpiIndicatorsTable.unitId,
+        responsibleUserId: kpiIndicatorsTable.responsibleUserId,
+        rollupStrategy: kpiIndicatorsTable.rollupStrategy,
+      })
       .from(kpiIndicatorsTable)
       .where(and(eq(kpiIndicatorsTable.organizationId, orgId), inArray(kpiIndicatorsTable.id, childIds)));
     if (childRows.length !== childIds.length) {
@@ -1248,6 +1427,15 @@ router.post(
         childIndicatorIds: alreadyLinked.map((l) => l.childIndicatorId),
       });
       return;
+    }
+
+    // Escopo: cada filho precisa estar dentro da visibilidade do requisitante.
+    // Admin passa trivialmente (view → true); gerente só pode agregar filhos da própria filial.
+    for (const child of childRows) {
+      if (!canActOnKpiIndicator(scope, accessFieldsOf(child), "view")) {
+        res.status(403).json({ error: "Sem permissão sobre um dos indicadores-filhos selecionados" });
+        return;
+      }
     }
 
     const strategy = body.strategy as KpiRollupStrategy;
@@ -1290,7 +1478,7 @@ router.post(
         organizationId: orgId,
         indicatorId: created.id,
         year,
-        goal: body.goal != null ? String(body.goal) : null,
+        goal: null, // meta do corporativo é sempre calculada das filiais
       });
 
       return created.id;

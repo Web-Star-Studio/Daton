@@ -13,7 +13,10 @@ export const usersTable = pgTable("users", {
   role: text("role").notNull().default("analyst"),
   theme: text("theme").notNull().default("light"),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
-  primaryUnitId: integer("primary_unit_id").references(() => unitsTable.id, { onDelete: "set null" }),
+  // Filial do usuário. Obrigatório (na camada de app) só para role "manager";
+  // opcional para os demais (usada também na identidade/escopo das Pendências).
+  // onDelete set null: apagar a filial não apaga o usuário.
+  unitId: integer("unit_id").references(() => unitsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

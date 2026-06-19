@@ -17,6 +17,7 @@ export interface UpdateKpiIndicatorBody {
   formulaVariables?: KpiFormulaVariable[];
   formulaExpression?: string;
   unit?: string;
+  unitId?: number | null;
   responsible?: string;
   responsibleUserId?: number | null;
   measureUnit?: string;

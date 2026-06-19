@@ -3198,7 +3198,10 @@ paths:
               properties:
                 role:
                   type: string
-                  enum: [operator, analyst]
+                  enum: [operator, analyst, manager]
+                unitId:
+                  type: integer
+                  nullable: true
               required:
                 - role
       responses:
@@ -3208,41 +3211,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
-
-  /organizations/{orgId}/users/{userId}/unit:
-    patch:
-      operationId: updateUserUnit
-      tags: [organizations]
-      summary: Set a user's primary filial (unit)
-      parameters:
-        - name: orgId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                primaryUnitId:
-                  type: ["integer", "null"]
-              required:
-                - primaryUnitId
-      responses:
-        "200":
-          description: Primary unit updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OrgUser"
 
   /organizations/{orgId}/users/{userId}/modules:
     put:
@@ -9786,14 +9754,16 @@ components:
         theme:
           type: string
           enum: [light, dark, system]
+        unitId:
+          type: integer
+          nullable: true
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
-        lastLoginAt:
-          type: ["string", "null"]
-          format: date-time
-        primaryUnitId:
-          type: ["integer", "null"]
       required:
         - id
         - name
@@ -9802,8 +9772,6 @@ components:
         - role
         - theme
         - createdAt
-        - lastLoginAt
-        - primaryUnitId
 
     MeResponse:
       type: object
@@ -9817,7 +9785,8 @@ components:
           items:
             $ref: "#/components/schemas/AppModule"
         filial:
-          type: ["object", "null"]
+          type: object
+          nullable: true
           properties:
             id:
               type: integer
@@ -11935,6 +11904,9 @@ components:
           type: string
         role:
           type: string
+        unitId:
+          type: integer
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -11942,8 +11914,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AppModule"
-        primaryUnitId:
-          type: ["integer", "null"]
       required:
         - id
         - name
@@ -11951,7 +11921,6 @@ components:
         - role
         - createdAt
         - modules
-        - primaryUnitId
 
     UserOption:
       type: object
@@ -11964,7 +11933,7 @@ components:
           type: string
         role:
           type: string
-          enum: [org_admin, operator, analyst]
+          enum: [org_admin, manager, operator, analyst]
       required:
         - id
         - name
@@ -11984,13 +11953,14 @@ components:
           minLength: 6
         role:
           type: string
-          enum: [org_admin, operator, analyst]
+          enum: [org_admin, manager, operator, analyst]
         modules:
           type: array
           items:
             $ref: "#/components/schemas/AppModule"
-        primaryUnitId:
-          type: ["integer", "null"]
+        unitId:
+          type: integer
+          nullable: true
       required:
         - name
         - email
@@ -15775,6 +15745,13 @@ components:
         unit:
           type: string
           nullable: true
+        unitId:
+          type: integer
+          nullable: true
+          description: Filial do indicador. null = corporativo ou legado não-classificado.
+        isCorporate:
+          type: boolean
+          description: True quando é indicador corporativo (rollup). Espelha rollupStrategy != null.
         responsible:
           type: string
           nullable: true
@@ -15842,6 +15819,9 @@ components:
           type: string
         unit:
           type: string
+        unitId:
+          type: integer
+          nullable: true
         responsible:
           type: string
         responsibleUserId:
@@ -15901,6 +15881,9 @@ components:
           type: string
         unit:
           type: string
+        unitId:
+          type: integer
+          nullable: true
         responsible:
           type: string
         responsibleUserId:
@@ -15947,6 +15930,17 @@ components:
         goal:
           type: number
           nullable: true
+        isGoalComputed:
+          type: boolean
+          description: True quando a meta foi calculada das filiais (corporativo).
+        goalChildrenWithData:
+          type: integer
+          nullable: true
+          description: Filiais com meta consideradas no cálculo (só quando isGoalComputed).
+        goalChildrenTotal:
+          type: integer
+          nullable: true
+          description: Total de filiais vinculadas (só quando isGoalComputed).
         createdAt:
           type: string
         updatedAt:

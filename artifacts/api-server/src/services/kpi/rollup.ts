@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   kpiIndicatorRollupsTable,
@@ -33,6 +33,32 @@ export interface RollupComputeResult {
     inputs: KpiMonthlyValueInputs;
     value: number | null;
   }>;
+}
+
+/**
+ * Agrega uma lista de números pela estratégia de rollup. Usada tanto pelo
+ * valor (computeRollupValue) quanto pela meta (computeRollupGoal). Lista vazia
+ * → null. `sum_inputs` aqui age como soma (só relevante p/ meta; no valor o
+ * sum_inputs é tratado antes, via fórmula do pai).
+ */
+export function aggregateByStrategy(
+  values: number[],
+  strategy: KpiRollupStrategy,
+): number | null {
+  if (values.length === 0) return null;
+  switch (strategy) {
+    case "sum_values":
+    case "sum_inputs":
+      return values.reduce((acc, v) => acc + v, 0);
+    case "average":
+      return values.reduce((acc, v) => acc + v, 0) / values.length;
+    case "min":
+      return Math.min(...values);
+    case "max":
+      return Math.max(...values);
+    default:
+      return null;
+  }
 }
 
 /**
@@ -195,25 +221,82 @@ export async function computeRollupValue(
 
   // Estratégias baseadas em `value` das filhas
   const values = withData.map((b) => b.value!).filter((v): v is number => Number.isFinite(v));
-  if (values.length === 0) return { ...baseResult, computed: null };
+  const computed = aggregateByStrategy(values, strategy);
+  return { ...baseResult, computed };
+}
 
-  let computed: number;
-  switch (strategy) {
-    case "sum_values":
-      computed = values.reduce((acc, v) => acc + v, 0);
-      break;
-    case "average":
-      computed = values.reduce((acc, v) => acc + v, 0) / values.length;
-      break;
-    case "min":
-      computed = Math.min(...values);
-      break;
-    case "max":
-      computed = Math.max(...values);
-      break;
-    default:
-      return { ...baseResult, computed: null };
+export interface RollupGoalResult {
+  computed: number | null;
+  strategy: KpiRollupStrategy;
+  /** Quantos filhos têm meta definida no ano. */
+  childrenWithGoal: number;
+  /** Total de filhos vinculados. */
+  childrenTotal: number;
+}
+
+/**
+ * Calcula a meta/tolerância de um corporativo agregando as metas dos filhos no
+ * ano, pela mesma estratégia do valor. Considera só filhos com meta definida.
+ * Sem filho com meta → computed null.
+ *
+ * Carry-forward: para cada filho usa a meta do ano-alvo se existir, senão a meta
+ * mais recente de um ano anterior (mesma regra de carry-forward do endpoint do
+ * ano) — assim o corporativo não fica "—" enquanto os filhos mostram a meta
+ * herdada num ano ainda não aberto.
+ */
+export async function computeRollupGoal(
+  orgId: number,
+  parentIndicatorId: number,
+  year: number,
+): Promise<RollupGoalResult | null> {
+  const [parent] = await db
+    .select({ rollupStrategy: kpiIndicatorsTable.rollupStrategy })
+    .from(kpiIndicatorsTable)
+    .where(and(
+      eq(kpiIndicatorsTable.id, parentIndicatorId),
+      eq(kpiIndicatorsTable.organizationId, orgId),
+    ));
+  if (!parent) return null;
+  const strategy = (parent.rollupStrategy ?? "sum_inputs") as KpiRollupStrategy;
+
+  const childLinks = await db
+    .select({ childIndicatorId: kpiIndicatorRollupsTable.childIndicatorId })
+    .from(kpiIndicatorRollupsTable)
+    .where(and(
+      eq(kpiIndicatorRollupsTable.parentIndicatorId, parentIndicatorId),
+      eq(kpiIndicatorRollupsTable.organizationId, orgId),
+    ));
+  if (childLinks.length === 0) return null;
+  const childIds = childLinks.map((l) => l.childIndicatorId);
+
+  // Para cada filho: a meta do ano-alvo, ou (carry-forward) a mais recente de
+  // um ano anterior. DISTINCT ON + ORDER BY year DESC com year <= alvo resolve
+  // ambos num query só.
+  const childConfigs = await db.execute<{ indicator_id: number; goal: string | null }>(sql`
+    SELECT DISTINCT ON (indicator_id) indicator_id, goal
+    FROM ${kpiYearConfigsTable}
+    WHERE organization_id = ${orgId}
+      AND indicator_id IN ${childIds}
+      AND year <= ${year}
+    ORDER BY indicator_id, year DESC
+  `);
+  const goalByChild = new Map(
+    childConfigs.rows.map((c) => [Number(c.indicator_id), c.goal]),
+  );
+
+  const goals: number[] = [];
+  for (const id of childIds) {
+    const g = goalByChild.get(id);
+    if (g !== null && g !== undefined) {
+      const n = parseFloat(g);
+      if (Number.isFinite(n)) goals.push(n);
+    }
   }
 
-  return { ...baseResult, computed };
+  return {
+    computed: aggregateByStrategy(goals, strategy),
+    strategy,
+    childrenWithGoal: goals.length,
+    childrenTotal: childIds.length,
+  };
 }

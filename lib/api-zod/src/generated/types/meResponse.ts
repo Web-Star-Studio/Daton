@@ -14,6 +14,5 @@ export interface MeResponse {
   user: User;
   organization: Organization;
   modules: AppModule[];
-  /** @nullable */
   filial: MeResponseFilial;
 }
