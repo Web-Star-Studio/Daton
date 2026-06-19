@@ -27,6 +27,7 @@ export interface PendenciasCounts {
   dueSoon: number;
   noDue: number;
   upcoming: number;
+  completedToday: number;
   bySource: Record<PendenciaSource, number>;
 }
 

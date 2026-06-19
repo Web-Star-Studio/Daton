@@ -19,7 +19,7 @@ import { useListUnits, getListUnitsQueryKey } from "@workspace/api-client-react"
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
 
-import { ArrowUpRight, Building2, Clock, PartyPopper, ShieldCheck, User } from "lucide-react";
+import { ArrowUpRight, Building2, CheckCircle2, Clock, PartyPopper, ShieldCheck, User } from "lucide-react";
 
 function UserIdentityBlock({ user }: { user: PendenciasResponse["user"] }) {
   const now = new Date();
@@ -222,6 +222,32 @@ export default function SuasPendenciasPage() {
               </div>
             );
           })()}
+          {data.completedToday.length > 0 && (
+            <section className="space-y-2.5">
+              <h2 className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+                Concluídos hoje
+                <span className="text-[11px] font-normal text-muted-foreground">
+                  {data.completedToday.length}
+                </span>
+              </h2>
+              <div className="space-y-2">
+                {data.completedToday.map((it) => (
+                  <div
+                    key={it.id}
+                    className="flex items-center gap-2 rounded-xl border border-border/50 bg-card/30 px-4 py-2.5 opacity-70"
+                  >
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                    <span className="truncate text-[13px] text-muted-foreground line-through">
+                      {it.title}
+                    </span>
+                    <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                      {it.sourceLabel} · {it.statusLabel}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
     </div>

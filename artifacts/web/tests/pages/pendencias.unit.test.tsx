@@ -18,6 +18,7 @@ const response: PendenciasResponse = {
     dueSoon: 1,
     noDue: 0,
     upcoming: 0,
+    completedToday: 0,
     bySource: { kpi: 1, action_plan: 1, nonconformity: 0, regulatory_document: 0 },
   },
   items: [],
@@ -125,6 +126,35 @@ describe("SuasPendenciasPage — identity + cards", () => {
     });
     rerender(<SuasPendenciasPage />);
     expect(screen.getByText(/Você está em dia/)).toBeInTheDocument();
+  });
+
+  it("renders the Concluídos hoje section when present", () => {
+    const withDone = {
+      ...response,
+      items: [],
+      completedToday: [
+        {
+          id: "action_plan:9",
+          source: "action_plan" as const,
+          sourceLabel: "Plano de ação",
+          title: "Plano encerrado",
+          statusLabel: "Encerrado hoje",
+          dueDate: "2026-06-19",
+          urgency: "no_due" as const,
+          responsibleUserId: 1,
+          link: { route: "/planos-acao/9", ctaLabel: "Ver plano" },
+        },
+      ],
+      counts: { ...response.counts, total: 0, overdue: 0, dueSoon: 0, completedToday: 1 },
+    };
+    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: withDone,
+      isLoading: false,
+      isError: false,
+    });
+    render(<SuasPendenciasPage />);
+    expect(screen.getByText("Concluídos hoje")).toBeInTheDocument();
+    expect(screen.getByText("Plano encerrado")).toBeInTheDocument();
   });
 });
 
