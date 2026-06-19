@@ -58,4 +58,43 @@ describe("actionPlanPendenciaProvider", () => {
     expect(byId.get(`action_plan:${overdueId}`)?.link.route).toBe(`/planos-acao/${overdueId}`);
     expect(byId.get(`action_plan:${overdueId}`)?.source).toBe("action_plan");
   });
+
+  it("listCompletedToday returns plans closed today", async () => {
+    const ctx = await createTestContext({ seed: "pend-ap-done" });
+    contexts.push(ctx);
+    const now = new Date(2026, 5, 15, 10, 0, 0);
+    const [done] = await db
+      .insert(actionPlansTable)
+      .values({
+        organizationId: ctx.organizationId,
+        sourceModule: "manual",
+        sourceRef: { manualContext: "t" },
+        title: "Encerrado hoje",
+        status: "completed",
+        responsibleUserId: ctx.userId,
+        closedAt: new Date(2026, 5, 15, 9, 0, 0),
+      })
+      .returning({ id: actionPlansTable.id });
+    // closed yesterday → excluded
+    await db.insert(actionPlansTable).values({
+      organizationId: ctx.organizationId,
+      sourceModule: "manual",
+      sourceRef: { manualContext: "t" },
+      title: "Encerrado ontem",
+      status: "completed",
+      responsibleUserId: ctx.userId,
+      closedAt: new Date(2026, 5, 14, 9, 0, 0),
+    });
+
+    const items = await actionPlanPendenciaProvider.listCompletedToday!({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId],
+      now,
+      dueSoonDays: 7,
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe(`action_plan:${done.id}`);
+    expect(items[0].statusLabel).toBe("Encerrado hoje");
+    expect(items[0].urgency).toBe("no_due");
+  });
 });
