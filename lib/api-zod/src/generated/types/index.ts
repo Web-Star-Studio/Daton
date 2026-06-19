@@ -305,6 +305,7 @@ export * from "./measurementResourceCalibrationResult";
 export * from "./measurementResourceResourceType";
 export * from "./measurementResourceStatus";
 export * from "./meResponse";
+export * from "./meResponseFilial";
 export * from "./messageResponse";
 export * from "./nonconformityDetail";
 export * from "./nonconformityEffectivenessResult";
