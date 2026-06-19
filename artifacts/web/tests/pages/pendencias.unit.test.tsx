@@ -83,4 +83,41 @@ describe("SuasPendenciasPage — identity + cards", () => {
     render(<SuasPendenciasPage />);
     expect(screen.getByText(/Não foi possível carregar/)).toBeInTheDocument();
   });
+
+  it("renders priority sections, a card with deep-link CTA, and the empty state", () => {
+    const withItems: PendenciasResponse = {
+      ...response,
+      items: [
+        {
+          id: "action_plan:5",
+          source: "action_plan",
+          sourceLabel: "Plano de ação",
+          title: "Revisar procedimento de carga",
+          statusLabel: "Aberto",
+          dueDate: "2026-06-10",
+          urgency: "overdue",
+          responsibleUserId: 1,
+          link: { route: "/planos-acao/5", ctaLabel: "Ver plano" },
+        },
+      ],
+    };
+    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: withItems,
+      isLoading: false,
+      isError: false,
+    });
+    const { rerender } = render(<SuasPendenciasPage />);
+    expect(screen.getByText("Fazer agora")).toBeInTheDocument();
+    expect(screen.getByText("Revisar procedimento de carga")).toBeInTheDocument();
+    const cta = screen.getByRole("link", { name: /Ver plano/ });
+    expect(cta).toHaveAttribute("href", "/planos-acao/5");
+
+    (usePendencias as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { ...response, items: [], counts: { ...response.counts, total: 0, overdue: 0, dueSoon: 0 } },
+      isLoading: false,
+      isError: false,
+    });
+    rerender(<SuasPendenciasPage />);
+    expect(screen.getByText(/Você está em dia/)).toBeInTheDocument();
+  });
 });

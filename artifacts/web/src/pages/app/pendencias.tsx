@@ -2,15 +2,21 @@ import { useState } from "react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Link } from "wouter";
 import {
   usePendencias,
   type PendenciasScope,
   ROLE_LABELS,
   formatLastAccess,
+  formatRelativeDue,
+  groupByPriority,
+  URGENCY_META,
   type PendenciasResponse,
+  type Pendencia,
 } from "@/lib/pendencias-client";
-import { Building2, Clock, ShieldCheck, User } from "lucide-react";
+
+import { ArrowUpRight, Building2, Clock, PartyPopper, ShieldCheck, User } from "lucide-react";
 
 function UserIdentityBlock({ user }: { user: PendenciasResponse["user"] }) {
   const now = new Date();
@@ -58,6 +64,79 @@ function SummaryCards({ counts }: { counts: PendenciasResponse["counts"] }) {
   );
 }
 
+function PendenciaCard({ item, now }: { item: Pendencia; now: Date }) {
+  const meta = URGENCY_META[item.urgency];
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={meta.badgeVariant}>{item.sourceLabel}</Badge>
+            <span className="text-[12px] text-muted-foreground">
+              {formatRelativeDue(item.dueDate, now)} · {item.statusLabel}
+            </span>
+          </div>
+          <p className="mt-1 truncate text-[14px] font-medium text-foreground">{item.title}</p>
+          {item.subtitle && (
+            <p className="truncate text-[12px] text-muted-foreground">{item.subtitle}</p>
+          )}
+          {item.responsibleName && (
+            <p className="text-[11px] text-muted-foreground">Responsável: {item.responsibleName}</p>
+          )}
+        </div>
+        <Link
+          href={item.link.route}
+          className="flex shrink-0 items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/40"
+        >
+          {item.link.ctaLabel}
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PrioritySection({
+  title,
+  priority,
+  items,
+  now,
+}: {
+  title: string;
+  priority: "P1" | "P2" | "P3";
+  items: Pendencia[];
+  now: Date;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section className="space-y-2.5">
+      <h2 className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+        {title}
+        <span className="text-[11px] font-normal text-muted-foreground">
+          {priority} · {items.length}
+        </span>
+      </h2>
+      <div className="space-y-2.5">
+        {items.map((it) => (
+          <PendenciaCard key={it.id} item={it} now={now} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EmptyState() {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+        <PartyPopper className="h-8 w-8 text-emerald-500" />
+        <p className="text-[15px] font-medium text-foreground">Você está em dia 🎉</p>
+        <p className="text-[13px] text-muted-foreground">Nenhuma pendência em aberto no momento.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SuasPendenciasPage() {
   usePageTitle("Suas pendências");
   usePageSubtitle("Tudo que está sob a sua responsabilidade e precisa de ação");
@@ -89,8 +168,20 @@ export default function SuasPendenciasPage() {
         <>
           <UserIdentityBlock user={data.user} />
           <SummaryCards counts={data.counts} />
-          {/* Priority list (Task 5) and scope selector (Task 6) render here. */}
-          <div data-testid="pendencias-list" className={cn(isAdmin && "scroll-mt-4")} />
+          {/* Priority list and scope selector (Task 6) render here. */}
+          {(() => {
+            const now = new Date();
+            const groups = groupByPriority(data.items);
+            const empty = groups.p1.length + groups.p2.length + groups.p3.length === 0;
+            if (empty) return <EmptyState />;
+            return (
+              <div className="space-y-6">
+                <PrioritySection title={URGENCY_META.overdue.sectionTitle} priority="P1" items={groups.p1} now={now} />
+                <PrioritySection title={URGENCY_META.due_soon.sectionTitle} priority="P2" items={groups.p2} now={now} />
+                <PrioritySection title={URGENCY_META.no_due.sectionTitle} priority="P3" items={groups.p3} now={now} />
+              </div>
+            );
+          })()}
         </>
       )}
     </div>
