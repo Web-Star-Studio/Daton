@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { OrganizationContactsCatalogSection } from "@/components/settings/OrganizationContactsCatalogSection";
 import { OrganizationContactGroupsSection } from "@/components/settings/OrganizationContactGroupsSection";
+import { resolveUserEmailFromEmployeePick } from "@/components/settings/employee-user-link";
 import {
   Check,
   ChevronsUpDown,
@@ -1054,12 +1055,16 @@ export function OrganizationUsersSettingsSection() {
                       createUserForm.setValue("name", v, { shouldValidate: true })
                     }
                     onPick={(emp) => {
-                      const currentEmail = createUserForm.getValues("email").trim();
-                      if (emp.email && !currentEmail) {
-                        createUserForm.setValue("email", emp.email, {
-                          shouldValidate: true,
-                        });
-                      }
+                      // Explicit selection must win over a stale value — the browser's
+                      // password manager pre-fills the field with the admin's own login
+                      // when the dialog opens, which used to block the colaborador's email.
+                      const nextEmail = resolveUserEmailFromEmployeePick(
+                        emp,
+                        createUserForm.getValues("email"),
+                      );
+                      createUserForm.setValue("email", nextEmail, {
+                        shouldValidate: true,
+                      });
                     }}
                     placeholder="Buscar colaborador..."
                     excludeEmails={excludedEmployeeEmails}
@@ -1075,6 +1080,7 @@ export function OrganizationUsersSettingsSection() {
                 <Label>Email</Label>
                 <Input
                   type="email"
+                  autoComplete="off"
                   {...createUserForm.register("email", {
                     required: "Email é obrigatório",
                   })}
@@ -1090,6 +1096,7 @@ export function OrganizationUsersSettingsSection() {
                 <Label>Senha</Label>
                 <Input
                   type="password"
+                  autoComplete="new-password"
                   {...createUserForm.register("password", {
                     required: "Senha é obrigatória",
                     minLength: {
