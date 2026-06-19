@@ -51,7 +51,7 @@ export const actionPlanPendenciaProvider: PendenciaProvider = {
           dueDate: dueIso,
           urgency: classifyUrgency(dueIso, ctx.now, ctx.dueSoonDays),
           responsibleUserId: r.responsibleUserId as number,
-          link: { route: `/app/planos-acao/${r.id}`, ctaLabel: "Ver plano" },
+          link: { route: `/planos-acao/${r.id}`, ctaLabel: "Ver plano" },
           meta: { code: r.code, priority: r.priority, status: r.status },
         };
       });

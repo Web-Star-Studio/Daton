@@ -46,7 +46,7 @@ export const regulatoryDocumentPendenciaProvider: PendenciaProvider = {
           dueDate: r.expirationDate,
           urgency,
           responsibleUserId: r.responsibleUserId as number,
-          link: { route: "/app/qualidade/regulatorios", ctaLabel: "Renovar" },
+          link: { route: "/qualidade/regulatorios", ctaLabel: "Renovar" },
           meta: { documentId: r.id, status: r.status },
         };
       });

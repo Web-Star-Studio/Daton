@@ -55,7 +55,7 @@ describe("actionPlanPendenciaProvider", () => {
     expect(byId.get(`action_plan:${overdueId}`)?.urgency).toBe("overdue");
     expect(byId.get(`action_plan:${soonId}`)?.urgency).toBe("due_soon");
     expect(byId.get(`action_plan:${futureId}`)?.urgency).toBe("upcoming");
-    expect(byId.get(`action_plan:${overdueId}`)?.link.route).toBe(`/app/planos-acao/${overdueId}`);
+    expect(byId.get(`action_plan:${overdueId}`)?.link.route).toBe(`/planos-acao/${overdueId}`);
     expect(byId.get(`action_plan:${overdueId}`)?.source).toBe("action_plan");
   });
 });

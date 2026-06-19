@@ -51,6 +51,6 @@ describe("regulatoryDocumentPendenciaProvider", () => {
     expect(byId.get(`regulatory_document:${vencidoId}`)?.urgency).toBe("overdue");
     expect(byId.get(`regulatory_document:${aVencerId}`)?.urgency).toBe("due_soon");
     expect(byId.get(`regulatory_document:${vencidoId}`)?.dueDate).toBe("2026-05-01");
-    expect(byId.get(`regulatory_document:${aVencerId}`)?.link.route).toBe("/app/qualidade/regulatorios");
+    expect(byId.get(`regulatory_document:${aVencerId}`)?.link.route).toBe("/qualidade/regulatorios");
   });
 });

@@ -107,7 +107,7 @@ export const kpiPendenciaProvider: PendenciaProvider = {
         dueDate: lastDayIso(year, month),
         urgency: "overdue",
         responsibleUserId: ind.responsibleUserId,
-        link: { route: "/app/kpi/lancamentos", ctaLabel: "Alimentar" },
+        link: { route: "/kpi/lancamentos", ctaLabel: "Alimentar" },
         meta: { indicatorId: ind.id, year, month },
       });
     }

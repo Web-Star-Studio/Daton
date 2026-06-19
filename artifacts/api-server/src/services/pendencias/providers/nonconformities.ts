@@ -14,7 +14,7 @@ const NC_STATUS_LABELS: Record<string, string> = {
   awaiting_effectiveness: "Aguardando eficácia",
 };
 
-const NC_ROUTE = "/app/governanca/nao-conformidades";
+const NC_ROUTE = "/governanca/nao-conformidades";
 
 export const nonconformityPendenciaProvider: PendenciaProvider = {
   source: "nonconformity",

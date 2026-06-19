@@ -55,7 +55,7 @@ describe("kpiPendenciaProvider", () => {
       dueDate: "2026-01-31",
     });
     expect(items[0].id).toBe(`kpi:${indicator.id}:2026:1`);
-    expect(items[0].link.route).toBe("/app/kpi/lancamentos");
+    expect(items[0].link.route).toBe("/kpi/lancamentos");
   });
 
   it("emits nothing for a rollup/corporate indicator even with no monthly values", async () => {
