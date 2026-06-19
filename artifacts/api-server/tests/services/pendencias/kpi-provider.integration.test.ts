@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   db,
   kpiIndicatorsTable,
+  kpiMonthlyValuesTable,
   kpiYearConfigsTable,
 } from "@workspace/db";
 import {
@@ -121,5 +122,43 @@ describe("kpiPendenciaProvider", () => {
       dueSoonDays: 7,
     });
     expect(items).toHaveLength(0);
+  });
+
+  it("listCompletedToday returns indicators with a value entered today", async () => {
+    const ctx = await createTestContext({ seed: "pend-kpi-done" });
+    contexts.push(ctx);
+    const now = new Date(2026, 5, 15, 10, 0, 0);
+    const [indicator] = await db
+      .insert(kpiIndicatorsTable)
+      .values({
+        organizationId: ctx.organizationId,
+        name: `Indicador ${ctx.prefix}`,
+        measurement: "Taxa",
+        direction: "up",
+        periodicity: "monthly",
+        responsibleUserId: ctx.userId,
+      })
+      .returning({ id: kpiIndicatorsTable.id });
+    const [cfg] = await db
+      .insert(kpiYearConfigsTable)
+      .values({ organizationId: ctx.organizationId, indicatorId: indicator.id, year: 2026 })
+      .returning({ id: kpiYearConfigsTable.id });
+    await db.insert(kpiMonthlyValuesTable).values({
+      organizationId: ctx.organizationId,
+      yearConfigId: cfg.id,
+      month: 5,
+      value: "88.5",
+      updatedAt: new Date(2026, 5, 15, 9, 0, 0),
+    });
+
+    const items = await kpiPendenciaProvider.listCompletedToday!({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId],
+      now,
+      dueSoonDays: 7,
+    });
+    expect(items.length).toBeGreaterThanOrEqual(1);
+    expect(items.some((i) => i.id.startsWith(`kpi:${indicator.id}:`))).toBe(true);
+    expect(items[0].statusLabel).toBe("Lançado hoje");
   });
 });

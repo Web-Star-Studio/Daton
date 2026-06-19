@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lt } from "drizzle-orm";
 import {
   db,
   kpiIndicatorsTable,
@@ -12,6 +12,7 @@ import {
   type PendenciaProvider,
   type PendenciaProviderContext,
 } from "../types";
+import { dayBounds } from "./action-plans";
 
 const MONTH_LABELS = [
   "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -112,5 +113,46 @@ export const kpiPendenciaProvider: PendenciaProvider = {
       });
     }
     return items;
+  },
+
+  async listCompletedToday(ctx: PendenciaProviderContext): Promise<Pendencia[]> {
+    if (ctx.responsibleUserIds.length === 0) return [];
+    const { start, end } = dayBounds(ctx.now);
+    const rows = await db
+      .select({
+        indicatorId: kpiIndicatorsTable.id,
+        indicatorName: kpiIndicatorsTable.name,
+        responsibleUserId: kpiIndicatorsTable.responsibleUserId,
+        year: kpiYearConfigsTable.year,
+        month: kpiMonthlyValuesTable.month,
+      })
+      .from(kpiMonthlyValuesTable)
+      .innerJoin(kpiYearConfigsTable, eq(kpiMonthlyValuesTable.yearConfigId, kpiYearConfigsTable.id))
+      .innerJoin(kpiIndicatorsTable, eq(kpiYearConfigsTable.indicatorId, kpiIndicatorsTable.id))
+      .where(
+        and(
+          eq(kpiMonthlyValuesTable.organizationId, ctx.orgId),
+          isNotNull(kpiMonthlyValuesTable.value),
+          gte(kpiMonthlyValuesTable.updatedAt, start),
+          lt(kpiMonthlyValuesTable.updatedAt, end),
+          isNotNull(kpiIndicatorsTable.responsibleUserId),
+          inArray(kpiIndicatorsTable.responsibleUserId, ctx.responsibleUserIds),
+          isNull(kpiIndicatorsTable.rollupStrategy),
+        ),
+      );
+    return rows
+      .filter((r) => r.responsibleUserId !== null)
+      .map((r): Pendencia => ({
+        id: `kpi:${r.indicatorId}:${r.year}:${r.month}`,
+        source: "kpi",
+        sourceLabel: SOURCE_LABELS.kpi,
+        title: r.indicatorName,
+        statusLabel: "Lançado hoje",
+        dueDate: `${ctx.now.getFullYear()}-${String(ctx.now.getMonth() + 1).padStart(2, "0")}-${String(ctx.now.getDate()).padStart(2, "0")}`,
+        urgency: "no_due",
+        responsibleUserId: r.responsibleUserId as number,
+        link: { route: "/kpi/lancamentos", ctaLabel: "Ver" },
+        meta: { indicatorId: r.indicatorId, year: r.year, month: r.month, completed: true },
+      }));
   },
 };
