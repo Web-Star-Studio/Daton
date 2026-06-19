@@ -248,6 +248,7 @@ export interface User {
   role: string;
   theme: UserTheme;
   unitId?: number | null;
+  lastLoginAt?: string | null;
   createdAt: string;
 }
 
@@ -255,6 +256,11 @@ export interface AuthResponse {
   user: User;
   token: string;
 }
+
+export type MeResponseFilial = {
+  id: number;
+  name: string;
+} | null;
 
 export type OnboardingStatus =
   (typeof OnboardingStatus)[keyof typeof OnboardingStatus];
@@ -398,6 +404,7 @@ export interface MeResponse {
   user: User;
   organization: Organization;
   modules: AppModule[];
+  filial: MeResponseFilial;
 }
 
 export interface UpdateOrganizationBody {
