@@ -65,3 +65,6 @@ docs/diario/*.pdf
 
 # Superpowers subagent-driven-development working files
 /sdd/
+
+# playwright-cli browser artifacts (E2E verify)
+.playwright-cli/

@@ -41,7 +41,7 @@ export async function fetchPendencias(
   qs.set("scope", params.scope);
   if (params.scope === "unit" && params.unitId != null) qs.set("unitId", String(params.unitId));
   if (params.dueSoonDays != null) qs.set("dueSoonDays", String(params.dueSoonDays));
-  return apiJson<PendenciasResponse>(`/organizations/${orgId}/pendencias?${qs.toString()}`);
+  return apiJson<PendenciasResponse>(`/api/organizations/${orgId}/pendencias?${qs.toString()}`);
 }
 
 export function usePendencias(

@@ -5,7 +5,7 @@ export default function AppIndex() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    setLocation("/organizacao");
+    setLocation("/pendencias");
   }, [setLocation]);
 
   return (
