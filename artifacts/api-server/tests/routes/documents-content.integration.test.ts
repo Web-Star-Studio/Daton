@@ -601,4 +601,38 @@ describe("documents — content flow", () => {
     expect(metaSnapshot?.code).toBe(CODE);
     expect(typeof metaSnapshot?.title).toBe("string");
   });
+
+  // (g) The list endpoint summary must include code/area/applicableNorm.
+  //     Regression: these were added as table columns and OpenAPI fields but
+  //     omitted from the list SELECT, so the columns always rendered "—".
+  it("(g) a listagem retorna code/area/applicableNorm no resumo", async () => {
+    const context = await createTestContext({
+      seed: "documents-list-summary",
+      modules: ["documents"],
+    });
+    contexts.push(context);
+
+    const { document } = await createProcedimentoForTest(context, {
+      code: `LST-${context.prefix}`,
+      noRecipients: true,
+    });
+
+    const listRes = await request(app)
+      .get(`/api/organizations/${context.organizationId}/documents`)
+      .set(authHeader(context));
+
+    expect(listRes.status).toBe(200);
+    const row = (
+      listRes.body as Array<{
+        id: number;
+        code: string | null;
+        area: string | null;
+        applicableNorm: string | null;
+      }>
+    ).find((d) => d.id === document.id);
+    expect(row).toBeTruthy();
+    expect(row?.code).toBe(`LST-${context.prefix}`);
+    expect(row).toHaveProperty("area");
+    expect(row).toHaveProperty("applicableNorm");
+  });
 });
