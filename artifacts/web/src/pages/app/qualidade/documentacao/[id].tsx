@@ -1133,6 +1133,116 @@ export default function DocumentDetailPage() {
               </div>
             )}
 
+          {/* Bloco de assinaturas */}
+          <div className="rounded-2xl border border-border/60 p-4 space-y-3">
+            <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+              Assinaturas
+            </Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Elaborado por */}
+              <div className="rounded-xl border border-border/60 p-3 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Elaborado por
+                </p>
+                {doc.elaborators && doc.elaborators.length > 0 ? (
+                  doc.elaborators.map((e) => (
+                    <p key={e.id} className="text-sm">
+                      {e.name ?? "—"}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">—</p>
+                )}
+              </div>
+
+              {/* Revisado por (análise crítica) */}
+              <div className="rounded-xl border border-border/60 p-3 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Revisado por
+                </p>
+                {criticalReviewers.length > 0 ? (
+                  criticalReviewers.map((reviewer) => (
+                    <p key={reviewer.id} className="text-sm">
+                      {reviewer.name ?? "—"}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">—</p>
+                )}
+              </div>
+
+              {/* Aprovado por */}
+              <div className="rounded-xl border border-border/60 p-3 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Aprovado por
+                </p>
+                {doc.approvers &&
+                doc.approvers.filter(
+                  (a: DocumentDetailApproversItem) => a.status === "approved",
+                ).length > 0 ? (
+                  doc.approvers
+                    .filter(
+                      (a: DocumentDetailApproversItem) =>
+                        a.status === "approved",
+                    )
+                    .map((a: DocumentDetailApproversItem) => (
+                      <div key={a.id}>
+                        <p className="text-sm">{a.name ?? "—"}</p>
+                        {a.approvedAt && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(a.approvedAt)}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">—</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tratativa de Registros (ISO §7.5.3) */}
+          {doc.recordsTreatment ? (
+            <div className="rounded-2xl border border-border/60 p-4 space-y-4">
+              <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                Tratativa de Registros (§7.5.3)
+              </Label>
+              <div className="grid grid-cols-2 gap-6">
+                <InfoField
+                  label="Local de armazenamento"
+                  value={doc.recordsTreatment.storageLocation ?? ""}
+                />
+                <InfoField
+                  label="Tempo de guarda (meses)"
+                  value={
+                    doc.recordsTreatment.retentionMonths != null
+                      ? String(doc.recordsTreatment.retentionMonths)
+                      : ""
+                  }
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-6">
+                <InfoField
+                  label="Forma de descarte"
+                  value={doc.recordsTreatment.disposalMethod ?? ""}
+                />
+                <InfoField
+                  label="Responsável pelo registro"
+                  value={doc.recordsTreatment.responsible ?? ""}
+                />
+              </div>
+              {doc.recordsTreatment.notes && (
+                <div>
+                  <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                    Observações
+                  </Label>
+                  <p className="mt-1 text-sm">{doc.recordsTreatment.notes}</p>
+                </div>
+              )}
+            </div>
+          ) : null}
+
           {isPolicyDocument && (
             <div className="space-y-4 rounded-2xl border border-border/60 p-4">
               <div className="flex items-center justify-between gap-3">
