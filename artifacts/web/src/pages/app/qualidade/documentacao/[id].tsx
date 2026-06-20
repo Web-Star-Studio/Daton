@@ -226,6 +226,7 @@ export default function DocumentDetailPage() {
   const [rejectDialog, setRejectDialog] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
   const [deleteDialog, setDeleteDialog] = useState(false);
+  const [reviseDialog, setReviseDialog] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editStep, setEditStep] = useState(0);
@@ -501,9 +502,8 @@ export default function DocumentDetailPage() {
   const canAcknowledge =
     isRecipient && doc?.status === "distributed" && !myReceipt?.readAt;
   const canRevise =
-    canWriteDocuments &&
-    (role === "org_admin" || role === "operator") &&
-    doc?.status === "distributed";
+    ["approved", "published", "distributed"].includes(doc?.status ?? "") &&
+    canWriteModule("documents");
 
   const handleSubmitForReview = async () => {
     if (!orgId || !submitChangeDescription.trim()) return;
@@ -543,8 +543,17 @@ export default function DocumentDetailPage() {
 
   const handleRevise = async () => {
     if (!orgId) return;
-    await reviseMut.mutateAsync({ orgId, docId });
-    invalidate();
+    try {
+      await reviseMut.mutateAsync({ orgId, docId });
+      setReviseDialog(false);
+      invalidate();
+    } catch (e) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível reabrir o documento.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleOpenEditDialog = () => {
@@ -843,7 +852,7 @@ export default function DocumentDetailPage() {
           <HeaderActionButton
             size="sm"
             variant="outline"
-            onClick={handleRevise}
+            onClick={() => setReviseDialog(true)}
             isLoading={reviseMut.isPending}
             label="Nova revisão"
             icon={<RotateCcw className="h-3.5 w-3.5" />}
@@ -2501,6 +2510,36 @@ export default function DocumentDetailPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               Excluir
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={reviseDialog}
+        onOpenChange={setReviseDialog}
+        title="Nova Revisão"
+        description="O documento voltará para rascunho até nova aprovação."
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Tem certeza que deseja reabrir o documento{" "}
+            <strong>{doc.title}</strong> para revisão?
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReviseDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleRevise}
+              isLoading={reviseMut.isPending}
+            >
+              Confirmar
             </Button>
           </DialogFooter>
         </div>

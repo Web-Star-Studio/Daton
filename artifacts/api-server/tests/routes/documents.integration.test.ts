@@ -1063,6 +1063,7 @@ describe("documents routes", () => {
 
     expect(reviseResponse.status).toBe(200);
     expect(reviseResponse.body.status).toBe("draft");
+    expect(reviseResponse.body.currentVersion).toBe(1); // versão aprovada preservada no histórico
     expect(reviseResponse.body.criticalReviewers[0].status).toBe("pending");
 
     // Verify in DB
@@ -1108,6 +1109,6 @@ describe("documents routes", () => {
       .send({});
 
     expect(reviseResponse.status).toBe(400);
-    expect(reviseResponse.body.error).toMatch(/distribuído/i);
+    expect(reviseResponse.body.error).toMatch(/edição|revisão atual/i);
   });
 });

@@ -3268,12 +3268,15 @@ router.post(
       res.status(404).json({ error: "Documento não encontrado" });
       return;
     }
-    if (doc.status !== "distributed") {
-      res
-        .status(400)
-        .json({ error: "Apenas documentos distribuídos podem ser reabertos para revisão" });
+    if (["draft", "rejected"].includes(doc.status)) {
+      res.status(400).json({ error: "Documento já está em edição." });
       return;
     }
+    if (doc.status === "in_review") {
+      res.status(400).json({ error: "Rejeite ou aguarde a revisão atual." });
+      return;
+    }
+    // approved / published / distributed → proceed
 
     const criticalReviewerIds = await getDocumentCriticalReviewerUserIds(docId);
 
@@ -3286,23 +3289,27 @@ router.post(
       await startCriticalAnalysisCycle(tx, docId, criticalReviewerIds);
     });
 
-    await notifyUsers({
-      orgId,
-      userIds: criticalReviewerIds,
-      actorUserId: userId,
-      type: "document_critical_analysis_requested",
-      title: "Documento reaberto para nova revisão",
-      description: `O documento "${doc.title}" foi reaberto para nova revisão e precisa de análise crítica.`,
-      docId,
-    });
-    await notifyDocumentDraftStakeholders({
-      orgId,
-      docId,
-      actorUserId: userId,
-      type: "document_updated",
-      title: "Nova revisão iniciada",
-      description: `O documento "${doc.title}" foi reaberto para nova revisão.`,
-    });
+    try {
+      await notifyUsers({
+        orgId,
+        userIds: criticalReviewerIds,
+        actorUserId: userId,
+        type: "document_critical_analysis_requested",
+        title: "Documento reaberto para nova revisão",
+        description: `O documento "${doc.title}" foi reaberto para nova revisão e precisa de análise crítica.`,
+        docId,
+      });
+      await notifyDocumentDraftStakeholders({
+        orgId,
+        docId,
+        actorUserId: userId,
+        type: "document_updated",
+        title: "Nova revisão iniciada",
+        description: `O documento "${doc.title}" foi reaberto para nova revisão.`,
+      });
+    } catch (e) {
+      console.error("[revise] notification error", e);
+    }
 
     const detail = await getDocumentDetail(docId, orgId);
     res.json(detail);
