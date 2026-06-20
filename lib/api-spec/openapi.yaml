@@ -14795,12 +14795,18 @@ components:
       properties:
         id:
           type: integer
+        code:
+          type: string
+          nullable: true
         title:
           type: string
         type:
           type: string
         status:
           type: string
+        applicableNorm:
+          type: string
+          nullable: true
         currentVersion:
           type: integer
           description: 0 indicates the document has no approved formal version yet.

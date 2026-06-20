@@ -3569,9 +3569,11 @@ export const ListDocumentsQueryParams = zod.object({
 
 export const ListDocumentsResponseItem = zod.object({
   id: zod.number(),
+  code: zod.string().nullish(),
   title: zod.string(),
   type: zod.string(),
   status: zod.string(),
+  applicableNorm: zod.string().nullish(),
   currentVersion: zod
     .number()
     .describe("0 indicates the document has no approved formal version yet."),

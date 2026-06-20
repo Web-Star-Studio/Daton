@@ -26,7 +26,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableStringSelect } from "@/components/ui/searchable-string-select";
-import { NORMA_OPTIONS } from "@/lib/document-list";
+import { NORMA_OPTIONS, TYPE_COLORS, summarizeDocuments } from "@/lib/document-list";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { Plus, FileText, Upload, X, Trash2 } from "lucide-react";
@@ -46,6 +46,7 @@ const STATUS_LABELS: Record<string, string> = {
   approved: "Aprovado",
   rejected: "Rejeitado",
   distributed: "Distribuído",
+  published: "Vigente",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -54,6 +55,7 @@ const STATUS_COLORS: Record<string, string> = {
   approved: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
   rejected: "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300",
   distributed: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+  published: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -65,16 +67,6 @@ const TYPE_LABELS: Record<string, string> = {
   politica: "Política",
   outro: "Outro",
 };
-
-const TYPE_OPTIONS = [
-  { value: "manual", label: "Manual" },
-  { value: "procedimento", label: "Procedimento" },
-  { value: "instrucao", label: "Instrução de Trabalho" },
-  { value: "formulario", label: "Formulário" },
-  { value: "registro", label: "Registro" },
-  { value: "politica", label: "Política" },
-  { value: "outro", label: "Outro" },
-];
 
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -155,6 +147,7 @@ export default function DocumentacaoPage() {
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [unitFilter, setUnitFilter] = useState<number | undefined>(undefined);
+  const [normFilter, setNormFilter] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
@@ -188,26 +181,32 @@ export default function DocumentacaoPage() {
 
   const deleteDocMut = useDeleteDocument();
 
+  const stats = useMemo(() => summarizeDocuments(documents ?? []), [documents]);
+
+  const filteredDocuments = useMemo(() => {
+    if (!normFilter) return documents ?? [];
+    return (documents ?? []).filter((d) => d.applicableNorm === normFilter);
+  }, [documents, normFilter]);
+
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [search, typeFilter, statusFilter, unitFilter]);
+  }, [search, typeFilter, statusFilter, unitFilter, normFilter]);
 
   const deletableIds = useMemo(() => {
-    if (!documents) return new Set<number>();
     return new Set(
-      documents
+      filteredDocuments
         .filter((d) => d.status === "draft" || d.status === "rejected")
         .map((d) => d.id),
     );
-  }, [documents]);
+  }, [filteredDocuments]);
 
   const selectedDeletable = useMemo(() => {
     return [...selectedIds].filter((id) => deletableIds.has(id));
   }, [selectedIds, deletableIds]);
 
   const allSelectableIds = useMemo(() => {
-    return documents?.map((d) => d.id) ?? [];
-  }, [documents]);
+    return filteredDocuments.map((d) => d.id);
+  }, [filteredDocuments]);
 
   const allSelected =
     allSelectableIds.length > 0 &&
@@ -304,6 +303,26 @@ export default function DocumentacaoPage() {
 
   return (
     <>
+      {/* Summary cards */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+          <p className="text-xs font-medium text-muted-foreground">Total</p>
+          <p className="text-xl font-semibold text-foreground mt-0.5">{stats.total}</p>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+          <p className="text-xs font-medium text-muted-foreground">Vigentes</p>
+          <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.vigentes}</p>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+          <p className="text-xs font-medium text-muted-foreground">Em revisão</p>
+          <p className="text-xl font-semibold text-amber-600 dark:text-amber-400 mt-0.5">{stats.emRevisao}</p>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+          <p className="text-xs font-medium text-muted-foreground">Rascunho</p>
+          <p className="text-xl font-semibold text-muted-foreground mt-0.5">{stats.rascunho}</p>
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-6 items-end mb-8">
         <div className="flex-1 min-w-[200px]">
           <Label>Buscar</Label>
@@ -363,6 +382,17 @@ export default function DocumentacaoPage() {
             ))}
           </Select>
         </div>
+        <div className="w-52">
+          <Label>Norma</Label>
+          <div className="mt-2">
+            <SearchableStringSelect
+              value={normFilter}
+              onChange={setNormFilter}
+              options={NORMA_OPTIONS}
+              placeholder="Todas"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="overflow-hidden">
@@ -383,8 +413,10 @@ export default function DocumentacaoPage() {
                     }
                   />
                 </th>
+                <th className="px-6 py-4">Código</th>
                 <th className="px-6 py-4">Título</th>
                 <th className="px-6 py-4">Tipo</th>
+                <th className="px-6 py-4">Norma</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Versão</th>
                 <th className="px-6 py-4">Validade</th>
@@ -397,15 +429,15 @@ export default function DocumentacaoPage() {
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="px-6 py-8 text-center text-muted-foreground"
                   >
                     Carregando...
                   </td>
                 </tr>
-              ) : documents?.length === 0 ? (
+              ) : filteredDocuments.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center">
+                  <td colSpan={11} className="px-6 py-12 text-center">
                     <FileText className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
                     <p className="text-muted-foreground">
                       Nenhum documento encontrado.
@@ -416,7 +448,7 @@ export default function DocumentacaoPage() {
                   </td>
                 </tr>
               ) : (
-                documents?.map((doc) => {
+                filteredDocuments.map((doc) => {
                   const isSelected = selectedIds.has(doc.id);
                   return (
                     <tr
@@ -438,15 +470,21 @@ export default function DocumentacaoPage() {
                           disabled={!canWriteModule("documents")}
                         />
                       </td>
+                      <td className="px-6 py-4 font-mono text-xs text-muted-foreground">
+                        {doc.code || "—"}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="font-medium text-foreground">
                           {doc.title}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-muted-foreground text-xs">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${TYPE_COLORS[doc.type] || "bg-muted text-foreground"}`}>
                           {TYPE_LABELS[doc.type] || doc.type}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground text-xs">
+                        {doc.applicableNorm || "—"}
                       </td>
                       <td className="px-6 py-4">
                         <span
