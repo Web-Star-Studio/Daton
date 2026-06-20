@@ -2938,6 +2938,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/DocumentDetail"
 
+  /organizations/{orgId}/documents/{docId}/revise:
+    post:
+      operationId: reviseDocument
+      tags: [documents]
+      summary: Reopen distributed document for new revision
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document reopened as draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+
   /organizations/{orgId}/documents/{docId}/distribute:
     post:
       operationId: distributeDocument
@@ -2985,6 +3009,64 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
+
+  /organizations/{orgId}/documents/{docId}/content:
+    put:
+      operationId: updateDocumentContent
+      tags: [documents]
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateDocumentContentBody" }
+      responses:
+        "200":
+          description: Documento atualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentDetail" }
+        "400": { description: Requisição inválida }
+        "404": { description: Documento não encontrado }
+        "409": { description: Documento não está editável }
+
+  /organizations/{orgId}/documents/{docId}/versions/{versionNumber}:
+    get:
+      operationId: getDocumentVersionSnapshot
+      tags: [documents]
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: versionNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Snapshot da revisão
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentVersionSnapshot" }
+        "404": { description: Revisão não encontrada }
 
   /organizations/{orgId}/notifications:
     get:
@@ -14753,12 +14835,18 @@ components:
       properties:
         id:
           type: integer
+        code:
+          type: string
+          nullable: true
         title:
           type: string
         type:
           type: string
         status:
           type: string
+        applicableNorm:
+          type: string
+          nullable: true
         currentVersion:
           type: integer
           description: 0 indicates the document has no approved formal version yet.
@@ -14910,6 +14998,23 @@ components:
           type: array
           items:
             type: string
+        code:
+          type: string
+          nullable: true
+        area:
+          type: string
+          nullable: true
+        applicableNorm:
+          type: string
+          nullable: true
+        contentSections:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentContentSection"
+        recordsTreatment:
+          allOf:
+            - $ref: "#/components/schemas/DocumentRecordsTreatment"
+          nullable: true
       required:
         - id
         - title
@@ -14917,6 +15022,74 @@ components:
         - status
         - currentVersion
         - createdAt
+        - contentSections
+
+    DocumentContentSection:
+      type: object
+      required: [id, title, body, order]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        body: { type: string, description: "Markdown" }
+        order: { type: integer }
+
+    UpdateDocumentContentBody:
+      type: object
+      required: [contentSections]
+      properties:
+        contentSections:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentContentSection" }
+
+    DocumentRecordsTreatment:
+      type: object
+      properties:
+        storageLocation:
+          type: string
+          nullable: true
+        retentionMonths:
+          type: integer
+          nullable: true
+        disposalMethod:
+          type: string
+          nullable: true
+        responsible:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    DocumentVersionMetaSnapshot:
+      type: object
+      required: [title, code, area, applicableNorm, normativeRequirements]
+      properties:
+        title: { type: string }
+        code: { type: string, nullable: true }
+        area: { type: string, nullable: true }
+        applicableNorm: { type: string, nullable: true }
+        normativeRequirements:
+          type: array
+          items: { type: string }
+        recordsTreatment:
+          allOf:
+            - $ref: "#/components/schemas/DocumentRecordsTreatment"
+          nullable: true
+
+    DocumentVersionSnapshot:
+      type: object
+      required: [versionNumber, changeDescription, createdAt, contentSections]
+      properties:
+        versionNumber: { type: integer }
+        changeDescription: { type: string }
+        createdAt: { type: string, format: date-time }
+        contentSections:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentContentSection" }
+        metaSnapshot:
+          allOf:
+            - $ref: "#/components/schemas/DocumentVersionMetaSnapshot"
+          nullable: true
 
     DocumentDirectRecipient:
       type: object
@@ -15322,6 +15495,23 @@ components:
               - fileSize
               - contentType
               - objectPath
+        code:
+          type: string
+          nullable: true
+        area:
+          type: string
+          nullable: true
+        applicableNorm:
+          type: string
+          nullable: true
+        contentSections:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentContentSection"
+        recordsTreatment:
+          allOf:
+            - $ref: "#/components/schemas/DocumentRecordsTreatment"
+          nullable: true
       required:
         - title
         - type
@@ -15373,6 +15563,19 @@ components:
           type: array
           items:
             type: string
+        code:
+          type: string
+          nullable: true
+        area:
+          type: string
+          nullable: true
+        applicableNorm:
+          type: string
+          nullable: true
+        recordsTreatment:
+          allOf:
+            - $ref: "#/components/schemas/DocumentRecordsTreatment"
+          nullable: true
 
     DocumentNormativeRequirementsSuggestionBody:
       type: object

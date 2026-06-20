@@ -121,6 +121,7 @@ import type {
   DocumentNormativeRequirementsSuggestionResponse,
   DocumentSummary,
   DocumentVersion,
+  DocumentVersionSnapshot,
   Employee,
   EmployeeAwareness,
   EmployeeCompetency,
@@ -263,6 +264,7 @@ import type {
   UpdateDevelopmentProjectStageBody,
   UpdateDocumentBody,
   UpdateDocumentCommunicationPlanBody,
+  UpdateDocumentContentBody,
   UpdateEmployeeBody,
   UpdateEmployeeProfileItemBody,
   UpdateInternalAuditBody,
@@ -10732,6 +10734,91 @@ export const useRejectDocument = <
 };
 
 /**
+ * @summary Reopen distributed document for new revision
+ */
+export const getReviseDocumentUrl = (orgId: number, docId: number) => {
+  return `/api/organizations/${orgId}/documents/${docId}/revise`;
+};
+
+export const reviseDocument = async (
+  orgId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<DocumentDetail> => {
+  return customFetch<DocumentDetail>(getReviseDocumentUrl(orgId, docId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReviseDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviseDocument>>,
+    TError,
+    { orgId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reviseDocument>>,
+  TError,
+  { orgId: number; docId: number },
+  TContext
+> => {
+  const mutationKey = ["reviseDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reviseDocument>>,
+    { orgId: number; docId: number }
+  > = (props) => {
+    const { orgId, docId } = props ?? {};
+
+    return reviseDocument(orgId, docId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReviseDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reviseDocument>>
+>;
+
+export type ReviseDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reopen distributed document for new revision
+ */
+export const useReviseDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviseDocument>>,
+    TError,
+    { orgId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reviseDocument>>,
+  TError,
+  { orgId: number; docId: number },
+  TContext
+> => {
+  return useMutation(getReviseDocumentMutationOptions(options));
+};
+
+/**
  * @summary Distribute approved document to recipients
  */
 export const getDistributeDocumentUrl = (orgId: number, docId: number) => {
@@ -10900,6 +10987,202 @@ export const useAcknowledgeDocument = <
 > => {
   return useMutation(getAcknowledgeDocumentMutationOptions(options));
 };
+
+export const getUpdateDocumentContentUrl = (orgId: number, docId: number) => {
+  return `/api/organizations/${orgId}/documents/${docId}/content`;
+};
+
+export const updateDocumentContent = async (
+  orgId: number,
+  docId: number,
+  updateDocumentContentBody: UpdateDocumentContentBody,
+  options?: RequestInit,
+): Promise<DocumentDetail> => {
+  return customFetch<DocumentDetail>(
+    getUpdateDocumentContentUrl(orgId, docId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateDocumentContentBody),
+    },
+  );
+};
+
+export const getUpdateDocumentContentMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDocumentContent>>,
+    TError,
+    { orgId: number; docId: number; data: BodyType<UpdateDocumentContentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDocumentContent>>,
+  TError,
+  { orgId: number; docId: number; data: BodyType<UpdateDocumentContentBody> },
+  TContext
+> => {
+  const mutationKey = ["updateDocumentContent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDocumentContent>>,
+    { orgId: number; docId: number; data: BodyType<UpdateDocumentContentBody> }
+  > = (props) => {
+    const { orgId, docId, data } = props ?? {};
+
+    return updateDocumentContent(orgId, docId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDocumentContentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDocumentContent>>
+>;
+export type UpdateDocumentContentMutationBody =
+  BodyType<UpdateDocumentContentBody>;
+export type UpdateDocumentContentMutationError = ErrorType<void>;
+
+export const useUpdateDocumentContent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDocumentContent>>,
+    TError,
+    { orgId: number; docId: number; data: BodyType<UpdateDocumentContentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateDocumentContent>>,
+  TError,
+  { orgId: number; docId: number; data: BodyType<UpdateDocumentContentBody> },
+  TContext
+> => {
+  return useMutation(getUpdateDocumentContentMutationOptions(options));
+};
+
+export const getGetDocumentVersionSnapshotUrl = (
+  orgId: number,
+  docId: number,
+  versionNumber: number,
+) => {
+  return `/api/organizations/${orgId}/documents/${docId}/versions/${versionNumber}`;
+};
+
+export const getDocumentVersionSnapshot = async (
+  orgId: number,
+  docId: number,
+  versionNumber: number,
+  options?: RequestInit,
+): Promise<DocumentVersionSnapshot> => {
+  return customFetch<DocumentVersionSnapshot>(
+    getGetDocumentVersionSnapshotUrl(orgId, docId, versionNumber),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetDocumentVersionSnapshotQueryKey = (
+  orgId: number,
+  docId: number,
+  versionNumber: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/documents/${docId}/versions/${versionNumber}`,
+  ] as const;
+};
+
+export const getGetDocumentVersionSnapshotQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDocumentVersionSnapshot>>,
+  TError = ErrorType<void>,
+>(
+  orgId: number,
+  docId: number,
+  versionNumber: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDocumentVersionSnapshot>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetDocumentVersionSnapshotQueryKey(orgId, docId, versionNumber);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDocumentVersionSnapshot>>
+  > = ({ signal }) =>
+    getDocumentVersionSnapshot(orgId, docId, versionNumber, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && docId && versionNumber),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDocumentVersionSnapshot>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDocumentVersionSnapshotQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDocumentVersionSnapshot>>
+>;
+export type GetDocumentVersionSnapshotQueryError = ErrorType<void>;
+
+export function useGetDocumentVersionSnapshot<
+  TData = Awaited<ReturnType<typeof getDocumentVersionSnapshot>>,
+  TError = ErrorType<void>,
+>(
+  orgId: number,
+  docId: number,
+  versionNumber: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDocumentVersionSnapshot>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDocumentVersionSnapshotQueryOptions(
+    orgId,
+    docId,
+    versionNumber,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List notifications for current user

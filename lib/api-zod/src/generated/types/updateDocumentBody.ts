@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DocumentRecordsTreatment } from "./documentRecordsTreatment";
 
 export interface UpdateDocumentBody {
   title?: string;
@@ -19,4 +20,8 @@ export interface UpdateDocumentBody {
   recipientGroupIds?: number[];
   referenceIds?: number[];
   normativeRequirements?: string[];
+  code?: string | null;
+  area?: string | null;
+  applicableNorm?: string | null;
+  recordsTreatment?: DocumentRecordsTreatment | null;
 }

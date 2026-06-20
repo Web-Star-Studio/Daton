@@ -9,10 +9,13 @@ import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import {
   useGetDocument,
   getGetDocumentQueryKey,
+  useGetDocumentVersionSnapshot,
+  getGetDocumentVersionSnapshotQueryKey,
   useUpdateDocument,
   useSubmitDocumentForReview,
   useApproveDocument,
   useRejectDocument,
+  useReviseDocument,
   useAcknowledgeDocument,
   useAddDocumentAttachment,
   useDeleteDocumentAttachment,
@@ -20,6 +23,8 @@ import {
   useDeleteDocument,
   useListUnits,
   getListUnitsQueryKey,
+  useListDepartments,
+  getListDepartmentsQueryKey,
   useListOrganizationContactGroups,
   getListOrganizationContactGroupsQueryKey,
 } from "@workspace/api-client-react";
@@ -40,6 +45,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { SearchableStringSelect } from "@/components/ui/searchable-string-select";
+import { NORMA_OPTIONS } from "@/lib/document-list";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { toast } from "@/hooks/use-toast";
@@ -69,7 +76,10 @@ import {
   RotateCcw,
   Eye,
   Pencil,
+  AlignLeft,
 } from "lucide-react";
+import { DocumentContentReader } from "@/components/documents/document-content-reader";
+import { exportDocumentPdf } from "@/lib/document-pdf";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Análise crítica",
@@ -143,6 +153,9 @@ function formatVersionLabel(version: number | null | undefined) {
 
 interface EditFormState {
   title: string;
+  code: string;
+  area: string;
+  applicableNorm: string;
   type: string;
   validityDate: string;
   elaboratorIds: number[];
@@ -153,6 +166,13 @@ interface EditFormState {
   recipientGroupIds: number[];
   referenceIds: number[];
   normativeRequirements: string[];
+  recordsTreatment: {
+    storageLocation: string;
+    retentionMonths: string;
+    disposalMethod: string;
+    responsible: string;
+    notes: string;
+  };
 }
 
 interface DocumentCriticalReviewerItem {
@@ -200,15 +220,18 @@ export default function DocumentDetailPage() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<
-    "info" | "attachments" | "versions" | "flow"
+    "info" | "content" | "attachments" | "versions" | "flow"
   >("info");
+  const [snapshotVersion, setSnapshotVersion] = useState<number | null>(null);
   const [rejectDialog, setRejectDialog] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
   const [deleteDialog, setDeleteDialog] = useState(false);
+  const [reviseDialog, setReviseDialog] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editStep, setEditStep] = useState(0);
   const [maxReachedEditStep, setMaxReachedEditStep] = useState(0);
+  const [editCodeError, setEditCodeError] = useState(false);
   const [submitDialog, setSubmitDialog] = useState(false);
   const [submitChangeDescription, setSubmitChangeDescription] = useState("");
   const [attachmentActionKey, setAttachmentActionKey] = useState<string | null>(
@@ -236,6 +259,21 @@ export default function DocumentDetailPage() {
       enabled: !!orgId && docId > 0,
     },
   });
+  const snapshotVersionParam = snapshotVersion ?? 0;
+  const {
+    data: snapshot,
+    isLoading: snapshotLoading,
+    isError: snapshotError,
+  } = useGetDocumentVersionSnapshot(orgId!, docId, snapshotVersionParam, {
+    query: {
+      queryKey: getGetDocumentVersionSnapshotQueryKey(
+        orgId!,
+        docId,
+        snapshotVersionParam,
+      ),
+      enabled: !!orgId && docId > 0 && !!snapshotVersion,
+    },
+  });
   const isPolicyDocument = doc?.type === "politica";
   const { data: communicationPlans = [] } = useDocumentCommunicationPlans(
     orgId,
@@ -245,6 +283,12 @@ export default function DocumentDetailPage() {
   const { data: allUnits } = useListUnits(orgId!, {
     query: {
       queryKey: getListUnitsQueryKey(orgId!),
+      enabled: !!orgId && editDialogOpen,
+    },
+  });
+  const { data: allDepartments } = useListDepartments(orgId!, {
+    query: {
+      queryKey: getListDepartmentsQueryKey(orgId!),
       enabled: !!orgId && editDialogOpen,
     },
   });
@@ -330,6 +374,7 @@ export default function DocumentDetailPage() {
   const submitMut = useSubmitDocumentForReview();
   const approveMut = useApproveDocument();
   const rejectMut = useRejectDocument();
+  const reviseMut = useReviseDocument();
   const acknowledgeMut = useAcknowledgeDocument();
   const addAttachmentMut = useAddDocumentAttachment();
   const deleteAttachmentMut = useDeleteDocumentAttachment();
@@ -456,6 +501,9 @@ export default function DocumentDetailPage() {
     isCriticalAnalysisComplete;
   const canAcknowledge =
     isRecipient && doc?.status === "distributed" && !myReceipt?.readAt;
+  const canRevise =
+    ["approved", "published", "distributed"].includes(doc?.status ?? "") &&
+    canWriteModule("documents");
 
   const handleSubmitForReview = async () => {
     if (!orgId || !submitChangeDescription.trim()) return;
@@ -493,10 +541,28 @@ export default function DocumentDetailPage() {
     invalidate();
   };
 
+  const handleRevise = async () => {
+    if (!orgId) return;
+    try {
+      await reviseMut.mutateAsync({ orgId, docId });
+      setReviseDialog(false);
+      invalidate();
+    } catch (e) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível reabrir o documento.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleOpenEditDialog = () => {
     if (!doc) return;
     setEditForm({
       title: doc.title,
+      code: doc.code ?? "",
+      area: doc.area ?? "",
+      applicableNorm: doc.applicableNorm ?? "",
       type: doc.type,
       validityDate: doc.validityDate ?? "",
       elaboratorIds:
@@ -526,9 +592,20 @@ export default function DocumentDetailPage() {
           ?.map((ref: DocumentDetailReferencesItem) => ref.documentId!)
           .filter(Boolean) ?? [],
       normativeRequirements: doc.normativeRequirements ?? [],
+      recordsTreatment: {
+        storageLocation: doc.recordsTreatment?.storageLocation ?? "",
+        retentionMonths:
+          doc.recordsTreatment?.retentionMonths != null
+            ? String(doc.recordsTreatment.retentionMonths)
+            : "",
+        disposalMethod: doc.recordsTreatment?.disposalMethod ?? "",
+        responsible: doc.recordsTreatment?.responsible ?? "",
+        notes: doc.recordsTreatment?.notes ?? "",
+      },
     });
     setEditStep(0);
     setMaxReachedEditStep(0);
+    setEditCodeError(false);
     setEditDialogOpen(true);
   };
 
@@ -536,6 +613,7 @@ export default function DocumentDetailPage() {
     setEditDialogOpen(false);
     setEditStep(0);
     setMaxReachedEditStep(0);
+    setEditCodeError(false);
     setEditForm(null);
   };
 
@@ -563,7 +641,7 @@ export default function DocumentDetailPage() {
   const changeEditStep = (targetStep: number) => {
     if (!editForm) return;
 
-    const boundedTarget = Math.max(0, Math.min(targetStep, 2));
+    const boundedTarget = Math.max(0, Math.min(targetStep, 3));
     if (boundedTarget > editStep && !validateEditStep(editStep, editForm)) {
       return;
     }
@@ -574,23 +652,50 @@ export default function DocumentDetailPage() {
 
   const handleSaveEditDialog = async () => {
     if (!orgId || !editForm) return;
-    await updateMut.mutateAsync({
-      orgId,
-      docId,
-      data: {
-        title: editForm.title.trim(),
-        type: editForm.type,
-        validityDate: editForm.validityDate || undefined,
-        elaboratorIds: editForm.elaboratorIds,
-        criticalReviewerIds: editForm.criticalReviewerIds,
-        unitIds: editForm.unitIds,
-        approverIds: editForm.approverIds,
-        recipientIds: editForm.recipientIds,
-        recipientGroupIds: editForm.recipientGroupIds,
-        referenceIds: editForm.referenceIds,
-        normativeRequirements: editForm.normativeRequirements,
-      } as never,
-    });
+    try {
+      await updateMut.mutateAsync({
+        orgId,
+        docId,
+        data: {
+          title: editForm.title.trim(),
+          code: editForm.code.trim() || null,
+          area: editForm.area.trim() || null,
+          applicableNorm: editForm.applicableNorm.trim() || null,
+          type: editForm.type,
+          validityDate: editForm.validityDate || undefined,
+          elaboratorIds: editForm.elaboratorIds,
+          criticalReviewerIds: editForm.criticalReviewerIds,
+          unitIds: editForm.unitIds,
+          approverIds: editForm.approverIds,
+          recipientIds: editForm.recipientIds,
+          recipientGroupIds: editForm.recipientGroupIds,
+          referenceIds: editForm.referenceIds,
+          normativeRequirements: editForm.normativeRequirements,
+          recordsTreatment: {
+            storageLocation: editForm.recordsTreatment.storageLocation.trim() || null,
+            retentionMonths: editForm.recordsTreatment.retentionMonths
+              ? Number(editForm.recordsTreatment.retentionMonths)
+              : null,
+            disposalMethod: editForm.recordsTreatment.disposalMethod || null,
+            responsible: editForm.recordsTreatment.responsible.trim() || null,
+            notes: editForm.recordsTreatment.notes.trim() || null,
+          },
+        } as never,
+      });
+    } catch (err) {
+      if ((err as { status?: number })?.status === 409) {
+        setEditStep(0);
+        setEditCodeError(true);
+        toast({
+          title: "Código já utilizado",
+          description:
+            "Já existe um documento com este código nesta organização.",
+          variant: "destructive",
+        });
+        return;
+      }
+      throw err;
+    }
     handleCloseEditDialog();
     invalidate();
   };
@@ -598,6 +703,68 @@ export default function DocumentDetailPage() {
   useHeaderActions(
     doc ? (
       <div className="flex items-center gap-2">
+        <HeaderActionButton
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/qualidade/documentacao/${docId}/conteudo`)}
+          label="Conteúdo"
+          icon={<FileText className="h-3.5 w-3.5" />}
+        />
+        <HeaderActionButton
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            try {
+              exportDocumentPdf({
+                title: doc.title,
+                code: doc.code,
+                type: TYPE_LABELS[doc.type] || doc.type,
+                applicableNorm: doc.applicableNorm,
+                version: doc.currentVersion,
+                validityDate: doc.validityDate
+                  ? formatDate(doc.validityDate)
+                  : null,
+                approvedByName:
+                  doc.approvers?.find((a) => a.status === "approved")?.name ??
+                  null,
+                sections: doc.contentSections,
+                signatures: [
+                  ...(doc.elaborators ?? []).map((e) => ({
+                    role: "Elaborado por",
+                    name: e.name ?? null,
+                    date: null,
+                  })),
+                  ...criticalReviewers.map((reviewer) => ({
+                    role: "Revisado por",
+                    name: reviewer.name ?? null,
+                    date: reviewer.completedAt
+                      ? formatDate(reviewer.completedAt)
+                      : null,
+                  })),
+                  ...(doc.approvers ?? [])
+                    .filter(
+                      (a: DocumentDetailApproversItem) =>
+                        a.status === "approved",
+                    )
+                    .map((a: DocumentDetailApproversItem) => ({
+                      role: "Aprovado por",
+                      name: a.name ?? null,
+                      date: a.approvedAt ? formatDate(a.approvedAt) : null,
+                    })),
+                ],
+                recordsTreatment: doc.recordsTreatment ?? null,
+              });
+            } catch {
+              toast({
+                title: "Erro ao exportar PDF",
+                description: "Não foi possível gerar o PDF deste documento.",
+                variant: "destructive",
+              });
+            }
+          }}
+          label="Exportar PDF"
+          icon={<Download className="h-3.5 w-3.5" />}
+        />
         {canEdit && (
           <HeaderActionButton
             size="sm"
@@ -679,6 +846,18 @@ export default function DocumentDetailPage() {
             icon={<CheckCircle className="h-3.5 w-3.5" />}
           >
             Confirmar Recebimento
+          </HeaderActionButton>
+        )}
+        {canRevise && (
+          <HeaderActionButton
+            size="sm"
+            variant="outline"
+            onClick={() => setReviseDialog(true)}
+            isLoading={reviseMut.isPending}
+            label="Nova revisão"
+            icon={<RotateCcw className="h-3.5 w-3.5" />}
+          >
+            Nova revisão
           </HeaderActionButton>
         )}
         {doc.status === "draft" && (
@@ -856,6 +1035,7 @@ export default function DocumentDetailPage() {
 
   const tabs = [
     { id: "info" as const, label: "Informações", icon: FileText },
+    { id: "content" as const, label: "Conteúdo", icon: AlignLeft },
     { id: "attachments" as const, label: "Anexos", icon: Paperclip },
     { id: "versions" as const, label: "Versões", icon: GitBranch },
     { id: "flow" as const, label: "Fluxo", icon: Users },
@@ -904,10 +1084,20 @@ export default function DocumentDetailPage() {
             <InfoField label="Tipo" value={TYPE_LABELS[doc.type] || doc.type} />
           </div>
           <div className="grid grid-cols-2 gap-6">
+            <InfoField label="Código" value={doc.code ?? ""} />
+            <InfoField label="Área / Setor" value={doc.area ?? ""} />
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <InfoField
+              label="Norma aplicável"
+              value={doc.applicableNorm ?? ""}
+            />
             <InfoField
               label="Versão Atual"
               value={formatVersionLabel(doc.currentVersion)}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-6">
             <InfoField
               label="Data de Validade"
               value={formatDate(doc.validityDate)}
@@ -936,24 +1126,6 @@ export default function DocumentDetailPage() {
                     className="px-2.5 py-1 bg-muted/50 rounded-md text-sm"
                   >
                     {u.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {doc.elaborators && doc.elaborators.length > 0 && (
-            <div>
-              <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                Elaboradores
-              </Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {doc.elaborators.map((e) => (
-                  <span
-                    key={e.id}
-                    className="px-2.5 py-1 bg-muted/50 rounded-md text-sm"
-                  >
-                    {e.name}
                   </span>
                 ))}
               </div>
@@ -1000,6 +1172,116 @@ export default function DocumentDetailPage() {
                 </div>
               </div>
             )}
+
+          {/* Bloco de assinaturas */}
+          <div className="rounded-2xl border border-border/60 p-4 space-y-3">
+            <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+              Assinaturas
+            </Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Elaborado por */}
+              <div className="rounded-xl border border-border/60 p-3 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Elaborado por
+                </p>
+                {doc.elaborators && doc.elaborators.length > 0 ? (
+                  doc.elaborators.map((e) => (
+                    <p key={e.id} className="text-sm">
+                      {e.name ?? "—"}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">—</p>
+                )}
+              </div>
+
+              {/* Revisado por (análise crítica) */}
+              <div className="rounded-xl border border-border/60 p-3 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Revisado por
+                </p>
+                {criticalReviewers.length > 0 ? (
+                  criticalReviewers.map((reviewer) => (
+                    <p key={reviewer.id} className="text-sm">
+                      {reviewer.name ?? "—"}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">—</p>
+                )}
+              </div>
+
+              {/* Aprovado por */}
+              <div className="rounded-xl border border-border/60 p-3 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Aprovado por
+                </p>
+                {doc.approvers &&
+                doc.approvers.filter(
+                  (a: DocumentDetailApproversItem) => a.status === "approved",
+                ).length > 0 ? (
+                  doc.approvers
+                    .filter(
+                      (a: DocumentDetailApproversItem) =>
+                        a.status === "approved",
+                    )
+                    .map((a: DocumentDetailApproversItem) => (
+                      <div key={a.id}>
+                        <p className="text-sm">{a.name ?? "—"}</p>
+                        {a.approvedAt && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(a.approvedAt)}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">—</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tratativa de Registros (ISO §7.5.3) */}
+          {doc.recordsTreatment ? (
+            <div className="rounded-2xl border border-border/60 p-4 space-y-4">
+              <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                Tratativa de Registros (§7.5.3)
+              </Label>
+              <div className="grid grid-cols-2 gap-6">
+                <InfoField
+                  label="Local de armazenamento"
+                  value={doc.recordsTreatment.storageLocation ?? ""}
+                />
+                <InfoField
+                  label="Tempo de guarda (meses)"
+                  value={
+                    doc.recordsTreatment.retentionMonths != null
+                      ? String(doc.recordsTreatment.retentionMonths)
+                      : ""
+                  }
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-6">
+                <InfoField
+                  label="Forma de descarte"
+                  value={doc.recordsTreatment.disposalMethod ?? ""}
+                />
+                <InfoField
+                  label="Responsável pelo registro"
+                  value={doc.recordsTreatment.responsible ?? ""}
+                />
+              </div>
+              {doc.recordsTreatment.notes && (
+                <div>
+                  <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                    Observações
+                  </Label>
+                  <p className="mt-1 text-sm">{doc.recordsTreatment.notes}</p>
+                </div>
+              )}
+            </div>
+          ) : null}
 
           {isPolicyDocument && (
             <div className="space-y-4 rounded-2xl border border-border/60 p-4">
@@ -1218,6 +1500,10 @@ export default function DocumentDetailPage() {
         </div>
       )}
 
+      {activeTab === "content" && (
+        <DocumentContentReader sections={doc.contentSections} />
+      )}
+
       {activeTab === "attachments" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -1352,7 +1638,11 @@ export default function DocumentDetailPage() {
                   <div className="absolute -left-[29px] top-1 w-4 h-4 rounded-full bg-card border-2 border-foreground/20 flex items-center justify-center">
                     <div className="w-1.5 h-1.5 rounded-full bg-foreground/40" />
                   </div>
-                  <div>
+                  <button
+                    type="button"
+                    onClick={() => setSnapshotVersion(v.versionNumber)}
+                    className="text-left w-full rounded-lg -mx-2 px-2 py-1 hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold">
                         v{v.versionNumber}
@@ -1360,6 +1650,7 @@ export default function DocumentDetailPage() {
                       <span className="text-xs text-muted-foreground">
                         {formatDateTime(v.createdAt)}
                       </span>
+                      <Eye className="h-3.5 w-3.5 text-muted-foreground/60 ml-auto" />
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {v.changeDescription}
@@ -1374,7 +1665,7 @@ export default function DocumentDetailPage() {
                         Campos: {v.changedFields}
                       </p>
                     )}
-                  </div>
+                  </button>
                 </div>
               ))}
             </div>
@@ -1617,6 +1908,7 @@ export default function DocumentDetailPage() {
             "Atualize os dados principais do documento.",
             "Defina colaborador, análise crítica, aprovadores, grupos e destinatários.",
             "Associe unidades e documentos de referência.",
+            "Tratativa de registros (ISO §7.5.3).",
           ][editStep]
         }
         size="xl"
@@ -1624,7 +1916,7 @@ export default function DocumentDetailPage() {
         {editForm && (
           <div className="space-y-5">
             <DialogStepTabs
-              steps={["Básico", "Responsáveis", "Escopo"]}
+              steps={["Básico", "Responsáveis", "Escopo", "Registros"]}
               step={editStep}
               onStepChange={changeEditStep}
               maxAccessibleStep={maxReachedEditStep}
@@ -1644,20 +1936,66 @@ export default function DocumentDetailPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <Label>Tipo *</Label>
-                    <Select
-                      className="mt-2"
-                      value={editForm.type}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, type: e.target.value })
+                    <Label>Código</Label>
+                    <Input
+                      className={`mt-2 ${editCodeError ? "border-red-400" : ""}`}
+                      value={editForm.code}
+                      aria-invalid={editCodeError}
+                      onChange={(e) => {
+                        setEditCodeError(false);
+                        setEditForm({ ...editForm, code: e.target.value });
+                      }}
+                    />
+                    {editCodeError && (
+                      <p className="mt-1 text-xs text-red-600">
+                        Já existe um documento com este código nesta organização.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Área / Setor</Label>
+                    <div className="mt-2">
+                      <SearchableStringSelect
+                        value={editForm.area}
+                        onChange={(v) =>
+                          setEditForm({ ...editForm, area: v })
+                        }
+                        options={(allDepartments ?? []).map((d) => d.name)}
+                        placeholder="Selecione ou busque..."
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <Label>Norma aplicável</Label>
+                  <div className="mt-2">
+                    <SearchableStringSelect
+                      value={editForm.applicableNorm}
+                      onChange={(v) =>
+                        setEditForm({ ...editForm, applicableNorm: v })
                       }
-                    >
-                      {Object.entries(TYPE_LABELS).map(([key, value]) => (
-                        <option key={key} value={key}>
-                          {value}
-                        </option>
-                      ))}
-                    </Select>
+                      options={NORMA_OPTIONS}
+                      placeholder="Selecione a norma..."
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label>Tipo *</Label>
+                    <div className="mt-2">
+                      <SearchableStringSelect
+                        value={TYPE_LABELS[editForm.type] ?? editForm.type}
+                        onChange={(label) => {
+                          const key =
+                            Object.entries(TYPE_LABELS).find(
+                              ([, v]) => v === label,
+                            )?.[0] ?? label;
+                          setEditForm({ ...editForm, type: key });
+                        }}
+                        options={Object.values(TYPE_LABELS)}
+                        placeholder="Selecione o tipo..."
+                      />
+                    </div>
                   </div>
                   <div>
                     <Label>Data de Validade</Label>
@@ -1877,6 +2215,102 @@ export default function DocumentDetailPage() {
               </div>
             )}
 
+            {editStep === 3 && (
+              <div className="space-y-5">
+                <div>
+                  <Label>Local de armazenamento</Label>
+                  <Input
+                    className="mt-2"
+                    placeholder="Ex.: Pasta física / Drive compartilhado"
+                    value={editForm.recordsTreatment.storageLocation}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        recordsTreatment: {
+                          ...editForm.recordsTreatment,
+                          storageLocation: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label>Tempo de guarda (meses)</Label>
+                    <Input
+                      type="number"
+                      className="mt-2"
+                      placeholder="Ex.: 60"
+                      value={editForm.recordsTreatment.retentionMonths}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          recordsTreatment: {
+                            ...editForm.recordsTreatment,
+                            retentionMonths: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Forma de descarte</Label>
+                    <div className="mt-2">
+                      <SearchableStringSelect
+                        value={editForm.recordsTreatment.disposalMethod}
+                        onChange={(v) =>
+                          setEditForm({
+                            ...editForm,
+                            recordsTreatment: {
+                              ...editForm.recordsTreatment,
+                              disposalMethod: v,
+                            },
+                          })
+                        }
+                        options={["Exclusão digital", "Fragmentação física", "Arquivo morto"]}
+                        placeholder="Selecione..."
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <Label>Responsável pelo registro</Label>
+                  <Input
+                    className="mt-2"
+                    placeholder="Ex.: Coordenador da Qualidade"
+                    value={editForm.recordsTreatment.responsible}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        recordsTreatment: {
+                          ...editForm.recordsTreatment,
+                          responsible: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Observações</Label>
+                  <Textarea
+                    className="mt-2"
+                    rows={3}
+                    placeholder="Informações adicionais sobre a tratativa de registros..."
+                    value={editForm.recordsTreatment.notes}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        recordsTreatment: {
+                          ...editForm.recordsTreatment,
+                          notes: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               {editStep > 0 ? (
                 <Button
@@ -1897,7 +2331,7 @@ export default function DocumentDetailPage() {
                   Cancelar
                 </Button>
               )}
-              {editStep < 2 ? (
+              {editStep < 3 ? (
                 <Button
                   type="button"
                   size="sm"
@@ -2018,6 +2452,39 @@ export default function DocumentDetailPage() {
       </Dialog>
 
       <Dialog
+        open={snapshotVersion !== null}
+        onOpenChange={(open) => {
+          if (!open) setSnapshotVersion(null);
+        }}
+        title={`Conteúdo — v${snapshotVersion ?? ""}`}
+        description="Versão congelada desta revisão (somente leitura)."
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-auto">
+          {snapshotLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : snapshotError || !snapshot ? (
+            <p className="text-sm text-red-600">
+              Não foi possível carregar esta revisão.
+            </p>
+          ) : (
+            <>
+              <div className="text-xs text-muted-foreground">
+                {[
+                  snapshot.metaSnapshot?.title,
+                  snapshot.metaSnapshot?.code,
+                  snapshot.metaSnapshot?.applicableNorm,
+                  formatDateTime(snapshot.createdAt),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+              <DocumentContentReader sections={snapshot.contentSections} />
+            </>
+          )}
+        </div>
+      </Dialog>
+
+      <Dialog
         open={deleteDialog}
         onOpenChange={setDeleteDialog}
         title="Excluir Documento"
@@ -2043,6 +2510,36 @@ export default function DocumentDetailPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               Excluir
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={reviseDialog}
+        onOpenChange={setReviseDialog}
+        title="Nova Revisão"
+        description="O documento voltará para rascunho até nova aprovação."
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Tem certeza que deseja reabrir o documento{" "}
+            <strong>{doc.title}</strong> para revisão?
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReviseDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleRevise}
+              isLoading={reviseMut.isPending}
+            >
+              Confirmar
             </Button>
           </DialogFooter>
         </div>

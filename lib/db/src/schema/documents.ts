@@ -7,11 +7,38 @@ import {
   integer,
   date,
   unique,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { organizationsTable } from "./organizations";
 import { organizationContactGroupsTable } from "./organization-contacts";
 import { usersTable } from "./users";
 import { employeesTable } from "./employees";
+
+export type DocumentContentSection = {
+  id: string; // identificador estável da seção (uuid/nanoid), gerado no client
+  title: string;
+  body: string; // markdown
+  order: number;
+};
+
+export type DocumentRecordsTreatment = {
+  storageLocation: string | null; // local de armazenamento (§7.5.3)
+  retentionMonths: number | null; // tempo de guarda em meses
+  disposalMethod: string | null; // forma de descarte
+  responsible: string | null; // responsável pelo registro
+  notes: string | null; // observações
+};
+
+// Snapshot dos metadados de identificação congelados na aprovação de uma revisão.
+// O conteúdo das seções é congelado à parte, na coluna content_sections de document_versions.
+export type DocumentVersionMetaSnapshot = {
+  title: string;
+  code: string | null;
+  area: string | null;
+  applicableNorm: string | null;
+  normativeRequirements: string[];
+  recordsTreatment: DocumentRecordsTreatment | null;
+};
 
 export const documentsTable = pgTable(
   "documents",
@@ -31,6 +58,14 @@ export const documentsTable = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    code: text("code"),
+    area: text("area"),
+    applicableNorm: text("applicable_norm"),
+    contentSections: jsonb("content_sections")
+      .$type<DocumentContentSection[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    recordsTreatment: jsonb("records_treatment").$type<DocumentRecordsTreatment>(),
     validityDate: date("validity_date"),
     createdById: integer("created_by_id")
       .notNull()
@@ -43,6 +78,11 @@ export const documentsTable = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
+  (table) => [
+    // code é opcional; o Postgres trata NULLs como distintos, então vários
+    // documentos por organização podem ficar sem código sem violar a unicidade.
+    unique("documents_org_code_unique").on(table.organizationId, table.code),
+  ],
 );
 
 export type Document = typeof documentsTable.$inferSelect;
@@ -281,6 +321,8 @@ export const documentVersionsTable = pgTable("document_versions", {
     .notNull()
     .references(() => usersTable.id),
   changedFields: text("changed_fields"),
+  contentSections: jsonb("content_sections").$type<DocumentContentSection[]>(),
+  metaSnapshot: jsonb("meta_snapshot").$type<DocumentVersionMetaSnapshot>(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
