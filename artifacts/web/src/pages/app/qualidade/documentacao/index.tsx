@@ -771,7 +771,10 @@ function CreateDocumentModal({
     setValue(field, next, { shouldValidate: true });
   };
 
+  const steps = ["Básico", "Conteúdo", "Responsáveis", "Escopo", "Registros", "Anexos"];
+
   const onSubmit = async (data: CreateDocumentFormData) => {
+    if (step < steps.length - 1) return; // guard: only submit on last step
     if (!orgId) return;
 
     if (recipientResolution.totalContactCount === 0) {
@@ -834,8 +837,6 @@ function CreateDocumentModal({
       console.error("Create failed:", err);
     }
   };
-
-  const steps = ["Básico", "Conteúdo", "Responsáveis", "Escopo", "Registros", "Anexos"];
 
   const validateStep = async (targetStep: number) => {
     if (targetStep <= step) return true;

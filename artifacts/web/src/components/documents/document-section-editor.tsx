@@ -82,23 +82,23 @@ function SectionCard({
           aria-invalid={!section.title.trim()}
           className={!section.title.trim() ? "border-red-400" : undefined}
         />
-        <Button variant="ghost" size="icon" onClick={() => onMove("up")} disabled={index === 0} aria-label="Mover para cima">
+        <Button type="button" variant="ghost" size="icon" onClick={() => onMove("up")} disabled={index === 0} aria-label="Mover para cima">
           <ChevronUp className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={() => onMove("down")} disabled={index === total - 1} aria-label="Mover para baixo">
+        <Button type="button" variant="ghost" size="icon" onClick={() => onMove("down")} disabled={index === total - 1} aria-label="Mover para baixo">
           <ChevronDown className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={onRemove} className="text-red-600 hover:text-red-700" aria-label="Remover seção">
+        <Button type="button" variant="ghost" size="icon" onClick={onRemove} className="text-red-600 hover:text-red-700" aria-label="Remover seção">
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="space-y-2">
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" onClick={() => applyMarkup(applyInlineMarkup, "**")} aria-label="Negrito"><Bold className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={() => applyMarkup(applyInlineMarkup, "*")} aria-label="Itálico"><Italic className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={() => applyMarkup(applyLinePrefix, "- ")} aria-label="Lista"><List className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={() => applyMarkup(applyLinePrefix, "1. ")} aria-label="Lista numerada"><ListOrdered className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" onClick={() => applyMarkup(applyInlineMarkup, "**")} aria-label="Negrito"><Bold className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" onClick={() => applyMarkup(applyInlineMarkup, "*")} aria-label="Itálico"><Italic className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" onClick={() => applyMarkup(applyLinePrefix, "- ")} aria-label="Lista"><List className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" onClick={() => applyMarkup(applyLinePrefix, "1. ")} aria-label="Lista numerada"><ListOrdered className="h-4 w-4" /></Button>
           </div>
           <Textarea
             ref={ref}
@@ -141,7 +141,7 @@ export function DocumentSectionEditor({
             {canEdit && " Use “Adicionar seção” para começar."}
           </p>
           {canEdit && onSeedTemplate && (
-            <Button variant="outline" size="sm" onClick={onSeedTemplate}>
+            <Button type="button" variant="outline" size="sm" onClick={onSeedTemplate}>
               Usar modelo padrão
             </Button>
           )}
@@ -162,7 +162,7 @@ export function DocumentSectionEditor({
       ))}
 
       {canEdit && (
-        <Button variant="outline" onClick={() => onChange((prev) => addSection(prev))}>
+        <Button type="button" variant="outline" onClick={() => onChange((prev) => addSection(prev))}>
           <Plus className="mr-2 h-4 w-4" /> Adicionar seção
         </Button>
       )}
