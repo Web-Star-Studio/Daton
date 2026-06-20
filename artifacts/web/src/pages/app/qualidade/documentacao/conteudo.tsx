@@ -173,9 +173,7 @@ export default function DocumentContentEditorPage() {
         canEdit={canEdit}
         onChange={setSections}
         onSeedTemplate={
-          canEdit && doc
-            ? () => setSections(seedSectionsForType(doc.type))
-            : undefined
+          canEdit ? () => setSections(seedSectionsForType(doc.type)) : undefined
         }
       />
 

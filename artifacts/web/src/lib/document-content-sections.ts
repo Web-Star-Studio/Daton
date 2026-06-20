@@ -61,7 +61,9 @@ export function applyInlineMarkup(value: string, start: number, end: number, mar
 
 export function applyLinePrefix(value: string, start: number, end: number, prefix: string): MarkupResult {
   const lineStart = start === 0 ? 0 : value.lastIndexOf("\n", start - 1) + 1;
-  const lastCharPos = end > 0 ? end - 1 : 0;
+  // Para uma seleção, a "última posição" é end-1; para um cursor (start===end),
+  // usar `end` para não cair na linha anterior quando o cursor está no início da linha.
+  const lastCharPos = end > start ? end - 1 : end;
   const afterEnd = value.indexOf("\n", lastCharPos);
   const lineEnd = afterEnd === -1 ? value.length : afterEnd;
   const block = value.slice(lineStart, lineEnd);

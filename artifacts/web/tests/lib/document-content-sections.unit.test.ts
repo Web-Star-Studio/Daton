@@ -87,4 +87,9 @@ describe("applyLinePrefix", () => {
     expect(r.selectionStart).toBe(0);
     expect(r.selectionEnd).toBe("> hello world".length);
   });
+  it("cursor no início de uma linha (sem seleção) prefixa a linha atual", () => {
+    // cursor na posição 3 = início de "dois" (logo após "um\n")
+    const r = applyLinePrefix("um\ndois", 3, 3, "- ");
+    expect(r.value).toBe("um\n- dois");
+  });
 });
