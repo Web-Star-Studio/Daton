@@ -25,6 +25,7 @@ import {
   employeesTable,
   notificationsTable,
   sgqCommunicationPlansTable,
+  type DocumentContentSection,
 } from "@workspace/db";
 import {
   ListDocumentsParams,
@@ -70,6 +71,7 @@ import { seedSectionsForType } from "../services/documents/section-templates";
 import {
   UpdateDocumentContentBodySchema,
   normalizeContentSections,
+  normalizeRecordsTreatment,
   buildVersionMetaSnapshot,
   isDuplicateCodeError,
   blankToNull,
@@ -702,6 +704,7 @@ async function getDocumentDetail(docId: number, orgId: number) {
       area: documentsTable.area,
       applicableNorm: documentsTable.applicableNorm,
       contentSections: documentsTable.contentSections,
+      recordsTreatment: documentsTable.recordsTreatment,
       createdById: documentsTable.createdById,
       createdByName: usersTable.name,
       createdByEmail: usersTable.email,
@@ -968,6 +971,7 @@ async function getDocumentDetail(docId: number, orgId: number) {
     area: doc.area ?? null,
     applicableNorm: doc.applicableNorm ?? null,
     contentSections: doc.contentSections ?? [],
+    recordsTreatment: doc.recordsTreatment ?? null,
     units: unitRows,
     elaborators:
       elaboratorRows.length > 0
@@ -1278,7 +1282,10 @@ router.post(
             code: blankToNull(body.data.code),
             area: blankToNull(body.data.area),
             applicableNorm: blankToNull(body.data.applicableNorm),
-            contentSections: seedSectionsForType(body.data.type),
+            contentSections: body.data.contentSections
+              ? normalizeContentSections(body.data.contentSections as DocumentContentSection[])
+              : seedSectionsForType(body.data.type),
+            recordsTreatment: normalizeRecordsTreatment(body.data.recordsTreatment),
             validityDate: body.data.validityDate || null,
             normativeRequirements,
             createdById: userId,
@@ -1891,6 +1898,9 @@ router.patch(
     }
     if (body.data.applicableNorm !== undefined) {
       updates.applicableNorm = blankToNull(body.data.applicableNorm);
+    }
+    if (body.data.recordsTreatment !== undefined) {
+      updates.recordsTreatment = normalizeRecordsTreatment(body.data.recordsTreatment);
     }
 
     let nextCriticalReviewerIds;
@@ -3049,6 +3059,7 @@ router.post(
           applicableNorm: documentsTable.applicableNorm,
           normativeRequirements: documentsTable.normativeRequirements,
           contentSections: documentsTable.contentSections,
+          recordsTreatment: documentsTable.recordsTreatment,
         })
         .from(documentsTable)
         .where(

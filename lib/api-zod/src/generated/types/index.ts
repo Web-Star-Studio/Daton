@@ -183,6 +183,7 @@ export * from "./documentDetailUnitsItem";
 export * from "./documentDirectRecipient";
 export * from "./documentNormativeRequirementsSuggestionBody";
 export * from "./documentNormativeRequirementsSuggestionResponse";
+export * from "./documentRecordsTreatment";
 export * from "./documentSummary";
 export * from "./documentVersion";
 export * from "./documentVersionMetaSnapshot";

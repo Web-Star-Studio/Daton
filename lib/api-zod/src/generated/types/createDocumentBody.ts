@@ -7,6 +7,8 @@
  */
 import type { CreateDocumentBodyAttachmentsItem } from "./createDocumentBodyAttachmentsItem";
 import type { CreateDocumentBodyType } from "./createDocumentBodyType";
+import type { DocumentContentSection } from "./documentContentSection";
+import type { DocumentRecordsTreatment } from "./documentRecordsTreatment";
 
 export interface CreateDocumentBody {
   title: string;
@@ -26,4 +28,6 @@ export interface CreateDocumentBody {
   code?: string | null;
   area?: string | null;
   applicableNorm?: string | null;
+  contentSections?: DocumentContentSection[];
+  recordsTreatment?: DocumentRecordsTreatment | null;
 }

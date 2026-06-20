@@ -14965,6 +14965,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DocumentContentSection"
+        recordsTreatment:
+          allOf:
+            - $ref: "#/components/schemas/DocumentRecordsTreatment"
+          nullable: true
       required:
         - id
         - title
@@ -14991,6 +14995,25 @@ components:
           type: array
           items: { $ref: "#/components/schemas/DocumentContentSection" }
 
+    DocumentRecordsTreatment:
+      type: object
+      properties:
+        storageLocation:
+          type: string
+          nullable: true
+        retentionMonths:
+          type: integer
+          nullable: true
+        disposalMethod:
+          type: string
+          nullable: true
+        responsible:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
     DocumentVersionMetaSnapshot:
       type: object
       required: [title, code, area, applicableNorm, normativeRequirements]
@@ -15002,6 +15025,10 @@ components:
         normativeRequirements:
           type: array
           items: { type: string }
+        recordsTreatment:
+          allOf:
+            - $ref: "#/components/schemas/DocumentRecordsTreatment"
+          nullable: true
 
     DocumentVersionSnapshot:
       type: object
@@ -15431,6 +15458,14 @@ components:
         applicableNorm:
           type: string
           nullable: true
+        contentSections:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentContentSection"
+        recordsTreatment:
+          allOf:
+            - $ref: "#/components/schemas/DocumentRecordsTreatment"
+          nullable: true
       required:
         - title
         - type
@@ -15490,6 +15525,10 @@ components:
           nullable: true
         applicableNorm:
           type: string
+          nullable: true
+        recordsTreatment:
+          allOf:
+            - $ref: "#/components/schemas/DocumentRecordsTreatment"
           nullable: true
 
     DocumentNormativeRequirementsSuggestionBody:

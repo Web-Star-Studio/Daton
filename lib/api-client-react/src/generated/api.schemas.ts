@@ -3159,6 +3159,14 @@ export interface DocumentContentSection {
   order: number;
 }
 
+export interface DocumentRecordsTreatment {
+  storageLocation?: string | null;
+  retentionMonths?: number | null;
+  disposalMethod?: string | null;
+  responsible?: string | null;
+  notes?: string | null;
+}
+
 export interface DocumentDetail {
   id: number;
   title: string;
@@ -3187,6 +3195,7 @@ export interface DocumentDetail {
   area?: string | null;
   applicableNorm?: string | null;
   contentSections: DocumentContentSection[];
+  recordsTreatment?: DocumentRecordsTreatment | null;
 }
 
 export interface UpdateDocumentContentBody {
@@ -3199,6 +3208,7 @@ export interface DocumentVersionMetaSnapshot {
   area: string | null;
   applicableNorm: string | null;
   normativeRequirements: string[];
+  recordsTreatment?: DocumentRecordsTreatment | null;
 }
 
 export interface DocumentVersionSnapshot {
@@ -3341,6 +3351,8 @@ export interface CreateDocumentBody {
   code?: string | null;
   area?: string | null;
   applicableNorm?: string | null;
+  contentSections?: DocumentContentSection[];
+  recordsTreatment?: DocumentRecordsTreatment | null;
 }
 
 export interface UpdateDocumentBody {
@@ -3359,6 +3371,7 @@ export interface UpdateDocumentBody {
   code?: string | null;
   area?: string | null;
   applicableNorm?: string | null;
+  recordsTreatment?: DocumentRecordsTreatment | null;
 }
 
 export interface DocumentNormativeRequirementsSuggestionBody {

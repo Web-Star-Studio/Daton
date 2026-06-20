@@ -419,6 +419,51 @@ describe("documents — content flow", () => {
     expect(dupRes.body.error).toMatch(/código/i);
   });
 
+  // (e) Creating a document with inline contentSections uses them instead of the
+  //     type template. Also validates that recordsTreatment is persisted and
+  //     returned on the 201 response.
+  it("(e) create aceita contentSections inline em vez do template", async () => {
+    const context = await createTestContext({
+      seed: "documents-content-inline",
+      modules: ["documents"],
+    });
+    contexts.push(context);
+
+    const reviewer = await createTestUser(context, {
+      suffix: "rev",
+      modules: ["documents"],
+    });
+    const employee = await createEmployee(context, {
+      name: `Elaborador inline ${context.prefix}`,
+    });
+
+    const res = await request(app)
+      .post(`/api/organizations/${context.organizationId}/documents`)
+      .set(authHeader(context))
+      .send({
+        title: "Doc inline",
+        type: "politica",
+        elaboratorIds: [employee.id],
+        criticalReviewerIds: [reviewer.id],
+        approverIds: [reviewer.id],
+        contentSections: [{ id: "x1", title: "Única", body: "**oi**", order: 0 }],
+        recordsTreatment: {
+          storageLocation: "Pasta SGI",
+          retentionMonths: 24,
+          disposalMethod: null,
+          responsible: null,
+          notes: null,
+        },
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.contentSections).toHaveLength(1);
+    expect(res.body.contentSections[0].title).toBe("Única");
+    expect(res.body.recordsTreatment).not.toBeNull();
+    expect(res.body.recordsTreatment.retentionMonths).toBe(24);
+    expect(res.body.recordsTreatment.storageLocation).toBe("Pasta SGI");
+  });
+
   // (d) Full approval freezes the snapshot: after editing content and approving
   //     (document with no recipients → becomes `approved`), GET .../versions/1
   //     returns the frozen `contentSections` (matching what was authored) and a

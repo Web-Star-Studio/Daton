@@ -14,6 +14,7 @@ import type { DocumentDetailRecipientsItem } from "./documentDetailRecipientsIte
 import type { DocumentDetailReferencesItem } from "./documentDetailReferencesItem";
 import type { DocumentDetailUnitsItem } from "./documentDetailUnitsItem";
 import type { DocumentDirectRecipient } from "./documentDirectRecipient";
+import type { DocumentRecordsTreatment } from "./documentRecordsTreatment";
 import type { DocumentVersion } from "./documentVersion";
 import type { Employee } from "./employee";
 import type { OrganizationContact } from "./organizationContact";
@@ -47,4 +48,5 @@ export interface DocumentDetail {
   area?: string | null;
   applicableNorm?: string | null;
   contentSections: DocumentContentSection[];
+  recordsTreatment?: DocumentRecordsTreatment | null;
 }

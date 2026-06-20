@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DocumentRecordsTreatment } from "./documentRecordsTreatment";
 
 export interface DocumentVersionMetaSnapshot {
   title: string;
@@ -12,4 +13,5 @@ export interface DocumentVersionMetaSnapshot {
   area: string | null;
   applicableNorm: string | null;
   normativeRequirements: string[];
+  recordsTreatment?: DocumentRecordsTreatment | null;
 }

@@ -3623,6 +3623,25 @@ export const CreateDocumentBody = zod.object({
   code: zod.string().nullish(),
   area: zod.string().nullish(),
   applicableNorm: zod.string().nullish(),
+  contentSections: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        title: zod.string(),
+        body: zod.string().describe("Markdown"),
+        order: zod.number(),
+      }),
+    )
+    .optional(),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
 });
 
 /**
@@ -4240,6 +4259,15 @@ export const GetDocumentResponse = zod.object({
       order: zod.number(),
     }),
   ),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
 });
 
 /**
@@ -4265,6 +4293,15 @@ export const UpdateDocumentBody = zod.object({
   code: zod.string().nullish(),
   area: zod.string().nullish(),
   applicableNorm: zod.string().nullish(),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
 });
 
 export const UpdateDocumentResponse = zod.object({
@@ -4481,6 +4518,15 @@ export const UpdateDocumentResponse = zod.object({
       order: zod.number(),
     }),
   ),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
 });
 
 /**
@@ -4778,6 +4824,15 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
       order: zod.number(),
     }),
   ),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
 });
 
 /**
@@ -5090,6 +5145,15 @@ export const SubmitDocumentForReviewResponse = zod.object({
       order: zod.number(),
     }),
   ),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
 });
 
 /**
@@ -5318,6 +5382,15 @@ export const ApproveDocumentResponse = zod.object({
       order: zod.number(),
     }),
   ),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
 });
 
 /**
@@ -5546,6 +5619,15 @@ export const RejectDocumentResponse = zod.object({
       order: zod.number(),
     }),
   ),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
 });
 
 /**
@@ -5770,6 +5852,15 @@ export const DistributeDocumentResponse = zod.object({
       order: zod.number(),
     }),
   ),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
 });
 
 /**
@@ -6014,6 +6105,15 @@ export const UpdateDocumentContentResponse = zod.object({
       order: zod.number(),
     }),
   ),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
 });
 
 export const GetDocumentVersionSnapshotParams = zod.object({
@@ -6041,6 +6141,15 @@ export const GetDocumentVersionSnapshotResponse = zod.object({
       area: zod.string().nullable(),
       applicableNorm: zod.string().nullable(),
       normativeRequirements: zod.array(zod.string()),
+      recordsTreatment: zod
+        .object({
+          storageLocation: zod.string().nullish(),
+          retentionMonths: zod.number().nullish(),
+          disposalMethod: zod.string().nullish(),
+          responsible: zod.string().nullish(),
+          notes: zod.string().nullish(),
+        })
+        .nullish(),
     })
     .nullish(),
 });
