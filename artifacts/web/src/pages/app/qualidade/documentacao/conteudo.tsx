@@ -86,7 +86,7 @@ function SectionCard({
     return (
       <Card className="p-5 space-y-2">
         <h3 className="text-sm font-semibold">{section.title || "—"}</h3>
-        <div className="prose prose-sm max-w-none">
+        <div className="prose prose-sm max-w-none dark:prose-invert">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {section.body || "_Sem conteúdo._"}
           </ReactMarkdown>
@@ -101,6 +101,7 @@ function SectionCard({
         <Input
           value={section.title}
           placeholder="Título da seção"
+          aria-label={`Título da seção ${index + 1}`}
           onChange={(e) => onChange({ title: e.target.value })}
           aria-invalid={!section.title.trim()}
           className={!section.title.trim() ? "border-red-400" : undefined}
@@ -115,7 +116,7 @@ function SectionCard({
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="space-y-2">
           <div className="flex gap-1">
             <Button variant="ghost" size="icon" onClick={() => applyMarkup(applyInlineMarkup, "**")} aria-label="Negrito"><Bold className="h-4 w-4" /></Button>
@@ -127,12 +128,13 @@ function SectionCard({
             ref={ref}
             value={section.body}
             placeholder="Escreva em Markdown…"
+            aria-label={`Conteúdo da seção ${index + 1} em Markdown`}
             className="min-h-[180px] font-mono text-xs"
             onChange={(e) => onChange({ body: e.target.value })}
           />
         </div>
         <div className="rounded-xl border border-border/60 bg-background px-4 py-3 overflow-auto">
-          <div className="prose prose-sm max-w-none">
+          <div className="prose prose-sm max-w-none dark:prose-invert">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {section.body || "_Pré-visualização_"}
             </ReactMarkdown>
@@ -152,7 +154,7 @@ export default function DocumentContentEditorPage() {
   const { canWriteModule } = usePermissions();
   const queryClient = useQueryClient();
 
-  const { data: doc, isLoading } = useGetDocument(orgId!, docId, {
+  const { data: doc, isLoading, isError } = useGetDocument(orgId!, docId, {
     query: {
       queryKey: getGetDocumentQueryKey(orgId!, docId),
       enabled: !!orgId && docId > 0,
@@ -256,8 +258,24 @@ export default function DocumentContentEditorPage() {
     ) : null,
   );
 
-  if (isLoading || !doc) {
+  if (isLoading) {
     return <div className="text-sm text-muted-foreground">Carregando…</div>;
+  }
+
+  if (isError || !doc) {
+    return (
+      <div className="max-w-4xl space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Não foi possível carregar o conteúdo deste documento.
+        </p>
+        <Button
+          variant="outline"
+          onClick={() => navigate("/qualidade/documentacao")}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Documentação
+        </Button>
+      </div>
+    );
   }
 
   return (

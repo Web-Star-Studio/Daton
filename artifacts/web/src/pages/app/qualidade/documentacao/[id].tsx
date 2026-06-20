@@ -218,6 +218,7 @@ export default function DocumentDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editStep, setEditStep] = useState(0);
   const [maxReachedEditStep, setMaxReachedEditStep] = useState(0);
+  const [editCodeError, setEditCodeError] = useState(false);
   const [submitDialog, setSubmitDialog] = useState(false);
   const [submitChangeDescription, setSubmitChangeDescription] = useState("");
   const [attachmentActionKey, setAttachmentActionKey] = useState<string | null>(
@@ -556,6 +557,7 @@ export default function DocumentDetailPage() {
     });
     setEditStep(0);
     setMaxReachedEditStep(0);
+    setEditCodeError(false);
     setEditDialogOpen(true);
   };
 
@@ -563,6 +565,7 @@ export default function DocumentDetailPage() {
     setEditDialogOpen(false);
     setEditStep(0);
     setMaxReachedEditStep(0);
+    setEditCodeError(false);
     setEditForm(null);
   };
 
@@ -624,6 +627,8 @@ export default function DocumentDetailPage() {
       });
     } catch (err) {
       if ((err as { status?: number })?.status === 409) {
+        setEditStep(0);
+        setEditCodeError(true);
         toast({
           title: "Código já utilizado",
           description:
@@ -651,20 +656,30 @@ export default function DocumentDetailPage() {
         <HeaderActionButton
           size="sm"
           variant="outline"
-          onClick={() =>
-            exportDocumentPdf({
-              title: doc.title,
-              code: doc.code,
-              type: TYPE_LABELS[doc.type] || doc.type,
-              applicableNorm: doc.applicableNorm,
-              version: doc.currentVersion,
-              validityDate: doc.validityDate ? formatDate(doc.validityDate) : null,
-              approvedByName:
-                doc.approvers?.find((a) => a.status === "approved")?.name ??
-                null,
-              sections: doc.contentSections,
-            })
-          }
+          onClick={() => {
+            try {
+              exportDocumentPdf({
+                title: doc.title,
+                code: doc.code,
+                type: TYPE_LABELS[doc.type] || doc.type,
+                applicableNorm: doc.applicableNorm,
+                version: doc.currentVersion,
+                validityDate: doc.validityDate
+                  ? formatDate(doc.validityDate)
+                  : null,
+                approvedByName:
+                  doc.approvers?.find((a) => a.status === "approved")?.name ??
+                  null,
+                sections: doc.contentSections,
+              });
+            } catch {
+              toast({
+                title: "Erro ao exportar PDF",
+                description: "Não foi possível gerar o PDF deste documento.",
+                variant: "destructive",
+              });
+            }
+          }}
           label="Exportar PDF"
           icon={<Download className="h-3.5 w-3.5" />}
         />
@@ -1736,12 +1751,19 @@ export default function DocumentDetailPage() {
                   <div>
                     <Label>Código</Label>
                     <Input
-                      className="mt-2"
+                      className={`mt-2 ${editCodeError ? "border-red-400" : ""}`}
                       value={editForm.code}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, code: e.target.value })
-                      }
+                      aria-invalid={editCodeError}
+                      onChange={(e) => {
+                        setEditCodeError(false);
+                        setEditForm({ ...editForm, code: e.target.value });
+                      }}
                     />
+                    {editCodeError && (
+                      <p className="mt-1 text-xs text-red-600">
+                        Já existe um documento com este código nesta organização.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label>Área / Setor</Label>

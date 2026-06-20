@@ -24,7 +24,7 @@ export function DocumentContentReader({
       {ordered.map((section) => (
         <section key={section.id} className="space-y-2">
           <h3 className="text-sm font-semibold">{section.title || "—"}</h3>
-          <div className="prose prose-sm max-w-none">
+          <div className="prose prose-sm max-w-none dark:prose-invert">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {section.body || "_Sem conteúdo._"}
             </ReactMarkdown>
