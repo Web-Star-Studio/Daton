@@ -707,6 +707,31 @@ export default function DocumentDetailPage() {
                   doc.approvers?.find((a) => a.status === "approved")?.name ??
                   null,
                 sections: doc.contentSections,
+                signatures: [
+                  ...(doc.elaborators ?? []).map((e) => ({
+                    role: "Elaborado por",
+                    name: e.name ?? null,
+                    date: null,
+                  })),
+                  ...criticalReviewers.map((reviewer) => ({
+                    role: "Revisado por",
+                    name: reviewer.name ?? null,
+                    date: reviewer.completedAt
+                      ? formatDate(reviewer.completedAt)
+                      : null,
+                  })),
+                  ...(doc.approvers ?? [])
+                    .filter(
+                      (a: DocumentDetailApproversItem) =>
+                        a.status === "approved",
+                    )
+                    .map((a: DocumentDetailApproversItem) => ({
+                      role: "Aprovado por",
+                      name: a.name ?? null,
+                      date: a.approvedAt ? formatDate(a.approvedAt) : null,
+                    })),
+                ],
+                recordsTreatment: doc.recordsTreatment ?? null,
               });
             } catch {
               toast({

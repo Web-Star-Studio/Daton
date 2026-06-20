@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import type { DocumentContentSection } from "@workspace/api-client-react";
+import type { DocumentContentSection, DocumentRecordsTreatment } from "@workspace/api-client-react";
 
 export interface InlineRun {
   text: string;
@@ -11,6 +11,12 @@ export type Block =
   | { kind: "paragraph"; runs: InlineRun[] }
   | { kind: "bullet" | "ordered"; items: InlineRun[][] };
 
+export interface DocumentPdfSignature {
+  role: string;
+  name: string | null;
+  date: string | null;
+}
+
 export interface DocumentPdfInput {
   title: string;
   code?: string | null;
@@ -20,6 +26,8 @@ export interface DocumentPdfInput {
   validityDate?: string | null;
   approvedByName?: string | null;
   sections: DocumentContentSection[];
+  signatures?: DocumentPdfSignature[];
+  recordsTreatment?: DocumentRecordsTreatment | null;
 }
 
 export function parseInlineRuns(text: string): InlineRun[] {
@@ -190,6 +198,55 @@ export function buildDocumentPdf(input: DocumentPdfInput): jsPDF {
         }
       }
       y += 2;
+    }
+  }
+
+  // Signatures block
+  if (input.signatures && input.signatures.length > 0) {
+    y += 10;
+    ensureSpace(16);
+    doc.setDrawColor(200);
+    doc.line(margin, y, pageW - margin, y);
+    y += 14;
+    drawRuns([{ text: "Assinaturas", bold: true, italic: false }], 12);
+    for (const sig of input.signatures) {
+      const dateStr = sig.date ? ` (${sig.date})` : "";
+      drawRuns(
+        [{ text: `${sig.role}: ${sig.name ?? "—"}${dateStr}`, bold: false, italic: false }],
+        10,
+      );
+    }
+  }
+
+  // Records Treatment (ISO §7.5.3) block
+  if (input.recordsTreatment) {
+    y += 10;
+    ensureSpace(16);
+    doc.setDrawColor(200);
+    doc.line(margin, y, pageW - margin, y);
+    y += 14;
+    drawRuns([{ text: "Tratativa de Registros (§7.5.3)", bold: true, italic: false }], 12);
+    const rt = input.recordsTreatment;
+    const rtFields: Array<[string, string | null | undefined]> = [
+      ["Local de armazenamento", rt.storageLocation],
+      [
+        "Tempo de guarda (meses)",
+        rt.retentionMonths != null ? String(rt.retentionMonths) : null,
+      ],
+      ["Forma de descarte", rt.disposalMethod],
+      ["Responsável", rt.responsible],
+      ["Observações", rt.notes],
+    ];
+    for (const [label, value] of rtFields) {
+      if (value) {
+        drawRuns(
+          [
+            { text: `${label}: `, bold: true, italic: false },
+            { text: value, bold: false, italic: false },
+          ],
+          10,
+        );
+      }
     }
   }
 

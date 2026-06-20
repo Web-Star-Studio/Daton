@@ -95,3 +95,65 @@ describe("buildDocumentPdf (smoke)", () => {
     ).not.toThrow();
   });
 });
+
+describe("buildDocumentPdf (assinaturas + tratativa de registros)", () => {
+  it("renderiza assinaturas sem lançar e retorna ao menos 1 página", () => {
+    const doc = buildDocumentPdf({
+      title: "Doc com Assinaturas",
+      sections: [],
+      signatures: [
+        { role: "Elaborado por", name: "João Silva", date: null },
+        { role: "Revisado por", name: "Maria Souza", date: "01/06/2026" },
+        { role: "Aprovado por", name: "Carlos Lima", date: "02/06/2026" },
+      ],
+    });
+    expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renderiza tratativa de registros sem lançar", () => {
+    const doc = buildDocumentPdf({
+      title: "Doc com Registros",
+      sections: [],
+      recordsTreatment: {
+        storageLocation: "Pasta física / Setor Qualidade",
+        retentionMonths: 60,
+        disposalMethod: "Trituração",
+        responsible: "Gestor de Qualidade",
+        notes: "Manter em local seco.",
+      },
+    });
+    expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+  });
+
+  it("não lança quando recordsTreatment é null", () => {
+    expect(() =>
+      buildDocumentPdf({
+        title: "Doc",
+        sections: [],
+        recordsTreatment: null,
+      }),
+    ).not.toThrow();
+  });
+
+  it("renderiza assinaturas e tratativa juntos sem lançar", () => {
+    expect(() =>
+      buildDocumentPdf({
+        title: "Doc Completo",
+        code: "PC-002",
+        version: 2,
+        sections: [{ id: "s1", title: "Escopo", body: "Aplica-se a toda a organização.", order: 0 }],
+        signatures: [
+          { role: "Elaborado por", name: "Ana Costa", date: null },
+          { role: "Aprovado por", name: null, date: null },
+        ],
+        recordsTreatment: {
+          storageLocation: "Sistema digital",
+          retentionMonths: null,
+          disposalMethod: null,
+          responsible: null,
+          notes: null,
+        },
+      }),
+    ).not.toThrow();
+  });
+});
