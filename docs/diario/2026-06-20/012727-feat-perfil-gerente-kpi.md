@@ -1,0 +1,13 @@
+---
+hora: "01:27"
+autor: João Pedro
+branch: feat+perfil-gerente-kpi
+modulo: KPI
+titulo: Perfil Gerente + permissões nos Indicadores (PR #98 + migração prod)
+---
+
+- **O que:** Implementado o **perfil "Gerente"** e as **regras de permissão por papel** no módulo de Indicadores (KPI). Mergeado via **PR #98** (squash) e **migração aplicada no banco de produção** (colunas FK `users.unit_id` e `kpi_indicators.unit_id`, ambas com `ON DELETE SET NULL`). Executado **backfill** que vincula cada indicador à sua filial pela correspondência de nome (comparação **acento-insensível**); corporativos e nomes sem correspondência ficam sem vínculo (nulo) por desenho.
+- **Por quê:** A pedido do cliente (Transportes Gabardo), era necessário **restringir quem cria/edita/exclui indicadores**. Modelo entregue: **operador** só opera (lança valores/justificativas) os indicadores sob sua responsabilidade — não cria nem exclui; **analista** é somente leitura; **gerente** (novo papel, vinculado a 1 filial) administra os indicadores da sua filial + os corporativos (cria/edita corporativo, não exclui); **admin** faz tudo. Restrição limitada ao módulo de Indicadores (documentos ISO e demais módulos seguem visíveis a todos).
+- **Impacto/área:** Backend — rotas de KPI (gates de visibilidade e escrita), novo serviço de matriz de acesso (`canActOnKpiIndicator` / `isCorporateIndicator`), middleware de auth (papel `manager`), rota de usuários da organização e `/auth/me`. Frontend — matriz de permissões espelhada, contexto de auth, tela de gestão de usuários da org. Schema (`users`, `kpi_indicators`) e contrato OpenAPI. **Banco de produção (Neon):** DDL aplicado de forma cirúrgica (sem `db push`, para não derrubar coluna não relacionada).
+- **Status:** **Concluído e em produção.** Pendências não-bloqueantes: (1) **15 indicadores de Anápolis** ficaram sem vínculo de filial por ambiguidade entre as unidades "Carregamento" e "Frota" no cadastro — o cliente confirmou que **ambos os gestores enxergam todos**, então não bloqueia operação nem exige divisão por ora; (2) a cliente (Ana) esclareceu, após a entrega, que a **visualização dos indicadores deve ser aberta a todos** e que apenas o **lançamento/pendência individual** precisa ser restrito — está previsto um **ajuste pequeno** para liberar a visualização mantendo os bloqueios de escrita/lançamento, **aguardando confirmação formal do modelo** antes de mexer no código.
+- **Validação:** `pnpm typecheck` OK; testes unitários (matriz de acesso back-end e front-end) e teste de integração das rotas adicionados; 4 rodadas de revisão automatizada antes do merge.
