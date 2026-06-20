@@ -165,6 +165,13 @@ interface EditFormState {
   recipientGroupIds: number[];
   referenceIds: number[];
   normativeRequirements: string[];
+  recordsTreatment: {
+    storageLocation: string;
+    retentionMonths: string;
+    disposalMethod: string;
+    responsible: string;
+    notes: string;
+  };
 }
 
 interface DocumentCriticalReviewerItem {
@@ -564,6 +571,16 @@ export default function DocumentDetailPage() {
           ?.map((ref: DocumentDetailReferencesItem) => ref.documentId!)
           .filter(Boolean) ?? [],
       normativeRequirements: doc.normativeRequirements ?? [],
+      recordsTreatment: {
+        storageLocation: doc.recordsTreatment?.storageLocation ?? "",
+        retentionMonths:
+          doc.recordsTreatment?.retentionMonths != null
+            ? String(doc.recordsTreatment.retentionMonths)
+            : "",
+        disposalMethod: doc.recordsTreatment?.disposalMethod ?? "",
+        responsible: doc.recordsTreatment?.responsible ?? "",
+        notes: doc.recordsTreatment?.notes ?? "",
+      },
     });
     setEditStep(0);
     setMaxReachedEditStep(0);
@@ -603,7 +620,7 @@ export default function DocumentDetailPage() {
   const changeEditStep = (targetStep: number) => {
     if (!editForm) return;
 
-    const boundedTarget = Math.max(0, Math.min(targetStep, 2));
+    const boundedTarget = Math.max(0, Math.min(targetStep, 3));
     if (boundedTarget > editStep && !validateEditStep(editStep, editForm)) {
       return;
     }
@@ -633,6 +650,15 @@ export default function DocumentDetailPage() {
           recipientGroupIds: editForm.recipientGroupIds,
           referenceIds: editForm.referenceIds,
           normativeRequirements: editForm.normativeRequirements,
+          recordsTreatment: {
+            storageLocation: editForm.recordsTreatment.storageLocation.trim() || null,
+            retentionMonths: editForm.recordsTreatment.retentionMonths
+              ? Number(editForm.recordsTreatment.retentionMonths)
+              : null,
+            disposalMethod: editForm.recordsTreatment.disposalMethod || null,
+            responsible: editForm.recordsTreatment.responsible.trim() || null,
+            notes: editForm.recordsTreatment.notes.trim() || null,
+          },
         } as never,
       });
     } catch (err) {
@@ -1732,6 +1758,7 @@ export default function DocumentDetailPage() {
             "Atualize os dados principais do documento.",
             "Defina colaborador, análise crítica, aprovadores, grupos e destinatários.",
             "Associe unidades e documentos de referência.",
+            "Tratativa de registros (ISO §7.5.3).",
           ][editStep]
         }
         size="xl"
@@ -1739,7 +1766,7 @@ export default function DocumentDetailPage() {
         {editForm && (
           <div className="space-y-5">
             <DialogStepTabs
-              steps={["Básico", "Responsáveis", "Escopo"]}
+              steps={["Básico", "Responsáveis", "Escopo", "Registros"]}
               step={editStep}
               onStepChange={changeEditStep}
               maxAccessibleStep={maxReachedEditStep}
@@ -2038,6 +2065,102 @@ export default function DocumentDetailPage() {
               </div>
             )}
 
+            {editStep === 3 && (
+              <div className="space-y-5">
+                <div>
+                  <Label>Local de armazenamento</Label>
+                  <Input
+                    className="mt-2"
+                    placeholder="Ex.: Pasta física / Drive compartilhado"
+                    value={editForm.recordsTreatment.storageLocation}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        recordsTreatment: {
+                          ...editForm.recordsTreatment,
+                          storageLocation: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label>Tempo de guarda (meses)</Label>
+                    <Input
+                      type="number"
+                      className="mt-2"
+                      placeholder="Ex.: 60"
+                      value={editForm.recordsTreatment.retentionMonths}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          recordsTreatment: {
+                            ...editForm.recordsTreatment,
+                            retentionMonths: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Forma de descarte</Label>
+                    <div className="mt-2">
+                      <SearchableStringSelect
+                        value={editForm.recordsTreatment.disposalMethod}
+                        onChange={(v) =>
+                          setEditForm({
+                            ...editForm,
+                            recordsTreatment: {
+                              ...editForm.recordsTreatment,
+                              disposalMethod: v,
+                            },
+                          })
+                        }
+                        options={["Exclusão digital", "Fragmentação física", "Arquivo morto"]}
+                        placeholder="Selecione..."
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <Label>Responsável pelo registro</Label>
+                  <Input
+                    className="mt-2"
+                    placeholder="Ex.: Coordenador da Qualidade"
+                    value={editForm.recordsTreatment.responsible}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        recordsTreatment: {
+                          ...editForm.recordsTreatment,
+                          responsible: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Observações</Label>
+                  <Textarea
+                    className="mt-2"
+                    rows={3}
+                    placeholder="Informações adicionais sobre a tratativa de registros..."
+                    value={editForm.recordsTreatment.notes}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        recordsTreatment: {
+                          ...editForm.recordsTreatment,
+                          notes: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               {editStep > 0 ? (
                 <Button
@@ -2058,7 +2181,7 @@ export default function DocumentDetailPage() {
                   Cancelar
                 </Button>
               )}
-              {editStep < 2 ? (
+              {editStep < 3 ? (
                 <Button
                   type="button"
                   size="sm"

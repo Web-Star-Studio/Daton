@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableStringSelect } from "@/components/ui/searchable-string-select";
 import { NORMA_OPTIONS } from "@/lib/document-list";
@@ -542,6 +543,13 @@ function CreateDocumentModal({
   const [isUploading, setIsUploading] = useState(false);
   const [contentSections, setContentSections] = useState<DocumentContentSection[]>([]);
   const contentTouched = useRef(false);
+  const [records, setRecords] = useState({
+    storageLocation: "",
+    retentionMonths: "",
+    disposalMethod: "",
+    responsible: "",
+    notes: "",
+  });
   const [step, setStep] = useState(0);
   const [maxReachedStep, setMaxReachedStep] = useState(0);
   const {
@@ -656,6 +664,7 @@ function CreateDocumentModal({
       setUploadedFiles([]);
       setContentSections([]);
       contentTouched.current = false;
+      setRecords({ storageLocation: "", retentionMonths: "", disposalMethod: "", responsible: "", notes: "" });
       setStep(0);
       setMaxReachedStep(0);
     }
@@ -763,6 +772,13 @@ function CreateDocumentModal({
               : undefined,
           attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
           contentSections: contentSections.length ? contentSections : undefined,
+          recordsTreatment: {
+            storageLocation: records.storageLocation.trim() || null,
+            retentionMonths: records.retentionMonths ? Number(records.retentionMonths) : null,
+            disposalMethod: records.disposalMethod || null,
+            responsible: records.responsible.trim() || null,
+            notes: records.notes.trim() || null,
+          },
         } as never,
       });
       reset();
@@ -781,7 +797,7 @@ function CreateDocumentModal({
     }
   };
 
-  const steps = ["Básico", "Conteúdo", "Responsáveis", "Escopo", "Anexos"];
+  const steps = ["Básico", "Conteúdo", "Responsáveis", "Escopo", "Registros", "Anexos"];
 
   const validateStep = async (targetStep: number) => {
     if (targetStep <= step) return true;
@@ -830,6 +846,7 @@ function CreateDocumentModal({
           "Escreva o conteúdo das seções.",
           "Selecione colaborador, análise crítica, aprovadores, grupos e destinatários.",
           "Associe unidades e referências relacionadas.",
+          "Tratativa de registros (ISO §7.5.3).",
           "Adicione os anexos iniciais antes de salvar.",
         ][step]
       }
@@ -1153,6 +1170,70 @@ function CreateDocumentModal({
         )}
 
         {step === 4 && (
+          <div className="space-y-5">
+            <div>
+              <Label>Local de armazenamento</Label>
+              <Input
+                className="mt-2"
+                placeholder="Ex.: Pasta física / Drive compartilhado"
+                value={records.storageLocation}
+                onChange={(e) =>
+                  setRecords({ ...records, storageLocation: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <Label>Tempo de guarda (meses)</Label>
+                <Input
+                  type="number"
+                  className="mt-2"
+                  placeholder="Ex.: 60"
+                  value={records.retentionMonths}
+                  onChange={(e) =>
+                    setRecords({ ...records, retentionMonths: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Forma de descarte</Label>
+                <div className="mt-2">
+                  <SearchableStringSelect
+                    value={records.disposalMethod}
+                    onChange={(v) => setRecords({ ...records, disposalMethod: v })}
+                    options={["Exclusão digital", "Fragmentação física", "Arquivo morto"]}
+                    placeholder="Selecione..."
+                  />
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label>Responsável pelo registro</Label>
+              <Input
+                className="mt-2"
+                placeholder="Ex.: Coordenador da Qualidade"
+                value={records.responsible}
+                onChange={(e) =>
+                  setRecords({ ...records, responsible: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Observações</Label>
+              <Textarea
+                className="mt-2"
+                rows={3}
+                placeholder="Informações adicionais sobre a tratativa de registros..."
+                value={records.notes}
+                onChange={(e) =>
+                  setRecords({ ...records, notes: e.target.value })
+                }
+              />
+            </div>
+          </div>
+        )}
+
+        {step === 5 && (
           <div>
             <Label>Anexo Inicial</Label>
             <div className="mt-2">
