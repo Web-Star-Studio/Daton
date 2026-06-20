@@ -68,3 +68,66 @@ describe("org-users filial (F1 — unitId p/ todos os papéis)", () => {
     expect(created.status).toBe(400);
   });
 });
+
+// PATCH /role: trocar de papel NÃO deve apagar a filial existente. A UI sempre
+// reenvia o unitId atual; estes testes cobrem o contrato direto da API, onde
+// omitir unitId preserva a filial e enviar `null` zera de propósito.
+describe("org-users PATCH role (preserva filial ao omitir unitId)", () => {
+  async function createOperatorWithUnit(
+    context: TestOrgContext,
+    suffix: string,
+  ): Promise<{ id: number; unitId: number }> {
+    const unit = await createUnit(context, `Filial ${suffix} ${context.prefix}`);
+    const created = await request(app)
+      .post(`/api/organizations/${context.organizationId}/users`)
+      .set(authHeader(context))
+      .send({
+        name: `Op ${suffix} ${context.prefix}`,
+        email: `${context.prefix}-${suffix}@e2e.daton.example`,
+        password: "Secret123!",
+        role: "operator",
+        modules: [],
+        unitId: unit.id,
+      });
+    expect(created.status).toBe(201);
+    return { id: created.body.id, unitId: unit.id };
+  }
+
+  async function findUser(context: TestOrgContext, id: number) {
+    const listed = await request(app)
+      .get(`/api/organizations/${context.organizationId}/users`)
+      .set(authHeader(context));
+    expect(listed.status).toBe(200);
+    return listed.body.users.find((u: { id: number }) => u.id === id);
+  }
+
+  it("keeps the existing unitId when the role update omits unitId", async () => {
+    const context = await createTestContext({ seed: "orguser-role-keep" });
+    contexts.push(context);
+    const { id, unitId } = await createOperatorWithUnit(context, "keep");
+
+    const patched = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/users/${id}/role`)
+      .set(authHeader(context))
+      .send({ role: "analyst" });
+    expect(patched.status).toBe(200);
+
+    const row = await findUser(context, id);
+    expect(row.unitId).toBe(unitId);
+  });
+
+  it("clears the unitId only when unitId: null is sent explicitly", async () => {
+    const context = await createTestContext({ seed: "orguser-role-clear" });
+    contexts.push(context);
+    const { id } = await createOperatorWithUnit(context, "clear");
+
+    const patched = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/users/${id}/role`)
+      .set(authHeader(context))
+      .send({ role: "operator", unitId: null });
+    expect(patched.status).toBe(200);
+
+    const row = await findUser(context, id);
+    expect(row.unitId).toBeNull();
+  });
+});

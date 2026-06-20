@@ -75,4 +75,26 @@ describe("auth identity (F1)", () => {
     expect(res.body.filial).toMatchObject({ id: unit.id });
     expect(res.body.filial.name).toContain("Filial POA");
   });
+
+  it("does not leak a filial from another organization via /auth/me", async () => {
+    const context = await createTestContext({ seed: "auth-me-xorg" });
+    const other = await createTestContext({ seed: "auth-me-xorg-other" });
+    contexts.push(context, other);
+    const foreignUnit = await createUnit(other, `Filial Externa ${other.prefix}`);
+
+    // Simula dado cross-tenant: aponta a filial do usuário para uma unit de OUTRA org.
+    // O lookup do /auth/me é escopado por organização, então a filial não pode vazar.
+    await db
+      .update(usersTable)
+      .set({ unitId: foreignUnit.id, lastLoginAt: new Date() })
+      .where(eq(usersTable.id, context.userId));
+
+    const res = await request(app)
+      .get("/api/auth/me")
+      .set(authHeader(context));
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.unitId).toBe(foreignUnit.id);
+    expect(res.body.filial).toBeNull();
+  });
 });

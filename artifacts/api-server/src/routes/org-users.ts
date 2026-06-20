@@ -191,8 +191,9 @@ router.patch("/organizations/:orgId/users/:userId/role",
       return;
     }
 
-    // Mantém a filial para qualquer papel (não zera ao trocar de cargo).
-    const nextUnitId = unitId ?? null;
+    // Mantém a filial para qualquer papel: omitir unitId preserva a atual;
+    // só zera quando o cliente envia unitId: null explicitamente.
+    const nextUnitId = unitId === undefined ? user.unitId : unitId;
     if (nextUnitId !== null) {
       const [unitRow] = await db
         .select({ id: unitsTable.id })

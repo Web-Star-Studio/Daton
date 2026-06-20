@@ -200,7 +200,7 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
     const [unit] = await db
       .select({ id: unitsTable.id, name: unitsTable.name })
       .from(unitsTable)
-      .where(eq(unitsTable.id, user.unitId));
+      .where(and(eq(unitsTable.id, user.unitId), eq(unitsTable.organizationId, organizationId)));
     filial = unit ?? null;
   }
 
@@ -274,7 +274,7 @@ router.patch("/auth/me", requireAuth, async (req, res): Promise<void> => {
     const [unit] = await db
       .select({ id: unitsTable.id, name: unitsTable.name })
       .from(unitsTable)
-      .where(eq(unitsTable.id, updatedUser.unitId));
+      .where(and(eq(unitsTable.id, updatedUser.unitId), eq(unitsTable.organizationId, organizationId)));
     filial = unit ?? null;
   }
 
