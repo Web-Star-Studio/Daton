@@ -2938,6 +2938,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/DocumentDetail"
 
+  /organizations/{orgId}/documents/{docId}/revise:
+    post:
+      operationId: reviseDocument
+      tags: [documents]
+      summary: Reopen distributed document for new revision
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document reopened as draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+
   /organizations/{orgId}/documents/{docId}/distribute:
     post:
       operationId: distributeDocument

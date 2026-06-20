@@ -94,6 +94,10 @@ const CompleteDocumentCriticalAnalysisParamsSchema = z.object({
   orgId: z.coerce.number(),
   docId: z.coerce.number(),
 });
+const ReviseDocumentParamsSchema = z.object({
+  orgId: z.coerce.number(),
+  docId: z.coerce.number(),
+});
 const DocumentCommunicationPlanParamsSchema = z.object({
   orgId: z.coerce.number().int().positive(),
   docId: z.coerce.number().int().positive(),
@@ -3232,6 +3236,72 @@ router.post(
       type: "document_rejected",
       title: "Documento rejeitado",
       description: `O documento "${doc.title}" foi rejeitado por ${userName?.name || "um aprovador"}. Motivo: ${body.data.comment}`,
+    });
+
+    const detail = await getDocumentDetail(docId, orgId);
+    res.json(detail);
+  },
+);
+
+router.post(
+  "/organizations/:orgId/documents/:docId/revise",
+  requireAuth,
+  requireModuleAccess("documents"),
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = ReviseDocumentParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+
+    const orgId = params.data.orgId;
+    const docId = params.data.docId;
+    const userId = req.auth!.userId;
+
+    const doc = await getDocumentRecord(docId, orgId);
+    if (!doc) {
+      res.status(404).json({ error: "Documento não encontrado" });
+      return;
+    }
+    if (doc.status !== "distributed") {
+      res
+        .status(400)
+        .json({ error: "Apenas documentos distribuídos podem ser reabertos para revisão" });
+      return;
+    }
+
+    const criticalReviewerIds = await getDocumentCriticalReviewerUserIds(docId);
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(documentsTable)
+        .set({ status: "draft" })
+        .where(eq(documentsTable.id, docId));
+
+      await startCriticalAnalysisCycle(tx, docId, criticalReviewerIds);
+    });
+
+    await notifyUsers({
+      orgId,
+      userIds: criticalReviewerIds,
+      actorUserId: userId,
+      type: "document_critical_analysis_requested",
+      title: "Documento reaberto para nova revisão",
+      description: `O documento "${doc.title}" foi reaberto para nova revisão e precisa de análise crítica.`,
+      docId,
+    });
+    await notifyDocumentDraftStakeholders({
+      orgId,
+      docId,
+      actorUserId: userId,
+      type: "document_updated",
+      title: "Nova revisão iniciada",
+      description: `O documento "${doc.title}" foi reaberto para nova revisão.`,
     });
 
     const detail = await getDocumentDetail(docId, orgId);

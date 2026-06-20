@@ -10734,6 +10734,91 @@ export const useRejectDocument = <
 };
 
 /**
+ * @summary Reopen distributed document for new revision
+ */
+export const getReviseDocumentUrl = (orgId: number, docId: number) => {
+  return `/api/organizations/${orgId}/documents/${docId}/revise`;
+};
+
+export const reviseDocument = async (
+  orgId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<DocumentDetail> => {
+  return customFetch<DocumentDetail>(getReviseDocumentUrl(orgId, docId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReviseDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviseDocument>>,
+    TError,
+    { orgId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reviseDocument>>,
+  TError,
+  { orgId: number; docId: number },
+  TContext
+> => {
+  const mutationKey = ["reviseDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reviseDocument>>,
+    { orgId: number; docId: number }
+  > = (props) => {
+    const { orgId, docId } = props ?? {};
+
+    return reviseDocument(orgId, docId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReviseDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reviseDocument>>
+>;
+
+export type ReviseDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reopen distributed document for new revision
+ */
+export const useReviseDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviseDocument>>,
+    TError,
+    { orgId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reviseDocument>>,
+  TError,
+  { orgId: number; docId: number },
+  TContext
+> => {
+  return useMutation(getReviseDocumentMutationOptions(options));
+};
+
+/**
  * @summary Distribute approved document to recipients
  */
 export const getDistributeDocumentUrl = (orgId: number, docId: number) => {

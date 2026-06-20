@@ -15,6 +15,7 @@ import {
   useSubmitDocumentForReview,
   useApproveDocument,
   useRejectDocument,
+  useReviseDocument,
   useAcknowledgeDocument,
   useAddDocumentAttachment,
   useDeleteDocumentAttachment,
@@ -372,6 +373,7 @@ export default function DocumentDetailPage() {
   const submitMut = useSubmitDocumentForReview();
   const approveMut = useApproveDocument();
   const rejectMut = useRejectDocument();
+  const reviseMut = useReviseDocument();
   const acknowledgeMut = useAcknowledgeDocument();
   const addAttachmentMut = useAddDocumentAttachment();
   const deleteAttachmentMut = useDeleteDocumentAttachment();
@@ -498,6 +500,10 @@ export default function DocumentDetailPage() {
     isCriticalAnalysisComplete;
   const canAcknowledge =
     isRecipient && doc?.status === "distributed" && !myReceipt?.readAt;
+  const canRevise =
+    canWriteDocuments &&
+    (role === "org_admin" || role === "operator") &&
+    doc?.status === "distributed";
 
   const handleSubmitForReview = async () => {
     if (!orgId || !submitChangeDescription.trim()) return;
@@ -532,6 +538,12 @@ export default function DocumentDetailPage() {
   const handleAcknowledge = async () => {
     if (!orgId) return;
     await acknowledgeMut.mutateAsync({ orgId, docId });
+    invalidate();
+  };
+
+  const handleRevise = async () => {
+    if (!orgId) return;
+    await reviseMut.mutateAsync({ orgId, docId });
     invalidate();
   };
 
@@ -825,6 +837,18 @@ export default function DocumentDetailPage() {
             icon={<CheckCircle className="h-3.5 w-3.5" />}
           >
             Confirmar Recebimento
+          </HeaderActionButton>
+        )}
+        {canRevise && (
+          <HeaderActionButton
+            size="sm"
+            variant="outline"
+            onClick={handleRevise}
+            isLoading={reviseMut.isPending}
+            label="Nova revisão"
+            icon={<RotateCcw className="h-3.5 w-3.5" />}
+          >
+            Nova revisão
           </HeaderActionButton>
         )}
         {doc.status === "draft" && (

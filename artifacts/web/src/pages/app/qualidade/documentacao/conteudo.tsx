@@ -24,6 +24,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft, Save } from "lucide-react";
 import { sectionsAreEqual } from "@/lib/document-content-sections";
+import { seedSectionsForType } from "@/lib/document-section-templates";
 import { DocumentSectionEditor } from "@/components/documents/document-section-editor";
 
 export default function DocumentContentEditorPage() {
@@ -171,6 +172,11 @@ export default function DocumentContentEditorPage() {
         sections={sections}
         canEdit={canEdit}
         onChange={setSections}
+        onSeedTemplate={
+          canEdit && doc
+            ? () => setSections(seedSectionsForType(doc.type))
+            : undefined
+        }
       />
 
       <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>

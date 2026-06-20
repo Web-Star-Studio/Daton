@@ -1005,4 +1005,109 @@ describe("documents routes", () => {
     expect(plans.body).toHaveLength(1);
     expect(plans.body[0].lastDistributedAt).not.toBeNull();
   });
+
+  it("revise reabre documento distribuído para rascunho com novo ciclo de análise crítica", async () => {
+    const context = await createTestContext({
+      seed: "documents-revise-reopen",
+    });
+    contexts.push(context);
+
+    // Use type "politica" + recipientIds: [] so approve sets status to "approved";
+    // then distribute manually (type=politica allows no-recipient creation).
+    const { document, criticalReviewer, approver } =
+      await createDocumentForTest(context, { type: "politica", recipientIds: [] });
+
+    // Complete critical analysis
+    await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/documents/${document.id}/critical-analysis/complete`,
+      )
+      .set({ Authorization: `Bearer ${criticalReviewer!.token}` })
+      .send({})
+      .expect(200);
+
+    // Submit for review
+    await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/documents/${document.id}/submit`,
+      )
+      .set(authHeader(context))
+      .send({ changeDescription: "Versão inicial" })
+      .expect(200);
+
+    // Approve — with no recipients, sets status to "approved" (not auto-distributed)
+    await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/documents/${document.id}/approve`,
+      )
+      .set({ Authorization: `Bearer ${approver!.token}` })
+      .send({})
+      .expect(200);
+
+    // Distribute manually
+    await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/documents/${document.id}/distribute`,
+      )
+      .set(authHeader(context))
+      .send({})
+      .expect(200);
+
+    // Revise — reopen for new revision
+    const reviseResponse = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/documents/${document.id}/revise`,
+      )
+      .set(authHeader(context))
+      .send({});
+
+    expect(reviseResponse.status).toBe(200);
+    expect(reviseResponse.body.status).toBe("draft");
+    expect(reviseResponse.body.criticalReviewers[0].status).toBe("pending");
+
+    // Verify in DB
+    const [storedDocument] = await db
+      .select({ status: documentsTable.status })
+      .from(documentsTable)
+      .where(eq(documentsTable.id, document.id));
+    expect(storedDocument?.status).toBe("draft");
+
+    const cycles = await db
+      .select({
+        analysisCycle: documentCriticalAnalysisTable.analysisCycle,
+        status: documentCriticalAnalysisTable.status,
+      })
+      .from(documentCriticalAnalysisTable)
+      .where(
+        and(
+          eq(documentCriticalAnalysisTable.documentId, document.id),
+          eq(documentCriticalAnalysisTable.userId, criticalReviewer!.id),
+        ),
+      )
+      .orderBy(desc(documentCriticalAnalysisTable.analysisCycle));
+
+    // Should have at least 2 cycles: the original completed one + the new pending one
+    expect(cycles.length).toBeGreaterThanOrEqual(2);
+    expect(cycles[0]?.status).toBe("pending");
+    expect(cycles.some((cycle) => cycle.status === "completed")).toBe(true);
+  });
+
+  it("revise rejeita documentos não distribuídos", async () => {
+    const context = await createTestContext({
+      seed: "documents-revise-reject-non-distributed",
+    });
+    contexts.push(context);
+
+    const { document } = await createDocumentForTest(context);
+
+    const reviseResponse = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/documents/${document.id}/revise`,
+      )
+      .set(authHeader(context))
+      .send({});
+
+    expect(reviseResponse.status).toBe(400);
+    expect(reviseResponse.body.error).toMatch(/distribuído/i);
+  });
 });

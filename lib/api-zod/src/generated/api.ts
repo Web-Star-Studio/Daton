@@ -5633,6 +5633,239 @@ export const RejectDocumentResponse = zod.object({
 });
 
 /**
+ * @summary Reopen distributed document for new revision
+ */
+export const ReviseDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const ReviseDocumentResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  type: zod.string(),
+  status: zod.string(),
+  currentVersion: zod.number(),
+  validityDate: zod.string().nullish(),
+  createdById: zod.number().optional(),
+  createdByName: zod.string().optional(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+  units: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        name: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  elaborators: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        unitId: zod.number().nullish(),
+        name: zod.string(),
+        cpf: zod.string().nullish(),
+        email: zod.string().nullish(),
+        phone: zod.string().nullish(),
+        position: zod.string().nullish(),
+        department: zod.string().nullish(),
+        contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
+        admissionDate: zod.string().nullish(),
+        terminationDate: zod.string().nullish(),
+        status: zod.enum(["active", "inactive", "on_leave"]),
+        unitName: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      }),
+    )
+    .optional(),
+  criticalReviewers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  approvers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        approvedAt: zod.string().nullish(),
+        comment: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        receivedAt: zod.string().nullish(),
+        readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  directRecipients: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        name: zod.string(),
+        email: zod.string().email(),
+      }),
+    )
+    .optional(),
+  recipientGroups: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        memberCount: zod.number(),
+        members: zod.array(
+          zod.object({
+            id: zod.number(),
+            sourceType: zod.enum([
+              "system_user",
+              "employee",
+              "external_contact",
+            ]),
+            sourceId: zod.number().nullish(),
+            name: zod.string(),
+            email: zod.string().email().nullish(),
+            phone: zod.string().nullish(),
+            organizationName: zod.string().nullish(),
+            classificationType: zod.enum([
+              "supplier",
+              "customer",
+              "partner",
+              "auditor",
+              "consultant",
+              "other",
+            ]),
+            classificationDescription: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            archivedAt: zod.string().nullish(),
+            createdAt: zod.string(),
+            updatedAt: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+  groupContacts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+        sourceId: zod.number().nullish(),
+        name: zod.string(),
+        email: zod.string().email().nullish(),
+        phone: zod.string().nullish(),
+        organizationName: zod.string().nullish(),
+        classificationType: zod.enum([
+          "supplier",
+          "customer",
+          "partner",
+          "auditor",
+          "consultant",
+          "other",
+        ]),
+        classificationDescription: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        archivedAt: zod.string().nullish(),
+        createdAt: zod.string(),
+        updatedAt: zod.string(),
+      }),
+    )
+    .optional(),
+  references: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        documentId: zod.number().optional(),
+        title: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        documentId: zod.number().optional(),
+        versionNumber: zod.number().optional(),
+        fileName: zod.string(),
+        fileSize: zod.number().optional(),
+        contentType: zod.string().optional(),
+        objectPath: zod.string(),
+        uploadedByName: zod.string().optional(),
+        uploadedAt: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  versions: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        versionNumber: zod.number(),
+        changeDescription: zod.string(),
+        changedByName: zod.string().optional(),
+        changedFields: zod.string().nullish(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+  communicationPlans: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        channel: zod.string(),
+        audience: zod.string(),
+        periodicity: zod.string(),
+        requiresAcknowledgment: zod.boolean(),
+        notes: zod.string().nullish(),
+        lastDistributedAt: zod.string().nullish(),
+        createdById: zod.number(),
+        createdByName: zod.string().nullish(),
+        createdAt: zod.string().nullish(),
+        updatedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  normativeRequirements: zod.array(zod.string()).optional(),
+  code: zod.string().nullish(),
+  area: zod.string().nullish(),
+  applicableNorm: zod.string().nullish(),
+  contentSections: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      body: zod.string().describe("Markdown"),
+      order: zod.number(),
+    }),
+  ),
+  recordsTreatment: zod
+    .object({
+      storageLocation: zod.string().nullish(),
+      retentionMonths: zod.number().nullish(),
+      disposalMethod: zod.string().nullish(),
+      responsible: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    })
+    .nullish(),
+});
+
+/**
  * @summary Distribute approved document to recipients
  */
 export const DistributeDocumentParams = zod.object({

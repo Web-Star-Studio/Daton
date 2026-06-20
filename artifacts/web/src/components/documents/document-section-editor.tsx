@@ -125,17 +125,26 @@ export function DocumentSectionEditor({
   sections,
   canEdit,
   onChange,
+  onSeedTemplate,
 }: {
   sections: DocumentContentSection[];
   canEdit: boolean;
   onChange: React.Dispatch<React.SetStateAction<DocumentContentSection[]>>;
+  onSeedTemplate?: () => void;
 }) {
   return (
     <>
       {sections.length === 0 && (
-        <Card className="p-6 text-sm text-muted-foreground">
-          Nenhuma seção ainda.
-          {canEdit && " Use “Adicionar seção” para começar."}
+        <Card className="p-6 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Nenhuma seção ainda.
+            {canEdit && " Use “Adicionar seção” para começar."}
+          </p>
+          {canEdit && onSeedTemplate && (
+            <Button variant="outline" size="sm" onClick={onSeedTemplate}>
+              Usar modelo padrão
+            </Button>
+          )}
         </Card>
       )}
 
