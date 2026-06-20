@@ -87,6 +87,13 @@ export default defineConfig({
         test: {
           name: "integration",
           globals: true,
+          // Integration tests run heavy per-test DB setup (createTestContext
+          // does a ~40-table cleanup transaction) against a shared Postgres;
+          // under parallel files / a slow CI DB the default 5s occasionally
+          // isn't enough. Raise the ceiling so legitimate-but-slow setup
+          // doesn't flake. Fast tests are unaffected.
+          testTimeout: 20000,
+          hookTimeout: 20000,
           sequence: {
             concurrent: false,
           },

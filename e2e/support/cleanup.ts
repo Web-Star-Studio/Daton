@@ -83,6 +83,10 @@ import {
   operationalPlansTable,
   kpiObjectivesTable,
   kpiIndicatorsTable,
+  kpiMonthlyValuesTable,
+  kpiYearConfigsTable,
+  actionPlansTable,
+  regulatoryDocumentsTable,
 } from "@workspace/db";
 
 type CleanupTransaction = Pick<typeof db, "delete">;
@@ -705,6 +709,10 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(unitLegislationsTable)
         .where(inArray(unitLegislationsTable.unitId, unitIds));
+      // regulatory_documents FKs to units (no cascade) — must delete before unitsTable
+      await tx
+        .delete(regulatoryDocumentsTable)
+        .where(inArray(regulatoryDocumentsTable.unitId, unitIds));
     }
 
     if (legislationIds.length > 0) {
@@ -727,6 +735,29 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(operationalPlansTable)
         .where(inArray(operationalPlansTable.organizationId, orgIds));
+
+      // KPI tables: monthly values → year configs → indicators (all FK to org)
+      const kpiConfigIds = await tx
+        .select({ id: kpiYearConfigsTable.id })
+        .from(kpiYearConfigsTable)
+        .where(inArray(kpiYearConfigsTable.organizationId, orgIds))
+        .then((rows) => rows.map((r) => r.id));
+      if (kpiConfigIds.length > 0) {
+        await tx
+          .delete(kpiMonthlyValuesTable)
+          .where(inArray(kpiMonthlyValuesTable.yearConfigId, kpiConfigIds));
+      }
+      await tx
+        .delete(kpiYearConfigsTable)
+        .where(inArray(kpiYearConfigsTable.organizationId, orgIds));
+      await tx
+        .delete(kpiIndicatorsTable)
+        .where(inArray(kpiIndicatorsTable.organizationId, orgIds));
+
+      // action_plans (child tables cascade via action_plan_id FK)
+      await tx
+        .delete(actionPlansTable)
+        .where(inArray(actionPlansTable.organizationId, orgIds));
     }
 
     if (userIds.length > 0) {
