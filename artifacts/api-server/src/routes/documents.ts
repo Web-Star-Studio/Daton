@@ -1274,6 +1274,18 @@ router.post(
       recipientGroupIds,
     );
 
+    // Validate inline contentSections with the same strict rules the PUT-content
+    // endpoint enforces (max 50, unique ids, per-field length limits).
+    if (body.data.contentSections) {
+      const sectionsValidation = UpdateDocumentContentBodySchema.safeParse({
+        contentSections: body.data.contentSections,
+      });
+      if (!sectionsValidation.success) {
+        res.status(400).json({ error: sectionsValidation.error.message });
+        return;
+      }
+    }
+
     let doc;
     try {
       [doc] = await db.transaction(async (tx) => {

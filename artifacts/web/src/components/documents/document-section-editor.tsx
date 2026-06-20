@@ -142,7 +142,7 @@ export function DocumentSectionEditor({
           </p>
           {canEdit && onSeedTemplate && (
             <Button type="button" variant="outline" size="sm" onClick={onSeedTemplate}>
-              Usar modelo padrão
+              Usar modelo do tipo
             </Button>
           )}
         </Card>

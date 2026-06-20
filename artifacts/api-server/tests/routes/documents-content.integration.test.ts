@@ -464,6 +464,42 @@ describe("documents — content flow", () => {
     expect(res.body.recordsTreatment.storageLocation).toBe("Pasta SGI");
   });
 
+  // (f) Creating a document with duplicate section ids in inline contentSections
+  //     must return 400 (same validation the PUT-content endpoint enforces).
+  it("(f) create rejeita contentSections com ids duplicados (400)", async () => {
+    const context = await createTestContext({
+      seed: "documents-content-dup-ids",
+      modules: ["documents"],
+    });
+    contexts.push(context);
+
+    const reviewer = await createTestUser(context, {
+      suffix: "rev",
+      modules: ["documents"],
+    });
+    const employee = await createEmployee(context, {
+      name: `Elaborador dupid ${context.prefix}`,
+    });
+
+    const res = await request(app)
+      .post(`/api/organizations/${context.organizationId}/documents`)
+      .set(authHeader(context))
+      .send({
+        title: "Doc dup-ids",
+        type: "politica",
+        elaboratorIds: [employee.id],
+        criticalReviewerIds: [reviewer.id],
+        approverIds: [reviewer.id],
+        contentSections: [
+          { id: "dup", title: "Seção A", body: "", order: 0 },
+          { id: "dup", title: "Seção B", body: "", order: 1 },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty("error");
+  });
+
   // (d) Full approval freezes the snapshot: after editing content and approving
   //     (document with no recipients → becomes `approved`), GET .../versions/1
   //     returns the frozen `contentSections` (matching what was authored) and a
