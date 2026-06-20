@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
-import { db, usersTable, organizationsTable, userModulePermissionsTable } from "@workspace/db";
+import { db, usersTable, organizationsTable, userModulePermissionsTable, unitsTable } from "@workspace/db";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { issueAuthToken, requireAuth } from "../middlewares/auth";
 import { serializeOrganization } from "../lib/serialize-organization";
@@ -35,6 +35,7 @@ function serializeAuthUser(user: {
   unitId: number | null;
   theme: string;
   createdAt: Date;
+  lastLoginAt: Date | null;
 }) {
   return {
     id: user.id,
@@ -45,6 +46,7 @@ function serializeAuthUser(user: {
     unitId: user.unitId ?? null,
     theme: user.theme,
     createdAt: user.createdAt.toISOString(),
+    lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
   };
 }
 
@@ -58,14 +60,17 @@ function serializeMeResponse(
     unitId: number | null;
     theme: string;
     createdAt: Date;
+    lastLoginAt: Date | null;
   },
   organization: Parameters<typeof serializeOrganization>[0],
   modules: string[],
+  filial: { id: number; name: string } | null,
 ) {
   return {
     user: serializeAuthUser(user),
     organization: serializeOrganization(organization),
     modules,
+    filial,
   };
 }
 
@@ -155,6 +160,11 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  await db
+    .update(usersTable)
+    .set({ lastLoginAt: new Date() })
+    .where(eq(usersTable.id, user.id));
+
   const token = await issueAuthToken({ userId: user.id, organizationId: user.organizationId, role: user.role as any });
 
   res.status(200).json({
@@ -185,7 +195,16 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   const modulePerms = await db.select().from(userModulePermissionsTable)
     .where(eq(userModulePermissionsTable.userId, userId));
 
-  res.json(serializeMeResponse(user, org, modulePerms.map((p) => p.module)));
+  let filial: { id: number; name: string } | null = null;
+  if (user.unitId) {
+    const [unit] = await db
+      .select({ id: unitsTable.id, name: unitsTable.name })
+      .from(unitsTable)
+      .where(and(eq(unitsTable.id, user.unitId), eq(unitsTable.organizationId, organizationId)));
+    filial = unit ?? null;
+  }
+
+  res.json(serializeMeResponse(user, org, modulePerms.map((p) => p.module), filial));
 });
 
 router.patch("/auth/me", requireAuth, async (req, res): Promise<void> => {
@@ -250,7 +269,16 @@ router.patch("/auth/me", requireAuth, async (req, res): Promise<void> => {
     .from(userModulePermissionsTable)
     .where(eq(userModulePermissionsTable.userId, userId));
 
-  res.json(serializeMeResponse(updatedUser, org, modulePerms.map((p) => p.module)));
+  let filial: { id: number; name: string } | null = null;
+  if (updatedUser.unitId) {
+    const [unit] = await db
+      .select({ id: unitsTable.id, name: unitsTable.name })
+      .from(unitsTable)
+      .where(and(eq(unitsTable.id, updatedUser.unitId), eq(unitsTable.organizationId, organizationId)));
+    filial = unit ?? null;
+  }
+
+  res.json(serializeMeResponse(updatedUser, org, modulePerms.map((p) => p.module), filial));
 });
 
 router.patch("/auth/me/password", requireAuth, async (req, res): Promise<void> => {

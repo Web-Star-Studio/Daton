@@ -54,6 +54,7 @@ import KpiLancamentosPage from "@/pages/app/kpi/lancamentos";
 import RoadSafetyModulePage from "@/pages/app/road-safety/module";
 import ActionPlansListPage from "@/pages/app/planos-acao";
 import ActionPlanDetailPage from "@/pages/app/planos-acao/[id]";
+import SuasPendenciasPage from "@/pages/app/pendencias";
 import AtivosPage from "@/pages/app/organizacao/ativos";
 import AmbientePage from "@/pages/app/infraestrutura/ambiente";
 import MedicaoPage from "@/pages/app/infraestrutura/medicao";
@@ -241,6 +242,7 @@ function AppPages() {
         <KpiDashboardPage />
       </Route>
       <Route path="/fatores-desempenho" component={RoadSafetyModulePage} />
+      <Route path="/pendencias" component={SuasPendenciasPage} />
       <Route path="/planos-acao/:id" component={ActionPlanDetailPage} />
       <Route path="/planos-acao" component={ActionPlansListPage} />
       <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
@@ -384,6 +386,7 @@ function Router() {
     location.startsWith("/kpi") ||
     location.startsWith("/fatores-desempenho") ||
     location.startsWith("/planos-acao") ||
+    location.startsWith("/pendencias") ||
     location.startsWith("/infraestrutura") ||
     location.startsWith("/configuracoes");
   const isAppRoute = isAdminRoute || isOrgRoute;
@@ -408,7 +411,7 @@ function Router() {
       !onboardingPending &&
       (isOnboardingRoute || isAuthRoute)
     )
-      return "/organizacao";
+      return "/pendencias";
     return null;
   }, [
     isAppRoute,
