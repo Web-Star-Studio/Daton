@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import React, { useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { DocumentContentSection } from "@workspace/api-client-react";
@@ -128,7 +128,7 @@ export function DocumentSectionEditor({
 }: {
   sections: DocumentContentSection[];
   canEdit: boolean;
-  onChange: (next: DocumentContentSection[]) => void;
+  onChange: React.Dispatch<React.SetStateAction<DocumentContentSection[]>>;
 }) {
   return (
     <>
@@ -146,14 +146,14 @@ export function DocumentSectionEditor({
           index={index}
           total={sections.length}
           canEdit={canEdit}
-          onChange={(patch) => onChange(updateSection(sections, section.id, patch))}
-          onRemove={() => onChange(removeSection(sections, section.id))}
-          onMove={(dir) => onChange(moveSection(sections, section.id, dir))}
+          onChange={(patch) => onChange((prev) => updateSection(prev, section.id, patch))}
+          onRemove={() => onChange((prev) => removeSection(prev, section.id))}
+          onMove={(dir) => onChange((prev) => moveSection(prev, section.id, dir))}
         />
       ))}
 
       {canEdit && (
-        <Button variant="outline" onClick={() => onChange(addSection(sections))}>
+        <Button variant="outline" onClick={() => onChange((prev) => addSection(prev))}>
           <Plus className="mr-2 h-4 w-4" /> Adicionar seção
         </Button>
       )}
