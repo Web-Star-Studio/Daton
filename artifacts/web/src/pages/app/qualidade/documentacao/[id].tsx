@@ -22,6 +22,8 @@ import {
   useDeleteDocument,
   useListUnits,
   getListUnitsQueryKey,
+  useListDepartments,
+  getListDepartmentsQueryKey,
   useListOrganizationContactGroups,
   getListOrganizationContactGroupsQueryKey,
 } from "@workspace/api-client-react";
@@ -42,6 +44,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { SearchableStringSelect } from "@/components/ui/searchable-string-select";
+import { NORMA_OPTIONS } from "@/lib/document-list";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { toast } from "@/hooks/use-toast";
@@ -270,6 +274,12 @@ export default function DocumentDetailPage() {
   const { data: allUnits } = useListUnits(orgId!, {
     query: {
       queryKey: getListUnitsQueryKey(orgId!),
+      enabled: !!orgId && editDialogOpen,
+    },
+  });
+  const { data: allDepartments } = useListDepartments(orgId!, {
+    query: {
+      queryKey: getListDepartmentsQueryKey(orgId!),
       enabled: !!orgId && editDialogOpen,
     },
   });
@@ -1767,44 +1777,48 @@ export default function DocumentDetailPage() {
                   </div>
                   <div>
                     <Label>Área / Setor</Label>
-                    <Input
-                      className="mt-2"
-                      value={editForm.area}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, area: e.target.value })
-                      }
-                    />
+                    <div className="mt-2">
+                      <SearchableStringSelect
+                        value={editForm.area}
+                        onChange={(v) =>
+                          setEditForm({ ...editForm, area: v })
+                        }
+                        options={(allDepartments ?? []).map((d) => d.name)}
+                        placeholder="Selecione ou busque..."
+                      />
+                    </div>
                   </div>
                 </div>
                 <div>
                   <Label>Norma aplicável</Label>
-                  <Input
-                    className="mt-2"
-                    value={editForm.applicableNorm}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        applicableNorm: e.target.value,
-                      })
-                    }
-                  />
+                  <div className="mt-2">
+                    <SearchableStringSelect
+                      value={editForm.applicableNorm}
+                      onChange={(v) =>
+                        setEditForm({ ...editForm, applicableNorm: v })
+                      }
+                      options={NORMA_OPTIONS}
+                      placeholder="Selecione a norma..."
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <Label>Tipo *</Label>
-                    <Select
-                      className="mt-2"
-                      value={editForm.type}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, type: e.target.value })
-                      }
-                    >
-                      {Object.entries(TYPE_LABELS).map(([key, value]) => (
-                        <option key={key} value={key}>
-                          {value}
-                        </option>
-                      ))}
-                    </Select>
+                    <div className="mt-2">
+                      <SearchableStringSelect
+                        value={TYPE_LABELS[editForm.type] ?? editForm.type}
+                        onChange={(label) => {
+                          const key =
+                            Object.entries(TYPE_LABELS).find(
+                              ([, v]) => v === label,
+                            )?.[0] ?? label;
+                          setEditForm({ ...editForm, type: key });
+                        }}
+                        options={Object.values(TYPE_LABELS)}
+                        placeholder="Selecione o tipo..."
+                      />
+                    </div>
                   </div>
                   <div>
                     <Label>Data de Validade</Label>

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -11,6 +11,8 @@ import {
   getListDocumentsQueryKey,
   useListUnits,
   getListUnitsQueryKey,
+  useListDepartments,
+  getListDepartmentsQueryKey,
   useCreateDocument,
   useDeleteDocument,
   useListOrganizationContactGroups,
@@ -22,6 +24,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { SearchableStringSelect } from "@/components/ui/searchable-string-select";
+import { NORMA_OPTIONS } from "@/lib/document-list";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { Plus, FileText, Upload, X, Trash2 } from "lucide-react";
@@ -537,6 +541,7 @@ function CreateDocumentModal({
   const [maxReachedStep, setMaxReachedStep] = useState(0);
   const {
     register,
+    control,
     handleSubmit,
     watch,
     setValue,
@@ -578,6 +583,13 @@ function CreateDocumentModal({
 
   const { data: units } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId && open },
+  });
+
+  const { data: departments } = useListDepartments(orgId!, {
+    query: {
+      queryKey: getListDepartmentsQueryKey(orgId!),
+      enabled: !!orgId && open,
+    },
   });
 
   const elaboratorPicker = useEmployeeMultiPicker({
@@ -852,24 +864,46 @@ function CreateDocumentModal({
               </div>
               <div>
                 <Label>Área / Setor</Label>
-                <Input
-                  placeholder="Ex.: Logística"
-                  className="mt-2"
-                  {...register("area")}
-                />
+                <div className="mt-2">
+                  <Controller
+                    name="area"
+                    control={control}
+                    render={({ field }) => (
+                      <SearchableStringSelect
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                        options={(departments ?? []).map((d) => d.name)}
+                        placeholder="Selecione ou busque..."
+                      />
+                    )}
+                  />
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <Label>Tipo</Label>
-                <Select {...register("type")} className="mt-2">
-                  {TYPE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </Select>
+                <div className="mt-2">
+                  <Controller
+                    name="type"
+                    control={control}
+                    render={({ field }) => (
+                      <SearchableStringSelect
+                        value={TYPE_LABELS[field.value] ?? field.value}
+                        onChange={(label) => {
+                          const key =
+                            Object.entries(TYPE_LABELS).find(
+                              ([, v]) => v === label,
+                            )?.[0] ?? label;
+                          field.onChange(key);
+                        }}
+                        options={Object.values(TYPE_LABELS)}
+                        placeholder="Selecione o tipo..."
+                      />
+                    )}
+                  />
+                </div>
               </div>
               <div>
                 <Label>Data de Validade *</Label>
@@ -888,11 +922,20 @@ function CreateDocumentModal({
 
             <div>
               <Label>Norma aplicável</Label>
-              <Input
-                placeholder="Ex.: ISO 9001"
-                className="mt-2"
-                {...register("applicableNorm")}
-              />
+              <div className="mt-2">
+                <Controller
+                  name="applicableNorm"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableStringSelect
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      options={NORMA_OPTIONS}
+                      placeholder="Selecione a norma..."
+                    />
+                  )}
+                />
+              </div>
             </div>
           </div>
         )}
