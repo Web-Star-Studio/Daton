@@ -1074,24 +1074,6 @@ export default function DocumentDetailPage() {
             </div>
           )}
 
-          {doc.elaborators && doc.elaborators.length > 0 && (
-            <div>
-              <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                Elaboradores
-              </Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {doc.elaborators.map((e) => (
-                  <span
-                    key={e.id}
-                    className="px-2.5 py-1 bg-muted/50 rounded-md text-sm"
-                  >
-                    {e.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
           {doc.references && doc.references.length > 0 && (
             <div>
               <Label className="text-muted-foreground text-xs uppercase tracking-wider">
