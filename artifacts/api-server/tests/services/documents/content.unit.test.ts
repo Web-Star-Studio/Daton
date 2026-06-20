@@ -6,6 +6,7 @@ import {
   buildVersionMetaSnapshot,
   isDuplicateCodeError,
   blankToNull,
+  normalizeRecordsTreatment,
 } from "../../../src/services/documents/content";
 
 const section = (over: Partial<{ id: string; title: string; body: string; order: number }> = {}) => ({ id: "a", title: "Objetivo", body: "texto", order: 0, ...over });
@@ -88,6 +89,61 @@ describe("buildVersionMetaSnapshot", () => {
     });
     expect(snap).toEqual({
       title: "Doc", code: "IT-LOG-001", area: null, applicableNorm: "ISO 9001", normativeRequirements: ["7.5"],
+      recordsTreatment: null,
     });
+  });
+});
+
+describe("normalizeRecordsTreatment", () => {
+  it("converte strings vazias em null e mantém valores", () => {
+    expect(
+      normalizeRecordsTreatment({
+        storageLocation: "  Pasta SGI  ",
+        retentionMonths: 60,
+        disposalMethod: "",
+        responsible: "  ",
+        notes: null,
+      }),
+    ).toEqual({
+      storageLocation: "Pasta SGI",
+      retentionMonths: 60,
+      disposalMethod: null,
+      responsible: null,
+      notes: null,
+    });
+  });
+
+  it("retorna null quando tudo está vazio", () => {
+    expect(
+      normalizeRecordsTreatment({
+        storageLocation: "",
+        retentionMonths: null,
+        disposalMethod: "",
+        responsible: "",
+        notes: "",
+      }),
+    ).toBeNull();
+    expect(normalizeRecordsTreatment(null)).toBeNull();
+    expect(normalizeRecordsTreatment(undefined)).toBeNull();
+  });
+});
+
+describe("buildVersionMetaSnapshot inclui recordsTreatment", () => {
+  it("congela recordsTreatment", () => {
+    const snap = buildVersionMetaSnapshot({
+      title: "T",
+      code: "C-1",
+      area: "Qualidade",
+      applicableNorm: "ISO 9001:2015",
+      normativeRequirements: [],
+      recordsTreatment: {
+        storageLocation: "Pasta",
+        retentionMonths: 12,
+        disposalMethod: null,
+        responsible: null,
+        notes: null,
+      },
+    });
+    expect(snap.recordsTreatment?.retentionMonths).toBe(12);
   });
 });

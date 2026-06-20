@@ -21,6 +21,14 @@ export type DocumentContentSection = {
   order: number;
 };
 
+export type DocumentRecordsTreatment = {
+  storageLocation: string | null; // local de armazenamento (§7.5.3)
+  retentionMonths: number | null; // tempo de guarda em meses
+  disposalMethod: string | null; // forma de descarte
+  responsible: string | null; // responsável pelo registro
+  notes: string | null; // observações
+};
+
 // Snapshot dos metadados de identificação congelados na aprovação de uma revisão.
 // O conteúdo das seções é congelado à parte, na coluna content_sections de document_versions.
 export type DocumentVersionMetaSnapshot = {
@@ -29,6 +37,7 @@ export type DocumentVersionMetaSnapshot = {
   area: string | null;
   applicableNorm: string | null;
   normativeRequirements: string[];
+  recordsTreatment: DocumentRecordsTreatment | null;
 };
 
 export const documentsTable = pgTable(
@@ -56,6 +65,7 @@ export const documentsTable = pgTable(
       .$type<DocumentContentSection[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    recordsTreatment: jsonb("records_treatment").$type<DocumentRecordsTreatment>(),
     validityDate: date("validity_date"),
     createdById: integer("created_by_id")
       .notNull()
