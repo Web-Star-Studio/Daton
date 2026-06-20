@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -34,7 +34,10 @@ import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
 import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
 import { DocumentNormativeRequirementsField } from "@/components/documents/document-normative-requirements-field";
+import { DocumentSectionEditor } from "@/components/documents/document-section-editor";
 import { getDocumentRecipientResolution } from "@/lib/organization-contacts";
+import type { DocumentContentSection } from "@workspace/api-client-react";
+import { seedSectionsForType } from "@/lib/document-section-templates";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Análise crítica",
@@ -537,6 +540,8 @@ function CreateDocumentModal({
 }) {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [contentSections, setContentSections] = useState<DocumentContentSection[]>([]);
+  const contentTouched = useRef(false);
   const [step, setStep] = useState(0);
   const [maxReachedStep, setMaxReachedStep] = useState(0);
   const {
@@ -636,6 +641,10 @@ function CreateDocumentModal({
   const createMut = useCreateDocument();
 
   useEffect(() => {
+    if (!contentTouched.current) setContentSections(seedSectionsForType(type));
+  }, [type]);
+
+  useEffect(() => {
     if (recipientResolution.totalContactCount > 0) {
       clearErrors("recipientIds");
     }
@@ -645,6 +654,8 @@ function CreateDocumentModal({
     if (!val) {
       reset();
       setUploadedFiles([]);
+      setContentSections([]);
+      contentTouched.current = false;
       setStep(0);
       setMaxReachedStep(0);
     }
@@ -751,6 +762,7 @@ function CreateDocumentModal({
               ? data.normativeRequirements
               : undefined,
           attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
+          contentSections: contentSections.length ? contentSections : undefined,
         } as never,
       });
       reset();
@@ -769,7 +781,7 @@ function CreateDocumentModal({
     }
   };
 
-  const steps = ["Básico", "Responsáveis", "Escopo", "Anexos"];
+  const steps = ["Básico", "Conteúdo", "Responsáveis", "Escopo", "Anexos"];
 
   const validateStep = async (targetStep: number) => {
     if (targetStep <= step) return true;
@@ -779,7 +791,7 @@ function CreateDocumentModal({
       if (!valid) return false;
     }
 
-    if (step === 1) {
+    if (step === 2) {
       const valid = await trigger([
         "elaboratorIds",
         "criticalReviewerIds",
@@ -815,6 +827,7 @@ function CreateDocumentModal({
       description={
         [
           "Defina os dados principais do documento.",
+          "Escreva o conteúdo das seções.",
           "Selecione colaborador, análise crítica, aprovadores, grupos e destinatários.",
           "Associe unidades e referências relacionadas.",
           "Adicione os anexos iniciais antes de salvar.",
@@ -941,6 +954,17 @@ function CreateDocumentModal({
         )}
 
         {step === 1 && (
+          <DocumentSectionEditor
+            sections={contentSections}
+            canEdit
+            onChange={(updater) => {
+              contentTouched.current = true;
+              setContentSections(updater);
+            }}
+          />
+        )}
+
+        {step === 2 && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-6">
               <div>
@@ -1068,7 +1092,7 @@ function CreateDocumentModal({
           </div>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <div className="space-y-5">
             <div>
               <Label>Filial</Label>
@@ -1128,7 +1152,7 @@ function CreateDocumentModal({
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div>
             <Label>Anexo Inicial</Label>
             <div className="mt-2">
