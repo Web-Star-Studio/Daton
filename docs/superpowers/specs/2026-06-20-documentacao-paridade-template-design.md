@@ -68,6 +68,17 @@ A lista já tem busca + filtros (tipo/status/unidade) + badge de status colorido
 - **Bloco de assinaturas** (paridade com a aba "Aprovação" do protótipo): Elaborado por / Revisado por (análise crítica) / Aprovado por + datas — dados já existentes (elaboradores, revisores críticos, aprovadores com `approvedAt`). Exibir no detalhe e incluir no **PDF** exportado.
 - Exibir **Tratativa de Registros** (§7.5.3) no detalhe.
 
+### 6. Documentos legados / "Nova revisão" (full-stack)
+
+Problema relatado: documentos criados antes do feature (ex.: os 8 da org demo) têm `content_sections = []` e estão em `published`/`approved`/`distributed` — e **não dá para preencher conteúdo nem editar identificação**. Causa: o gate é duplo — `conteudo.tsx`/`[id].tsx` só habilitam edição em `draft`/`rejected`, e o **servidor também bloqueia** (`PUT .../content` e `PATCH .../:docId` retornam 400 se `status` não for `draft`/`rejected`).
+
+Solução (espelha o "Nova revisão" do protótipo, aderente à ISO — editar documento controlado exige nova revisão + reaprovação):
+
+- **Backend:** nova rota `POST /organizations/:orgId/documents/:docId/revise` — permitida em `approved`/`published`/`distributed` (write access). Move o documento para `draft` **preservando `currentVersion`** (a versão aprovada permanece no histórico/snapshots) e recria o ciclo de análise crítica (reusar a lógica do `reject` → draft + `startCriticalAnalysisCycle`). Notifica os stakeholders de rascunho. Em `draft`/`rejected` retorna 400 ("já está em edição"); em `in_review` retorna 400 (rejeite ou aguarde).
+- **Frontend (`[id].tsx`):** botão **"Nova revisão"** no detalhe para docs `approved`/`published`/`distributed` (write access), com confirmação ("o documento voltará para rascunho até nova aprovação"). Após a ação, os fluxos de edição (Conteúdo, Editar) já existentes destravam.
+- **Editor (`DocumentSectionEditor`/`conteudo.tsx`):** quando o doc está editável e `contentSections` está vazio, exibir botão **"Usar modelo do tipo"** que semeia as seções via `seedSectionsForType(doc.type)` (mirror do client, Task 6) — resolve o "Conteúdo em branco" dos legados.
+- Após editar e re-submeter → aprovar, a próxima versão (N+1) congela o novo snapshot; a versão anterior continua no histórico.
+
 ## Escopo (out / divergências intencionais)
 
 - Tabela de **controle de versão manual** (protótipo) — mantemos versionamento automático.
