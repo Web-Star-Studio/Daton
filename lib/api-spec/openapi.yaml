@@ -10689,9 +10689,18 @@ components:
         department:
           type: string
           nullable: true
+        birthDate:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        education:
+          type: string
+          nullable: true
         contractType:
           type: string
-          enum: [clt, pj, intern, temporary]
+          enum: [clt, pj, intern, temporary, terceirizado]
         admissionDate:
           type: string
           nullable: true
@@ -11393,9 +11402,15 @@ components:
             $ref: "#/components/schemas/EmployeeProfileItemInput"
         unitId:
           type: integer
+        birthDate:
+          type: string
+        gender:
+          type: string
+        education:
+          type: string
         contractType:
           type: string
-          enum: [clt, pj, intern, temporary]
+          enum: [clt, pj, intern, temporary, terceirizado]
         admissionDate:
           type: string
         terminationDate:
@@ -11428,9 +11443,18 @@ components:
         unitId:
           type: integer
           nullable: true
+        birthDate:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        education:
+          type: string
+          nullable: true
         contractType:
           type: string
-          enum: [clt, pj, intern, temporary]
+          enum: [clt, pj, intern, temporary, terceirizado]
         admissionDate:
           type: string
           nullable: true

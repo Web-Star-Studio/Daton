@@ -18,6 +18,9 @@ export interface Employee {
   phone?: string | null;
   position?: string | null;
   department?: string | null;
+  birthDate?: string | null;
+  gender?: string | null;
+  education?: string | null;
   contractType: EmployeeContractType;
   admissionDate?: string | null;
   terminationDate?: string | null;

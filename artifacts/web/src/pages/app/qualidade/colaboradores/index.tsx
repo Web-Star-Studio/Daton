@@ -71,6 +71,7 @@ const CONTRACT_LABELS: Record<string, string> = {
   pj: "PJ",
   intern: "Estagiário",
   temporary: "Temporário",
+  terceirizado: "Terceirizado",
 };
 
 function toRequiredString(value: unknown): string {
@@ -513,6 +514,9 @@ export default function ColaboradoresPage() {
       ...(data.phone ? { phone: data.phone } : {}),
       ...(data.department ? { department: data.department } : {}),
       ...(data.position ? { position: data.position } : {}),
+      ...(data.birthDate ? { birthDate: data.birthDate } : {}),
+      ...(data.gender ? { gender: data.gender } : {}),
+      ...(data.education ? { education: data.education } : {}),
       ...(professionalExperiences.length > 0
         ? {
             professionalExperiences: professionalExperiences.map((item) => ({
@@ -963,6 +967,67 @@ export default function ColaboradoresPage() {
                   placeholder="(00) 00000-0000"
                 />
               </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Data de nascimento
+                </Label>
+                <Input
+                  {...register("birthDate", {
+                    setValueAs: toOptionalString,
+                  })}
+                  className="mt-1"
+                  type="date"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Gênero
+                </Label>
+                <Select
+                  {...register("gender", {
+                    setValueAs: (value) => value || undefined,
+                  })}
+                  className="mt-1 h-10 text-[13px]"
+                >
+                  <option value="">Selecionar gênero</option>
+                  <option value="Masculino">Masculino</option>
+                  <option value="Feminino">Feminino</option>
+                  <option value="Não Binário">Não Binário</option>
+                  <option value="Prefiro Não Informar">
+                    Prefiro Não Informar
+                  </option>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Escolaridade
+                </Label>
+                <Select
+                  {...register("education", {
+                    setValueAs: (value) => value || undefined,
+                  })}
+                  className="mt-1 h-10 text-[13px]"
+                >
+                  <option value="">Selecionar escolaridade</option>
+                  <option value="Fundamental Incompleto">
+                    Fundamental Incompleto
+                  </option>
+                  <option value="Fundamental Completo">
+                    Fundamental Completo
+                  </option>
+                  <option value="Médio Incompleto">Médio Incompleto</option>
+                  <option value="Médio Completo">Médio Completo</option>
+                  <option value="Técnico">Técnico</option>
+                  <option value="Superior Incompleto">
+                    Superior Incompleto
+                  </option>
+                  <option value="Superior Completo">Superior Completo</option>
+                  <option value="Pós-Graduação">Pós-Graduação</option>
+                  <option value="Mestrado">Mestrado</option>
+                  <option value="Doutorado">Doutorado</option>
+                  <option value="Não Aplicável">Não Aplicável</option>
+                </Select>
+              </div>
             </div>
           )}
 
@@ -1034,6 +1099,7 @@ export default function ColaboradoresPage() {
                   <option value="pj">PJ</option>
                   <option value="intern">Estagiário</option>
                   <option value="temporary">Temporário</option>
+                  <option value="terceirizado">Terceirizado</option>
                 </select>
               </div>
               <div>

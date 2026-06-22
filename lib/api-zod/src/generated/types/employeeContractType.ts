@@ -14,4 +14,5 @@ export const EmployeeContractType = {
   pj: "pj",
   intern: "intern",
   temporary: "temporary",
+  terceirizado: "terceirizado",
 } as const;

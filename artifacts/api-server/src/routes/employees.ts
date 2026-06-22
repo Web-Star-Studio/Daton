@@ -121,6 +121,9 @@ interface EmployeeRow {
   phone: string | null;
   position: string | null;
   department: string | null;
+  birthDate: string | null;
+  gender: string | null;
+  education: string | null;
   contractType: string;
   admissionDate: string | null;
   terminationDate: string | null;
@@ -237,6 +240,9 @@ function formatEmployee(e: EmployeeRow) {
     phone: e.phone,
     position: e.position,
     department: e.department,
+    birthDate: e.birthDate,
+    gender: e.gender,
+    education: e.education,
     contractType: e.contractType,
     admissionDate: e.admissionDate,
     terminationDate: e.terminationDate,
@@ -261,6 +267,9 @@ const EMPLOYEE_TEXT_FIELDS = [
   "phone",
   "position",
   "department",
+  "birthDate",
+  "gender",
+  "education",
   "admissionDate",
   "terminationDate",
 ] as const;
@@ -1131,6 +1140,9 @@ router.get(
         phone: employeesTable.phone,
         position: employeesTable.position,
         department: employeesTable.department,
+        birthDate: employeesTable.birthDate,
+        gender: employeesTable.gender,
+        education: employeesTable.education,
         contractType: employeesTable.contractType,
         admissionDate: employeesTable.admissionDate,
         terminationDate: employeesTable.terminationDate,
@@ -2086,6 +2098,9 @@ router.get(
         phone: employeesTable.phone,
         position: employeesTable.position,
         department: employeesTable.department,
+        birthDate: employeesTable.birthDate,
+        gender: employeesTable.gender,
+        education: employeesTable.education,
         contractType: employeesTable.contractType,
         admissionDate: employeesTable.admissionDate,
         terminationDate: employeesTable.terminationDate,

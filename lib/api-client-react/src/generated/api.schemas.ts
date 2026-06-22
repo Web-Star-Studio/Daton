@@ -857,6 +857,7 @@ export const EmployeeContractType = {
   pj: "pj",
   intern: "intern",
   temporary: "temporary",
+  terceirizado: "terceirizado",
 } as const;
 
 export type EmployeeStatus =
@@ -878,6 +879,9 @@ export interface Employee {
   phone?: string | null;
   position?: string | null;
   department?: string | null;
+  birthDate?: string | null;
+  gender?: string | null;
+  education?: string | null;
   contractType: EmployeeContractType;
   admissionDate?: string | null;
   terminationDate?: string | null;
@@ -1229,6 +1233,7 @@ export const CreateEmployeeBodyContractType = {
   pj: "pj",
   intern: "intern",
   temporary: "temporary",
+  terceirizado: "terceirizado",
 } as const;
 
 export type CreateEmployeeBodyStatus =
@@ -1269,6 +1274,9 @@ export interface CreateEmployeeBody {
   professionalExperiences?: EmployeeProfileItemInput[];
   educationCertifications?: EmployeeProfileItemInput[];
   unitId?: number;
+  birthDate?: string;
+  gender?: string;
+  education?: string;
   contractType?: CreateEmployeeBodyContractType;
   admissionDate: string;
   terminationDate?: string;
@@ -1283,6 +1291,7 @@ export const UpdateEmployeeBodyContractType = {
   pj: "pj",
   intern: "intern",
   temporary: "temporary",
+  terceirizado: "terceirizado",
 } as const;
 
 export type UpdateEmployeeBodyStatus =
@@ -1304,6 +1313,9 @@ export interface UpdateEmployeeBody {
   position?: string;
   department?: string;
   unitId?: number | null;
+  birthDate?: string | null;
+  gender?: string | null;
+  education?: string | null;
   contractType?: UpdateEmployeeBodyContractType;
   admissionDate?: string | null;
   terminationDate?: string | null;
