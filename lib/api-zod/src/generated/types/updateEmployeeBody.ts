@@ -18,6 +18,9 @@ export interface UpdateEmployeeBody {
   position?: string;
   department?: string;
   unitId?: number | null;
+  birthDate?: string | null;
+  gender?: string | null;
+  education?: string | null;
   contractType?: UpdateEmployeeBodyContractType;
   admissionDate?: string | null;
   terminationDate?: string | null;

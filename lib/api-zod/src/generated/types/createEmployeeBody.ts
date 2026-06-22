@@ -21,6 +21,9 @@ export interface CreateEmployeeBody {
   professionalExperiences?: EmployeeProfileItemInput[];
   educationCertifications?: EmployeeProfileItemInput[];
   unitId?: number;
+  birthDate?: string;
+  gender?: string;
+  education?: string;
   contractType?: CreateEmployeeBodyContractType;
   admissionDate: string;
   terminationDate?: string;
