@@ -40,11 +40,11 @@ const INPUT_TOPICS: { key: string; label: string; hint: string }[] = [
   {
     key: "context_changes",
     label: "Mudanças no contexto",
-    hint: "Mudanças em questões externas e internas relevantes ao SGI.",
+    hint: "Mudanças em questões externas e internas relevantes ao Sistema de Gestão.",
   },
   {
     key: "performance",
-    label: "Desempenho do SGI",
+    label: "Desempenho do Sistema de Gestão",
     hint: "Indicadores, não conformidades e ações corretivas, auditorias, satisfação do cliente, processos, fornecedores.",
   },
   {
@@ -73,7 +73,7 @@ const OUTPUT_TOPICS: { key: string; label: string; hint: string }[] = [
   },
   {
     key: "sgi_changes",
-    label: "Mudanças no SGI",
+    label: "Mudanças no Sistema de Gestão",
     hint: "Necessidade de mudanças no sistema de gestão.",
   },
   {
@@ -450,7 +450,7 @@ export function RacScreen() {
         </div>
       ) : reviews.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-          Nenhuma análise crítica registrada. A RAC é a revisão periódica do SGI
+          Nenhuma análise crítica registrada. A RAC é a revisão periódica do Sistema de Gestão
           pela direção (ISO §9.3).
         </div>
       ) : (
