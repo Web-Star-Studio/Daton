@@ -851,7 +851,9 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     }
   }
 
-  // Batch count action plans grouped by kpiMonthlyValueId
+  // Batch count action plans grouped by kpiMonthlyValueId. Planos cancelados
+  // ficam de fora: actionPlansCount alimenta o estado "desvio tratado" no
+  // front, e um plano cancelado não é tratativa.
   const monthlyValueIds = monthlyValues.map((mv) => mv.id);
   const actionPlanCountsByMvId = new Map<number, number>();
   if (monthlyValueIds.length > 0) {
@@ -861,6 +863,7 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       FROM ${actionPlansTable}
       WHERE ${actionPlansTable.organizationId} = ${params.data.orgId}
         AND ${actionPlansTable.sourceModule} = 'kpi'
+        AND ${actionPlansTable.status} != 'cancelled'
         AND (${actionPlansTable.sourceRef}->>'kpiMonthlyValueId') ~ '^[0-9]+$'
         AND (${actionPlansTable.sourceRef}->>'kpiMonthlyValueId')::int IN ${monthlyValueIds}
       GROUP BY mv_id
