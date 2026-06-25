@@ -154,11 +154,11 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  // Conta sem senha (criada para definição via e-mail): responde igual a
+  // credenciais inválidas, para o login não virar oráculo de enumeração de
+  // contas. O usuário recebe o link de definição de senha por e-mail.
   if (!user.passwordHash) {
-    res.status(403).json({
-      error:
-        "Sua conta ainda não tem senha. Verifique o e-mail de definição de senha que enviamos para criá-la.",
-    });
+    res.status(401).json({ error: "Credenciais inválidas" });
     return;
   }
 

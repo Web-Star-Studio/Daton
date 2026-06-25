@@ -1035,7 +1035,7 @@ export function OrganizationUsersSettingsSection() {
           if (!open) resetCreateUserDialog();
         }}
         title="Criar Usuário"
-        description="Crie uma conta na organização. Deixe a senha em branco para enviar um e-mail ao usuário definir a própria senha."
+        description="Crie uma conta na organização. Deixe a senha em branco para o usuário definir a própria senha por e-mail."
       >
         <form
           onSubmit={createUserForm.handleSubmit(async (data) => {

@@ -101,7 +101,7 @@ router.post("/auth/password-reset/request", async (req, res): Promise<void> => {
     expiresAt,
   });
 
-  const resetUrl = `${getAppBaseUrl(req)}/auth/redefinir-senha?token=${token}`;
+  const resetUrl = `${getAppBaseUrl()}/auth/redefinir-senha?token=${token}`;
 
   try {
     const { client, fromEmail } = await getResendClient();

@@ -11,12 +11,9 @@ describe("normalizeOptionalPassword", () => {
     expect(normalizeOptionalPassword("   ")).toBeUndefined();
   });
 
-  it("trims surrounding whitespace from a real password", () => {
-    expect(normalizeOptionalPassword("  abc123  ")).toBe("abc123");
-  });
-
-  it("returns the password unchanged when already clean", () => {
+  it("keeps a non-blank password exactly as typed (no trimming)", () => {
     expect(normalizeOptionalPassword("abc123")).toBe("abc123");
+    expect(normalizeOptionalPassword("  abc123  ")).toBe("  abc123  ");
   });
 });
 
@@ -27,16 +24,13 @@ describe("validateOptionalPassword", () => {
     expect(validateOptionalPassword("      ")).toBe(true);
   });
 
-  it("passes for a 6+ char password after trimming", () => {
+  it("passes for a 6+ char password (counted as typed)", () => {
     expect(validateOptionalPassword("abc123")).toBe(true);
     expect(validateOptionalPassword("  abc123  ")).toBe(true);
   });
 
-  it("fails when the trimmed password is shorter than 6", () => {
+  it("fails when a non-blank password is shorter than 6", () => {
     expect(validateOptionalPassword("abc12")).toBe(
-      "A senha deve ter no mínimo 6 caracteres",
-    );
-    expect(validateOptionalPassword("  abc12  ")).toBe(
       "A senha deve ter no mínimo 6 caracteres",
     );
   });

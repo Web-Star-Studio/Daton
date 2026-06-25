@@ -2,19 +2,15 @@
  * Resolve the public base URL of the web app for building links sent by e-mail
  * (password reset, set-password on user creation, invitations).
  *
- * Prefers the explicit APP_BASE_URL env (set in production), then the proxy's
- * forwarded host, then the request host, and finally a localhost fallback.
+ * Security: we deliberately DO NOT derive the base URL from request headers
+ * (Host / X-Forwarded-Host), which are attacker-controllable and would allow
+ * poisoning the links embedded in password-reset / set-password e-mails. We
+ * rely on the explicit APP_BASE_URL env (required in production) and fall back
+ * to localhost only for local development.
  */
-export function getAppBaseUrl(req: {
-  headers: Record<string, string | string[] | undefined>;
-}): string {
+export function getAppBaseUrl(): string {
   if (process.env.APP_BASE_URL) {
     return process.env.APP_BASE_URL.replace(/\/$/, "");
   }
-  const rawHost = req.headers["x-forwarded-host"] || req.headers["host"];
-  const host = (Array.isArray(rawHost) ? rawHost[0] : rawHost)
-    ?.split(",")[0]
-    ?.trim();
-  if (host) return `https://${host}`;
   return "http://localhost:3000";
 }

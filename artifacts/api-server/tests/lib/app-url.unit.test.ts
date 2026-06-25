@@ -10,25 +10,11 @@ afterEach(() => {
 describe("getAppBaseUrl", () => {
   it("uses APP_BASE_URL when set, without a trailing slash", () => {
     process.env.APP_BASE_URL = "https://app.daton.com.br/";
-    expect(getAppBaseUrl({ headers: {} })).toBe("https://app.daton.com.br");
+    expect(getAppBaseUrl()).toBe("https://app.daton.com.br");
   });
 
-  it("falls back to x-forwarded-host when APP_BASE_URL is unset", () => {
+  it("falls back to localhost when APP_BASE_URL is unset (never derives from request headers)", () => {
     delete process.env.APP_BASE_URL;
-    expect(
-      getAppBaseUrl({ headers: { "x-forwarded-host": "api.example.com, other" } }),
-    ).toBe("https://api.example.com");
-  });
-
-  it("falls back to the host header", () => {
-    delete process.env.APP_BASE_URL;
-    expect(getAppBaseUrl({ headers: { host: "h.example.com" } })).toBe(
-      "https://h.example.com",
-    );
-  });
-
-  it("defaults to localhost when nothing is available", () => {
-    delete process.env.APP_BASE_URL;
-    expect(getAppBaseUrl({ headers: {} })).toBe("http://localhost:3000");
+    expect(getAppBaseUrl()).toBe("http://localhost:3000");
   });
 });

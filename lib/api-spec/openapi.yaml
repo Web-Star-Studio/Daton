@@ -3254,6 +3254,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Failed to send the e-mail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /organizations/{orgId}/user-options:
     get:
@@ -12126,7 +12132,7 @@ components:
           properties:
             emailSent:
               type: boolean
-              description: Whether the set-password e-mail was sent (true when a password was provided; false if the e-mail failed).
+              description: True when a password was provided (no e-mail needed) or the set-password e-mail was sent successfully; false only when the e-mail flow was used and delivery failed.
           required:
             - emailSent
 

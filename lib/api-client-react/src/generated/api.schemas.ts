@@ -1717,7 +1717,7 @@ export interface CreateOrgUserBody {
 }
 
 export type CreateOrgUserResponse = OrgUser & {
-  /** Whether the set-password e-mail was sent (true when a password was provided; false if the e-mail failed). */
+  /** True when a password was provided (no e-mail needed) or the set-password e-mail was sent successfully; false only when the e-mail flow was used and delivery failed. */
   emailSent: boolean;
 };
 

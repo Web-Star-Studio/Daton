@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request } from "express";
+import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import { eq, and, inArray, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -21,8 +21,12 @@ const createOrgUserBodySchema = z
   .object({
     name: z.string().min(1),
     email: z.string().email(),
-    // Opcional: em branco ⇒ envia e-mail para o usuário definir a própria senha.
-    password: z.string().min(6).optional(),
+    // Opcional: em branco/whitespace ⇒ normaliza para undefined e envia e-mail
+    // para o usuário definir a própria senha. Caso contrário, mínimo 6.
+    password: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+      z.string().min(6).optional(),
+    ),
     role: z.enum(["org_admin", "manager", "operator", "analyst"]),
     modules: z.array(z.enum(APP_MODULES)).default([]),
     unitId: z.number().int().nullable().optional(),
@@ -32,8 +36,8 @@ const createOrgUserBodySchema = z
     path: ["unitId"],
   });
 
-function buildSetPasswordUrl(req: Pick<Request, "headers">, token: string): string {
-  return `${getAppBaseUrl(req)}/auth/redefinir-senha?token=${token}`;
+function buildSetPasswordUrl(token: string): string {
+  return `${getAppBaseUrl()}/auth/redefinir-senha?token=${token}`;
 }
 
 // Invalida tokens pendentes do usuário e cria um novo (24h). Usado no reenvio.
@@ -55,7 +59,13 @@ async function trySendSetPasswordEmail(setPasswordUrl: string, to: string): Prom
   try {
     const { client, fromEmail } = await getResendClient();
     const { subject, html } = buildSetPasswordEmail(setPasswordUrl);
-    await client.emails.send({ from: fromEmail, to, subject, html });
+    // Resend retorna { data, error } e NÃO lança em erro de API/entrega —
+    // é preciso inspecionar o campo error para saber se realmente foi enviado.
+    const { error } = await client.emails.send({ from: fromEmail, to, subject, html });
+    if (error) {
+      console.error("Falha ao enviar e-mail de definição de senha:", error);
+      return false;
+    }
     return true;
   } catch (e) {
     console.error("Falha ao enviar e-mail de definição de senha:", e);
@@ -170,7 +180,7 @@ router.post("/organizations/:orgId/users",
       let emailSent = true;
       if (setPasswordToken) {
         emailSent = await trySendSetPasswordEmail(
-          buildSetPasswordUrl(req, setPasswordToken),
+          buildSetPasswordUrl(setPasswordToken),
           email,
         );
       }
@@ -223,7 +233,7 @@ router.post("/organizations/:orgId/users/:userId/resend-set-password-email",
     }
 
     const token = await issueSetPasswordToken(user.id);
-    const sent = await trySendSetPasswordEmail(buildSetPasswordUrl(req, token), user.email);
+    const sent = await trySendSetPasswordEmail(buildSetPasswordUrl(token), user.email);
     if (!sent) {
       res.status(500).json({ error: "Não foi possível enviar o e-mail. Tente novamente." });
       return;
