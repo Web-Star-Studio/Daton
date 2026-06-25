@@ -1206,9 +1206,20 @@ export type PaginatedEmployeesPagination = {
   totalPages: number;
 };
 
+/**
+ * Totais por status no escopo atual (ignora o filtro de status), p/ os cards.
+ */
+export type PaginatedEmployeesStatusCounts = {
+  active: number;
+  inactive: number;
+  onLeave: number;
+};
+
 export interface PaginatedEmployees {
   data: Employee[];
   pagination: PaginatedEmployeesPagination;
+  /** Totais por status no escopo atual (ignora o filtro de status), p/ os cards. */
+  statusCounts: PaginatedEmployeesStatusCounts;
 }
 
 export interface LinkedUnit {

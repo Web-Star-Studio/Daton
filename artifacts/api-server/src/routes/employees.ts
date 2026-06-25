@@ -1114,6 +1114,8 @@ router.get(
     if (query.data.position) {
       conditions.push(eq(employeesTable.position, query.data.position));
     }
+    // base sem o filtro de status -> usado p/ os totais por status (cards)
+    const baseConditions = [...conditions];
     if (query.data.status) {
       conditions.push(eq(employeesTable.status, query.data.status));
     }
@@ -1158,6 +1160,18 @@ router.get(
       .limit(pageSize)
       .offset(offset);
 
+    const statusRows = await db
+      .select({ status: employeesTable.status, n: count() })
+      .from(employeesTable)
+      .where(and(...baseConditions))
+      .groupBy(employeesTable.status);
+    const statusCounts = { active: 0, inactive: 0, onLeave: 0 };
+    for (const r of statusRows) {
+      if (r.status === "active") statusCounts.active = r.n;
+      else if (r.status === "inactive") statusCounts.inactive = r.n;
+      else if (r.status === "on_leave") statusCounts.onLeave = r.n;
+    }
+
     res.json({
       data: rows.map(formatEmployee),
       pagination: {
@@ -1166,6 +1180,7 @@ router.get(
         total: totalResult.total,
         totalPages: Math.ceil(totalResult.total / pageSize),
       },
+      statusCounts,
     });
   },
 );

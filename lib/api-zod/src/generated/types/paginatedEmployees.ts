@@ -7,8 +7,11 @@
  */
 import type { Employee } from "./employee";
 import type { PaginatedEmployeesPagination } from "./paginatedEmployeesPagination";
+import type { PaginatedEmployeesStatusCounts } from "./paginatedEmployeesStatusCounts";
 
 export interface PaginatedEmployees {
   data: Employee[];
   pagination: PaginatedEmployeesPagination;
+  /** Totais por status no escopo atual (ignora o filtro de status), p/ os cards. */
+  statusCounts: PaginatedEmployeesStatusCounts;
 }

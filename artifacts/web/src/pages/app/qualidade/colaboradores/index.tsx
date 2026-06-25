@@ -289,7 +289,8 @@ export default function ColaboradoresPage() {
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  // abre mostrando o quadro atual (ativos); inativos seguem acessíveis pelo filtro
+  const [statusFilter, setStatusFilter] = useState("active");
   const [unitFilter, setUnitFilter] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
   const [page, setPage] = useState(1);
@@ -447,12 +448,13 @@ export default function ColaboradoresPage() {
   };
 
   const stats = useMemo(() => {
-    const total = pagination?.total ?? employees.length;
-    const active = employees.filter((e) => e.status === "active").length;
-    const inactive = employees.filter((e) => e.status === "inactive").length;
-    const onLeave = employees.filter((e) => e.status === "on_leave").length;
-    return { total, active, inactive, onLeave };
-  }, [employees, pagination]);
+    // totais reais por status (vêm da API, independem da página/filtro de status)
+    const sc = result?.statusCounts;
+    const active = sc?.active ?? 0;
+    const inactive = sc?.inactive ?? 0;
+    const onLeave = sc?.onLeave ?? 0;
+    return { total: active + inactive + onLeave, active, inactive, onLeave };
+  }, [result]);
 
   const resetCreateForm = () => {
     reset();

@@ -342,6 +342,7 @@ export * from "./paginatedEmployeeCompetencyGaps";
 export * from "./paginatedEmployeeCompetencyGapsPagination";
 export * from "./paginatedEmployees";
 export * from "./paginatedEmployeesPagination";
+export * from "./paginatedEmployeesStatusCounts";
 export * from "./paginatedInternalAudits";
 export * from "./paginatedKnowledgeAssets";
 export * from "./paginatedManagementReviews";

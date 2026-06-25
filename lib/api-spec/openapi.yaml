@@ -11331,9 +11331,24 @@ components:
             - pageSize
             - total
             - totalPages
+        statusCounts:
+          type: object
+          description: Totais por status no escopo atual (ignora o filtro de status), p/ os cards.
+          properties:
+            active:
+              type: integer
+            inactive:
+              type: integer
+            onLeave:
+              type: integer
+          required:
+            - active
+            - inactive
+            - onLeave
       required:
         - data
         - pagination
+        - statusCounts
 
     LinkedUnit:
       type: object
