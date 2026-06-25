@@ -154,6 +154,14 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  // Conta sem senha (criada para definição via e-mail): responde igual a
+  // credenciais inválidas, para o login não virar oráculo de enumeração de
+  // contas. O usuário recebe o link de definição de senha por e-mail.
+  if (!user.passwordHash) {
+    res.status(401).json({ error: "Credenciais inválidas" });
+    return;
+  }
+
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     res.status(401).json({ error: "Credenciais inválidas" });
@@ -293,6 +301,13 @@ router.patch("/auth/me/password", requireAuth, async (req, res): Promise<void> =
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {
     res.status(401).json({ error: "Usuário não encontrado" });
+    return;
+  }
+
+  if (!user.passwordHash) {
+    res.status(400).json({
+      error: "Sua conta ainda não tem senha. Use o link de definição de senha enviado por e-mail.",
+    });
     return;
   }
 

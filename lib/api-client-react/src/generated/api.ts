@@ -11703,6 +11703,94 @@ export const useCreateOrgUser = <
 };
 
 /**
+ * @summary Resend the set-password e-mail to a user who has not defined a password
+ */
+export const getResendSetPasswordEmailUrl = (orgId: number, userId: number) => {
+  return `/api/organizations/${orgId}/users/${userId}/resend-set-password-email`;
+};
+
+export const resendSetPasswordEmail = async (
+  orgId: number,
+  userId: number,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(
+    getResendSetPasswordEmailUrl(orgId, userId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getResendSetPasswordEmailMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resendSetPasswordEmail>>,
+    TError,
+    { orgId: number; userId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resendSetPasswordEmail>>,
+  TError,
+  { orgId: number; userId: number },
+  TContext
+> => {
+  const mutationKey = ["resendSetPasswordEmail"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resendSetPasswordEmail>>,
+    { orgId: number; userId: number }
+  > = (props) => {
+    const { orgId, userId } = props ?? {};
+
+    return resendSetPasswordEmail(orgId, userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResendSetPasswordEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resendSetPasswordEmail>>
+>;
+
+export type ResendSetPasswordEmailMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Resend the set-password e-mail to a user who has not defined a password
+ */
+export const useResendSetPasswordEmail = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resendSetPasswordEmail>>,
+    TError,
+    { orgId: number; userId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resendSetPasswordEmail>>,
+  TError,
+  { orgId: number; userId: number },
+  TContext
+> => {
+  return useMutation(getResendSetPasswordEmailMutationOptions(options));
+};
+
+/**
  * @summary List basic user options for document workflows
  */
 export const getListUserOptionsUrl = (

@@ -7,4 +7,7 @@
  */
 import type { OrgUser } from "./orgUser";
 
-export type CreateOrgUserResponse = OrgUser;
+export type CreateOrgUserResponse = OrgUser & {
+  /** True when a password was provided (no e-mail needed) or the set-password e-mail was sent successfully; false only when the e-mail flow was used and delivery failed. */
+  emailSent: boolean;
+};

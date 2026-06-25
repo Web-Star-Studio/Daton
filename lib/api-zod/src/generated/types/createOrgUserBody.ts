@@ -12,7 +12,7 @@ export interface CreateOrgUserBody {
   name: string;
   email: string;
   /** @minLength 6 */
-  password: string;
+  password?: string;
   role: CreateOrgUserBodyRole;
   modules: AppModule[];
   unitId?: number | null;

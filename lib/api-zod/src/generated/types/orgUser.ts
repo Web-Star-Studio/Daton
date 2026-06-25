@@ -15,4 +15,6 @@ export interface OrgUser {
   unitId?: number | null;
   createdAt: string;
   modules: AppModule[];
+  /** False while the user still needs to define their password via the e-mailed link. */
+  passwordSet: boolean;
 }

@@ -3,6 +3,11 @@ import { useForm } from "react-hook-form";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Command as CommandPrimitive } from "cmdk";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { canResendAccessEmail } from "@/components/settings/access-email";
+import {
+  normalizeOptionalPassword,
+  validateOptionalPassword,
+} from "@/components/settings/create-user-password";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Button } from "@/components/ui/button";
@@ -46,6 +51,7 @@ import {
   useCreateOrgUser,
   useUpdateUserRole,
   useUpdateUserModules,
+  useResendSetPasswordEmail,
   getListOrgUsersQueryKey,
   type AppModule,
   type UpdateUserRoleBodyRole,
@@ -294,6 +300,8 @@ export function OrganizationUsersSettingsSection() {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
   });
   const createOrgUserMut = useCreateOrgUser();
+  const resendSetPasswordMut = useResendSetPasswordEmail();
+  const [resendingUserId, setResendingUserId] = useState<number | null>(null);
   const updateRoleMut = useUpdateUserRole();
   const updateModulesMut = useUpdateUserModules();
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
@@ -609,35 +617,75 @@ export function OrganizationUsersSettingsSection() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          {!isProtected && !isSelf && (
-                            <button
-                              onClick={() => {
-                                setEditingUser({
-                                  id: u.id,
-                                  name: u.name,
-                                  email: u.email,
-                                  role: u.role,
-                                  unitId: u.unitId ?? null,
-                                  modules: u.modules,
-                                });
-                                setEditRole(
-                                  u.role === "manager" ||
-                                    u.role === "analyst"
-                                    ? (u.role as UpdateUserRoleBodyRole)
-                                    : "operator",
-                                );
-                                setEditUnitId(u.unitId ?? null);
-                                setEditUnitError("");
-                                setEditModules([...u.modules]);
-                                setPermDialogOpen(true);
-                              }}
-                              className="cursor-pointer rounded p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                              title="Configurar permissões"
-                              aria-label="Configurar permissões"
-                            >
-                              <Settings2 className="h-4 w-4" />
-                            </button>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {canResendAccessEmail(u, currentUser?.id ?? -1) && (
+                              <button
+                                onClick={async () => {
+                                  setResendingUserId(u.id);
+                                  try {
+                                    await resendSetPasswordMut.mutateAsync({
+                                      orgId,
+                                      userId: u.id,
+                                    });
+                                    toast({
+                                      title: "E-mail enviado",
+                                      description: `Enviamos um e-mail para ${u.email} definir a senha.`,
+                                    });
+                                  } catch (err: unknown) {
+                                    const message =
+                                      typeof err === "object" &&
+                                      err !== null &&
+                                      "data" in err
+                                        ? (err as { data?: { error?: string } })
+                                            .data?.error
+                                        : undefined;
+                                    toast({
+                                      title: "Erro ao reenviar e-mail",
+                                      description: message || "Tente novamente.",
+                                      variant: "destructive",
+                                    });
+                                  } finally {
+                                    setResendingUserId(null);
+                                  }
+                                }}
+                                disabled={resendingUserId === u.id}
+                                className="cursor-pointer rounded p-1.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                                title="Reenviar e-mail de acesso"
+                                aria-label="Reenviar e-mail de acesso"
+                              >
+                                <Mail className="h-4 w-4" />
+                              </button>
+                            )}
+                            {!isProtected && !isSelf && (
+                              <button
+                                onClick={() => {
+                                  setEditingUser({
+                                    id: u.id,
+                                    name: u.name,
+                                    email: u.email,
+                                    role: u.role,
+                                    unitId: u.unitId ?? null,
+                                    modules: u.modules,
+                                  });
+                                  setEditRole(
+                                    u.role === "manager" ||
+                                      u.role === "analyst"
+                                      ? (u.role as UpdateUserRoleBodyRole)
+                                      : "operator",
+                                  );
+                                  setEditUnitId(u.unitId ?? null);
+                                  setEditUnitError("");
+                                  setEditModules([...u.modules]);
+                                  setPermDialogOpen(true);
+                                }}
+                                className="cursor-pointer rounded p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                                title="Configurar permissões"
+                                aria-label="Configurar permissões"
+                              >
+                                <Settings2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -987,7 +1035,7 @@ export function OrganizationUsersSettingsSection() {
           if (!open) resetCreateUserDialog();
         }}
         title="Criar Usuário"
-        description="Crie uma conta diretamente na organização e defina o acesso inicial."
+        description="Crie uma conta na organização. Deixe a senha em branco para o usuário definir a própria senha por e-mail."
       >
         <form
           onSubmit={createUserForm.handleSubmit(async (data) => {
@@ -1010,12 +1058,13 @@ export function OrganizationUsersSettingsSection() {
             }
 
             try {
-              await createOrgUserMut.mutateAsync({
+              const password = normalizeOptionalPassword(data.password);
+              const created = await createOrgUserMut.mutateAsync({
                 orgId,
                 data: {
                   name: data.name.trim(),
                   email: data.email.trim(),
-                  password: data.password,
+                  password,
                   role: data.role,
                   modules: data.role === "org_admin" ? [] : data.modules,
                   unitId: data.role === "org_admin" ? null : data.unitId ?? null,
@@ -1026,6 +1075,22 @@ export function OrganizationUsersSettingsSection() {
               });
               setCreateUserDialogOpen(false);
               resetCreateUserDialog();
+              if (!password) {
+                toast(
+                  created?.emailSent === false
+                    ? {
+                        title: "Usuário criado",
+                        description:
+                          'Não foi possível enviar o e-mail de acesso. Use "Reenviar e-mail de acesso" na lista.',
+                        variant: "destructive",
+                      }
+                    : {
+                        title: "Usuário criado",
+                        description:
+                          "Enviamos um e-mail para o usuário definir a própria senha.",
+                      },
+                );
+              }
             } catch (err: unknown) {
               const message =
                 typeof err === "object" && err !== null && "data" in err
@@ -1093,22 +1158,23 @@ export function OrganizationUsersSettingsSection() {
                 )}
               </div>
               <div>
-                <Label>Senha</Label>
+                <Label>Senha (opcional)</Label>
                 <Input
                   type="password"
                   autoComplete="new-password"
                   {...createUserForm.register("password", {
-                    required: "Senha é obrigatória",
-                    minLength: {
-                      value: 6,
-                      message: "A senha deve ter no mínimo 6 caracteres",
-                    },
+                    validate: validateOptionalPassword,
                   })}
-                  placeholder="Mínimo de 6 caracteres"
+                  placeholder="Deixe em branco para enviar por e-mail"
                 />
-                {createUserForm.formState.errors.password && (
+                {createUserForm.formState.errors.password ? (
                   <p className="mt-1.5 text-xs text-destructive">
                     {createUserForm.formState.errors.password.message}
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Em branco: o usuário recebe um e-mail para definir a própria
+                    senha.
                   </p>
                 )}
               </div>
