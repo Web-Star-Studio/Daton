@@ -154,6 +154,14 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  if (!user.passwordHash) {
+    res.status(403).json({
+      error:
+        "Sua conta ainda não tem senha. Verifique o e-mail de definição de senha que enviamos para criá-la.",
+    });
+    return;
+  }
+
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     res.status(401).json({ error: "Credenciais inválidas" });
@@ -293,6 +301,13 @@ router.patch("/auth/me/password", requireAuth, async (req, res): Promise<void> =
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {
     res.status(401).json({ error: "Usuário não encontrado" });
+    return;
+  }
+
+  if (!user.passwordHash) {
+    res.status(400).json({
+      error: "Sua conta ainda não tem senha. Use o link de definição de senha enviado por e-mail.",
+    });
     return;
   }
 

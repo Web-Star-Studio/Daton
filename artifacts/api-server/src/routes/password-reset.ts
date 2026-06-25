@@ -5,22 +5,13 @@ import { z } from "zod";
 import { db, usersTable, passwordResetTokensTable } from "@workspace/db";
 import bcrypt from "bcryptjs";
 import { getResendClient } from "../lib/resend";
+import { getAppBaseUrl } from "../lib/app-url";
 
 const router: IRouter = Router();
 
 const requestResetBodySchema = z.object({
   email: z.string().trim().email(),
 });
-
-function getAppBaseUrl(req: { headers: Record<string, string | string[] | undefined> }): string {
-  if (process.env.APP_BASE_URL) {
-    return process.env.APP_BASE_URL.replace(/\/$/, "");
-  }
-  const rawHost = req.headers["x-forwarded-host"] || req.headers["host"];
-  const host = (Array.isArray(rawHost) ? rawHost[0] : rawHost)?.split(",")[0]?.trim();
-  if (host) return `https://${host}`;
-  return "http://localhost:3000";
-}
 
 function buildPasswordResetEmailHtml(resetUrl: string): string {
   return `
@@ -51,7 +42,7 @@ function buildPasswordResetEmailHtml(resetUrl: string): string {
                 Recebemos uma solicitação para redefinir a senha da sua conta no Daton.
               </p>
               <p style="margin:0 0 28px 0;font-size:15px;color:#6b6b6b;line-height:1.6;">
-                Clique no botão abaixo para criar uma nova senha. O link é válido por <strong style="color:#1a1a1a;">1 hora</strong>.
+                Clique no botão abaixo para criar uma nova senha. O link é válido por <strong style="color:#1a1a1a;">24 horas</strong>.
               </p>
               <a href="${resetUrl}" style="display:inline-block;padding:12px 32px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;">
                 Redefinir senha
@@ -102,7 +93,7 @@ router.post("/auth/password-reset/request", async (req, res): Promise<void> => {
     .where(and(eq(passwordResetTokensTable.userId, user.id), isNull(passwordResetTokensTable.usedAt)));
 
   const token = crypto.randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
 
   await db.insert(passwordResetTokensTable).values({
     userId: user.id,

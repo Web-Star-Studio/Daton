@@ -3213,6 +3213,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /organizations/{orgId}/users/{userId}/resend-set-password-email:
+    post:
+      operationId: resendSetPasswordEmail
+      tags: [organizations]
+      summary: Resend the set-password e-mail to a user who has not defined a password
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: E-mail sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: User already has a password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /organizations/{orgId}/user-options:
     get:
       operationId: listUserOptions
@@ -12020,6 +12062,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AppModule"
+        passwordSet:
+          type: boolean
+          description: False while the user still needs to define their password via the e-mailed link.
       required:
         - id
         - name
@@ -12027,6 +12072,7 @@ components:
         - role
         - createdAt
         - modules
+        - passwordSet
 
     UserOption:
       type: object
@@ -12070,13 +12116,19 @@ components:
       required:
         - name
         - email
-        - password
         - role
         - modules
 
     CreateOrgUserResponse:
       allOf:
         - $ref: "#/components/schemas/OrgUser"
+        - type: object
+          properties:
+            emailSent:
+              type: boolean
+              description: Whether the set-password e-mail was sent (true when a password was provided; false if the e-mail failed).
+          required:
+            - emailSent
 
     StrategicPlanStatus:
       type: string
