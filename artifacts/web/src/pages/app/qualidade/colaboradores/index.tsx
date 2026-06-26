@@ -289,7 +289,8 @@ export default function ColaboradoresPage() {
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  // abre mostrando o quadro atual (ativos); inativos seguem acessíveis pelo filtro
+  const [statusFilter, setStatusFilter] = useState("active");
   const [unitFilter, setUnitFilter] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
   const [page, setPage] = useState(1);
@@ -447,12 +448,14 @@ export default function ColaboradoresPage() {
   };
 
   const stats = useMemo(() => {
-    const total = pagination?.total ?? employees.length;
-    const active = employees.filter((e) => e.status === "active").length;
-    const inactive = employees.filter((e) => e.status === "inactive").length;
-    const onLeave = employees.filter((e) => e.status === "on_leave").length;
-    return { total, active, inactive, onLeave };
-  }, [employees, pagination]);
+    // totais reais (vêm da API, independem da página/filtro de status)
+    const sc = result?.statusCounts;
+    const active = sc?.active ?? 0;
+    const inactive = sc?.inactive ?? 0;
+    const onLeave = sc?.onLeave ?? 0;
+    const users = result?.userCount ?? 0;
+    return { active, inactive, onLeave, users };
+  }, [result]);
 
   const resetCreateForm = () => {
     reset();
@@ -604,15 +607,19 @@ export default function ColaboradoresPage() {
       <div className="space-y-6">
         <div className="grid grid-cols-4 gap-4">
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">Total</p>
-            <p className="text-xl font-semibold text-foreground mt-0.5">
-              {stats.total}
+            <p className="text-xs font-medium text-muted-foreground">
+              Colaboradores ativos
+            </p>
+            <p className="text-xl font-semibold text-emerald-600 mt-0.5">
+              {stats.active}
             </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">Ativos</p>
-            <p className="text-xl font-semibold text-emerald-600 mt-0.5">
-              {stats.active}
+            <p className="text-xs font-medium text-muted-foreground">
+              Usuários cadastrados
+            </p>
+            <p className="text-xl font-semibold text-sky-600 mt-0.5">
+              {stats.users}
             </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
