@@ -1114,8 +1114,13 @@ router.get(
     if (query.data.position) {
       conditions.push(eq(employeesTable.position, query.data.position));
     }
-    // base sem o filtro de status -> usado p/ os totais por status (cards)
     const baseConditions = [...conditions];
+    // colaboradores que têm um usuário (login) vinculado (FK users.employee_id)
+    const hasLinkedUser = sql`EXISTS (SELECT 1 FROM users u WHERE u.employee_id = ${employeesTable.id})`;
+    const onlyWithUser = req.query.hasUser === "true";
+    if (onlyWithUser) {
+      conditions.push(hasLinkedUser);
+    }
     if (query.data.status) {
       conditions.push(eq(employeesTable.status, query.data.status));
     }
@@ -1178,6 +1183,13 @@ router.get(
       .where(eq(usersTable.organizationId, params.data.orgId));
     const userCount = userCountRow?.n ?? 0;
 
+    // colaboradores (no escopo, sem filtro de status) que têm usuário vinculado
+    const [withUserRow] = await db
+      .select({ n: count() })
+      .from(employeesTable)
+      .where(and(...baseConditions, hasLinkedUser));
+    const withUserCount = withUserRow?.n ?? 0;
+
     res.json({
       data: rows.map(formatEmployee),
       pagination: {
@@ -1188,6 +1200,7 @@ router.get(
       },
       statusCounts,
       userCount,
+      withUserCount,
     });
   },
 );

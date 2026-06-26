@@ -66,6 +66,9 @@ type CreateUserFormData = {
   role: "org_admin" | "manager" | "operator" | "analyst";
   modules: OrgUserModule[];
   unitId: number | null;
+  // Colaborador escolhido no picker — vira o vínculo persistente users↔employees.
+  // null quando o nome é digitado manualmente (sem selecionar uma ficha).
+  employeeId: number | null;
 };
 
 type InviteFormData = {
@@ -123,6 +126,7 @@ const emptyCreateUserForm: CreateUserFormData = {
   role: "analyst",
   modules: [],
   unitId: null,
+  employeeId: null,
 };
 
 const emptyInviteForm: InviteFormData = {
@@ -1068,6 +1072,7 @@ export function OrganizationUsersSettingsSection() {
                   role: data.role,
                   modules: data.role === "org_admin" ? [] : data.modules,
                   unitId: data.role === "org_admin" ? null : data.unitId ?? null,
+                  employeeId: data.employeeId ?? null,
                 },
               });
               queryClient.invalidateQueries({
@@ -1116,9 +1121,11 @@ export function OrganizationUsersSettingsSection() {
                   <EmployeePicker
                     orgId={orgId}
                     value={createUserForm.watch("name") ?? ""}
-                    onChange={(v) =>
-                      createUserForm.setValue("name", v, { shouldValidate: true })
-                    }
+                    onChange={(v) => {
+                      createUserForm.setValue("name", v, { shouldValidate: true });
+                      // Nome digitado à mão não corresponde a uma ficha — desfaz o vínculo.
+                      createUserForm.setValue("employeeId", null);
+                    }}
                     onPick={(emp) => {
                       // Explicit selection must win over a stale value — the browser's
                       // password manager pre-fills the field with the admin's own login
@@ -1130,6 +1137,8 @@ export function OrganizationUsersSettingsSection() {
                       createUserForm.setValue("email", nextEmail, {
                         shouldValidate: true,
                       });
+                      // Vínculo persistente: guarda a ficha escolhida p/ enviar ao backend.
+                      createUserForm.setValue("employeeId", emp.id);
                     }}
                     placeholder="Buscar colaborador..."
                     excludeEmails={excludedEmployeeEmails}

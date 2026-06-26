@@ -289,8 +289,8 @@ export default function ColaboradoresPage() {
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
-  // abre mostrando o quadro atual (ativos); inativos seguem acessíveis pelo filtro
   const [statusFilter, setStatusFilter] = useState("active");
+  const [onlyWithUser, setOnlyWithUser] = useState(false);
   const [unitFilter, setUnitFilter] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
   const [page, setPage] = useState(1);
@@ -306,12 +306,13 @@ export default function ColaboradoresPage() {
 
   const { data: result, isLoading } = useListEmployees(orgId!, {
     search: search || undefined,
-    status: statusFilter || undefined,
+    status: onlyWithUser ? undefined : statusFilter || undefined,
     unitId: unitFilter ? Number(unitFilter) : undefined,
     position: positionFilter || undefined,
     page,
     pageSize: 25,
-  });
+    ...(onlyWithUser ? { hasUser: true } : {}),
+  } as Parameters<typeof useListEmployees>[1]);
 
   const employees: Employee[] = result?.data ?? [];
   const pagination: PaginatedEmployeesPagination | undefined =
@@ -448,12 +449,17 @@ export default function ColaboradoresPage() {
   };
 
   const stats = useMemo(() => {
-    // totais reais (vêm da API, independem da página/filtro de status)
-    const sc = result?.statusCounts;
+    const r = result as
+      | {
+          statusCounts?: { active?: number; inactive?: number; onLeave?: number };
+          withUserCount?: number;
+        }
+      | undefined;
+    const sc = r?.statusCounts;
     const active = sc?.active ?? 0;
     const inactive = sc?.inactive ?? 0;
     const onLeave = sc?.onLeave ?? 0;
-    const users = result?.userCount ?? 0;
+    const users = r?.withUserCount ?? 0;
     return { active, inactive, onLeave, users };
   }, [result]);
 
@@ -566,14 +572,21 @@ export default function ColaboradoresPage() {
     setPage(1);
   };
 
-  // clicar num card de status filtra a lista por aquele status
   const applyStatus = (s: string) => {
+    setOnlyWithUser(false);
     setStatusFilter(s);
     setPage(1);
   };
+  const applyOnlyWithUser = () => {
+    setOnlyWithUser(true);
+    setStatusFilter("");
+    setPage(1);
+  };
+  const cardBase =
+    "rounded-xl border px-4 py-3 backdrop-blur-md text-left w-full cursor-pointer transition-colors hover:bg-card/60";
   const statusCardCls = (s: string, ring: string) =>
-    `rounded-xl border px-4 py-3 backdrop-blur-md text-left w-full cursor-pointer transition-colors hover:bg-card/60 ${
-      statusFilter === s ? `${ring} bg-card/60` : "border-border/60 bg-card/42"
+    `${cardBase} ${
+      !onlyWithUser && statusFilter === s ? `${ring} bg-card/60` : "border-border/60 bg-card/42"
     }`;
 
   const headerActions = useMemo(() => {
@@ -631,14 +644,22 @@ export default function ColaboradoresPage() {
               {stats.active}
             </p>
           </button>
-          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={applyOnlyWithUser}
+            className={`${cardBase} ${
+              onlyWithUser
+                ? "border-sky-500/70 ring-1 ring-sky-500/40 bg-card/60"
+                : "border-border/60 bg-card/42"
+            }`}
+          >
             <p className="text-xs font-medium text-muted-foreground">
               Usuários cadastrados
             </p>
             <p className="text-xl font-semibold text-sky-600 mt-0.5">
               {stats.users}
             </p>
-          </div>
+          </button>
           <button
             type="button"
             onClick={() => applyStatus("inactive")}
@@ -685,8 +706,9 @@ export default function ColaboradoresPage() {
             />
           </div>
           <Select
-            value={statusFilter}
+            value={onlyWithUser ? "" : statusFilter}
             onChange={(e) => {
+              setOnlyWithUser(false);
               setStatusFilter(e.target.value);
               handleFilterChange();
             }}

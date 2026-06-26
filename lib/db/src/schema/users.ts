@@ -19,6 +19,13 @@ export const usersTable = pgTable("users", {
   // opcional para os demais (usada também na identidade/escopo das Pendências).
   // onDelete set null: apagar a filial não apaga o usuário.
   unitId: integer("unit_id").references(() => unitsTable.id, { onDelete: "set null" }),
+  // Colaborador (RH) vinculado a este usuário — vínculo persistente users↔employees
+  // que substitui o casamento frágil por e-mail/nome. Mantido como integer simples
+  // (sem .references) de propósito: declarar a FK aqui criaria import/inferência de
+  // tipo circular com employeesTable (que já referencia usersTable). A constraint
+  // FK (employee_id -> employees.id, ON DELETE SET NULL) existe no banco, aplicada
+  // via DDL no backfill (scripts/src/migrate/backfill-user-employee-link.ts).
+  employeeId: integer("employee_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

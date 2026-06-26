@@ -16,4 +16,6 @@ export interface PaginatedEmployees {
   statusCounts: PaginatedEmployeesStatusCounts;
   /** Total de usuários (logins) da organização. */
   userCount: number;
+  /** Colaboradores no escopo (ignora o filtro de status) que têm um usuário/login vinculado. */
+  withUserCount?: number;
 }
