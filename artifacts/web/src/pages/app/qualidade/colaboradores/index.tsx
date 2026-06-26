@@ -448,12 +448,13 @@ export default function ColaboradoresPage() {
   };
 
   const stats = useMemo(() => {
-    // totais reais por status (vêm da API, independem da página/filtro de status)
+    // totais reais (vêm da API, independem da página/filtro de status)
     const sc = result?.statusCounts;
     const active = sc?.active ?? 0;
     const inactive = sc?.inactive ?? 0;
     const onLeave = sc?.onLeave ?? 0;
-    return { total: active + inactive + onLeave, active, inactive, onLeave };
+    const users = result?.userCount ?? 0;
+    return { active, inactive, onLeave, users };
   }, [result]);
 
   const resetCreateForm = () => {
@@ -606,15 +607,19 @@ export default function ColaboradoresPage() {
       <div className="space-y-6">
         <div className="grid grid-cols-4 gap-4">
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">Total</p>
-            <p className="text-xl font-semibold text-foreground mt-0.5">
-              {stats.total}
+            <p className="text-xs font-medium text-muted-foreground">
+              Colaboradores ativos
+            </p>
+            <p className="text-xl font-semibold text-emerald-600 mt-0.5">
+              {stats.active}
             </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">Ativos</p>
-            <p className="text-xl font-semibold text-emerald-600 mt-0.5">
-              {stats.active}
+            <p className="text-xs font-medium text-muted-foreground">
+              Usuários cadastrados
+            </p>
+            <p className="text-xl font-semibold text-sky-600 mt-0.5">
+              {stats.users}
             </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">

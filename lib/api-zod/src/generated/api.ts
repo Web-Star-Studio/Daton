@@ -1490,6 +1490,9 @@ export const ListEmployeesResponse = zod.object({
     .describe(
       "Totais por status no escopo atual (ignora o filtro de status), p\/ os cards.",
     ),
+  userCount: zod
+    .number()
+    .describe("Total de usuários (logins) da organização."),
 });
 
 /**

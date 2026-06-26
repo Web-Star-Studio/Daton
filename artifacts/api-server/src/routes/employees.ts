@@ -1172,6 +1172,12 @@ router.get(
       else if (r.status === "on_leave") statusCounts.onLeave = r.n;
     }
 
+    const [userCountRow] = await db
+      .select({ n: count() })
+      .from(usersTable)
+      .where(eq(usersTable.organizationId, params.data.orgId));
+    const userCount = userCountRow?.n ?? 0;
+
     res.json({
       data: rows.map(formatEmployee),
       pagination: {
@@ -1181,6 +1187,7 @@ router.get(
         totalPages: Math.ceil(totalResult.total / pageSize),
       },
       statusCounts,
+      userCount,
     });
   },
 );

@@ -11345,10 +11345,14 @@ components:
             - active
             - inactive
             - onLeave
+        userCount:
+          type: integer
+          description: Total de usuários (logins) da organização.
       required:
         - data
         - pagination
         - statusCounts
+        - userCount
 
     LinkedUnit:
       type: object

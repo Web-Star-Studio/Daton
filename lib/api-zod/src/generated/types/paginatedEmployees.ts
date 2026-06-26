@@ -14,4 +14,6 @@ export interface PaginatedEmployees {
   pagination: PaginatedEmployeesPagination;
   /** Totais por status no escopo atual (ignora o filtro de status), p/ os cards. */
   statusCounts: PaginatedEmployeesStatusCounts;
+  /** Total de usuários (logins) da organização. */
+  userCount: number;
 }
