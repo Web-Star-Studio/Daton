@@ -506,13 +506,25 @@ export function OrganizationUsersSettingsSection() {
     return null;
   }
 
+  // Total de logins da organização — exibido no topo da lista (a tela de
+  // Colaboradores deixou de mostrar esse número; aqui é o lar natural dele).
+  const userCount = orgUsersData?.users?.length ?? 0;
+
   return (
     <>
       <div className="space-y-8">
         <div>
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Membros da Organização
-          </h3>
+          <div className="mb-4 flex items-baseline justify-between gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Membros da Organização
+            </h3>
+            {!orgUsersLoading && (
+              <span className="text-xs font-medium text-muted-foreground">
+                {userCount} usuário{userCount === 1 ? "" : "s"} cadastrado
+                {userCount === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
           {orgUsersLoading ? (
             <div className="py-12 text-center text-muted-foreground">
               Carregando...
