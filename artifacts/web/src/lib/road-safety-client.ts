@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getListRoadSafetyFactorsQueryKey,
@@ -10,10 +11,12 @@ import {
   useUpdateRoadSafetyFactor,
   type CreateRoadSafetyFactorBody,
   type CreateRoadSafetyMeasurementBody,
+  type KpiYearRow,
   type RoadSafetyFactor,
   type RoadSafetyMeasurement,
   type UpdateRoadSafetyFactorBody,
 } from "@workspace/api-client-react";
+import { useKpiYearData } from "@/lib/kpi-client";
 
 export type {
   CreateRoadSafetyFactorBody,
@@ -68,7 +71,11 @@ export const ORIGIN_LABELS: Record<FactorOrigin, string> = {
   emergency_response: "Resposta a Emergências",
 };
 
-export type MonitoringForm = "indicator" | "report" | "internal_audit" | "other";
+export type MonitoringForm =
+  | "indicator"
+  | "report"
+  | "internal_audit"
+  | "other";
 export const MONITORING_FORMS: MonitoringForm[] = [
   "indicator",
   "report",
@@ -216,9 +223,100 @@ export function useCreateMeasurementWithInvalidation(orgId: number) {
           queryKey: getListRoadSafetyFactorsQueryKey(orgId),
         });
         queryClient.invalidateQueries({
-          queryKey: getListRoadSafetyMeasurementsQueryKey(orgId, variables.factorId),
+          queryKey: getListRoadSafetyMeasurementsQueryKey(
+            orgId,
+            variables.factorId,
+          ),
         });
       },
     },
   });
+}
+
+// ─── Vínculo com indicador (KPI) ─────────────────────────────────────────────
+
+export type LinkedIndicatorInfo = {
+  id: number;
+  name: string;
+  unit: string | null;
+  measureUnit: string | null;
+  direction: "up" | "down";
+  latestValue: number | null;
+  latestMonth: number | null;
+  goal: number | null;
+};
+
+/** Mapa indicatorId → info, com o último mês preenchido como "valor atual". */
+export function buildLinkedIndicatorMap(
+  rows: KpiYearRow[],
+): Map<number, LinkedIndicatorInfo> {
+  const map = new Map<number, LinkedIndicatorInfo>();
+  for (const r of rows) {
+    let latestValue: number | null = null;
+    let latestMonth: number | null = null;
+    for (const m of [...r.monthlyValues].sort((a, b) => a.month - b.month)) {
+      if (m.value != null) {
+        latestValue = m.value;
+        latestMonth = m.month;
+      }
+    }
+    map.set(r.indicator.id, {
+      id: r.indicator.id,
+      name: r.indicator.name,
+      unit: r.indicator.unit ?? null,
+      measureUnit: r.indicator.measureUnit ?? null,
+      direction: r.indicator.direction,
+      latestValue,
+      latestMonth,
+      goal: r.yearConfig.goal ?? null,
+    });
+  }
+  return map;
+}
+
+/** Resolve, no frontend, o valor/meta atuais de cada indicador vinculável. */
+export function useLinkedIndicators(
+  orgId: number,
+  year: number,
+): Map<number, LinkedIndicatorInfo> {
+  const { data: rows = [] } = useKpiYearData(orgId, year);
+  return useMemo(() => buildLinkedIndicatorMap(rows), [rows]);
+}
+
+type LinkableFactor = Pick<
+  RoadSafetyFactor,
+  "kpiIndicatorId" | "latestValue" | "goal" | "measureUnit"
+>;
+
+export function isLinkedToIndicator(
+  f: Pick<RoadSafetyFactor, "kpiIndicatorId">,
+): boolean {
+  return f.kpiIndicatorId != null;
+}
+
+/** Valor atual efetivo: do indicador vinculado, senão do próprio fator. */
+export function factorCurrentValue(
+  f: LinkableFactor,
+  info?: LinkedIndicatorInfo | null,
+): number | null {
+  if (f.kpiIndicatorId != null && info) return info.latestValue;
+  return f.latestValue ?? null;
+}
+
+/** Meta efetiva: do indicador vinculado, senão do próprio fator. */
+export function factorGoalValue(
+  f: LinkableFactor,
+  info?: LinkedIndicatorInfo | null,
+): number | null {
+  if (f.kpiIndicatorId != null && info) return info.goal;
+  return f.goal ?? null;
+}
+
+/** Unidade efetiva: do indicador vinculado, senão do próprio fator. */
+export function factorMeasureUnit(
+  f: LinkableFactor,
+  info?: LinkedIndicatorInfo | null,
+): string | null {
+  if (f.kpiIndicatorId != null && info) return info.measureUnit;
+  return f.measureUnit ?? null;
 }

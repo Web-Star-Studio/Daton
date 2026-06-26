@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Lock } from "lucide-react";
+import { useLocation } from "wouter";
+import { Link2, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -13,14 +14,27 @@ import {
   useRoadSafetyMeasurements,
   type Periodicity,
 } from "@/lib/road-safety-client";
-import { formatKpiValue } from "@/lib/kpi-client";
+import { formatKpiValue, useKpiIndicators } from "@/lib/kpi-client";
 
 type LancamentosScreenProps = {
   orgId: number;
   initialFactorId: number | null;
 };
 
-const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MONTHS = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
 
 function fmtMonth(d: string): string {
   const [y, m] = d.split("-");
@@ -40,9 +54,14 @@ function deviationTone(pct: number): string {
   return "text-red-600 dark:text-red-400";
 }
 
-export function LancamentosScreen({ orgId, initialFactorId }: LancamentosScreenProps) {
+export function LancamentosScreen({
+  orgId,
+  initialFactorId,
+}: LancamentosScreenProps) {
   const { data: factors = [] } = useRoadSafetyFactors(orgId);
+  const { data: indicators = [] } = useKpiIndicators(orgId);
   const createMeasurement = useCreateMeasurementWithInvalidation(orgId);
+  const [, navigate] = useLocation();
 
   const [selectedId, setSelectedId] = useState<number>(initialFactorId ?? 0);
   const [value, setValue] = useState("");
@@ -58,23 +77,34 @@ export function LancamentosScreen({ orgId, initialFactorId }: LancamentosScreenP
     () => factors.find((f) => f.id === selectedId) ?? null,
     [factors, selectedId],
   );
+  const linkedIndicator =
+    factor?.kpiIndicatorId != null
+      ? (indicators.find((i) => i.id === factor.kpiIndicatorId) ?? null)
+      : null;
 
-  const { data: measurements = [], isLoading: loadingHistory } = useRoadSafetyMeasurements(
-    orgId,
-    selectedId,
-  );
+  const { data: measurements = [], isLoading: loadingHistory } =
+    useRoadSafetyMeasurements(orgId, selectedId);
 
   // API returns measurements newest-first; chart wants chronological order.
-  const chartData = useMemo(() => [...measurements].reverse().slice(-6), [measurements]);
+  const chartData = useMemo(
+    () => [...measurements].reverse().slice(-6),
+    [measurements],
+  );
   const chartMax = Math.max(1, ...chartData.map((m) => Math.abs(m.value)));
 
   async function handleSubmit() {
     if (!factor) {
-      toast({ title: "Selecione um fator de desempenho", variant: "destructive" });
+      toast({
+        title: "Selecione um fator de desempenho",
+        variant: "destructive",
+      });
       return;
     }
     if (!value.trim() || Number.isNaN(Number(value))) {
-      toast({ title: "Informe um valor numérico válido", variant: "destructive" });
+      toast({
+        title: "Informe um valor numérico válido",
+        variant: "destructive",
+      });
       return;
     }
     if (!referenceDate) {
@@ -85,13 +115,20 @@ export function LancamentosScreen({ orgId, initialFactorId }: LancamentosScreenP
       await createMeasurement.mutateAsync({
         orgId,
         factorId: factor.id,
-        data: { value: Number(value), referenceDate, note: note.trim() || undefined },
+        data: {
+          value: Number(value),
+          referenceDate,
+          note: note.trim() || undefined,
+        },
       });
       toast({ title: "Lançamento registrado" });
       setValue("");
       setNote("");
     } catch {
-      toast({ title: "Erro ao registrar o lançamento", variant: "destructive" });
+      toast({
+        title: "Erro ao registrar o lançamento",
+        variant: "destructive",
+      });
     }
   }
 
@@ -107,13 +144,18 @@ export function LancamentosScreen({ orgId, initialFactorId }: LancamentosScreenP
     <div className="grid gap-4 lg:grid-cols-2">
       {/* New launch */}
       <div className="rounded-xl border bg-card p-5">
-        <h3 className="mb-4 text-[13px] font-semibold text-foreground">Novo lançamento</h3>
+        <h3 className="mb-4 text-[13px] font-semibold text-foreground">
+          Novo lançamento
+        </h3>
 
         <div className="mb-3 flex flex-col gap-1.5">
           <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             Fator de Desempenho
           </label>
-          <Select value={String(selectedId)} onChange={(e) => setSelectedId(Number(e.target.value))}>
+          <Select
+            value={String(selectedId)}
+            onChange={(e) => setSelectedId(Number(e.target.value))}
+          >
             {factors.map((f) => (
               <option key={f.id} value={String(f.id)}>
                 {f.code} — {f.name}
@@ -122,71 +164,111 @@ export function LancamentosScreen({ orgId, initialFactorId }: LancamentosScreenP
           </Select>
         </div>
 
-        {factor ? (
-          <div className="mb-4 rounded-lg bg-muted/50 px-3.5 py-2.5 text-xs text-muted-foreground">
-            <div className="mb-0.5 text-[13px] font-medium text-foreground">
-              {factor.code} — {factor.name}
+        {factor && factor.kpiIndicatorId != null ? (
+          <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3.5 dark:border-blue-900 dark:bg-blue-950/20">
+            <div className="mb-1.5 flex items-center gap-2 text-[13px] font-medium text-foreground">
+              <Link2 className="h-4 w-4 text-blue-500" aria-hidden />
+              Monitorado por indicador
             </div>
-            Unidade: <b className="text-foreground/80">{factor.measureUnit || "—"}</b> · Meta:{" "}
-            <b className="text-foreground/80">
-              {factor.goal != null ? formatKpiValue(factor.goal, factor.measureUnit) : "—"}
-            </b>{" "}
-            · Periodicidade:{" "}
-            <b className="text-foreground/80">
-              {PERIODICITY_LABELS[factor.periodicity as Periodicity] ?? factor.periodicity}
-            </b>
+            <p className="text-xs text-muted-foreground">
+              Este fator é monitorado pelo indicador{" "}
+              <b className="text-foreground">
+                {linkedIndicator
+                  ? linkedIndicator.name
+                  : `#${factor.kpiIndicatorId}`}
+              </b>
+              {linkedIndicator?.unit ? ` (${linkedIndicator.unit})` : ""}. Os
+              lançamentos são feitos no módulo Indicadores.
+            </p>
+            <Button
+              className="mt-3"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                navigate(
+                  `/app/kpi/indicadores#ind-card-${factor.kpiIndicatorId}`,
+                )
+              }
+            >
+              Abrir nos Indicadores
+            </Button>
           </div>
-        ) : null}
+        ) : (
+          <>
+            {factor ? (
+              <div className="mb-4 rounded-lg bg-muted/50 px-3.5 py-2.5 text-xs text-muted-foreground">
+                <div className="mb-0.5 text-[13px] font-medium text-foreground">
+                  {factor.code} — {factor.name}
+                </div>
+                Unidade:{" "}
+                <b className="text-foreground/80">
+                  {factor.measureUnit || "—"}
+                </b>{" "}
+                · Meta:{" "}
+                <b className="text-foreground/80">
+                  {factor.goal != null
+                    ? formatKpiValue(factor.goal, factor.measureUnit)
+                    : "—"}
+                </b>{" "}
+                · Periodicidade:{" "}
+                <b className="text-foreground/80">
+                  {PERIODICITY_LABELS[factor.periodicity as Periodicity] ??
+                    factor.periodicity}
+                </b>
+              </div>
+            ) : null}
 
-        <div className="mb-3 flex flex-col gap-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Valor atual
-          </label>
-          <Input
-            type="number"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="Ex: 10400"
-          />
-        </div>
+            <div className="mb-3 flex flex-col gap-1.5">
+              <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Valor atual
+              </label>
+              <Input
+                type="number"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="Ex: 10400"
+              />
+            </div>
 
-        <div className="mb-3 flex flex-col gap-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Data de referência
-          </label>
-          <Input
-            type="date"
-            value={referenceDate}
-            onChange={(e) => setReferenceDate(e.target.value)}
-          />
-        </div>
+            <div className="mb-3 flex flex-col gap-1.5">
+              <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Data de referência
+              </label>
+              <Input
+                type="date"
+                value={referenceDate}
+                onChange={(e) => setReferenceDate(e.target.value)}
+              />
+            </div>
 
-        <div className="mb-4 flex flex-col gap-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Observação (opcional)
-          </label>
-          <Textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Ex: Aumento por viagem extra no feriado"
-          />
-        </div>
+            <div className="mb-4 flex flex-col gap-1.5">
+              <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Observação (opcional)
+              </label>
+              <Textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Ex: Aumento por viagem extra no feriado"
+              />
+            </div>
 
-        <p className="mb-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Lock className="h-3 w-3" aria-hidden />
-          Lançamentos são imutáveis. Correções geram um novo registro.
-        </p>
+            <p className="mb-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Lock className="h-3 w-3" aria-hidden />
+              Lançamentos são imutáveis. Correções geram um novo registro.
+            </p>
 
-        <Button
-          className="w-full"
-          onClick={handleSubmit}
-          disabled={createMeasurement.isPending}
-        >
-          {createMeasurement.isPending ? (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          ) : null}
-          Confirmar Lançamento
-        </Button>
+            <Button
+              className="w-full"
+              onClick={handleSubmit}
+              disabled={createMeasurement.isPending}
+            >
+              {createMeasurement.isPending ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : null}
+              Confirmar Lançamento
+            </Button>
+          </>
+        )}
       </div>
 
       {/* History */}
@@ -196,7 +278,9 @@ export function LancamentosScreen({ orgId, initialFactorId }: LancamentosScreenP
         </h3>
         <div className="rounded-xl border bg-card p-4">
           {loadingHistory ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">Carregando...</p>
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              Carregando...
+            </p>
           ) : measurements.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
               Nenhum lançamento registrado para este fator.
@@ -207,18 +291,32 @@ export function LancamentosScreen({ orgId, initialFactorId }: LancamentosScreenP
                 {measurements.map((m) => {
                   const goal = factor?.goal ?? null;
                   const dev =
-                    goal != null && goal !== 0 ? ((m.value - goal) / goal) * 100 : null;
+                    goal != null && goal !== 0
+                      ? ((m.value - goal) / goal) * 100
+                      : null;
                   return (
-                    <li key={m.id} className="flex items-center justify-between py-2 text-xs">
-                      <span className="text-muted-foreground">{fmtMonth(m.referenceDate)}</span>
+                    <li
+                      key={m.id}
+                      className="flex items-center justify-between py-2 text-xs"
+                    >
+                      <span className="text-muted-foreground">
+                        {fmtMonth(m.referenceDate)}
+                      </span>
                       <div className="text-right">
                         <div className="font-medium tabular-nums text-foreground">
                           {formatKpiValue(m.value, factor?.measureUnit)}
                         </div>
                         <div className="text-[11px] text-muted-foreground tabular-nums">
-                          {goal != null ? `Meta: ${formatKpiValue(goal, factor?.measureUnit)}` : "Sem meta"}
+                          {goal != null
+                            ? `Meta: ${formatKpiValue(goal, factor?.measureUnit)}`
+                            : "Sem meta"}
                           {dev != null ? (
-                            <span className={cn("ml-1 font-medium", deviationTone(dev))}>
+                            <span
+                              className={cn(
+                                "ml-1 font-medium",
+                                deviationTone(dev),
+                              )}
+                            >
                               · {dev > 0 ? "+" : ""}
                               {dev.toFixed(0)}%
                             </span>

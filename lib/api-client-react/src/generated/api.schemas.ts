@@ -42,6 +42,8 @@ export interface RoadSafetyFactor {
   responsibleUserId?: number | null;
   responsibleUserName?: string | null;
   monitoringDetail?: string | null;
+  /** Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual. */
+  kpiIndicatorId?: number | null;
   gutGravity: number;
   gutUrgency: number;
   gutTendency: number;
@@ -108,6 +110,8 @@ export interface CreateRoadSafetyFactorBody {
   goal?: number | null;
   responsibleUserId?: number | null;
   monitoringDetail?: string | null;
+  /** Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual. */
+  kpiIndicatorId?: number | null;
   gutGravity?: number;
   gutUrgency?: number;
   gutTendency?: number;
@@ -151,6 +155,8 @@ export interface UpdateRoadSafetyFactorBody {
   goal?: number | null;
   responsibleUserId?: number | null;
   monitoringDetail?: string | null;
+  /** Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual. */
+  kpiIndicatorId?: number | null;
   gutGravity?: number;
   gutUrgency?: number;
   gutTendency?: number;

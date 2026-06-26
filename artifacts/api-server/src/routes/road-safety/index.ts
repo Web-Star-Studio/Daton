@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import {
   db,
+  kpiIndicatorsTable,
   roadSafetyFactorMeasurementsTable,
   roadSafetyFactorsTable,
   usersTable,
@@ -95,6 +96,7 @@ function serializeFactor(
     controlStatus: r.controlStatus,
     reviewDeadline: r.reviewDeadline ?? null,
     actionPlanRef: r.actionPlanRef ?? null,
+    kpiIndicatorId: r.kpiIndicatorId ?? null,
     latestValue: agg.latestValue,
     latestMeasurementDate: agg.latestMeasurementDate,
     measurementCount: agg.measurementCount,
@@ -201,6 +203,13 @@ router.post(
     );
     if (responsibleUserId === undefined) return;
 
+    const kpiIndicatorId = await resolveIndicatorLink(
+      body.data.kpiIndicatorId ?? null,
+      params.data.orgId,
+      res,
+    );
+    if (kpiIndicatorId === undefined) return;
+
     const code = await nextFactorCode(params.data.orgId);
 
     const [row] = await db
@@ -220,7 +229,9 @@ router.post(
           typeof req.body?.currentDiagnosis === "string"
             ? req.body.currentDiagnosis
             : null,
-        monitoringForm: body.data.monitoringForm ?? null,
+        monitoringForm:
+          kpiIndicatorId != null ? "indicator" : (body.data.monitoringForm ?? null),
+        kpiIndicatorId,
         periodicity: body.data.periodicity || "monthly",
         measureUnit: body.data.measureUnit ?? null,
         goal: body.data.goal != null ? String(body.data.goal) : null,
@@ -318,6 +329,12 @@ router.patch(
       if (resolved === undefined) return;
       updateData.responsibleUserId = resolved;
     }
+    if (d.kpiIndicatorId !== undefined) {
+      const resolved = await resolveIndicatorLink(d.kpiIndicatorId, params.data.orgId, res);
+      if (resolved === undefined) return;
+      updateData.kpiIndicatorId = resolved;
+      if (resolved != null) updateData.monitoringForm = "indicator";
+    }
 
     const [row] = await db
       .update(roadSafetyFactorsTable)
@@ -413,7 +430,10 @@ router.post(
     if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
     const [factor] = await db
-      .select({ id: roadSafetyFactorsTable.id })
+      .select({
+        id: roadSafetyFactorsTable.id,
+        kpiIndicatorId: roadSafetyFactorsTable.kpiIndicatorId,
+      })
       .from(roadSafetyFactorsTable)
       .where(
         and(
@@ -422,6 +442,13 @@ router.post(
         ),
       );
     if (!factor) { res.status(404).json({ error: "Fator não encontrado" }); return; }
+    if (factor.kpiIndicatorId != null) {
+      res.status(409).json({
+        error:
+          "Este fator é monitorado por um indicador. Lance os valores no módulo Indicadores.",
+      });
+      return;
+    }
 
     const [row] = await db
       .insert(roadSafetyFactorMeasurementsTable)
@@ -463,6 +490,32 @@ async function resolveResponsible(
     return undefined;
   }
   return user.id;
+}
+
+/**
+ * Validates a kpiIndicatorId belongs to the org. Returns the id (or null to
+ * unlink), or `undefined` after sending a 400 — callers must abort on undefined.
+ */
+async function resolveIndicatorLink(
+  kpiIndicatorId: number | null,
+  orgId: number,
+  res: import("express").Response,
+): Promise<number | null | undefined> {
+  if (kpiIndicatorId === null) return null;
+  const [ind] = await db
+    .select({ id: kpiIndicatorsTable.id })
+    .from(kpiIndicatorsTable)
+    .where(
+      and(
+        eq(kpiIndicatorsTable.id, kpiIndicatorId),
+        eq(kpiIndicatorsTable.organizationId, orgId),
+      ),
+    );
+  if (!ind) {
+    res.status(400).json({ error: "kpiIndicatorId não corresponde a um indicador desta organização" });
+    return undefined;
+  }
+  return ind.id;
 }
 
 export default router;

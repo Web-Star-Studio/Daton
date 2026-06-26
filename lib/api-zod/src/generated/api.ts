@@ -18810,6 +18810,12 @@ export const ListRoadSafetyFactorsResponseItem = zod.object({
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
   monitoringDetail: zod.string().nullish(),
+  kpiIndicatorId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Indicador (KPI) vinculado — fonte do valor\/meta exibidos. Null = monitoramento manual.",
+    ),
   gutGravity: zod.number(),
   gutUrgency: zod.number(),
   gutTendency: zod.number(),
@@ -18860,6 +18866,12 @@ export const CreateRoadSafetyFactorBody = zod.object({
   goal: zod.number().nullish(),
   responsibleUserId: zod.number().nullish(),
   monitoringDetail: zod.string().nullish(),
+  kpiIndicatorId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Indicador (KPI) vinculado — fonte do valor\/meta exibidos. Null = monitoramento manual.",
+    ),
   gutGravity: zod.number().optional(),
   gutUrgency: zod.number().optional(),
   gutTendency: zod.number().optional(),
@@ -18902,6 +18914,12 @@ export const GetRoadSafetyFactorResponse = zod.object({
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
   monitoringDetail: zod.string().nullish(),
+  kpiIndicatorId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Indicador (KPI) vinculado — fonte do valor\/meta exibidos. Null = monitoramento manual.",
+    ),
   gutGravity: zod.number(),
   gutUrgency: zod.number(),
   gutTendency: zod.number(),
@@ -18950,6 +18968,12 @@ export const UpdateRoadSafetyFactorBody = zod.object({
   goal: zod.number().nullish(),
   responsibleUserId: zod.number().nullish(),
   monitoringDetail: zod.string().nullish(),
+  kpiIndicatorId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Indicador (KPI) vinculado — fonte do valor\/meta exibidos. Null = monitoramento manual.",
+    ),
   gutGravity: zod.number().optional(),
   gutUrgency: zod.number().optional(),
   gutTendency: zod.number().optional(),
@@ -18984,6 +19008,12 @@ export const UpdateRoadSafetyFactorResponse = zod.object({
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
   monitoringDetail: zod.string().nullish(),
+  kpiIndicatorId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Indicador (KPI) vinculado — fonte do valor\/meta exibidos. Null = monitoramento manual.",
+    ),
   gutGravity: zod.number(),
   gutUrgency: zod.number(),
   gutTendency: zod.number(),
