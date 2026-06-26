@@ -6617,6 +6617,11 @@ export const ListOrgUsersResponse = zod.object({
           "swot",
         ]),
       ),
+      passwordSet: zod
+        .boolean()
+        .describe(
+          "False while the user still needs to define their password via the e-mailed link.",
+        ),
     }),
   ),
 });
@@ -6633,7 +6638,7 @@ export const createOrgUserBodyPasswordMin = 6;
 export const CreateOrgUserBody = zod.object({
   name: zod.string(),
   email: zod.string().email(),
-  password: zod.string().min(createOrgUserBodyPasswordMin),
+  password: zod.string().min(createOrgUserBodyPasswordMin).optional(),
   role: zod.enum(["org_admin", "manager", "operator", "analyst"]),
   modules: zod.array(
     zod.enum([
@@ -6654,6 +6659,18 @@ export const CreateOrgUserBody = zod.object({
     ]),
   ),
   unitId: zod.number().nullish(),
+});
+
+/**
+ * @summary Resend the set-password e-mail to a user who has not defined a password
+ */
+export const ResendSetPasswordEmailParams = zod.object({
+  orgId: zod.coerce.number(),
+  userId: zod.coerce.number(),
+});
+
+export const ResendSetPasswordEmailResponse = zod.object({
+  message: zod.string(),
 });
 
 /**

@@ -1,18 +1,32 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray } from "drizzle-orm";
+import crypto from "crypto";
+import { eq, and, inArray, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { db, usersTable, userModulePermissionsTable, unitsTable } from "@workspace/db";
+import { db, usersTable, userModulePermissionsTable, unitsTable, passwordResetTokensTable } from "@workspace/db";
 import { requireAuth, requireCompletedOnboarding, requireRole, requireModuleAccess, APP_MODULES } from "../middlewares/auth";
 import type { AppModule } from "../middlewares/auth";
+import { getResendClient } from "../lib/resend";
+import { getAppBaseUrl } from "../lib/app-url";
+import { buildSetPasswordEmail } from "../lib/auth-emails";
+import { serializeOrgUser, shouldSendSetPasswordEmail } from "./org-users-helpers";
 
 const router: IRouter = Router();
+
+// Usuários criados sem senha definem a própria via link por e-mail (reusa a
+// infra de password-reset). O token de criação dura 24h.
+const SET_PASSWORD_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 const createOrgUserBodySchema = z
   .object({
     name: z.string().min(1),
     email: z.string().email(),
-    password: z.string().min(6),
+    // Opcional: em branco/whitespace ⇒ normaliza para undefined e envia e-mail
+    // para o usuário definir a própria senha. Caso contrário, mínimo 6.
+    password: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+      z.string().min(6).optional(),
+    ),
     role: z.enum(["org_admin", "manager", "operator", "analyst"]),
     modules: z.array(z.enum(APP_MODULES)).default([]),
     unitId: z.number().int().nullable().optional(),
@@ -22,23 +36,41 @@ const createOrgUserBodySchema = z
     path: ["unitId"],
   });
 
-function serializeOrgUser(user: {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  unitId: number | null;
-  createdAt: Date;
-}, modules: string[]) {
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    unitId: user.unitId ?? null,
-    createdAt: user.createdAt.toISOString(),
-    modules,
-  };
+function buildSetPasswordUrl(token: string): string {
+  return `${getAppBaseUrl()}/auth/redefinir-senha?token=${token}`;
+}
+
+// Invalida tokens pendentes do usuário e cria um novo (24h). Usado no reenvio.
+async function issueSetPasswordToken(userId: number): Promise<string> {
+  await db
+    .update(passwordResetTokensTable)
+    .set({ usedAt: new Date() })
+    .where(and(eq(passwordResetTokensTable.userId, userId), isNull(passwordResetTokensTable.usedAt)));
+  const token = crypto.randomBytes(32).toString("hex");
+  await db.insert(passwordResetTokensTable).values({
+    userId,
+    token,
+    expiresAt: new Date(Date.now() + SET_PASSWORD_TOKEN_TTL_MS),
+  });
+  return token;
+}
+
+async function trySendSetPasswordEmail(setPasswordUrl: string, to: string): Promise<boolean> {
+  try {
+    const { client, fromEmail } = await getResendClient();
+    const { subject, html } = buildSetPasswordEmail(setPasswordUrl);
+    // Resend retorna { data, error } e NÃO lança em erro de API/entrega —
+    // é preciso inspecionar o campo error para saber se realmente foi enviado.
+    const { error } = await client.emails.send({ from: fromEmail, to, subject, html });
+    if (error) {
+      console.error("Falha ao enviar e-mail de definição de senha:", error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("Falha ao enviar e-mail de definição de senha:", e);
+    return false;
+  }
 }
 
 // Gerentes podem LER a lista de usuários (read-only) para atribuir o responsável de um indicador.
@@ -57,6 +89,7 @@ router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboardin
     role: usersTable.role,
     unitId: usersTable.unitId,
     createdAt: usersTable.createdAt,
+    passwordHash: usersTable.passwordHash,
   }).from(usersTable).where(eq(usersTable.organizationId, orgId));
 
   const userIds = users.map((user) => user.id);
@@ -108,10 +141,12 @@ router.post("/organizations/:orgId/users",
       return;
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const sendEmail = shouldSendSetPasswordEmail(password);
+    const passwordHash = sendEmail ? null : await bcrypt.hash(password as string, 10);
     const normalizedModules = role === "org_admin" ? [] : modules;
 
     try {
+      let setPasswordToken: string | null = null;
       const createdUser = await db.transaction(async (tx) => {
         const [user] = await tx.insert(usersTable).values({
           name: name.toUpperCase(),
@@ -128,10 +163,29 @@ router.post("/organizations/:orgId/users",
           );
         }
 
+        if (sendEmail) {
+          setPasswordToken = crypto.randomBytes(32).toString("hex");
+          await tx.insert(passwordResetTokensTable).values({
+            userId: user.id,
+            token: setPasswordToken,
+            expiresAt: new Date(Date.now() + SET_PASSWORD_TOKEN_TTL_MS),
+          });
+        }
+
         return user;
       });
 
-      res.status(201).json(serializeOrgUser(createdUser, normalizedModules));
+      // E-mail enviado após o commit: a conta fica consistente mesmo se o envio
+      // falhar — o admin reenvia via "Reenviar e-mail de acesso".
+      let emailSent = true;
+      if (setPasswordToken) {
+        emailSent = await trySendSetPasswordEmail(
+          buildSetPasswordUrl(setPasswordToken),
+          email,
+        );
+      }
+
+      res.status(201).json({ ...serializeOrgUser(createdUser, normalizedModules), emailSent });
     } catch (error: unknown) {
       const code =
         typeof error === "object" && error !== null && "code" in error
@@ -145,6 +199,47 @@ router.post("/organizations/:orgId/users",
 
       throw error;
     }
+  },
+);
+
+// Reenvia o e-mail de definição de senha para um usuário que ainda não definiu
+// a própria senha (passwordHash null). Para quem já tem senha, retorna 400.
+router.post("/organizations/:orgId/users/:userId/resend-set-password-email",
+  requireAuth,
+  requireCompletedOnboarding,
+  requireRole("org_admin"),
+  async (req, res): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    const userId = Number(req.params.userId);
+
+    if (orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+
+    const [user] = await db
+      .select({ id: usersTable.id, email: usersTable.email, passwordHash: usersTable.passwordHash })
+      .from(usersTable)
+      .where(and(eq(usersTable.id, userId), eq(usersTable.organizationId, orgId)));
+
+    if (!user) {
+      res.status(404).json({ error: "Usuário não encontrado" });
+      return;
+    }
+
+    if (user.passwordHash != null) {
+      res.status(400).json({ error: "Este usuário já definiu uma senha" });
+      return;
+    }
+
+    const token = await issueSetPasswordToken(user.id);
+    const sent = await trySendSetPasswordEmail(buildSetPasswordUrl(token), user.email);
+    if (!sent) {
+      res.status(500).json({ error: "Não foi possível enviar o e-mail. Tente novamente." });
+      return;
+    }
+
+    res.json({ message: "E-mail de definição de senha reenviado." });
   },
 );
 

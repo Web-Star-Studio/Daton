@@ -1688,6 +1688,8 @@ export interface OrgUser {
   unitId?: number | null;
   createdAt: string;
   modules: AppModule[];
+  /** False while the user still needs to define their password via the e-mailed link. */
+  passwordSet: boolean;
 }
 
 export type UserOptionRole =
@@ -1721,13 +1723,16 @@ export interface CreateOrgUserBody {
   name: string;
   email: string;
   /** @minLength 6 */
-  password: string;
+  password?: string;
   role: CreateOrgUserBodyRole;
   modules: AppModule[];
   unitId?: number | null;
 }
 
-export type CreateOrgUserResponse = OrgUser;
+export type CreateOrgUserResponse = OrgUser & {
+  /** True when a password was provided (no e-mail needed) or the set-password e-mail was sent successfully; false only when the e-mail flow was used and delivery failed. */
+  emailSent: boolean;
+};
 
 export type StrategicPlanStatus =
   (typeof StrategicPlanStatus)[keyof typeof StrategicPlanStatus];

@@ -101,7 +101,7 @@ export default function ResetPasswordPage() {
               <div className="mb-10">
                 <h2 className="text-lg font-semibold text-foreground">Link inválido ou expirado</h2>
                 <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
-                  Este link de redefinição não é mais válido. Links expiram em 1 hora e só podem ser usados uma vez.
+                  Este link não é mais válido ou já foi utilizado. Solicite um novo para continuar.
                 </p>
               </div>
               <Link

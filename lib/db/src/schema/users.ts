@@ -8,7 +8,9 @@ export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  // Nullable: usuários criados pelo admin sem senha definem a própria via link
+  // por e-mail (fluxo password-reset). O login bloqueia contas sem senha.
+  passwordHash: text("password_hash"),
   organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
   role: text("role").notNull().default("analyst"),
   theme: text("theme").notNull().default("light"),
