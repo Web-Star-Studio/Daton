@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { kpiIndicatorsTable } from "./kpi";
 import { organizationsTable } from "./organizations";
 import { usersTable } from "./users";
 
@@ -132,6 +133,12 @@ export const roadSafetyFactorsTable = pgTable(
       { onDelete: "set null" },
     ),
     monitoringDetail: text("monitoring_detail"),
+    /** Indicador (KPI) vinculado — quando setado, o fator consome valor/meta do
+     * módulo Indicadores e o lançamento manual fica bloqueado. */
+    kpiIndicatorId: integer("kpi_indicator_id").references(
+      () => kpiIndicatorsTable.id,
+      { onDelete: "set null" },
+    ),
     // Bloco D — Análise GUT (cada eixo 1–5; relevância = G × U × T)
     gutGravity: integer("gut_gravity").notNull().default(1),
     gutUrgency: integer("gut_urgency").notNull().default(1),

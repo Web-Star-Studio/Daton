@@ -9525,6 +9525,10 @@ components:
         monitoringDetail:
           type: string
           nullable: true
+        kpiIndicatorId:
+          type: integer
+          nullable: true
+          description: Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual.
         gutGravity:
           type: integer
         gutUrgency:
@@ -9652,6 +9656,10 @@ components:
         monitoringDetail:
           type: string
           nullable: true
+        kpiIndicatorId:
+          type: integer
+          nullable: true
+          description: Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual.
         gutGravity:
           type: integer
         gutUrgency:
@@ -9711,6 +9719,10 @@ components:
         monitoringDetail:
           type: string
           nullable: true
+        kpiIndicatorId:
+          type: integer
+          nullable: true
+          description: Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual.
         gutGravity:
           type: integer
         gutUrgency:
