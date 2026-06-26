@@ -566,6 +566,16 @@ export default function ColaboradoresPage() {
     setPage(1);
   };
 
+  // clicar num card de status filtra a lista por aquele status
+  const applyStatus = (s: string) => {
+    setStatusFilter(s);
+    setPage(1);
+  };
+  const statusCardCls = (s: string, ring: string) =>
+    `rounded-xl border px-4 py-3 backdrop-blur-md text-left w-full cursor-pointer transition-colors hover:bg-card/60 ${
+      statusFilter === s ? `${ring} bg-card/60` : "border-border/60 bg-card/42"
+    }`;
+
   const headerActions = useMemo(() => {
     const canWriteEmployees = canWriteModule("employees");
     if (!orgId) return null;
@@ -606,14 +616,21 @@ export default function ColaboradoresPage() {
     <>
       <div className="space-y-6">
         <div className="grid grid-cols-4 gap-4">
-          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => applyStatus("active")}
+            className={statusCardCls(
+              "active",
+              "border-emerald-500/70 ring-1 ring-emerald-500/40",
+            )}
+          >
             <p className="text-xs font-medium text-muted-foreground">
               Colaboradores ativos
             </p>
             <p className="text-xl font-semibold text-emerald-600 mt-0.5">
               {stats.active}
             </p>
-          </div>
+          </button>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
             <p className="text-xs font-medium text-muted-foreground">
               Usuários cadastrados
@@ -622,22 +639,36 @@ export default function ColaboradoresPage() {
               {stats.users}
             </p>
           </div>
-          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => applyStatus("inactive")}
+            className={statusCardCls(
+              "inactive",
+              "border-gray-400/70 ring-1 ring-gray-400/40",
+            )}
+          >
             <p className="text-xs font-medium text-muted-foreground">
               Inativos
             </p>
             <p className="text-xl font-semibold text-gray-500 mt-0.5">
               {stats.inactive}
             </p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+          </button>
+          <button
+            type="button"
+            onClick={() => applyStatus("on_leave")}
+            className={statusCardCls(
+              "on_leave",
+              "border-amber-500/70 ring-1 ring-amber-500/40",
+            )}
+          >
             <p className="text-xs font-medium text-muted-foreground">
               Afastados
             </p>
             <p className="text-xl font-semibold text-amber-600 mt-0.5">
               {stats.onLeave}
             </p>
-          </div>
+          </button>
         </div>
 
         <div className="flex items-center gap-3">
