@@ -1222,6 +1222,8 @@ export interface PaginatedEmployees {
   statusCounts: PaginatedEmployeesStatusCounts;
   /** Total de usuários (logins) da organização. */
   userCount: number;
+  /** Colaboradores no escopo (ignora o filtro de status) que têm um usuário/login vinculado. */
+  withUserCount?: number;
 }
 
 export interface LinkedUnit {
@@ -1727,6 +1729,8 @@ export interface CreateOrgUserBody {
   role: CreateOrgUserBodyRole;
   modules: AppModule[];
   unitId?: number | null;
+  /** Colaborador (ficha de RH) a vincular a este usuário. Cria o vínculo persistente users↔employees. */
+  employeeId?: number | null;
 }
 
 export type CreateOrgUserResponse = OrgUser & {
@@ -5994,6 +5998,10 @@ export type ListEmployeesParams = {
   unitId?: number;
   position?: string;
   status?: string;
+  /**
+   * When true, only employees that have a linked user account (login).
+   */
+  hasUser?: boolean;
   /**
    * @minimum 1
    */

@@ -1437,6 +1437,12 @@ export const ListEmployeesQueryParams = zod.object({
   unitId: zod.coerce.number().optional(),
   position: zod.coerce.string().optional(),
   status: zod.coerce.string().optional(),
+  hasUser: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "When true, only employees that have a linked user account (login).",
+    ),
   page: zod.coerce.number().min(1).optional(),
   pageSize: zod.coerce
     .number()
@@ -1493,6 +1499,12 @@ export const ListEmployeesResponse = zod.object({
   userCount: zod
     .number()
     .describe("Total de usuários (logins) da organização."),
+  withUserCount: zod
+    .number()
+    .optional()
+    .describe(
+      "Colaboradores no escopo (ignora o filtro de status) que têm um usuário\/login vinculado.",
+    ),
 });
 
 /**
@@ -6659,6 +6671,12 @@ export const CreateOrgUserBody = zod.object({
     ]),
   ),
   unitId: zod.number().nullish(),
+  employeeId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Colaborador (ficha de RH) a vincular a este usuário. Cria o vínculo persistente users↔employees.",
+    ),
 });
 
 /**

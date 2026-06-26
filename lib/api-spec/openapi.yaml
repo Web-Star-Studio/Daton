@@ -959,6 +959,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: hasUser
+          in: query
+          description: When true, only employees that have a linked user account (login).
+          schema:
+            type: boolean
         - name: page
           in: query
           schema:
@@ -11396,6 +11401,9 @@ components:
         userCount:
           type: integer
           description: Total de usuários (logins) da organização.
+        withUserCount:
+          type: integer
+          description: Colaboradores no escopo (ignora o filtro de status) que têm um usuário/login vinculado.
       required:
         - data
         - pagination
@@ -12138,6 +12146,10 @@ components:
         unitId:
           type: integer
           nullable: true
+        employeeId:
+          type: integer
+          nullable: true
+          description: Colaborador (ficha de RH) a vincular a este usuário. Cria o vínculo persistente users↔employees.
       required:
         - name
         - email
