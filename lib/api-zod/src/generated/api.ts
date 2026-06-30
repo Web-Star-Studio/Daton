@@ -2760,7 +2760,13 @@ export const createTrainingBodyAttachmentsItemObjectPathRegExp = new RegExp(
 export const createTrainingBodyAttachmentsMax = 10;
 
 export const CreateTrainingBody = zod.object({
-  title: zod.string(),
+  catalogItemId: zod
+    .number()
+    .optional()
+    .describe(
+      "Se informado, copia (snapshot) os campos do item do catálogo ausentes no body e vincula o registro.",
+    ),
+  title: zod.string().optional(),
   description: zod.string().optional(),
   objective: zod.string().optional(),
   institution: zod.string().optional(),

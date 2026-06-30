@@ -10,6 +10,7 @@ import {
   employeeProfileItemAttachmentsTable,
   employeeCompetenciesTable,
   employeeTrainingsTable,
+  trainingCatalogTable,
   trainingEffectivenessReviewsTable,
   employeeAwarenessTable,
   employeeUnitsTable,
@@ -2602,12 +2603,80 @@ router.post(
       return;
     }
 
+    // Snapshot do catálogo: se veio catalogItemId, copia os campos template do
+    // item (ausentes no body) e calcula a validade. O body tem precedência.
+    const { catalogItemId, attachments: _bodyAttachments, ...bodyFields } =
+      body.data;
+    const values: Partial<typeof employeeTrainingsTable.$inferInsert> = {};
+    let resolvedCatalogItemId: number | null = null;
+
+    if (catalogItemId != null) {
+      const [item] = await db
+        .select()
+        .from(trainingCatalogTable)
+        .where(
+          and(
+            eq(trainingCatalogTable.id, catalogItemId),
+            eq(trainingCatalogTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!item) {
+        res.status(400).json({ error: "Item do catálogo não encontrado" });
+        return;
+      }
+      resolvedCatalogItemId = item.id;
+      const defaults: Partial<typeof employeeTrainingsTable.$inferInsert> = {
+        title: item.title,
+        description: item.programContent ?? undefined,
+        objective: item.objective ?? undefined,
+        institution: item.defaultInstructor ?? undefined,
+        targetCompetencyName: item.targetCompetencyName ?? undefined,
+        targetCompetencyType: item.targetCompetencyType ?? undefined,
+        targetCompetencyLevel: item.targetCompetencyLevel ?? undefined,
+        evaluationMethod: item.evaluationMethod ?? undefined,
+        workloadHours: item.workloadHours ?? undefined,
+        renewalMonths: item.validityMonths ?? undefined,
+      };
+      for (const [k, v] of Object.entries(defaults)) {
+        if (v !== undefined) (values as Record<string, unknown>)[k] = v;
+      }
+    }
+
+    // Campos do body sobrescrevem os defaults do catálogo (só os definidos).
+    for (const [k, v] of Object.entries(bodyFields)) {
+      if (v !== undefined) (values as Record<string, unknown>)[k] = v;
+    }
+
+    // Validade: se houver conclusão + renovação e nenhuma data de vencimento
+    // explícita, calcula expirationDate = completionDate + renewalMonths.
+    if (
+      !values.expirationDate &&
+      values.completionDate &&
+      values.renewalMonths
+    ) {
+      const d = new Date(values.completionDate);
+      if (!Number.isNaN(d.getTime())) {
+        d.setMonth(d.getMonth() + values.renewalMonths);
+        values.expirationDate = d.toISOString().slice(0, 10);
+      }
+    }
+
+    const finalTitle = values.title?.trim();
+    if (!finalTitle) {
+      res.status(400).json({
+        error: "Informe o título do treinamento ou selecione um item do catálogo",
+      });
+      return;
+    }
+
     const [training] = await db
       .insert(employeeTrainingsTable)
       .values({
-        ...body.data,
+        ...values,
+        title: finalTitle,
         attachments: attachments || [],
         employeeId: params.data.empId,
+        catalogItemId: resolvedCatalogItemId,
       })
       .returning();
 

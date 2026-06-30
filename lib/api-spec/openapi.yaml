@@ -12150,6 +12150,9 @@ components:
     CreateTrainingBody:
       type: object
       properties:
+        catalogItemId:
+          type: integer
+          description: "Se informado, copia (snapshot) os campos do item do catálogo ausentes no body e vincula o registro."
         title:
           type: string
         description:
@@ -12186,8 +12189,6 @@ components:
           maxItems: 10
           items:
             $ref: "#/components/schemas/EmployeeRecordAttachment"
-      required:
-        - title
 
     CreateAwarenessBody:
       type: object
