@@ -14,6 +14,7 @@ import employeesRouter from "./employees";
 import trainingCatalogRouter from "./training-catalog";
 import competencyCatalogRouter from "./competency-catalog";
 import trainingRequirementsRouter from "./training-requirements";
+import trainingClassesRouter from "./training-classes";
 import departmentsRouter from "./departments";
 import positionsRouter from "./positions";
 import documentsRouter from "./documents";
@@ -125,6 +126,14 @@ router.use(
     /^\/organizations\/[^/]+\/training-requirements(?:\/|$)/,
   ]),
   trainingRequirementsRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/training-classes(?:\/|$)/,
+  ]),
+  trainingClassesRouter,
 );
 router.use(
   requireAuth,
