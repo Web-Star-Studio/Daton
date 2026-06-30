@@ -145,6 +145,22 @@ function AppPages() {
         path="/organizacao/colaboradores/:id"
         component={AprendizagemEmployeeDetailPage}
       />
+      <Route
+        path="/aprendizagem/colaboradores"
+        component={AprendizagemEmployeesPage}
+      />
+      <Route
+        path="/aprendizagem/colaboradores/treinamentos"
+        component={AprendizagemEmployeeTrainingsPage}
+      />
+      <Route
+        path="/aprendizagem/colaboradores/treinamentos/:title"
+        component={AprendizagemTrainingDetailPage}
+      />
+      <Route
+        path="/aprendizagem/colaboradores/:id"
+        component={AprendizagemEmployeeDetailPage}
+      />
       <Route path="/organizacao/unidades" component={OrganizacaoUnitsPage} />
       <Route path="/organizacao/unidades/:id" component={UnitDetailPage} />
       <Route
@@ -268,6 +284,22 @@ function AppPages() {
       />
       <Route
         path="/app/organizacao/colaboradores/:id"
+        component={AprendizagemEmployeeDetailPage}
+      />
+      <Route
+        path="/app/aprendizagem/colaboradores"
+        component={AprendizagemEmployeesPage}
+      />
+      <Route
+        path="/app/aprendizagem/colaboradores/treinamentos"
+        component={AprendizagemEmployeeTrainingsPage}
+      />
+      <Route
+        path="/app/aprendizagem/colaboradores/treinamentos/:title"
+        component={AprendizagemTrainingDetailPage}
+      />
+      <Route
+        path="/app/aprendizagem/colaboradores/:id"
         component={AprendizagemEmployeeDetailPage}
       />
       <Route
