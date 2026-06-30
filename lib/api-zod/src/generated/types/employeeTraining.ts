@@ -11,6 +11,8 @@ import type { EmployeeTrainingTargetCompetencyType } from "./employeeTrainingTar
 import type { TrainingEffectivenessReview } from "./trainingEffectivenessReview";
 
 export interface EmployeeTraining {
+  dueDate?: string | null;
+  requirementId?: number | null;
   id: number;
   employeeId: number;
   title: string;

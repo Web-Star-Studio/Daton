@@ -99,6 +99,7 @@ import type {
   CreateTrainingBody,
   CreateTrainingCatalogItemBody,
   CreateTrainingEffectivenessReviewBody,
+  CreateTrainingRequirementBody,
   CreateUnitBody,
   CreateWorkEnvironmentControlBody,
   CreateWorkEnvironmentVerificationBody,
@@ -183,6 +184,8 @@ import type {
   ListRegulatoryDocumentsParams,
   ListSgqProcessesParams,
   ListTrainingCatalogParams,
+  ListTrainingRequirements200,
+  ListTrainingRequirementsParams,
   ListUserOptionsParams,
   ListWorkEnvironmentControlsParams,
   LoginBody,
@@ -216,6 +219,7 @@ import type {
   Position,
   PositionCompetencyMatrixRevision,
   PositionCompetencyRequirement,
+  PreviewTrainingRequirementsParams,
   ProcessRegulatoryAlertsResponse,
   ProjectDevelopmentApplicabilityState,
   QuestionnaireTheme,
@@ -252,6 +256,8 @@ import type {
   SyncInternalAuditChecklistBody,
   TrainingCatalogItem,
   TrainingEffectivenessReview,
+  TrainingRequirement,
+  TrainingRequirementPreview,
   Unit,
   UnitLegislation,
   UnitLegislationWithLegislation,
@@ -310,6 +316,7 @@ import type {
   UpdateSwotPerspectiveBody,
   UpdateTrainingBody,
   UpdateTrainingCatalogItemBody,
+  UpdateTrainingRequirementBody,
   UpdateUnitBody,
   UpdateUnitLegislationBody,
   UpdateUserModules200,
@@ -34244,4 +34251,522 @@ export const useDeleteCompetencyCatalogItem = <
   TContext
 > => {
   return useMutation(getDeleteCompetencyCatalogItemMutationOptions(options));
+};
+
+/**
+ * @summary List the organization's training requirements (obrigatoriedades)
+ */
+export const getListTrainingRequirementsUrl = (
+  orgId: number,
+  params?: ListTrainingRequirementsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/training-requirements?${stringifiedParams}`
+    : `/api/organizations/${orgId}/training-requirements`;
+};
+
+export const listTrainingRequirements = async (
+  orgId: number,
+  params?: ListTrainingRequirementsParams,
+  options?: RequestInit,
+): Promise<ListTrainingRequirements200> => {
+  return customFetch<ListTrainingRequirements200>(
+    getListTrainingRequirementsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTrainingRequirementsQueryKey = (
+  orgId: number,
+  params?: ListTrainingRequirementsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/training-requirements`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListTrainingRequirementsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrainingRequirements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListTrainingRequirementsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrainingRequirements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListTrainingRequirementsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTrainingRequirements>>
+  > = ({ signal }) =>
+    listTrainingRequirements(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTrainingRequirements>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTrainingRequirementsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrainingRequirements>>
+>;
+export type ListTrainingRequirementsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the organization's training requirements (obrigatoriedades)
+ */
+
+export function useListTrainingRequirements<
+  TData = Awaited<ReturnType<typeof listTrainingRequirements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListTrainingRequirementsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrainingRequirements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTrainingRequirementsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a training requirement
+ */
+export const getCreateTrainingRequirementUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/training-requirements`;
+};
+
+export const createTrainingRequirement = async (
+  orgId: number,
+  createTrainingRequirementBody: CreateTrainingRequirementBody,
+  options?: RequestInit,
+): Promise<TrainingRequirement> => {
+  return customFetch<TrainingRequirement>(
+    getCreateTrainingRequirementUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createTrainingRequirementBody),
+    },
+  );
+};
+
+export const getCreateTrainingRequirementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTrainingRequirement>>,
+    TError,
+    { orgId: number; data: BodyType<CreateTrainingRequirementBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTrainingRequirement>>,
+  TError,
+  { orgId: number; data: BodyType<CreateTrainingRequirementBody> },
+  TContext
+> => {
+  const mutationKey = ["createTrainingRequirement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTrainingRequirement>>,
+    { orgId: number; data: BodyType<CreateTrainingRequirementBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createTrainingRequirement(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTrainingRequirementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTrainingRequirement>>
+>;
+export type CreateTrainingRequirementMutationBody =
+  BodyType<CreateTrainingRequirementBody>;
+export type CreateTrainingRequirementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a training requirement
+ */
+export const useCreateTrainingRequirement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTrainingRequirement>>,
+    TError,
+    { orgId: number; data: BodyType<CreateTrainingRequirementBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTrainingRequirement>>,
+  TError,
+  { orgId: number; data: BodyType<CreateTrainingRequirementBody> },
+  TContext
+> => {
+  return useMutation(getCreateTrainingRequirementMutationOptions(options));
+};
+
+/**
+ * @summary Preview requirements that would apply to a position + unit (no generation)
+ */
+export const getPreviewTrainingRequirementsUrl = (
+  orgId: number,
+  params: PreviewTrainingRequirementsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/training-requirements/preview?${stringifiedParams}`
+    : `/api/organizations/${orgId}/training-requirements/preview`;
+};
+
+export const previewTrainingRequirements = async (
+  orgId: number,
+  params: PreviewTrainingRequirementsParams,
+  options?: RequestInit,
+): Promise<TrainingRequirementPreview> => {
+  return customFetch<TrainingRequirementPreview>(
+    getPreviewTrainingRequirementsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getPreviewTrainingRequirementsQueryKey = (
+  orgId: number,
+  params?: PreviewTrainingRequirementsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/training-requirements/preview`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getPreviewTrainingRequirementsQueryOptions = <
+  TData = Awaited<ReturnType<typeof previewTrainingRequirements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params: PreviewTrainingRequirementsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof previewTrainingRequirements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getPreviewTrainingRequirementsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof previewTrainingRequirements>>
+  > = ({ signal }) =>
+    previewTrainingRequirements(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof previewTrainingRequirements>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type PreviewTrainingRequirementsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof previewTrainingRequirements>>
+>;
+export type PreviewTrainingRequirementsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Preview requirements that would apply to a position + unit (no generation)
+ */
+
+export function usePreviewTrainingRequirements<
+  TData = Awaited<ReturnType<typeof previewTrainingRequirements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params: PreviewTrainingRequirementsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof previewTrainingRequirements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getPreviewTrainingRequirementsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a training requirement
+ */
+export const getUpdateTrainingRequirementUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/training-requirements/${id}`;
+};
+
+export const updateTrainingRequirement = async (
+  orgId: number,
+  id: number,
+  updateTrainingRequirementBody: UpdateTrainingRequirementBody,
+  options?: RequestInit,
+): Promise<TrainingRequirement> => {
+  return customFetch<TrainingRequirement>(
+    getUpdateTrainingRequirementUrl(orgId, id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateTrainingRequirementBody),
+    },
+  );
+};
+
+export const getUpdateTrainingRequirementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrainingRequirement>>,
+    TError,
+    {
+      orgId: number;
+      id: number;
+      data: BodyType<UpdateTrainingRequirementBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTrainingRequirement>>,
+  TError,
+  { orgId: number; id: number; data: BodyType<UpdateTrainingRequirementBody> },
+  TContext
+> => {
+  const mutationKey = ["updateTrainingRequirement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTrainingRequirement>>,
+    { orgId: number; id: number; data: BodyType<UpdateTrainingRequirementBody> }
+  > = (props) => {
+    const { orgId, id, data } = props ?? {};
+
+    return updateTrainingRequirement(orgId, id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTrainingRequirementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTrainingRequirement>>
+>;
+export type UpdateTrainingRequirementMutationBody =
+  BodyType<UpdateTrainingRequirementBody>;
+export type UpdateTrainingRequirementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a training requirement
+ */
+export const useUpdateTrainingRequirement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrainingRequirement>>,
+    TError,
+    {
+      orgId: number;
+      id: number;
+      data: BodyType<UpdateTrainingRequirementBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTrainingRequirement>>,
+  TError,
+  { orgId: number; id: number; data: BodyType<UpdateTrainingRequirementBody> },
+  TContext
+> => {
+  return useMutation(getUpdateTrainingRequirementMutationOptions(options));
+};
+
+/**
+ * @summary Delete a training requirement
+ */
+export const getDeleteTrainingRequirementUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/training-requirements/${id}`;
+};
+
+export const deleteTrainingRequirement = async (
+  orgId: number,
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTrainingRequirementUrl(orgId, id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTrainingRequirementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrainingRequirement>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTrainingRequirement>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTrainingRequirement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTrainingRequirement>>,
+    { orgId: number; id: number }
+  > = (props) => {
+    const { orgId, id } = props ?? {};
+
+    return deleteTrainingRequirement(orgId, id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTrainingRequirementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTrainingRequirement>>
+>;
+
+export type DeleteTrainingRequirementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a training requirement
+ */
+export const useDeleteTrainingRequirement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrainingRequirement>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTrainingRequirement>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTrainingRequirementMutationOptions(options));
 };

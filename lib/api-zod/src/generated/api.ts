@@ -1454,6 +1454,15 @@ export const ListEmployeesQueryParams = zod.object({
 export const ListEmployeesResponse = zod.object({
   data: zod.array(
     zod.object({
+      autoLinkedTrainings: zod
+        .object({
+          generated: zod.number(),
+          reused: zod.number(),
+        })
+        .optional()
+        .describe(
+          "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+        ),
       id: zod.number(),
       organizationId: zod.number(),
       unitId: zod.number().nullish(),
@@ -2027,6 +2036,15 @@ export const getEmployeeResponseTwoAwarenessItemAttachmentsItemObjectPathRegExp 
 
 export const GetEmployeeResponse = zod
   .object({
+    autoLinkedTrainings: zod
+      .object({
+        generated: zod.number(),
+        reused: zod.number(),
+      })
+      .optional()
+      .describe(
+        "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+      ),
     id: zod.number(),
     organizationId: zod.number(),
     unitId: zod.number().nullish(),
@@ -2104,6 +2122,8 @@ export const GetEmployeeResponse = zod
       trainings: zod
         .array(
           zod.object({
+            dueDate: zod.string().nullish(),
+            requirementId: zod.number().nullish(),
             id: zod.number(),
             employeeId: zod.number(),
             title: zod.string(),
@@ -2358,6 +2378,15 @@ export const UpdateEmployeeBody = zod.object({
 });
 
 export const UpdateEmployeeResponse = zod.object({
+  autoLinkedTrainings: zod
+    .object({
+      generated: zod.number(),
+      reused: zod.number(),
+    })
+    .optional()
+    .describe(
+      "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+    ),
   id: zod.number(),
   organizationId: zod.number(),
   unitId: zod.number().nullish(),
@@ -2631,6 +2660,8 @@ export const listTrainingsResponseEffectivenessReviewsItemAttachmentsItemObjectP
   new RegExp("^\/objects\/uploads\/.+");
 
 export const ListTrainingsResponseItem = zod.object({
+  dueDate: zod.string().nullish(),
+  requirementId: zod.number().nullish(),
   id: zod.number(),
   employeeId: zod.number(),
   title: zod.string(),
@@ -2885,6 +2916,8 @@ export const updateTrainingResponseEffectivenessReviewsItemAttachmentsItemObject
   new RegExp("^\/objects\/uploads\/.+");
 
 export const UpdateTrainingResponse = zod.object({
+  dueDate: zod.string().nullish(),
+  requirementId: zod.number().nullish(),
   id: zod.number(),
   employeeId: zod.number(),
   title: zod.string(),
@@ -4145,6 +4178,15 @@ export const GetDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -4413,6 +4455,15 @@ export const UpdateDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -4728,6 +4779,15 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -5058,6 +5118,15 @@ export const SubmitDocumentForReviewResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -5304,6 +5373,15 @@ export const ApproveDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -5550,6 +5628,15 @@ export const RejectDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -5792,6 +5879,15 @@ export const ReviseDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -6034,6 +6130,15 @@ export const DistributeDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -6296,6 +6401,15 @@ export const UpdateDocumentContentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -19363,4 +19477,149 @@ export const UpdateCompetencyCatalogItemResponse = zod
 export const DeleteCompetencyCatalogItemParams = zod.object({
   orgId: zod.coerce.number(),
   itemId: zod.coerce.number(),
+});
+
+/**
+ * @summary List the organization's training requirements (obrigatoriedades)
+ */
+export const ListTrainingRequirementsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListTrainingRequirementsQueryParams = zod.object({
+  positionId: zod.coerce.number().optional(),
+  deadlineType: zod.coerce.string().optional(),
+  scope: zod.coerce.string().optional(),
+});
+
+export const ListTrainingRequirementsResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        positionId: zod.number(),
+        catalogItemId: zod.number(),
+        deadlineType: zod.string(),
+        deadlineDays: zod.number().nullish(),
+        scope: zod.string(),
+        filialUnitIds: zod.array(zod.number()),
+        recurrence: zod.string(),
+        isCritical: zod.boolean(),
+        norm: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe(
+        "Obrigatoriedade — regra que torna um item do catálogo obrigatório para um cargo.",
+      ),
+  ),
+});
+
+/**
+ * @summary Create a training requirement
+ */
+export const CreateTrainingRequirementParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateTrainingRequirementBody = zod.object({
+  positionId: zod.number(),
+  catalogItemId: zod.number(),
+  deadlineType: zod.string(),
+  deadlineDays: zod.number().nullish(),
+  scope: zod.string().optional(),
+  filialUnitIds: zod.array(zod.number()).optional(),
+  recurrence: zod.string().optional(),
+  isCritical: zod.boolean().optional(),
+  norm: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Preview requirements that would apply to a position + unit (no generation)
+ */
+export const PreviewTrainingRequirementsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const PreviewTrainingRequirementsQueryParams = zod.object({
+  position: zod.coerce.string(),
+  unitId: zod.coerce.number().optional(),
+});
+
+export const PreviewTrainingRequirementsResponse = zod.object({
+  requirements: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        positionId: zod.number(),
+        catalogItemId: zod.number(),
+        deadlineType: zod.string(),
+        deadlineDays: zod.number().nullish(),
+        scope: zod.string(),
+        filialUnitIds: zod.array(zod.number()),
+        recurrence: zod.string(),
+        isCritical: zod.boolean(),
+        norm: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe(
+        "Obrigatoriedade — regra que torna um item do catálogo obrigatório para um cargo.",
+      ),
+  ),
+});
+
+/**
+ * @summary Update a training requirement
+ */
+export const UpdateTrainingRequirementParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const UpdateTrainingRequirementBody = zod.object({
+  positionId: zod.number().optional(),
+  catalogItemId: zod.number().optional(),
+  deadlineType: zod.string().optional(),
+  deadlineDays: zod.number().nullish(),
+  scope: zod.string().optional(),
+  filialUnitIds: zod.array(zod.number()).optional(),
+  recurrence: zod.string().optional(),
+  isCritical: zod.boolean().optional(),
+  norm: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+export const UpdateTrainingRequirementResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    positionId: zod.number(),
+    catalogItemId: zod.number(),
+    deadlineType: zod.string(),
+    deadlineDays: zod.number().nullish(),
+    scope: zod.string(),
+    filialUnitIds: zod.array(zod.number()),
+    recurrence: zod.string(),
+    isCritical: zod.boolean(),
+    norm: zod.string().nullish(),
+    notes: zod.string().nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe(
+    "Obrigatoriedade — regra que torna um item do catálogo obrigatório para um cargo.",
+  );
+
+/**
+ * @summary Delete a training requirement
+ */
+export const DeleteTrainingRequirementParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
 });

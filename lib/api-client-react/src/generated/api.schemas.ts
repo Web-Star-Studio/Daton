@@ -117,6 +117,56 @@ export interface UpdateCompetencyCatalogItemBody {
   isMandatory?: boolean;
 }
 
+/**
+ * Obrigatoriedade — regra que torna um item do catálogo obrigatório para um cargo.
+ */
+export interface TrainingRequirement {
+  id: number;
+  organizationId: number;
+  positionId: number;
+  catalogItemId: number;
+  deadlineType: string;
+  deadlineDays?: number | null;
+  scope: string;
+  filialUnitIds: number[];
+  recurrence: string;
+  isCritical: boolean;
+  norm?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTrainingRequirementBody {
+  positionId: number;
+  catalogItemId: number;
+  deadlineType: string;
+  deadlineDays?: number | null;
+  scope?: string;
+  filialUnitIds?: number[];
+  recurrence?: string;
+  isCritical?: boolean;
+  norm?: string;
+  notes?: string;
+}
+
+export interface UpdateTrainingRequirementBody {
+  positionId?: number;
+  catalogItemId?: number;
+  deadlineType?: string;
+  deadlineDays?: number | null;
+  scope?: string;
+  filialUnitIds?: number[];
+  recurrence?: string;
+  isCritical?: boolean;
+  norm?: string;
+  notes?: string;
+}
+
+export interface TrainingRequirementPreview {
+  requirements: TrainingRequirement[];
+}
+
 export type RoadSafetyFactorType =
   (typeof RoadSafetyFactorType)[keyof typeof RoadSafetyFactorType];
 
@@ -961,6 +1011,14 @@ export interface ComplianceTag {
   sourceQuestionId?: number | null;
 }
 
+/**
+ * Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar).
+ */
+export type EmployeeAutoLinkedTrainings = {
+  generated: number;
+  reused: number;
+};
+
 export type EmployeeContractType =
   (typeof EmployeeContractType)[keyof typeof EmployeeContractType];
 
@@ -982,6 +1040,8 @@ export const EmployeeStatus = {
 } as const;
 
 export interface Employee {
+  /** Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar). */
+  autoLinkedTrainings?: EmployeeAutoLinkedTrainings;
   id: number;
   organizationId: number;
   unitId?: number | null;
@@ -1114,6 +1174,8 @@ export interface TrainingEffectivenessReview {
 }
 
 export interface EmployeeTraining {
+  dueDate?: string | null;
+  requirementId?: number | null;
   id: number;
   employeeId: number;
   title: string;
@@ -6423,4 +6485,19 @@ export type ListTrainingCatalogParams = {
 
 export type ListCompetencyCatalog200 = {
   data: CompetencyCatalogItem[];
+};
+
+export type ListTrainingRequirementsParams = {
+  positionId?: number;
+  deadlineType?: string;
+  scope?: string;
+};
+
+export type ListTrainingRequirements200 = {
+  data: TrainingRequirement[];
+};
+
+export type PreviewTrainingRequirementsParams = {
+  position: string;
+  unitId?: number;
 };

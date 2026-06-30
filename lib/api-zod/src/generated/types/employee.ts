@@ -5,10 +5,13 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { EmployeeAutoLinkedTrainings } from "./employeeAutoLinkedTrainings";
 import type { EmployeeContractType } from "./employeeContractType";
 import type { EmployeeStatus } from "./employeeStatus";
 
 export interface Employee {
+  /** Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar). */
+  autoLinkedTrainings?: EmployeeAutoLinkedTrainings;
   id: number;
   organizationId: number;
   unitId?: number | null;

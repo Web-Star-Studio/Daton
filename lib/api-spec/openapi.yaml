@@ -61,6 +61,8 @@ tags:
     description: Catálogo de treinamentos — definições reutilizáveis (ISO 10015)
   - name: competency-catalog
     description: Banco de competências — catálogo gerenciável por organização (ISO 10015 §4.2)
+  - name: training-requirements
+    description: Obrigatoriedades — regras de treinamento por cargo (auto-vínculo)
 
 paths:
   /healthz:
@@ -9732,6 +9734,147 @@ paths:
         "204":
           description: Competency removed
 
+  /organizations/{orgId}/training-requirements:
+    get:
+      operationId: listTrainingRequirements
+      tags: [training-requirements]
+      summary: List the organization's training requirements (obrigatoriedades)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: positionId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: deadlineType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Training requirements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TrainingRequirement"
+                required:
+                  - data
+    post:
+      operationId: createTrainingRequirement
+      tags: [training-requirements]
+      summary: Create a training requirement
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrainingRequirementBody"
+      responses:
+        "201":
+          description: Requirement created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingRequirement"
+
+  /organizations/{orgId}/training-requirements/preview:
+    get:
+      operationId: previewTrainingRequirements
+      tags: [training-requirements]
+      summary: Preview requirements that would apply to a position + unit (no generation)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: position
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: unitId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Requirements that would apply
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingRequirementPreview"
+
+  /organizations/{orgId}/training-requirements/{id}:
+    patch:
+      operationId: updateTrainingRequirement
+      tags: [training-requirements]
+      summary: Update a training requirement
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrainingRequirementBody"
+      responses:
+        "200":
+          description: Requirement updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingRequirement"
+    delete:
+      operationId: deleteTrainingRequirement
+      tags: [training-requirements]
+      summary: Delete a training requirement
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Requirement removed
+
 components:
   schemas:
     TrainingCatalogItem:
@@ -9975,6 +10118,126 @@ components:
           type: string
         isMandatory:
           type: boolean
+
+    TrainingRequirement:
+      type: object
+      description: "Obrigatoriedade — regra que torna um item do catálogo obrigatório para um cargo."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        positionId:
+          type: integer
+        catalogItemId:
+          type: integer
+        deadlineType:
+          type: string
+        deadlineDays:
+          type: integer
+          nullable: true
+        scope:
+          type: string
+        filialUnitIds:
+          type: array
+          items:
+            type: integer
+        recurrence:
+          type: string
+        isCritical:
+          type: boolean
+        norm:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - positionId
+        - catalogItemId
+        - deadlineType
+        - scope
+        - filialUnitIds
+        - recurrence
+        - isCritical
+        - createdAt
+        - updatedAt
+
+    CreateTrainingRequirementBody:
+      type: object
+      properties:
+        positionId:
+          type: integer
+        catalogItemId:
+          type: integer
+        deadlineType:
+          type: string
+        deadlineDays:
+          type: integer
+          nullable: true
+        scope:
+          type: string
+        filialUnitIds:
+          type: array
+          items:
+            type: integer
+        recurrence:
+          type: string
+        isCritical:
+          type: boolean
+        norm:
+          type: string
+        notes:
+          type: string
+      required:
+        - positionId
+        - catalogItemId
+        - deadlineType
+
+    UpdateTrainingRequirementBody:
+      type: object
+      properties:
+        positionId:
+          type: integer
+        catalogItemId:
+          type: integer
+        deadlineType:
+          type: string
+        deadlineDays:
+          type: integer
+          nullable: true
+        scope:
+          type: string
+        filialUnitIds:
+          type: array
+          items:
+            type: integer
+        recurrence:
+          type: string
+        isCritical:
+          type: boolean
+        norm:
+          type: string
+        notes:
+          type: string
+
+    TrainingRequirementPreview:
+      type: object
+      properties:
+        requirements:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrainingRequirement"
+      required:
+        - requirements
 
     RoadSafetyFactor:
       type: object
@@ -11214,6 +11477,17 @@ components:
     Employee:
       type: object
       properties:
+        autoLinkedTrainings:
+          type: object
+          description: "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar)."
+          properties:
+            generated:
+              type: integer
+            reused:
+              type: integer
+          required:
+            - generated
+            - reused
         id:
           type: integer
         organizationId:
@@ -11404,6 +11678,12 @@ components:
     EmployeeTraining:
       type: object
       properties:
+        dueDate:
+          type: string
+          nullable: true
+        requirementId:
+          type: integer
+          nullable: true
         id:
           type: integer
         employeeId:
