@@ -11,6 +11,7 @@ import aiRouter from "./ai";
 import questionnaireRouter from "./questionnaire";
 import autoTagRouter from "./auto-tag";
 import employeesRouter from "./employees";
+import trainingCatalogRouter from "./training-catalog";
 import departmentsRouter from "./departments";
 import positionsRouter from "./positions";
 import documentsRouter from "./documents";
@@ -98,6 +99,14 @@ router.use(
     /^\/organizations\/[^/]+\/employees(?:\/|$)/,
   ]),
   employeesRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/training-catalog(?:\/|$)/,
+  ]),
+  trainingCatalogRouter,
 );
 router.use(
   requireAuth,
