@@ -35,6 +35,7 @@ import type {
   AddRegulatoryDocumentAttachmentBody,
   AddTrainingClassParticipantsBody,
   AddWorkEnvironmentAttachmentBody,
+  AnnualProgramItem,
   ApplicabilityDecision,
   ApplicabilityDecisionBody,
   ApproveDocumentBody,
@@ -53,6 +54,7 @@ import type {
   ConfirmPasswordResetBody,
   CorrectiveAction,
   CreateActionPlanBody,
+  CreateAnnualProgramItemBody,
   CreateAssetBody,
   CreateAssetMaintenancePlanBody,
   CreateAssetMaintenanceRecordBody,
@@ -164,6 +166,8 @@ import type {
   LinkEmployeeUnit201,
   LinkEmployeeUnitBody,
   ListActionPlansParams,
+  ListAnnualProgram200,
+  ListAnnualProgramParams,
   ListCompetencyCatalog200,
   ListDocumentsParams,
   ListEmployeeCompetencyGapsParams,
@@ -270,6 +274,7 @@ import type {
   UnitLegislation,
   UnitLegislationWithLegislation,
   UpdateActionPlanBody,
+  UpdateAnnualProgramItemBody,
   UpdateApplicabilityDecisionBody,
   UpdateAssetBody,
   UpdateAssetMaintenancePlanBody,
@@ -35680,4 +35685,385 @@ export const useCompleteTrainingClass = <
   TContext
 > => {
   return useMutation(getCompleteTrainingClassMutationOptions(options));
+};
+
+/**
+ * @summary List annual training program items
+ */
+export const getListAnnualProgramUrl = (
+  orgId: number,
+  params?: ListAnnualProgramParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/annual-program?${stringifiedParams}`
+    : `/api/organizations/${orgId}/annual-program`;
+};
+
+export const listAnnualProgram = async (
+  orgId: number,
+  params?: ListAnnualProgramParams,
+  options?: RequestInit,
+): Promise<ListAnnualProgram200> => {
+  return customFetch<ListAnnualProgram200>(
+    getListAnnualProgramUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAnnualProgramQueryKey = (
+  orgId: number,
+  params?: ListAnnualProgramParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/annual-program`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListAnnualProgramQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAnnualProgram>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListAnnualProgramParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAnnualProgram>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAnnualProgramQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAnnualProgram>>
+  > = ({ signal }) =>
+    listAnnualProgram(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAnnualProgram>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAnnualProgramQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAnnualProgram>>
+>;
+export type ListAnnualProgramQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List annual training program items
+ */
+
+export function useListAnnualProgram<
+  TData = Awaited<ReturnType<typeof listAnnualProgram>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListAnnualProgramParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAnnualProgram>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAnnualProgramQueryOptions(orgId, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an annual program item
+ */
+export const getCreateAnnualProgramItemUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/annual-program`;
+};
+
+export const createAnnualProgramItem = async (
+  orgId: number,
+  createAnnualProgramItemBody: CreateAnnualProgramItemBody,
+  options?: RequestInit,
+): Promise<AnnualProgramItem> => {
+  return customFetch<AnnualProgramItem>(getCreateAnnualProgramItemUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAnnualProgramItemBody),
+  });
+};
+
+export const getCreateAnnualProgramItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAnnualProgramItem>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAnnualProgramItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAnnualProgramItem>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAnnualProgramItemBody> },
+  TContext
+> => {
+  const mutationKey = ["createAnnualProgramItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAnnualProgramItem>>,
+    { orgId: number; data: BodyType<CreateAnnualProgramItemBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createAnnualProgramItem(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAnnualProgramItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAnnualProgramItem>>
+>;
+export type CreateAnnualProgramItemMutationBody =
+  BodyType<CreateAnnualProgramItemBody>;
+export type CreateAnnualProgramItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an annual program item
+ */
+export const useCreateAnnualProgramItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAnnualProgramItem>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAnnualProgramItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAnnualProgramItem>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAnnualProgramItemBody> },
+  TContext
+> => {
+  return useMutation(getCreateAnnualProgramItemMutationOptions(options));
+};
+
+/**
+ * @summary Update an annual program item (including class link / status)
+ */
+export const getUpdateAnnualProgramItemUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/annual-program/${id}`;
+};
+
+export const updateAnnualProgramItem = async (
+  orgId: number,
+  id: number,
+  updateAnnualProgramItemBody: UpdateAnnualProgramItemBody,
+  options?: RequestInit,
+): Promise<AnnualProgramItem> => {
+  return customFetch<AnnualProgramItem>(
+    getUpdateAnnualProgramItemUrl(orgId, id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateAnnualProgramItemBody),
+    },
+  );
+};
+
+export const getUpdateAnnualProgramItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAnnualProgramItem>>,
+    TError,
+    { orgId: number; id: number; data: BodyType<UpdateAnnualProgramItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAnnualProgramItem>>,
+  TError,
+  { orgId: number; id: number; data: BodyType<UpdateAnnualProgramItemBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAnnualProgramItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAnnualProgramItem>>,
+    { orgId: number; id: number; data: BodyType<UpdateAnnualProgramItemBody> }
+  > = (props) => {
+    const { orgId, id, data } = props ?? {};
+
+    return updateAnnualProgramItem(orgId, id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAnnualProgramItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAnnualProgramItem>>
+>;
+export type UpdateAnnualProgramItemMutationBody =
+  BodyType<UpdateAnnualProgramItemBody>;
+export type UpdateAnnualProgramItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an annual program item (including class link / status)
+ */
+export const useUpdateAnnualProgramItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAnnualProgramItem>>,
+    TError,
+    { orgId: number; id: number; data: BodyType<UpdateAnnualProgramItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAnnualProgramItem>>,
+  TError,
+  { orgId: number; id: number; data: BodyType<UpdateAnnualProgramItemBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAnnualProgramItemMutationOptions(options));
+};
+
+/**
+ * @summary Delete an annual program item
+ */
+export const getDeleteAnnualProgramItemUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/annual-program/${id}`;
+};
+
+export const deleteAnnualProgramItem = async (
+  orgId: number,
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAnnualProgramItemUrl(orgId, id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAnnualProgramItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAnnualProgramItem>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAnnualProgramItem>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAnnualProgramItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAnnualProgramItem>>,
+    { orgId: number; id: number }
+  > = (props) => {
+    const { orgId, id } = props ?? {};
+
+    return deleteAnnualProgramItem(orgId, id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAnnualProgramItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAnnualProgramItem>>
+>;
+
+export type DeleteAnnualProgramItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an annual program item
+ */
+export const useDeleteAnnualProgramItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAnnualProgramItem>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAnnualProgramItem>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAnnualProgramItemMutationOptions(options));
 };

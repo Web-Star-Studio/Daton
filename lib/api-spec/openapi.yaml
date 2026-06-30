@@ -65,6 +65,8 @@ tags:
     description: Obrigatoriedades — regras de treinamento por cargo (auto-vínculo)
   - name: training-classes
     description: Turmas — instâncias agendadas de treinamento (presença, notas, evidências)
+  - name: annual-program
+    description: Programa Anual de Treinamento (PAT) — itens planejados por ano/filial
 
 paths:
   /healthz:
@@ -10128,6 +10130,118 @@ paths:
                 required:
                   - completed
 
+  /organizations/{orgId}/annual-program:
+    get:
+      operationId: listAnnualProgram
+      tags: [annual-program]
+      summary: List annual training program items
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Program items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AnnualProgramItem"
+                required:
+                  - data
+    post:
+      operationId: createAnnualProgramItem
+      tags: [annual-program]
+      summary: Create an annual program item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnnualProgramItemBody"
+      responses:
+        "201":
+          description: Item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualProgramItem"
+
+  /organizations/{orgId}/annual-program/{id}:
+    patch:
+      operationId: updateAnnualProgramItem
+      tags: [annual-program]
+      summary: Update an annual program item (including class link / status)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAnnualProgramItemBody"
+      responses:
+        "200":
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualProgramItem"
+    delete:
+      operationId: deleteAnnualProgramItem
+      tags: [annual-program]
+      summary: Delete an annual program item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Item removed
+
 components:
   schemas:
     TrainingCatalogItem:
@@ -10696,6 +10810,108 @@ components:
           nullable: true
         result:
           type: string
+          nullable: true
+
+    AnnualProgramItem:
+      type: object
+      description: "Item do Programa Anual de Treinamento (PAT)."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        year:
+          type: integer
+        catalogItemId:
+          type: integer
+        unitId:
+          type: integer
+          nullable: true
+        plannedMonth:
+          type: integer
+          nullable: true
+        modality:
+          type: string
+          nullable: true
+        plannedQuantity:
+          type: integer
+          nullable: true
+        responsible:
+          type: string
+          nullable: true
+        status:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        classId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - year
+        - catalogItemId
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateAnnualProgramItemBody:
+      type: object
+      properties:
+        year:
+          type: integer
+        catalogItemId:
+          type: integer
+        unitId:
+          type: integer
+        plannedMonth:
+          type: integer
+        modality:
+          type: string
+        plannedQuantity:
+          type: integer
+        responsible:
+          type: string
+        status:
+          type: string
+        notes:
+          type: string
+      required:
+        - year
+        - catalogItemId
+
+    UpdateAnnualProgramItemBody:
+      type: object
+      properties:
+        year:
+          type: integer
+        catalogItemId:
+          type: integer
+        unitId:
+          type: integer
+          nullable: true
+        plannedMonth:
+          type: integer
+          nullable: true
+        modality:
+          type: string
+        plannedQuantity:
+          type: integer
+        responsible:
+          type: string
+        status:
+          type: string
+        notes:
+          type: string
+        classId:
+          type: integer
           nullable: true
 
     RoadSafetyFactor:

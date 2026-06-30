@@ -262,6 +262,51 @@ export interface UpdateTrainingClassParticipantBody {
   result?: string | null;
 }
 
+/**
+ * Item do Programa Anual de Treinamento (PAT).
+ */
+export interface AnnualProgramItem {
+  id: number;
+  organizationId: number;
+  year: number;
+  catalogItemId: number;
+  unitId?: number | null;
+  plannedMonth?: number | null;
+  modality?: string | null;
+  plannedQuantity?: number | null;
+  responsible?: string | null;
+  status: string;
+  notes?: string | null;
+  classId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAnnualProgramItemBody {
+  year: number;
+  catalogItemId: number;
+  unitId?: number;
+  plannedMonth?: number;
+  modality?: string;
+  plannedQuantity?: number;
+  responsible?: string;
+  status?: string;
+  notes?: string;
+}
+
+export interface UpdateAnnualProgramItemBody {
+  year?: number;
+  catalogItemId?: number;
+  unitId?: number | null;
+  plannedMonth?: number | null;
+  modality?: string;
+  plannedQuantity?: number;
+  responsible?: string;
+  status?: string;
+  notes?: string;
+  classId?: number | null;
+}
+
 export type RoadSafetyFactorType =
   (typeof RoadSafetyFactorType)[keyof typeof RoadSafetyFactorType];
 
@@ -6600,4 +6645,14 @@ export type ListTrainingClasses200 = {
 
 export type CompleteTrainingClass200 = {
   completed: number;
+};
+
+export type ListAnnualProgramParams = {
+  year?: number;
+  unitId?: number;
+  status?: string;
+};
+
+export type ListAnnualProgram200 = {
+  data: AnnualProgramItem[];
 };

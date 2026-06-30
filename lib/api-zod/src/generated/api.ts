@@ -20006,3 +20006,106 @@ export const CompleteTrainingClassParams = zod.object({
 export const CompleteTrainingClassResponse = zod.object({
   completed: zod.number(),
 });
+
+/**
+ * @summary List annual training program items
+ */
+export const ListAnnualProgramParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListAnnualProgramQueryParams = zod.object({
+  year: zod.coerce.number().optional(),
+  unitId: zod.coerce.number().optional(),
+  status: zod.coerce.string().optional(),
+});
+
+export const ListAnnualProgramResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        year: zod.number(),
+        catalogItemId: zod.number(),
+        unitId: zod.number().nullish(),
+        plannedMonth: zod.number().nullish(),
+        modality: zod.string().nullish(),
+        plannedQuantity: zod.number().nullish(),
+        responsible: zod.string().nullish(),
+        status: zod.string(),
+        notes: zod.string().nullish(),
+        classId: zod.number().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe("Item do Programa Anual de Treinamento (PAT)."),
+  ),
+});
+
+/**
+ * @summary Create an annual program item
+ */
+export const CreateAnnualProgramItemParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateAnnualProgramItemBody = zod.object({
+  year: zod.number(),
+  catalogItemId: zod.number(),
+  unitId: zod.number().optional(),
+  plannedMonth: zod.number().optional(),
+  modality: zod.string().optional(),
+  plannedQuantity: zod.number().optional(),
+  responsible: zod.string().optional(),
+  status: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Update an annual program item (including class link / status)
+ */
+export const UpdateAnnualProgramItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const UpdateAnnualProgramItemBody = zod.object({
+  year: zod.number().optional(),
+  catalogItemId: zod.number().optional(),
+  unitId: zod.number().nullish(),
+  plannedMonth: zod.number().nullish(),
+  modality: zod.string().optional(),
+  plannedQuantity: zod.number().optional(),
+  responsible: zod.string().optional(),
+  status: zod.string().optional(),
+  notes: zod.string().optional(),
+  classId: zod.number().nullish(),
+});
+
+export const UpdateAnnualProgramItemResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    year: zod.number(),
+    catalogItemId: zod.number(),
+    unitId: zod.number().nullish(),
+    plannedMonth: zod.number().nullish(),
+    modality: zod.string().nullish(),
+    plannedQuantity: zod.number().nullish(),
+    responsible: zod.string().nullish(),
+    status: zod.string(),
+    notes: zod.string().nullish(),
+    classId: zod.number().nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Item do Programa Anual de Treinamento (PAT).");
+
+/**
+ * @summary Delete an annual program item
+ */
+export const DeleteAnnualProgramItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
