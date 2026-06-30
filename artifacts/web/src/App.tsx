@@ -17,10 +17,10 @@ import OrganizacaoUnitsPage from "@/pages/app/organizacao/unidades";
 import OrganizacaoDepartmentsPage from "@/pages/app/organizacao/departamentos";
 import OrganizacaoPositionsPage from "@/pages/app/organizacao/cargos";
 import OrganizacaoSwotPage from "@/pages/app/organizacao/swot";
-import OrganizacaoEmployeesPage from "@/pages/app/organizacao/colaboradores";
-import OrganizacaoEmployeeTrainingsPage from "@/pages/app/organizacao/colaboradores/treinamentos";
-import OrganizacaoTrainingDetailPage from "@/pages/app/organizacao/colaboradores/treinamento-detalhe";
-import OrganizacaoEmployeeDetailPage from "@/pages/app/organizacao/colaboradores/[id]";
+import AprendizagemEmployeesPage from "@/pages/app/aprendizagem/colaboradores";
+import AprendizagemEmployeeTrainingsPage from "@/pages/app/aprendizagem/colaboradores/treinamentos";
+import AprendizagemTrainingDetailPage from "@/pages/app/aprendizagem/colaboradores/treinamento-detalhe";
+import AprendizagemEmployeeDetailPage from "@/pages/app/aprendizagem/colaboradores/[id]";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import GovernancePage from "@/pages/app/governanca";
 import GovernanceDetailPage from "@/pages/app/governanca/[id]";
@@ -131,19 +131,19 @@ function AppPages() {
       <Route path="/organizacao" component={OrganizacaoOverviewPage} />
       <Route
         path="/organizacao/colaboradores"
-        component={OrganizacaoEmployeesPage}
+        component={AprendizagemEmployeesPage}
       />
       <Route
         path="/organizacao/colaboradores/treinamentos"
-        component={OrganizacaoEmployeeTrainingsPage}
+        component={AprendizagemEmployeeTrainingsPage}
       />
       <Route
         path="/organizacao/colaboradores/treinamentos/:title"
-        component={OrganizacaoTrainingDetailPage}
+        component={AprendizagemTrainingDetailPage}
       />
       <Route
         path="/organizacao/colaboradores/:id"
-        component={OrganizacaoEmployeeDetailPage}
+        component={AprendizagemEmployeeDetailPage}
       />
       <Route path="/organizacao/unidades" component={OrganizacaoUnitsPage} />
       <Route path="/organizacao/unidades/:id" component={UnitDetailPage} />
@@ -256,19 +256,19 @@ function AppPages() {
       <Route path="/app/organizacao" component={OrganizacaoOverviewPage} />
       <Route
         path="/app/organizacao/colaboradores"
-        component={OrganizacaoEmployeesPage}
+        component={AprendizagemEmployeesPage}
       />
       <Route
         path="/app/organizacao/colaboradores/treinamentos"
-        component={OrganizacaoEmployeeTrainingsPage}
+        component={AprendizagemEmployeeTrainingsPage}
       />
       <Route
         path="/app/organizacao/colaboradores/treinamentos/:title"
-        component={OrganizacaoTrainingDetailPage}
+        component={AprendizagemTrainingDetailPage}
       />
       <Route
         path="/app/organizacao/colaboradores/:id"
-        component={OrganizacaoEmployeeDetailPage}
+        component={AprendizagemEmployeeDetailPage}
       />
       <Route
         path="/app/organizacao/unidades"
