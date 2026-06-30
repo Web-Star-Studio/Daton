@@ -9629,6 +9629,109 @@ paths:
         "204":
           description: Catalog item removed
 
+  /organizations/{orgId}/competency-catalog:
+    get:
+      operationId: listCompetencyCatalog
+      tags: [competency-catalog]
+      summary: List the organization's competency catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Competency catalog items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CompetencyCatalogItem"
+                required:
+                  - data
+    post:
+      operationId: createCompetencyCatalogItem
+      tags: [competency-catalog]
+      summary: Create a competency catalog item (idempotent by name, case-insensitive)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCompetencyCatalogItemBody"
+      responses:
+        "200":
+          description: Competency already existed (returned as-is)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetencyCatalogItem"
+        "201":
+          description: Competency created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetencyCatalogItem"
+
+  /organizations/{orgId}/competency-catalog/{itemId}:
+    patch:
+      operationId: updateCompetencyCatalogItem
+      tags: [competency-catalog]
+      summary: Update a competency catalog item (rename propagates to free-text usages)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCompetencyCatalogItemBody"
+      responses:
+        "200":
+          description: Competency updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetencyCatalogItem"
+    delete:
+      operationId: deleteCompetencyCatalogItem
+      tags: [competency-catalog]
+      summary: Remove a competency from the catalog (usages keep their stored text)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Competency removed
+
 components:
   schemas:
     TrainingCatalogItem:
@@ -9803,6 +9906,75 @@ components:
       required:
         - data
         - pagination
+
+    CompetencyCatalogItem:
+      type: object
+      description: "Item do banco de competências (catálogo gerenciável por organização)."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        name:
+          type: string
+        competencyType:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        norm:
+          type: string
+          nullable: true
+        isMandatory:
+          type: boolean
+        usageCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - name
+        - isMandatory
+        - createdAt
+        - updatedAt
+
+    CreateCompetencyCatalogItemBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        competencyType:
+          type: string
+        category:
+          type: string
+        norm:
+          type: string
+        isMandatory:
+          type: boolean
+      required:
+        - name
+
+    UpdateCompetencyCatalogItemBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        competencyType:
+          type: string
+        category:
+          type: string
+        norm:
+          type: string
+        isMandatory:
+          type: boolean
 
     RoadSafetyFactor:
       type: object

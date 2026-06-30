@@ -45,6 +45,7 @@ import type {
   AuthResponse,
   BulkDeletePositions200,
   BulkDeletePositionsBody,
+  CompetencyCatalogItem,
   CompleteOrganizationOnboardingBody,
   ComplianceTag,
   ConfirmPasswordResetBody,
@@ -55,6 +56,7 @@ import type {
   CreateAssetMaintenanceRecordBody,
   CreateAwarenessBody,
   CreateCompetencyBody,
+  CreateCompetencyCatalogItemBody,
   CreateCorrectiveActionBody,
   CreateDepartmentBody,
   CreateDocumentBody,
@@ -158,6 +160,7 @@ import type {
   LinkEmployeeUnit201,
   LinkEmployeeUnitBody,
   ListActionPlansParams,
+  ListCompetencyCatalog200,
   ListDocumentsParams,
   ListEmployeeCompetencyGapsParams,
   ListEmployeesParams,
@@ -258,6 +261,7 @@ import type {
   UpdateAssetMaintenancePlanBody,
   UpdateAwarenessBody,
   UpdateCompetencyBody,
+  UpdateCompetencyCatalogItemBody,
   UpdateCorrectiveActionBody,
   UpdateDepartmentBody,
   UpdateDevelopmentProjectBody,
@@ -33854,4 +33858,390 @@ export const useDeleteTrainingCatalogItem = <
   TContext
 > => {
   return useMutation(getDeleteTrainingCatalogItemMutationOptions(options));
+};
+
+/**
+ * @summary List the organization's competency catalog
+ */
+export const getListCompetencyCatalogUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/competency-catalog`;
+};
+
+export const listCompetencyCatalog = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<ListCompetencyCatalog200> => {
+  return customFetch<ListCompetencyCatalog200>(
+    getListCompetencyCatalogUrl(orgId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCompetencyCatalogQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/competency-catalog`] as const;
+};
+
+export const getListCompetencyCatalogQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCompetencyCatalog>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCompetencyCatalog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCompetencyCatalogQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCompetencyCatalog>>
+  > = ({ signal }) =>
+    listCompetencyCatalog(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCompetencyCatalog>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCompetencyCatalogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCompetencyCatalog>>
+>;
+export type ListCompetencyCatalogQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the organization's competency catalog
+ */
+
+export function useListCompetencyCatalog<
+  TData = Awaited<ReturnType<typeof listCompetencyCatalog>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCompetencyCatalog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCompetencyCatalogQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a competency catalog item (idempotent by name, case-insensitive)
+ */
+export const getCreateCompetencyCatalogItemUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/competency-catalog`;
+};
+
+export const createCompetencyCatalogItem = async (
+  orgId: number,
+  createCompetencyCatalogItemBody: CreateCompetencyCatalogItemBody,
+  options?: RequestInit,
+): Promise<CompetencyCatalogItem> => {
+  return customFetch<CompetencyCatalogItem>(
+    getCreateCompetencyCatalogItemUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCompetencyCatalogItemBody),
+    },
+  );
+};
+
+export const getCreateCompetencyCatalogItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCompetencyCatalogItem>>,
+    TError,
+    { orgId: number; data: BodyType<CreateCompetencyCatalogItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCompetencyCatalogItem>>,
+  TError,
+  { orgId: number; data: BodyType<CreateCompetencyCatalogItemBody> },
+  TContext
+> => {
+  const mutationKey = ["createCompetencyCatalogItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCompetencyCatalogItem>>,
+    { orgId: number; data: BodyType<CreateCompetencyCatalogItemBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createCompetencyCatalogItem(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCompetencyCatalogItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCompetencyCatalogItem>>
+>;
+export type CreateCompetencyCatalogItemMutationBody =
+  BodyType<CreateCompetencyCatalogItemBody>;
+export type CreateCompetencyCatalogItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a competency catalog item (idempotent by name, case-insensitive)
+ */
+export const useCreateCompetencyCatalogItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCompetencyCatalogItem>>,
+    TError,
+    { orgId: number; data: BodyType<CreateCompetencyCatalogItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCompetencyCatalogItem>>,
+  TError,
+  { orgId: number; data: BodyType<CreateCompetencyCatalogItemBody> },
+  TContext
+> => {
+  return useMutation(getCreateCompetencyCatalogItemMutationOptions(options));
+};
+
+/**
+ * @summary Update a competency catalog item (rename propagates to free-text usages)
+ */
+export const getUpdateCompetencyCatalogItemUrl = (
+  orgId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/competency-catalog/${itemId}`;
+};
+
+export const updateCompetencyCatalogItem = async (
+  orgId: number,
+  itemId: number,
+  updateCompetencyCatalogItemBody: UpdateCompetencyCatalogItemBody,
+  options?: RequestInit,
+): Promise<CompetencyCatalogItem> => {
+  return customFetch<CompetencyCatalogItem>(
+    getUpdateCompetencyCatalogItemUrl(orgId, itemId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateCompetencyCatalogItemBody),
+    },
+  );
+};
+
+export const getUpdateCompetencyCatalogItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompetencyCatalogItem>>,
+    TError,
+    {
+      orgId: number;
+      itemId: number;
+      data: BodyType<UpdateCompetencyCatalogItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCompetencyCatalogItem>>,
+  TError,
+  {
+    orgId: number;
+    itemId: number;
+    data: BodyType<UpdateCompetencyCatalogItemBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateCompetencyCatalogItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCompetencyCatalogItem>>,
+    {
+      orgId: number;
+      itemId: number;
+      data: BodyType<UpdateCompetencyCatalogItemBody>;
+    }
+  > = (props) => {
+    const { orgId, itemId, data } = props ?? {};
+
+    return updateCompetencyCatalogItem(orgId, itemId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCompetencyCatalogItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCompetencyCatalogItem>>
+>;
+export type UpdateCompetencyCatalogItemMutationBody =
+  BodyType<UpdateCompetencyCatalogItemBody>;
+export type UpdateCompetencyCatalogItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a competency catalog item (rename propagates to free-text usages)
+ */
+export const useUpdateCompetencyCatalogItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompetencyCatalogItem>>,
+    TError,
+    {
+      orgId: number;
+      itemId: number;
+      data: BodyType<UpdateCompetencyCatalogItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCompetencyCatalogItem>>,
+  TError,
+  {
+    orgId: number;
+    itemId: number;
+    data: BodyType<UpdateCompetencyCatalogItemBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateCompetencyCatalogItemMutationOptions(options));
+};
+
+/**
+ * @summary Remove a competency from the catalog (usages keep their stored text)
+ */
+export const getDeleteCompetencyCatalogItemUrl = (
+  orgId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/competency-catalog/${itemId}`;
+};
+
+export const deleteCompetencyCatalogItem = async (
+  orgId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCompetencyCatalogItemUrl(orgId, itemId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCompetencyCatalogItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>,
+    TError,
+    { orgId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>,
+  TError,
+  { orgId: number; itemId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCompetencyCatalogItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>,
+    { orgId: number; itemId: number }
+  > = (props) => {
+    const { orgId, itemId } = props ?? {};
+
+    return deleteCompetencyCatalogItem(orgId, itemId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCompetencyCatalogItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>
+>;
+
+export type DeleteCompetencyCatalogItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove a competency from the catalog (usages keep their stored text)
+ */
+export const useDeleteCompetencyCatalogItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>,
+    TError,
+    { orgId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>,
+  TError,
+  { orgId: number; itemId: number },
+  TContext
+> => {
+  return useMutation(getDeleteCompetencyCatalogItemMutationOptions(options));
 };

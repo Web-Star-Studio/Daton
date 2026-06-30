@@ -19257,3 +19257,104 @@ export const DeleteTrainingCatalogItemParams = zod.object({
   orgId: zod.coerce.number(),
   itemId: zod.coerce.number(),
 });
+
+/**
+ * @summary List the organization's competency catalog
+ */
+export const ListCompetencyCatalogParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListCompetencyCatalogResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        name: zod.string(),
+        competencyType: zod.string().nullish(),
+        category: zod.string().nullish(),
+        norm: zod.string().nullish(),
+        isMandatory: zod.boolean(),
+        usageCount: zod.number().optional(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe(
+        "Item do banco de competências (catálogo gerenciável por organização).",
+      ),
+  ),
+});
+
+/**
+ * @summary Create a competency catalog item (idempotent by name, case-insensitive)
+ */
+export const CreateCompetencyCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateCompetencyCatalogItemBody = zod.object({
+  name: zod.string().min(1),
+  competencyType: zod.string().optional(),
+  category: zod.string().optional(),
+  norm: zod.string().optional(),
+  isMandatory: zod.boolean().optional(),
+});
+
+export const CreateCompetencyCatalogItemResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    competencyType: zod.string().nullish(),
+    category: zod.string().nullish(),
+    norm: zod.string().nullish(),
+    isMandatory: zod.boolean(),
+    usageCount: zod.number().optional(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe(
+    "Item do banco de competências (catálogo gerenciável por organização).",
+  );
+
+/**
+ * @summary Update a competency catalog item (rename propagates to free-text usages)
+ */
+export const UpdateCompetencyCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const UpdateCompetencyCatalogItemBody = zod.object({
+  name: zod.string().min(1).optional(),
+  competencyType: zod.string().optional(),
+  category: zod.string().optional(),
+  norm: zod.string().optional(),
+  isMandatory: zod.boolean().optional(),
+});
+
+export const UpdateCompetencyCatalogItemResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    competencyType: zod.string().nullish(),
+    category: zod.string().nullish(),
+    norm: zod.string().nullish(),
+    isMandatory: zod.boolean(),
+    usageCount: zod.number().optional(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe(
+    "Item do banco de competências (catálogo gerenciável por organização).",
+  );
+
+/**
+ * @summary Remove a competency from the catalog (usages keep their stored text)
+ */
+export const DeleteCompetencyCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});

@@ -83,6 +83,40 @@ export interface PaginatedTrainingCatalog {
   pagination: PaginatedTrainingCatalogPagination;
 }
 
+/**
+ * Item do banco de competências (catálogo gerenciável por organização).
+ */
+export interface CompetencyCatalogItem {
+  id: number;
+  organizationId: number;
+  name: string;
+  competencyType?: string | null;
+  category?: string | null;
+  norm?: string | null;
+  isMandatory: boolean;
+  usageCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCompetencyCatalogItemBody {
+  /** @minLength 1 */
+  name: string;
+  competencyType?: string;
+  category?: string;
+  norm?: string;
+  isMandatory?: boolean;
+}
+
+export interface UpdateCompetencyCatalogItemBody {
+  /** @minLength 1 */
+  name?: string;
+  competencyType?: string;
+  category?: string;
+  norm?: string;
+  isMandatory?: boolean;
+}
+
 export type RoadSafetyFactorType =
   (typeof RoadSafetyFactorType)[keyof typeof RoadSafetyFactorType];
 
@@ -6383,4 +6417,8 @@ export type ListTrainingCatalogParams = {
   status?: string;
   page?: number;
   pageSize?: number;
+};
+
+export type ListCompetencyCatalog200 = {
+  data: CompetencyCatalogItem[];
 };
