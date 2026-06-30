@@ -197,6 +197,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/aprendizagem/colaboradores", module: "employees" },
       { prefix: "/aprendizagem/catalogo", module: "employees" },
       { prefix: "/aprendizagem/obrigatoriedades", module: "employees" },
+      { prefix: "/aprendizagem/turmas", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
       { prefix: "/organizacao/cargos", module: "positions" },
@@ -273,6 +274,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           label: "Obrigatoriedades",
           href: "/aprendizagem/obrigatoriedades",
         });
+      } else if (normalizedLocation.startsWith("/aprendizagem/turmas")) {
+        crumbs.push({ label: "Turmas", href: "/aprendizagem/turmas" });
       }
     } else if (normalizedLocation.startsWith("/organizacao")) {
       crumbs.push({ label: "Organização", href: "/organizacao" });
@@ -429,6 +432,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           { href: "/aprendizagem/colaboradores", label: "Colaboradores" },
           { href: "/aprendizagem/catalogo", label: "Catálogo" },
           { href: "/aprendizagem/obrigatoriedades", label: "Obrigatoriedades" },
+          { href: "/aprendizagem/turmas", label: "Turmas" },
         ]
       : []),
   ];
