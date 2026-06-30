@@ -57,6 +57,10 @@ tags:
   - name: assets
   - name: work-environment
     description: Critical asset registry and infrastructure management (ISO 9001:2015 §7.1.3)
+  - name: training-catalog
+    description: Catálogo de treinamentos — definições reutilizáveis (ISO 10015)
+  - name: competency-catalog
+    description: Banco de competências — catálogo gerenciável por organização (ISO 10015 §4.2)
 
 paths:
   /healthz:
@@ -9478,8 +9482,328 @@ paths:
               schema:
                 $ref: "#/components/schemas/RoadSafetyMeasurement"
 
+  /organizations/{orgId}/training-catalog:
+    get:
+      operationId: listTrainingCatalog
+      tags: [training-catalog]
+      summary: List the organization's training catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: norm
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: modality
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Training catalog items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedTrainingCatalog"
+    post:
+      operationId: createTrainingCatalogItem
+      tags: [training-catalog]
+      summary: Create a training catalog item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrainingCatalogItemBody"
+      responses:
+        "201":
+          description: Catalog item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCatalogItem"
+
+  /organizations/{orgId}/training-catalog/{itemId}:
+    get:
+      operationId: getTrainingCatalogItem
+      tags: [training-catalog]
+      summary: Get a training catalog item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Catalog item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCatalogItem"
+    patch:
+      operationId: updateTrainingCatalogItem
+      tags: [training-catalog]
+      summary: Update a training catalog item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrainingCatalogItemBody"
+      responses:
+        "200":
+          description: Catalog item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCatalogItem"
+    delete:
+      operationId: deleteTrainingCatalogItem
+      tags: [training-catalog]
+      summary: Delete a training catalog item (referencing trainings keep their snapshot; link is nulled)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Catalog item removed
+
 components:
   schemas:
+    TrainingCatalogItem:
+      type: object
+      description: "Item do catálogo de treinamentos (definição reutilizável)."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+          nullable: true
+        modality:
+          type: string
+          nullable: true
+        norm:
+          type: string
+          nullable: true
+        clause:
+          type: string
+          nullable: true
+        workloadHours:
+          type: integer
+          nullable: true
+        validityMonths:
+          type: integer
+          nullable: true
+        isMandatory:
+          type: boolean
+        status:
+          type: string
+        targetCompetencyName:
+          type: string
+          nullable: true
+        targetCompetencyType:
+          type: string
+          nullable: true
+        targetCompetencyLevel:
+          type: integer
+          nullable: true
+        defaultInstructor:
+          type: string
+          nullable: true
+        objective:
+          type: string
+          nullable: true
+        programContent:
+          type: string
+          nullable: true
+        evaluationMethod:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - title
+        - isMandatory
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateTrainingCatalogItemBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        category:
+          type: string
+        modality:
+          type: string
+        norm:
+          type: string
+        clause:
+          type: string
+        workloadHours:
+          type: integer
+        validityMonths:
+          type: integer
+          nullable: true
+        isMandatory:
+          type: boolean
+        status:
+          type: string
+        targetCompetencyName:
+          type: string
+        targetCompetencyType:
+          type: string
+        targetCompetencyLevel:
+          type: integer
+        defaultInstructor:
+          type: string
+        objective:
+          type: string
+        programContent:
+          type: string
+        evaluationMethod:
+          type: string
+      required:
+        - title
+
+    UpdateTrainingCatalogItemBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        category:
+          type: string
+        modality:
+          type: string
+        norm:
+          type: string
+        clause:
+          type: string
+        workloadHours:
+          type: integer
+        validityMonths:
+          type: integer
+          nullable: true
+        isMandatory:
+          type: boolean
+        status:
+          type: string
+        targetCompetencyName:
+          type: string
+        targetCompetencyType:
+          type: string
+        targetCompetencyLevel:
+          type: integer
+        defaultInstructor:
+          type: string
+        objective:
+          type: string
+        programContent:
+          type: string
+        evaluationMethod:
+          type: string
+
+    PaginatedTrainingCatalog:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrainingCatalogItem"
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+          required:
+            - page
+            - pageSize
+            - total
+            - totalPages
+      required:
+        - data
+        - pagination
+
     RoadSafetyFactor:
       type: object
       properties:

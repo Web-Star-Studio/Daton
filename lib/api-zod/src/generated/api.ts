@@ -19086,3 +19086,174 @@ export const CreateRoadSafetyMeasurementBody = zod.object({
   referenceDate: zod.string(),
   note: zod.string().optional(),
 });
+
+/**
+ * @summary List the organization's training catalog
+ */
+export const ListTrainingCatalogParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListTrainingCatalogQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  norm: zod.coerce.string().optional(),
+  category: zod.coerce.string().optional(),
+  modality: zod.coerce.string().optional(),
+  status: zod.coerce.string().optional(),
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+});
+
+export const ListTrainingCatalogResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        title: zod.string(),
+        category: zod.string().nullish(),
+        modality: zod.string().nullish(),
+        norm: zod.string().nullish(),
+        clause: zod.string().nullish(),
+        workloadHours: zod.number().nullish(),
+        validityMonths: zod.number().nullish(),
+        isMandatory: zod.boolean(),
+        status: zod.string(),
+        targetCompetencyName: zod.string().nullish(),
+        targetCompetencyType: zod.string().nullish(),
+        targetCompetencyLevel: zod.number().nullish(),
+        defaultInstructor: zod.string().nullish(),
+        objective: zod.string().nullish(),
+        programContent: zod.string().nullish(),
+        evaluationMethod: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe("Item do catálogo de treinamentos (definição reutilizável)."),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create a training catalog item
+ */
+export const CreateTrainingCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateTrainingCatalogItemBody = zod.object({
+  title: zod.string().min(1),
+  category: zod.string().optional(),
+  modality: zod.string().optional(),
+  norm: zod.string().optional(),
+  clause: zod.string().optional(),
+  workloadHours: zod.number().optional(),
+  validityMonths: zod.number().nullish(),
+  isMandatory: zod.boolean().optional(),
+  status: zod.string().optional(),
+  targetCompetencyName: zod.string().optional(),
+  targetCompetencyType: zod.string().optional(),
+  targetCompetencyLevel: zod.number().optional(),
+  defaultInstructor: zod.string().optional(),
+  objective: zod.string().optional(),
+  programContent: zod.string().optional(),
+  evaluationMethod: zod.string().optional(),
+});
+
+/**
+ * @summary Get a training catalog item
+ */
+export const GetTrainingCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const GetTrainingCatalogItemResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    category: zod.string().nullish(),
+    modality: zod.string().nullish(),
+    norm: zod.string().nullish(),
+    clause: zod.string().nullish(),
+    workloadHours: zod.number().nullish(),
+    validityMonths: zod.number().nullish(),
+    isMandatory: zod.boolean(),
+    status: zod.string(),
+    targetCompetencyName: zod.string().nullish(),
+    targetCompetencyType: zod.string().nullish(),
+    targetCompetencyLevel: zod.number().nullish(),
+    defaultInstructor: zod.string().nullish(),
+    objective: zod.string().nullish(),
+    programContent: zod.string().nullish(),
+    evaluationMethod: zod.string().nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Item do catálogo de treinamentos (definição reutilizável).");
+
+/**
+ * @summary Update a training catalog item
+ */
+export const UpdateTrainingCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const UpdateTrainingCatalogItemBody = zod.object({
+  title: zod.string().min(1).optional(),
+  category: zod.string().optional(),
+  modality: zod.string().optional(),
+  norm: zod.string().optional(),
+  clause: zod.string().optional(),
+  workloadHours: zod.number().optional(),
+  validityMonths: zod.number().nullish(),
+  isMandatory: zod.boolean().optional(),
+  status: zod.string().optional(),
+  targetCompetencyName: zod.string().optional(),
+  targetCompetencyType: zod.string().optional(),
+  targetCompetencyLevel: zod.number().optional(),
+  defaultInstructor: zod.string().optional(),
+  objective: zod.string().optional(),
+  programContent: zod.string().optional(),
+  evaluationMethod: zod.string().optional(),
+});
+
+export const UpdateTrainingCatalogItemResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    category: zod.string().nullish(),
+    modality: zod.string().nullish(),
+    norm: zod.string().nullish(),
+    clause: zod.string().nullish(),
+    workloadHours: zod.number().nullish(),
+    validityMonths: zod.number().nullish(),
+    isMandatory: zod.boolean(),
+    status: zod.string(),
+    targetCompetencyName: zod.string().nullish(),
+    targetCompetencyType: zod.string().nullish(),
+    targetCompetencyLevel: zod.number().nullish(),
+    defaultInstructor: zod.string().nullish(),
+    objective: zod.string().nullish(),
+    programContent: zod.string().nullish(),
+    evaluationMethod: zod.string().nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Item do catálogo de treinamentos (definição reutilizável).");
+
+/**
+ * @summary Delete a training catalog item (referencing trainings keep their snapshot; link is nulled)
+ */
+export const DeleteTrainingCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});

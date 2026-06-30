@@ -5,6 +5,84 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * Item do catálogo de treinamentos (definição reutilizável).
+ */
+export interface TrainingCatalogItem {
+  id: number;
+  organizationId: number;
+  title: string;
+  category?: string | null;
+  modality?: string | null;
+  norm?: string | null;
+  clause?: string | null;
+  workloadHours?: number | null;
+  validityMonths?: number | null;
+  isMandatory: boolean;
+  status: string;
+  targetCompetencyName?: string | null;
+  targetCompetencyType?: string | null;
+  targetCompetencyLevel?: number | null;
+  defaultInstructor?: string | null;
+  objective?: string | null;
+  programContent?: string | null;
+  evaluationMethod?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTrainingCatalogItemBody {
+  /** @minLength 1 */
+  title: string;
+  category?: string;
+  modality?: string;
+  norm?: string;
+  clause?: string;
+  workloadHours?: number;
+  validityMonths?: number | null;
+  isMandatory?: boolean;
+  status?: string;
+  targetCompetencyName?: string;
+  targetCompetencyType?: string;
+  targetCompetencyLevel?: number;
+  defaultInstructor?: string;
+  objective?: string;
+  programContent?: string;
+  evaluationMethod?: string;
+}
+
+export interface UpdateTrainingCatalogItemBody {
+  /** @minLength 1 */
+  title?: string;
+  category?: string;
+  modality?: string;
+  norm?: string;
+  clause?: string;
+  workloadHours?: number;
+  validityMonths?: number | null;
+  isMandatory?: boolean;
+  status?: string;
+  targetCompetencyName?: string;
+  targetCompetencyType?: string;
+  targetCompetencyLevel?: number;
+  defaultInstructor?: string;
+  objective?: string;
+  programContent?: string;
+  evaluationMethod?: string;
+}
+
+export type PaginatedTrainingCatalogPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export interface PaginatedTrainingCatalog {
+  data: TrainingCatalogItem[];
+  pagination: PaginatedTrainingCatalogPagination;
+}
+
 export type RoadSafetyFactorType =
   (typeof RoadSafetyFactorType)[keyof typeof RoadSafetyFactorType];
 
@@ -6295,4 +6373,14 @@ export type ListActionPlansParams = {
    * When sourceModule=kpi, filter by linked monthly value id
    */
   sourceKpiMonthlyValueId?: number;
+};
+
+export type ListTrainingCatalogParams = {
+  search?: string;
+  norm?: string;
+  category?: string;
+  modality?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
 };
