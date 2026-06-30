@@ -63,6 +63,8 @@ tags:
     description: Banco de competências — catálogo gerenciável por organização (ISO 10015 §4.2)
   - name: training-requirements
     description: Obrigatoriedades — regras de treinamento por cargo (auto-vínculo)
+  - name: training-classes
+    description: Turmas — instâncias agendadas de treinamento (presença, notas, evidências)
 
 paths:
   /healthz:
@@ -9875,6 +9877,257 @@ paths:
         "204":
           description: Requirement removed
 
+  /organizations/{orgId}/training-classes:
+    get:
+      operationId: listTrainingClasses
+      tags: [training-classes]
+      summary: List training classes
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: unitId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: catalogItemId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Training classes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TrainingClass"
+                required:
+                  - data
+    post:
+      operationId: createTrainingClass
+      tags: [training-classes]
+      summary: Create a training class
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrainingClassBody"
+      responses:
+        "201":
+          description: Class created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingClass"
+
+  /organizations/{orgId}/training-classes/{id}:
+    get:
+      operationId: getTrainingClass
+      tags: [training-classes]
+      summary: Get a training class with participants
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Class detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingClassDetail"
+    patch:
+      operationId: updateTrainingClass
+      tags: [training-classes]
+      summary: Update a training class (including evidence attachments)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrainingClassBody"
+      responses:
+        "200":
+          description: Class updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingClass"
+    delete:
+      operationId: deleteTrainingClass
+      tags: [training-classes]
+      summary: Delete a training class
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Class removed
+
+  /organizations/{orgId}/training-classes/{id}/participants:
+    post:
+      operationId: addTrainingClassParticipants
+      tags: [training-classes]
+      summary: Enroll employees into a class
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddTrainingClassParticipantsBody"
+      responses:
+        "200":
+          description: Class detail with participants
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingClassDetail"
+
+  /organizations/{orgId}/training-classes/{id}/participants/{participantId}:
+    patch:
+      operationId: updateTrainingClassParticipant
+      tags: [training-classes]
+      summary: Update a participant (attendance / score / result)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrainingClassParticipantBody"
+      responses:
+        "200":
+          description: Participant updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingClassParticipant"
+    delete:
+      operationId: deleteTrainingClassParticipant
+      tags: [training-classes]
+      summary: Remove a participant
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Participant removed
+
+  /organizations/{orgId}/training-classes/{id}/complete:
+    post:
+      operationId: completeTrainingClass
+      tags: [training-classes]
+      summary: Complete a class — writes employee_trainings for approved participants
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Completion result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completed:
+                    type: integer
+                required:
+                  - completed
+
 components:
   schemas:
     TrainingCatalogItem:
@@ -10238,6 +10491,212 @@ components:
             $ref: "#/components/schemas/TrainingRequirement"
       required:
         - requirements
+
+    TrainingClass:
+      type: object
+      description: "Turma — instância agendada de um item do catálogo."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        catalogItemId:
+          type: integer
+        code:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+        endDate:
+          type: string
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        instructor:
+          type: string
+          nullable: true
+        modality:
+          type: string
+          nullable: true
+        workloadHours:
+          type: integer
+          nullable: true
+        capacity:
+          type: integer
+          nullable: true
+        minScore:
+          type: integer
+          nullable: true
+        status:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
+        participantCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - catalogItemId
+        - startDate
+        - status
+        - attachments
+        - createdAt
+        - updatedAt
+
+    TrainingClassParticipant:
+      type: object
+      properties:
+        id:
+          type: integer
+        classId:
+          type: integer
+        employeeId:
+          type: integer
+        employeeName:
+          type: string
+          nullable: true
+        attendance:
+          type: string
+          nullable: true
+        score:
+          type: integer
+          nullable: true
+        result:
+          type: string
+          nullable: true
+        employeeTrainingId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - classId
+        - employeeId
+        - createdAt
+
+    TrainingClassDetail:
+      allOf:
+        - $ref: "#/components/schemas/TrainingClass"
+        - type: object
+          properties:
+            participants:
+              type: array
+              items:
+                $ref: "#/components/schemas/TrainingClassParticipant"
+          required:
+            - participants
+
+    CreateTrainingClassBody:
+      type: object
+      properties:
+        catalogItemId:
+          type: integer
+        code:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        unitId:
+          type: integer
+        location:
+          type: string
+        instructor:
+          type: string
+        modality:
+          type: string
+        workloadHours:
+          type: integer
+        capacity:
+          type: integer
+        minScore:
+          type: integer
+        status:
+          type: string
+        notes:
+          type: string
+        attachments:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
+      required:
+        - catalogItemId
+        - startDate
+
+    UpdateTrainingClassBody:
+      type: object
+      properties:
+        code:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        unitId:
+          type: integer
+          nullable: true
+        location:
+          type: string
+        instructor:
+          type: string
+        modality:
+          type: string
+        workloadHours:
+          type: integer
+        capacity:
+          type: integer
+        minScore:
+          type: integer
+        status:
+          type: string
+        notes:
+          type: string
+        attachments:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
+
+    AddTrainingClassParticipantsBody:
+      type: object
+      properties:
+        employeeIds:
+          type: array
+          items:
+            type: integer
+      required:
+        - employeeIds
+
+    UpdateTrainingClassParticipantBody:
+      type: object
+      properties:
+        attendance:
+          type: string
+          nullable: true
+        score:
+          type: integer
+          nullable: true
+        result:
+          type: string
+          nullable: true
 
     RoadSafetyFactor:
       type: object

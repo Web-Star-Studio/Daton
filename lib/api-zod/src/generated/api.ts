@@ -19623,3 +19623,386 @@ export const DeleteTrainingRequirementParams = zod.object({
   orgId: zod.coerce.number(),
   id: zod.coerce.number(),
 });
+
+/**
+ * @summary List training classes
+ */
+export const ListTrainingClassesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListTrainingClassesQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  unitId: zod.coerce.number().optional(),
+  catalogItemId: zod.coerce.number().optional(),
+});
+
+export const listTrainingClassesResponseDataItemAttachmentsItemFileSizeMax = 20971520;
+
+export const listTrainingClassesResponseDataItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ListTrainingClassesResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        catalogItemId: zod.number(),
+        code: zod.string().nullish(),
+        startDate: zod.string(),
+        endDate: zod.string().nullish(),
+        unitId: zod.number().nullish(),
+        location: zod.string().nullish(),
+        instructor: zod.string().nullish(),
+        modality: zod.string().nullish(),
+        workloadHours: zod.number().nullish(),
+        capacity: zod.number().nullish(),
+        minScore: zod.number().nullish(),
+        status: zod.string(),
+        notes: zod.string().nullish(),
+        attachments: zod.array(
+          zod.object({
+            fileName: zod.string(),
+            fileSize: zod
+              .number()
+              .max(
+                listTrainingClassesResponseDataItemAttachmentsItemFileSizeMax,
+              ),
+            contentType: zod.string(),
+            objectPath: zod
+              .string()
+              .regex(
+                listTrainingClassesResponseDataItemAttachmentsItemObjectPathRegExp,
+              ),
+          }),
+        ),
+        participantCount: zod.number().optional(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe("Turma — instância agendada de um item do catálogo."),
+  ),
+});
+
+/**
+ * @summary Create a training class
+ */
+export const CreateTrainingClassParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createTrainingClassBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const createTrainingClassBodyAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const createTrainingClassBodyAttachmentsMax = 20;
+
+export const CreateTrainingClassBody = zod.object({
+  catalogItemId: zod.number(),
+  code: zod.string().optional(),
+  startDate: zod.string(),
+  endDate: zod.string().optional(),
+  unitId: zod.number().optional(),
+  location: zod.string().optional(),
+  instructor: zod.string().optional(),
+  modality: zod.string().optional(),
+  workloadHours: zod.number().optional(),
+  capacity: zod.number().optional(),
+  minScore: zod.number().optional(),
+  status: zod.string().optional(),
+  notes: zod.string().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createTrainingClassBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createTrainingClassBodyAttachmentsItemObjectPathRegExp),
+      }),
+    )
+    .max(createTrainingClassBodyAttachmentsMax)
+    .optional(),
+});
+
+/**
+ * @summary Get a training class with participants
+ */
+export const GetTrainingClassParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const getTrainingClassResponseOneAttachmentsItemFileSizeMax = 20971520;
+
+export const getTrainingClassResponseOneAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const GetTrainingClassResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    catalogItemId: zod.number(),
+    code: zod.string().nullish(),
+    startDate: zod.string(),
+    endDate: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    location: zod.string().nullish(),
+    instructor: zod.string().nullish(),
+    modality: zod.string().nullish(),
+    workloadHours: zod.number().nullish(),
+    capacity: zod.number().nullish(),
+    minScore: zod.number().nullish(),
+    status: zod.string(),
+    notes: zod.string().nullish(),
+    attachments: zod.array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(getTrainingClassResponseOneAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(getTrainingClassResponseOneAttachmentsItemObjectPathRegExp),
+      }),
+    ),
+    participantCount: zod.number().optional(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Turma — instância agendada de um item do catálogo.")
+  .and(
+    zod.object({
+      participants: zod.array(
+        zod.object({
+          id: zod.number(),
+          classId: zod.number(),
+          employeeId: zod.number(),
+          employeeName: zod.string().nullish(),
+          attendance: zod.string().nullish(),
+          score: zod.number().nullish(),
+          result: zod.string().nullish(),
+          employeeTrainingId: zod.number().nullish(),
+          createdAt: zod.string().datetime({}),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update a training class (including evidence attachments)
+ */
+export const UpdateTrainingClassParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const updateTrainingClassBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const updateTrainingClassBodyAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateTrainingClassBodyAttachmentsMax = 20;
+
+export const UpdateTrainingClassBody = zod.object({
+  code: zod.string().optional(),
+  startDate: zod.string().optional(),
+  endDate: zod.string().optional(),
+  unitId: zod.number().nullish(),
+  location: zod.string().optional(),
+  instructor: zod.string().optional(),
+  modality: zod.string().optional(),
+  workloadHours: zod.number().optional(),
+  capacity: zod.number().optional(),
+  minScore: zod.number().optional(),
+  status: zod.string().optional(),
+  notes: zod.string().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateTrainingClassBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateTrainingClassBodyAttachmentsItemObjectPathRegExp),
+      }),
+    )
+    .max(updateTrainingClassBodyAttachmentsMax)
+    .optional(),
+});
+
+export const updateTrainingClassResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const updateTrainingClassResponseAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateTrainingClassResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    catalogItemId: zod.number(),
+    code: zod.string().nullish(),
+    startDate: zod.string(),
+    endDate: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    location: zod.string().nullish(),
+    instructor: zod.string().nullish(),
+    modality: zod.string().nullish(),
+    workloadHours: zod.number().nullish(),
+    capacity: zod.number().nullish(),
+    minScore: zod.number().nullish(),
+    status: zod.string(),
+    notes: zod.string().nullish(),
+    attachments: zod.array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateTrainingClassResponseAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateTrainingClassResponseAttachmentsItemObjectPathRegExp),
+      }),
+    ),
+    participantCount: zod.number().optional(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Turma — instância agendada de um item do catálogo.");
+
+/**
+ * @summary Delete a training class
+ */
+export const DeleteTrainingClassParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Enroll employees into a class
+ */
+export const AddTrainingClassParticipantsParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const AddTrainingClassParticipantsBody = zod.object({
+  employeeIds: zod.array(zod.number()),
+});
+
+export const addTrainingClassParticipantsResponseOneAttachmentsItemFileSizeMax = 20971520;
+
+export const addTrainingClassParticipantsResponseOneAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const AddTrainingClassParticipantsResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    catalogItemId: zod.number(),
+    code: zod.string().nullish(),
+    startDate: zod.string(),
+    endDate: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    location: zod.string().nullish(),
+    instructor: zod.string().nullish(),
+    modality: zod.string().nullish(),
+    workloadHours: zod.number().nullish(),
+    capacity: zod.number().nullish(),
+    minScore: zod.number().nullish(),
+    status: zod.string(),
+    notes: zod.string().nullish(),
+    attachments: zod.array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            addTrainingClassParticipantsResponseOneAttachmentsItemFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            addTrainingClassParticipantsResponseOneAttachmentsItemObjectPathRegExp,
+          ),
+      }),
+    ),
+    participantCount: zod.number().optional(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Turma — instância agendada de um item do catálogo.")
+  .and(
+    zod.object({
+      participants: zod.array(
+        zod.object({
+          id: zod.number(),
+          classId: zod.number(),
+          employeeId: zod.number(),
+          employeeName: zod.string().nullish(),
+          attendance: zod.string().nullish(),
+          score: zod.number().nullish(),
+          result: zod.string().nullish(),
+          employeeTrainingId: zod.number().nullish(),
+          createdAt: zod.string().datetime({}),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update a participant (attendance / score / result)
+ */
+export const UpdateTrainingClassParticipantParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+  participantId: zod.coerce.number(),
+});
+
+export const UpdateTrainingClassParticipantBody = zod.object({
+  attendance: zod.string().nullish(),
+  score: zod.number().nullish(),
+  result: zod.string().nullish(),
+});
+
+export const UpdateTrainingClassParticipantResponse = zod.object({
+  id: zod.number(),
+  classId: zod.number(),
+  employeeId: zod.number(),
+  employeeName: zod.string().nullish(),
+  attendance: zod.string().nullish(),
+  score: zod.number().nullish(),
+  result: zod.string().nullish(),
+  employeeTrainingId: zod.number().nullish(),
+  createdAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Remove a participant
+ */
+export const DeleteTrainingClassParticipantParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+  participantId: zod.coerce.number(),
+});
+
+/**
+ * @summary Complete a class — writes employee_trainings for approved participants
+ */
+export const CompleteTrainingClassParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const CompleteTrainingClassResponse = zod.object({
+  completed: zod.number(),
+});

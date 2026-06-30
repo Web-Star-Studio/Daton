@@ -167,6 +167,101 @@ export interface TrainingRequirementPreview {
   requirements: TrainingRequirement[];
 }
 
+export interface EmployeeRecordAttachment {
+  fileName: string;
+  /** @maximum 20971520 */
+  fileSize: number;
+  contentType: string;
+  /** @pattern ^/objects/uploads/.+ */
+  objectPath: string;
+}
+
+/**
+ * Turma — instância agendada de um item do catálogo.
+ */
+export interface TrainingClass {
+  id: number;
+  organizationId: number;
+  catalogItemId: number;
+  code?: string | null;
+  startDate: string;
+  endDate?: string | null;
+  unitId?: number | null;
+  location?: string | null;
+  instructor?: string | null;
+  modality?: string | null;
+  workloadHours?: number | null;
+  capacity?: number | null;
+  minScore?: number | null;
+  status: string;
+  notes?: string | null;
+  attachments: EmployeeRecordAttachment[];
+  participantCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TrainingClassParticipant {
+  id: number;
+  classId: number;
+  employeeId: number;
+  employeeName?: string | null;
+  attendance?: string | null;
+  score?: number | null;
+  result?: string | null;
+  employeeTrainingId?: number | null;
+  createdAt: string;
+}
+
+export type TrainingClassDetail = TrainingClass & {
+  participants: TrainingClassParticipant[];
+};
+
+export interface CreateTrainingClassBody {
+  catalogItemId: number;
+  code?: string;
+  startDate: string;
+  endDate?: string;
+  unitId?: number;
+  location?: string;
+  instructor?: string;
+  modality?: string;
+  workloadHours?: number;
+  capacity?: number;
+  minScore?: number;
+  status?: string;
+  notes?: string;
+  /** @maxItems 20 */
+  attachments?: EmployeeRecordAttachment[];
+}
+
+export interface UpdateTrainingClassBody {
+  code?: string;
+  startDate?: string;
+  endDate?: string;
+  unitId?: number | null;
+  location?: string;
+  instructor?: string;
+  modality?: string;
+  workloadHours?: number;
+  capacity?: number;
+  minScore?: number;
+  status?: string;
+  notes?: string;
+  /** @maxItems 20 */
+  attachments?: EmployeeRecordAttachment[];
+}
+
+export interface AddTrainingClassParticipantsBody {
+  employeeIds: number[];
+}
+
+export interface UpdateTrainingClassParticipantBody {
+  attendance?: string | null;
+  score?: number | null;
+  result?: string | null;
+}
+
 export type RoadSafetyFactorType =
   (typeof RoadSafetyFactorType)[keyof typeof RoadSafetyFactorType];
 
@@ -1071,15 +1166,6 @@ export interface EmployeeProfileItemAttachment {
   contentType: string;
   objectPath: string;
   uploadedAt: string;
-}
-
-export interface EmployeeRecordAttachment {
-  fileName: string;
-  /** @maximum 20971520 */
-  fileSize: number;
-  contentType: string;
-  /** @pattern ^/objects/uploads/.+ */
-  objectPath: string;
 }
 
 export type EmployeeProfileItemCategory =
@@ -6500,4 +6586,18 @@ export type ListTrainingRequirements200 = {
 export type PreviewTrainingRequirementsParams = {
   position: string;
   unitId?: number;
+};
+
+export type ListTrainingClassesParams = {
+  status?: string;
+  unitId?: number;
+  catalogItemId?: number;
+};
+
+export type ListTrainingClasses200 = {
+  data: TrainingClass[];
+};
+
+export type CompleteTrainingClass200 = {
+  completed: number;
 };
