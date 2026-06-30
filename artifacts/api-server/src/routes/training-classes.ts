@@ -10,6 +10,7 @@ import {
 import {
   AddTrainingClassParticipantsBody,
   AddTrainingClassParticipantsParams,
+  CompleteTrainingClassParams,
   CreateTrainingClassBody,
   CreateTrainingClassParams,
   DeleteTrainingClassParams,
@@ -23,6 +24,7 @@ import {
   UpdateTrainingClassParticipantParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
+import { completeTrainingClass } from "../services/aprendizagem/complete-class";
 
 const router: IRouter = Router();
 
@@ -467,6 +469,30 @@ router.delete(
       return;
     }
     res.status(204).send();
+  },
+);
+
+// POST complete
+router.post(
+  "/organizations/:orgId/training-classes/:id/complete",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = CompleteTrainingClassParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    const result = await completeTrainingClass({
+      orgId: params.data.orgId,
+      classId: params.data.id,
+      database: db,
+    });
+    res.json(result);
   },
 );
 
