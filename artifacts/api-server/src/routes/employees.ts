@@ -81,6 +81,7 @@ import {
   requireModuleAccess,
   requireWriteAccess,
 } from "../middlewares/auth";
+import { applyTrainingRequirements } from "../services/aprendizagem/requirements-engine";
 import {
   ObjectNotFoundError,
   ObjectStorageService,
@@ -1339,7 +1340,7 @@ router.post(
       return;
     }
 
-    const emp = await db.transaction(async (tx) => {
+    const { emp, autoLinked } = await db.transaction(async (tx) => {
       const [createdEmployee] = await tx
         .insert(employeesTable)
         .values({
@@ -1361,10 +1362,18 @@ router.post(
         "education_certification",
       );
 
-      return createdEmployee;
+      const autoLinked = await applyTrainingRequirements({
+        orgId: params.data.orgId,
+        employeeId: createdEmployee.id,
+        database: tx,
+      });
+
+      return { emp: createdEmployee, autoLinked };
     });
 
-    res.status(201).json(formatEmployee(emp));
+    res
+      .status(201)
+      .json({ ...formatEmployee(emp), autoLinkedTrainings: autoLinked });
   },
 );
 
@@ -2268,6 +2277,16 @@ router.patch(
       return;
     }
 
+    const [before] = await db
+      .select({ position: employeesTable.position })
+      .from(employeesTable)
+      .where(
+        and(
+          eq(employeesTable.id, params.data.empId),
+          eq(employeesTable.organizationId, params.data.orgId),
+        ),
+      );
+
     const [emp] = await db
       .update(employeesTable)
       .set(payload)
@@ -2283,7 +2302,21 @@ router.patch(
       res.status(404).json({ error: "Colaborador não encontrado" });
       return;
     }
-    res.json(formatEmployee(emp));
+
+    // Mudança de cargo → recomputa obrigatoriedades (adiciona/aproveita; nunca remove).
+    let autoLinked = { generated: 0, reused: 0 };
+    if (
+      payload.position !== undefined &&
+      before &&
+      payload.position !== before.position
+    ) {
+      autoLinked = await applyTrainingRequirements({
+        orgId: params.data.orgId,
+        employeeId: params.data.empId,
+        database: db,
+      });
+    }
+    res.json({ ...formatEmployee(emp), autoLinkedTrainings: autoLinked });
   },
 );
 

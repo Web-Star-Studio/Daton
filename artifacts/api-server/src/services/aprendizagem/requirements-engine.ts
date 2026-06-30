@@ -8,7 +8,8 @@ import {
   employeeTrainingsTable,
 } from "@workspace/db";
 
-type Database = typeof defaultDb;
+// Aceita o db principal ou uma transação tx (ambos satisfazem select/insert).
+type Database = Pick<typeof defaultDb, "select" | "insert">;
 
 function addDaysIso(isoDate: string, days: number): string | null {
   const d = new Date(isoDate);
