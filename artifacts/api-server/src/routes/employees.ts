@@ -1449,6 +1449,7 @@ router.get(
         status: employeeTrainingsTable.status,
         attachments: employeeTrainingsTable.attachments,
         legacyV1Id: employeeTrainingsTable.legacyV1Id,
+        catalogItemId: employeeTrainingsTable.catalogItemId,
         createdAt: employeeTrainingsTable.createdAt,
         updatedAt: employeeTrainingsTable.updatedAt,
         employeeName: employeesTable.name,
