@@ -18,6 +18,9 @@ import {
   useDeleteTraining,
   useListTrainingCatalog,
   getListTrainingCatalogQueryKey,
+  useListCompetencyCatalog,
+  getListCompetencyCatalogQueryKey,
+  useCreateCompetencyCatalogItem,
   getListOrganizationTrainingsQueryKey,
   getListEmployeeCompetencyGapsQueryKey,
   getListDepartmentsQueryKey,
@@ -47,12 +50,14 @@ import type {
 } from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
+import { CompetencyBankPanel } from "@/pages/app/aprendizagem/_components/competency-bank-panel";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -516,6 +521,8 @@ function RequirementDialog({
   onOpenChange,
   value,
   onChange,
+  competencyOptions = [],
+  onCreateCompetency,
   onSubmit,
   pending,
   title,
@@ -524,6 +531,8 @@ function RequirementDialog({
   onOpenChange: (open: boolean) => void;
   value: RequirementForm;
   onChange: (value: RequirementForm) => void;
+  competencyOptions?: { value: string; label: string }[];
+  onCreateCompetency?: (name: string) => void;
   onSubmit: () => Promise<void>;
   pending?: boolean;
   title: string;
@@ -541,13 +550,17 @@ function RequirementDialog({
           <Label className="text-xs font-semibold text-muted-foreground">
             Competencia *
           </Label>
-          <Input
-            value={value.competencyName}
-            onChange={(event) =>
-              onChange({ ...value, competencyName: event.target.value })
-            }
-            className="mt-1"
-          />
+          <div className="mt-1">
+            <SearchableSelect
+              value={value.competencyName}
+              onChange={(v) => onChange({ ...value, competencyName: v })}
+              options={competencyOptions}
+              placeholder="Selecione ou digite uma competência"
+              searchPlaceholder="Buscar ou adicionar..."
+              emptyMessage="Digite para adicionar ao banco"
+              onCreateOption={onCreateCompetency}
+            />
+          </div>
         </div>
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">
@@ -792,6 +805,35 @@ export default function ColaboradoresTreinamentosPage() {
     },
   );
   const catalogItems = catalogResult?.data ?? [];
+  const { data: competencyCatalogResult } = useListCompetencyCatalog(
+    orgId ?? 0,
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListCompetencyCatalogQueryKey(orgId ?? 0),
+      },
+    },
+  );
+  const competencyOptions = (competencyCatalogResult?.data ?? []).map((c) => ({
+    value: c.name,
+    label: c.name,
+  }));
+  const createCompetencyMutation = useCreateCompetencyCatalogItem();
+  const handleCreateCompetencyInline = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setRequirementForm((f) => ({ ...f, competencyName: trimmed }));
+    if (orgId)
+      createCompetencyMutation.mutate(
+        { orgId, data: { name: trimmed } },
+        {
+          onSuccess: () =>
+            queryClient.invalidateQueries({
+              queryKey: getListCompetencyCatalogQueryKey(orgId),
+            }),
+        },
+      );
+  };
   const { data: departments = [] } = useListDepartments(orgId ?? 0, {
     query: {
       enabled: !!orgId,
@@ -1439,6 +1481,9 @@ export default function ColaboradoresTreinamentosPage() {
                 ))}
               </div>
             )}
+            {orgId ? (
+              <CompetencyBankPanel orgId={orgId} canWrite={canWriteEmployees} />
+            ) : null}
           </TabsContent>
         </Tabs>
       </div>
@@ -1475,6 +1520,8 @@ export default function ColaboradoresTreinamentosPage() {
         }}
         value={requirementForm}
         onChange={setRequirementForm}
+        competencyOptions={competencyOptions}
+        onCreateCompetency={handleCreateCompetencyInline}
         onSubmit={handleSubmitRequirement}
         pending={
           createRequirementMutation.isPending ||
