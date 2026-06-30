@@ -4,11 +4,13 @@ import {
   integer,
   text,
   boolean,
+  jsonb,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { organizationsTable } from "./organizations";
+import { positionsTable } from "./departments";
 
 /**
  * Catálogo de treinamentos (definições reutilizáveis) — ISO 10015.
@@ -83,3 +85,41 @@ export const competencyCatalogTable = pgTable(
 
 export type TrainingCatalogItem = typeof trainingCatalogTable.$inferSelect;
 export type CompetencyCatalogItem = typeof competencyCatalogTable.$inferSelect;
+
+/**
+ * Obrigatoriedades (SP2): regra que torna um item do catálogo obrigatório para
+ * um cargo. Alimenta o motor de auto-vínculo (applyTrainingRequirements) na
+ * admissão e na mudança de cargo. Escopo geral (todas filiais) ou por filial.
+ */
+export const trainingRequirementsTable = pgTable("training_requirements", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
+  positionId: integer("position_id")
+    .notNull()
+    .references(() => positionsTable.id, { onDelete: "cascade" }),
+  catalogItemId: integer("catalog_item_id")
+    .notNull()
+    .references(() => trainingCatalogTable.id, { onDelete: "cascade" }),
+  deadlineType: text("deadline_type").notNull().default("rh"),
+  deadlineDays: integer("deadline_days"),
+  scope: text("scope").notNull().default("geral"),
+  filialUnitIds: jsonb("filial_unit_ids")
+    .notNull()
+    .default(sql`'[]'::jsonb`)
+    .$type<number[]>(),
+  recurrence: text("recurrence").notNull().default("nao_repete"),
+  isCritical: boolean("is_critical").notNull().default(false),
+  norm: text("norm"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export type TrainingRequirement = typeof trainingRequirementsTable.$inferSelect;

@@ -148,6 +148,10 @@ export const employeeTrainingsTable = pgTable("employee_trainings", {
   // simples no schema p/ evitar ciclo de import; a FK real entra por DDL
   // (employee_trainings_catalog_item_fk, ON DELETE SET NULL).
   catalogItemId: integer("catalog_item_id"),
+  // SP2: prazo do pendente gerado por obrigatoriedade, e a regra de origem.
+  // requirementId é integer simples no schema (FK real via DDL p/ evitar ciclo).
+  dueDate: date("due_date"),
+  requirementId: integer("requirement_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
