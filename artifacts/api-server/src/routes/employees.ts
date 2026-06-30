@@ -1451,6 +1451,8 @@ router.get(
         attachments: employeeTrainingsTable.attachments,
         legacyV1Id: employeeTrainingsTable.legacyV1Id,
         catalogItemId: employeeTrainingsTable.catalogItemId,
+        dueDate: employeeTrainingsTable.dueDate,
+        requirementId: employeeTrainingsTable.requirementId,
         createdAt: employeeTrainingsTable.createdAt,
         updatedAt: employeeTrainingsTable.updatedAt,
         employeeName: employeesTable.name,
