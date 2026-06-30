@@ -8,6 +8,7 @@ import {
   Building2,
   ChevronRight,
   ClipboardList,
+  GraduationCap,
   Leaf,
   Landmark,
   ListChecks,
@@ -76,10 +77,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [ambientalPopover, setAmbientalPopover] = useState(false);
   const [infraestruturaPopover, setInfraestruturaPopover] = useState(false);
   const [configuracoesPopover, setConfiguracoesPopover] = useState(false);
+  const [aprendizagemPopover, setAprendizagemPopover] = useState(false);
   const [orgPopoverPos, setOrgPopoverPos] = useState<PopoverPosition>({
     top: 0,
     left: 0,
   });
+  const [aprendizagemPopoverPos, setAprendizagemPopoverPos] =
+    useState<PopoverPosition>({
+      top: 0,
+      left: 0,
+    });
   const [qualidadePopoverPos, setQualidadePopoverPos] =
     useState<PopoverPosition>({
       top: 0,
@@ -106,12 +113,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       bottom: 0,
     });
   const organizacaoRef = useRef<HTMLDivElement>(null);
+  const aprendizagemRef = useRef<HTMLDivElement>(null);
   const qualidadeRef = useRef<HTMLDivElement>(null);
   const governancaRef = useRef<HTMLDivElement>(null);
   const ambientalRef = useRef<HTMLDivElement>(null);
   const infraestruturaRef = useRef<HTMLDivElement>(null);
   const configuracoesRef = useRef<HTMLDivElement>(null);
   const organizacaoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const aprendizagemTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const qualidadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -151,6 +162,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         clearTimeout(organizacaoTimeoutRef.current);
         organizacaoTimeoutRef.current = null;
       }
+      if (aprendizagemTimeoutRef.current) {
+        clearTimeout(aprendizagemTimeoutRef.current);
+        aprendizagemTimeoutRef.current = null;
+      }
       if (qualidadeTimeoutRef.current) {
         clearTimeout(qualidadeTimeoutRef.current);
         qualidadeTimeoutRef.current = null;
@@ -179,7 +194,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/qualidade/legislacoes", module: "legislations" },
       { prefix: "/qualidade/fornecedores", module: "suppliers" },
       { prefix: "/qualidade/regulatorios", module: "regulatoryDocuments" },
-      { prefix: "/organizacao/colaboradores", module: "employees" },
+      { prefix: "/aprendizagem/colaboradores", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
       { prefix: "/organizacao/cargos", module: "positions" },
@@ -233,18 +248,25 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           crumbs.push({ label: pageTitle });
         }
       }
+    } else if (normalizedLocation.startsWith("/aprendizagem")) {
+      crumbs.push({ label: "Aprendizagem" });
+
+      if (normalizedLocation.startsWith("/aprendizagem/colaboradores")) {
+        crumbs.push({
+          label: "Colaboradores",
+          href: "/aprendizagem/colaboradores",
+        });
+        if (
+          pageTitle &&
+          normalizedLocation !== "/aprendizagem/colaboradores"
+        ) {
+          crumbs.push({ label: pageTitle });
+        }
+      }
     } else if (normalizedLocation.startsWith("/organizacao")) {
       crumbs.push({ label: "Organização", href: "/organizacao" });
 
-      if (normalizedLocation.startsWith("/organizacao/colaboradores")) {
-        crumbs.push({
-          label: "Colaboradores",
-          href: "/organizacao/colaboradores",
-        });
-        if (pageTitle && normalizedLocation !== "/organizacao/colaboradores") {
-          crumbs.push({ label: pageTitle });
-        }
-      } else if (normalizedLocation.startsWith("/organizacao/unidades")) {
+      if (normalizedLocation.startsWith("/organizacao/unidades")) {
         crumbs.push({ label: "Unidades", href: "/organizacao/unidades" });
         if (pageTitle && normalizedLocation !== "/organizacao/unidades") {
           crumbs.push({ label: pageTitle });
@@ -376,9 +398,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const organizacaoLinks: NavLink[] = [
     { href: "/organizacao", label: "Visão Geral" },
-    ...(hasModuleAccess("employees")
-      ? [{ href: "/organizacao/colaboradores", label: "Colaboradores" }]
-      : []),
     ...(hasModuleAccess("units")
       ? [{ href: "/organizacao/unidades", label: "Unidades" }]
       : []),
@@ -390,6 +409,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       : []),
     ...(hasModuleAccess("swot")
       ? [{ href: "/organizacao/swot", label: "SWOT" }]
+      : []),
+  ];
+
+  const aprendizagemLinks: NavLink[] = [
+    ...(hasModuleAccess("employees")
+      ? [{ href: "/aprendizagem/colaboradores", label: "Colaboradores" }]
       : []),
   ];
 
@@ -468,6 +493,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   ];
 
   const showQualidade = qualidadeLinks.length > 0;
+  const showAprendizagem = aprendizagemLinks.length > 0;
   const showGovernanca = hasModuleAccess("governance");
   const showAmbiental = hasModuleAccess("environmental");
   const showKpi = hasModuleAccess("kpi");
@@ -686,6 +712,46 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </Link>
           </div>
+
+          {showAprendizagem && (
+            <div
+              ref={aprendizagemRef}
+              onMouseEnter={() =>
+                openPopover(
+                  aprendizagemRef,
+                  setAprendizagemPopoverPos,
+                  setAprendizagemPopover,
+                  aprendizagemTimeoutRef,
+                )
+              }
+              onMouseLeave={() =>
+                closePopover(setAprendizagemPopover, aprendizagemTimeoutRef)
+              }
+            >
+              <Link
+                href={aprendizagemLinks[0].href}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                  isActive("/aprendizagem")
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <div className="flex items-center">
+                  <GraduationCap
+                    className={cn(
+                      "h-[18px] w-[18px] shrink-0",
+                      isSidebarOpen && "mr-2.5",
+                    )}
+                  />
+                  {isSidebarOpen && <span>Aprendizagem</span>}
+                </div>
+                {isSidebarOpen && (
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                )}
+              </Link>
+            </div>
+          )}
 
           {showGovernanca && (
             <div
@@ -918,6 +984,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             setOrganizacaoPopover,
             orgPopoverPos,
             organizacaoTimeoutRef,
+          )}
+          {renderPopover(
+            "Aprendizagem",
+            aprendizagemLinks,
+            aprendizagemPopover,
+            setAprendizagemPopover,
+            aprendizagemPopoverPos,
+            aprendizagemTimeoutRef,
           )}
           {renderPopover(
             "Qualidade",
