@@ -25,6 +25,7 @@ import OrganizacaoDepartmentsPage from "@/pages/app/organizacao/departamentos";
 import OrganizacaoPositionsPage from "@/pages/app/organizacao/cargos";
 import OrganizacaoSwotPage from "@/pages/app/organizacao/swot";
 import AprendizagemEmployeesPage from "@/pages/app/aprendizagem/colaboradores";
+import AprendizagemCatalogoPage from "@/pages/app/aprendizagem/catalogo";
 import AprendizagemEmployeeTrainingsPage from "@/pages/app/aprendizagem/colaboradores/treinamentos";
 import AprendizagemTrainingDetailPage from "@/pages/app/aprendizagem/colaboradores/treinamento-detalhe";
 import AprendizagemEmployeeDetailPage from "@/pages/app/aprendizagem/colaboradores/[id]";
@@ -177,6 +178,7 @@ function AppPages() {
         path="/aprendizagem/colaboradores/:id"
         component={AprendizagemEmployeeDetailPage}
       />
+      <Route path="/aprendizagem/catalogo" component={AprendizagemCatalogoPage} />
       <Route path="/organizacao/unidades" component={OrganizacaoUnitsPage} />
       <Route path="/organizacao/unidades/:id" component={UnitDetailPage} />
       <Route
@@ -321,6 +323,10 @@ function AppPages() {
       <Route
         path="/app/aprendizagem/colaboradores/:id"
         component={AprendizagemEmployeeDetailPage}
+      />
+      <Route
+        path="/app/aprendizagem/catalogo"
+        component={AprendizagemCatalogoPage}
       />
       <Route
         path="/app/organizacao/unidades"
