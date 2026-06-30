@@ -16,6 +16,8 @@ import {
   useCreateTraining,
   useUpdateTraining,
   useDeleteTraining,
+  useListTrainingCatalog,
+  getListTrainingCatalogQueryKey,
   getListOrganizationTrainingsQueryKey,
   getListEmployeeCompetencyGapsQueryKey,
   getListDepartmentsQueryKey,
@@ -41,6 +43,7 @@ import type {
   PositionCompetencyMatrixRevision,
   PositionCompetencyRequirement,
   UpdateTrainingBodyStatus,
+  TrainingCatalogItem,
 } from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
@@ -142,6 +145,7 @@ type TrainingAdminForm = {
   completionDate: string;
   expirationDate: string;
   status: CreateTrainingBodyStatus;
+  catalogItemId: number | null;
 };
 
 type RequirementForm = {
@@ -180,6 +184,7 @@ function getDefaultTrainingForm(): TrainingAdminForm {
     completionDate: "",
     expirationDate: "",
     status: CreateTrainingBodyStatusValues.pendente,
+    catalogItemId: null,
   };
 }
 
@@ -197,6 +202,8 @@ function TrainingDialog({
   open,
   onOpenChange,
   employees,
+  catalogItems = [],
+  isEditing = false,
   value,
   onChange,
   onSubmit,
@@ -206,12 +213,33 @@ function TrainingDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   employees: Employee[];
+  catalogItems?: TrainingCatalogItem[];
+  isEditing?: boolean;
   value: TrainingAdminForm;
   onChange: (value: TrainingAdminForm) => void;
   onSubmit: () => Promise<void>;
   pending?: boolean;
   title: string;
 }) {
+  const applyCatalogItem = (itemId: string) => {
+    if (!itemId) {
+      onChange({ ...value, catalogItemId: null });
+      return;
+    }
+    const item = catalogItems.find((c) => String(c.id) === itemId);
+    if (!item) return;
+    onChange({
+      ...value,
+      catalogItemId: item.id,
+      title: item.title,
+      objective: item.objective ?? value.objective,
+      description: item.programContent ?? value.description,
+      institution: item.defaultInstructor ?? value.institution,
+      targetCompetencyName: item.targetCompetencyName ?? value.targetCompetencyName,
+      workloadHours: item.workloadHours ?? value.workloadHours,
+      renewalMonths: item.validityMonths ?? value.renewalMonths,
+    });
+  };
   return (
     <Dialog
       open={open}
@@ -221,6 +249,25 @@ function TrainingDialog({
       size="xl"
     >
       <div className="grid gap-5 md:grid-cols-2">
+        {!isEditing && catalogItems.length > 0 ? (
+          <div className="md:col-span-2 rounded-lg border bg-muted/20 p-3">
+            <Label className="text-xs font-semibold text-muted-foreground">
+              Usar item do catálogo (pré-preenche os campos)
+            </Label>
+            <Select
+              value={value.catalogItemId ? String(value.catalogItemId) : ""}
+              onChange={(event) => applyCatalogItem(event.target.value)}
+              className="mt-1 h-10 text-[13px]"
+            >
+              <option value="">Sem catálogo (preenchimento livre)</option>
+              {catalogItems.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">
             Colaborador *
@@ -732,6 +779,19 @@ export default function ColaboradoresTreinamentosPage() {
   });
   const employees = employeesResult?.data ?? [];
   const { data: units = [] } = useListUnits(orgId ?? 0);
+  const { data: catalogResult } = useListTrainingCatalog(
+    orgId ?? 0,
+    { status: "ativo" },
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListTrainingCatalogQueryKey(orgId ?? 0, {
+          status: "ativo",
+        }),
+      },
+    },
+  );
+  const catalogItems = catalogResult?.data ?? [];
   const { data: departments = [] } = useListDepartments(orgId ?? 0, {
     query: {
       enabled: !!orgId,
@@ -869,6 +929,7 @@ export default function ColaboradoresTreinamentosPage() {
       completionDate: training.completionDate || "",
       expirationDate: training.expirationDate || "",
       status: training.status,
+      catalogItemId: null,
     });
     setTrainingDialogOpen(true);
   };
@@ -923,6 +984,7 @@ export default function ColaboradoresTreinamentosPage() {
           completionDate: trainingForm.completionDate || undefined,
           expirationDate: trainingForm.expirationDate || undefined,
           status: trainingForm.status,
+          catalogItemId: trainingForm.catalogItemId ?? undefined,
         },
       });
     }
@@ -1391,6 +1453,8 @@ export default function ColaboradoresTreinamentosPage() {
           }
         }}
         employees={employees}
+        catalogItems={catalogItems}
+        isEditing={!!editingTraining}
         value={trainingForm}
         onChange={setTrainingForm}
         onSubmit={handleSubmitTraining}
