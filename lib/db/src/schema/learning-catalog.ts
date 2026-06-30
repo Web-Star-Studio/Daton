@@ -4,6 +4,7 @@ import {
   integer,
   text,
   boolean,
+  date,
   jsonb,
   timestamp,
   uniqueIndex,
@@ -11,6 +12,8 @@ import {
 import { sql } from "drizzle-orm";
 import { organizationsTable } from "./organizations";
 import { positionsTable } from "./departments";
+import { unitsTable } from "./units";
+import { employeesTable, type EmployeeRecordAttachment } from "./employees";
 
 /**
  * Catálogo de treinamentos (definições reutilizáveis) — ISO 10015.
@@ -123,3 +126,74 @@ export const trainingRequirementsTable = pgTable("training_requirements", {
 });
 
 export type TrainingRequirement = typeof trainingRequirementsTable.$inferSelect;
+
+/**
+ * Turmas (SP3): instância agendada de um item do catálogo, com participantes,
+ * presença/notas e evidências. Concluir uma turma grava o employee_training de
+ * cada participante presente e aprovado (serviço completeTrainingClass).
+ */
+export const trainingClassesTable = pgTable("training_classes", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
+  catalogItemId: integer("catalog_item_id")
+    .notNull()
+    .references(() => trainingCatalogTable.id, { onDelete: "cascade" }),
+  code: text("code"),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  unitId: integer("unit_id").references(() => unitsTable.id, {
+    onDelete: "set null",
+  }),
+  location: text("location"),
+  instructor: text("instructor"),
+  modality: text("modality"),
+  workloadHours: integer("workload_hours"),
+  capacity: integer("capacity"),
+  minScore: integer("min_score"),
+  status: text("status").notNull().default("agendada"),
+  notes: text("notes"),
+  attachments: jsonb("attachments")
+    .$type<EmployeeRecordAttachment[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const trainingClassParticipantsTable = pgTable(
+  "training_class_participants",
+  {
+    id: serial("id").primaryKey(),
+    classId: integer("class_id")
+      .notNull()
+      .references(() => trainingClassesTable.id, { onDelete: "cascade" }),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employeesTable.id, { onDelete: "cascade" }),
+    attendance: text("attendance"),
+    score: integer("score"),
+    result: text("result"),
+    // FK real para employee_trainings via DDL (set null) — evita ciclo de import.
+    employeeTrainingId: integer("employee_training_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("training_class_participant_unique").on(
+      table.classId,
+      table.employeeId,
+    ),
+  ],
+);
+
+export type TrainingClass = typeof trainingClassesTable.$inferSelect;
+export type TrainingClassParticipant =
+  typeof trainingClassParticipantsTable.$inferSelect;
