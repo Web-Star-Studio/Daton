@@ -11,6 +11,10 @@ import {
   useListUnits,
   useListDepartments,
   useListPositions,
+  usePreviewTrainingRequirements,
+  getPreviewTrainingRequirementsQueryKey,
+  useListTrainingCatalog,
+  getListTrainingCatalogQueryKey,
   getListEmployeesQueryKey,
   getListDepartmentsQueryKey,
   getListPositionsQueryKey,
@@ -335,12 +339,48 @@ export default function ColaboradoresPage() {
     trigger,
     setValue,
     getValues,
+    watch,
     formState: { errors },
   } = useForm<CreateEmployeeBody>({
     defaultValues: {
       contractType: "clt",
     },
   });
+
+  // Preview de obrigatoriedades que serão auto-vinculadas conforme cargo + filial.
+  const watchedPosition = watch("position");
+  const watchedUnitId = watch("unitId");
+  const { data: catalogPreviewResult } = useListTrainingCatalog(
+    orgId ?? 0,
+    undefined,
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListTrainingCatalogQueryKey(orgId ?? 0),
+      },
+    },
+  );
+  const catalogTitleById = new Map(
+    (catalogPreviewResult?.data ?? []).map((c) => [c.id, c.title]),
+  );
+  const previewParams = {
+    position: watchedPosition ?? "",
+    unitId: typeof watchedUnitId === "number" ? watchedUnitId : undefined,
+  };
+  const { data: requirementsPreview } = usePreviewTrainingRequirements(
+    orgId ?? 0,
+    previewParams,
+    {
+      query: {
+        enabled: !!orgId && !!watchedPosition,
+        queryKey: getPreviewTrainingRequirementsQueryKey(
+          orgId ?? 0,
+          previewParams,
+        ),
+      },
+    },
+  );
+  const previewRequirements = requirementsPreview?.requirements ?? [];
 
   const [lookupBirthdate, setLookupBirthdate] = useState("");
   const [isLookingUpCpf, setIsLookingUpCpf] = useState(false);
@@ -550,9 +590,21 @@ export default function ColaboradoresPage() {
     };
 
     try {
-      await createMutation.mutateAsync({ orgId: orgId!, data: payload });
+      const created = await createMutation.mutateAsync({
+        orgId: orgId!,
+        data: payload,
+      });
       queryClient.invalidateQueries({
         queryKey: getListEmployeesQueryKey(orgId!),
+      });
+      const auto = created.autoLinkedTrainings;
+      toast({
+        title: "Colaborador cadastrado",
+        description: auto
+          ? `${auto.generated} treinamento(s) vinculado(s)${
+              auto.reused ? ` · ${auto.reused} aproveitado(s)` : ""
+            }`
+          : undefined,
       });
       setCreateOpen(false);
       resetCreateForm();
@@ -1129,6 +1181,26 @@ export default function ColaboradoresPage() {
                   ))}
                 </Select>
               </div>
+              {previewRequirements.length > 0 ? (
+                <div className="md:col-span-2 rounded-lg border bg-blue-50/50 p-3">
+                  <div className="text-xs font-semibold text-blue-900">
+                    {previewRequirements.length} treinamento(s) obrigatório(s)
+                    serão vinculados a este cargo
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {previewRequirements.map((r) => (
+                      <span
+                        key={r.id}
+                        className="rounded-full border bg-white px-2 py-0.5 text-xs text-blue-800"
+                      >
+                        {catalogTitleById.get(r.catalogItemId) ??
+                          `#${r.catalogItemId}`}
+                        {r.isCritical ? " · crítico" : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <Label className="text-xs font-semibold text-muted-foreground">
                   Unidade
