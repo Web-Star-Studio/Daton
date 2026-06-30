@@ -595,7 +595,7 @@ export default function ColaboradoresPage() {
     // Bulk actions moved to floating bar at bottom
     return (
       <div className="flex items-center gap-2">
-        <Link href="/organizacao/colaboradores/treinamentos">
+        <Link href="/aprendizagem/colaboradores/treinamentos">
           <HeaderActionButton
             size="sm"
             variant="outline"
@@ -825,7 +825,7 @@ export default function ColaboradoresPage() {
                         </td>
                         <td className="px-4 py-3">
                           <Link
-                            href={`/organizacao/colaboradores/${emp.id}`}
+                            href={`/aprendizagem/colaboradores/${emp.id}`}
                             className="cursor-pointer"
                           >
                             <p className="text-[13px] font-medium text-foreground hover:text-primary transition-colors">
@@ -856,7 +856,7 @@ export default function ColaboradoresPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <Link href={`/organizacao/colaboradores/${emp.id}`}>
+                          <Link href={`/aprendizagem/colaboradores/${emp.id}`}>
                             <ChevronRight className="h-4 w-4 text-muted-foreground/40 cursor-pointer" />
                           </Link>
                         </td>

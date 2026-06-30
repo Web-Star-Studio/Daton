@@ -160,7 +160,7 @@ export default function TrainingDetailPage() {
       <HeaderActionButton
         variant="outline"
         size="sm"
-        onClick={() => navigate("/organizacao/colaboradores/treinamentos")}
+        onClick={() => navigate("/aprendizagem/colaboradores/treinamentos")}
         label="Voltar"
         icon={<ArrowLeft className="h-3.5 w-3.5" />}
       />
@@ -651,7 +651,7 @@ export default function TrainingDetailPage() {
                       )}
                       <td className="px-4 py-3">
                         <Link
-                          href={`/organizacao/colaboradores/${training.employeeId}`}
+                          href={`/aprendizagem/colaboradores/${training.employeeId}`}
                         >
                           <p className="text-[13px] font-medium text-foreground hover:text-primary transition-colors cursor-pointer">
                             {training.employeeName}

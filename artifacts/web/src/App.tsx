@@ -1,5 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import {
+  Switch,
+  Route,
+  Redirect,
+  Router as WouterRouter,
+  useLocation,
+  useSearch,
+} from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
@@ -125,26 +132,35 @@ function AdminPages() {
   );
 }
 
+function LegacyEmployeesRedirect({ to }: { to: string }) {
+  const search = useSearch();
+  return <Redirect to={search ? `${to}?${search}` : to} replace />;
+}
+
 function AppPages() {
   return (
     <Switch>
       <Route path="/organizacao" component={OrganizacaoOverviewPage} />
-      <Route
-        path="/organizacao/colaboradores"
-        component={AprendizagemEmployeesPage}
-      />
-      <Route
-        path="/organizacao/colaboradores/treinamentos"
-        component={AprendizagemEmployeeTrainingsPage}
-      />
-      <Route
-        path="/organizacao/colaboradores/treinamentos/:title"
-        component={AprendizagemTrainingDetailPage}
-      />
-      <Route
-        path="/organizacao/colaboradores/:id"
-        component={AprendizagemEmployeeDetailPage}
-      />
+      <Route path="/organizacao/colaboradores">
+        <LegacyEmployeesRedirect to="/aprendizagem/colaboradores" />
+      </Route>
+      <Route path="/organizacao/colaboradores/treinamentos">
+        <LegacyEmployeesRedirect to="/aprendizagem/colaboradores/treinamentos" />
+      </Route>
+      <Route path="/organizacao/colaboradores/treinamentos/:title">
+        {(params) => (
+          <LegacyEmployeesRedirect
+            to={`/aprendizagem/colaboradores/treinamentos/${params.title}`}
+          />
+        )}
+      </Route>
+      <Route path="/organizacao/colaboradores/:id">
+        {(params) => (
+          <LegacyEmployeesRedirect
+            to={`/aprendizagem/colaboradores/${params.id}`}
+          />
+        )}
+      </Route>
       <Route
         path="/aprendizagem/colaboradores"
         component={AprendizagemEmployeesPage}
@@ -270,22 +286,26 @@ function AppPages() {
       <Route path="/configuracoes/sistema" component={SystemSettingsPage} />
       <Route path="/app" component={AppIndex} />
       <Route path="/app/organizacao" component={OrganizacaoOverviewPage} />
-      <Route
-        path="/app/organizacao/colaboradores"
-        component={AprendizagemEmployeesPage}
-      />
-      <Route
-        path="/app/organizacao/colaboradores/treinamentos"
-        component={AprendizagemEmployeeTrainingsPage}
-      />
-      <Route
-        path="/app/organizacao/colaboradores/treinamentos/:title"
-        component={AprendizagemTrainingDetailPage}
-      />
-      <Route
-        path="/app/organizacao/colaboradores/:id"
-        component={AprendizagemEmployeeDetailPage}
-      />
+      <Route path="/app/organizacao/colaboradores">
+        <LegacyEmployeesRedirect to="/app/aprendizagem/colaboradores" />
+      </Route>
+      <Route path="/app/organizacao/colaboradores/treinamentos">
+        <LegacyEmployeesRedirect to="/app/aprendizagem/colaboradores/treinamentos" />
+      </Route>
+      <Route path="/app/organizacao/colaboradores/treinamentos/:title">
+        {(params) => (
+          <LegacyEmployeesRedirect
+            to={`/app/aprendizagem/colaboradores/treinamentos/${params.title}`}
+          />
+        )}
+      </Route>
+      <Route path="/app/organizacao/colaboradores/:id">
+        {(params) => (
+          <LegacyEmployeesRedirect
+            to={`/app/aprendizagem/colaboradores/${params.id}`}
+          />
+        )}
+      </Route>
       <Route
         path="/app/aprendizagem/colaboradores"
         component={AprendizagemEmployeesPage}

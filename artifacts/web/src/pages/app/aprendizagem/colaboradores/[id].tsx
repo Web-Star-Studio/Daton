@@ -3452,7 +3452,7 @@ export default function ColaboradorDetailPage() {
     queryClient.invalidateQueries({
       queryKey: getListEmployeesQueryKey(orgId!),
     });
-    navigate("/organizacao/colaboradores");
+    navigate("/aprendizagem/colaboradores");
   };
 
   usePageTitle(employee?.name);
@@ -3505,7 +3505,7 @@ export default function ColaboradorDetailPage() {
 
     return (
       <div className="flex items-center gap-2">
-        <Link href="/organizacao/colaboradores">
+        <Link href="/aprendizagem/colaboradores">
           <HeaderActionButton
             variant="outline"
             size="sm"
@@ -3578,7 +3578,7 @@ export default function ColaboradorDetailPage() {
         <p className="text-[13px] text-muted-foreground">
           Colaborador não encontrado
         </p>
-        <Link href="/organizacao/colaboradores">
+        <Link href="/aprendizagem/colaboradores">
           <Button variant="outline" size="sm" className="mt-4 cursor-pointer">
             Voltar
           </Button>

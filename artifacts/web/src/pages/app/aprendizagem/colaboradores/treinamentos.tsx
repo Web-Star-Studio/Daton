@@ -807,7 +807,7 @@ export default function ColaboradoresTreinamentosPage() {
 
   const headerActions = (
     <div className="flex items-center gap-2">
-      <Link href="/organizacao/colaboradores">
+      <Link href="/aprendizagem/colaboradores">
         <HeaderActionButton
           variant="outline"
           size="sm"
@@ -1042,7 +1042,7 @@ export default function ColaboradoresTreinamentosPage() {
       evaluationMethod: "Avaliar eficacia em campo",
     });
     navigate(
-      `/organizacao/colaboradores/${gap.employeeId}?${params.toString()}`,
+      `/aprendizagem/colaboradores/${gap.employeeId}?${params.toString()}`,
     );
   };
 
@@ -1234,7 +1234,7 @@ export default function ColaboradoresTreinamentosPage() {
                         >
                           <td className="px-4 py-3">
                             <Link
-                              href={`/organizacao/colaboradores/treinamentos/${encodeURIComponent(group.title)}`}
+                              href={`/aprendizagem/colaboradores/treinamentos/${encodeURIComponent(group.title)}`}
                               className="group flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                               aria-label={`Ver detalhes do treinamento ${group.title}`}
                             >
@@ -1356,7 +1356,7 @@ export default function ColaboradoresTreinamentosPage() {
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <Link
-                          href={`/organizacao/colaboradores/${gap.employeeId}?tab=competencias`}
+                          href={`/aprendizagem/colaboradores/${gap.employeeId}?tab=competencias`}
                         >
                           <Button type="button" variant="outline" size="sm">
                             <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />
