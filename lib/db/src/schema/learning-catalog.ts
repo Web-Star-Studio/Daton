@@ -197,3 +197,39 @@ export const trainingClassParticipantsTable = pgTable(
 export type TrainingClass = typeof trainingClassesTable.$inferSelect;
 export type TrainingClassParticipant =
   typeof trainingClassParticipantsTable.$inferSelect;
+
+/**
+ * Programa Anual de Treinamento — PAT (SP4): itens planejados por ano/filial.
+ * Cada item pode ser cumprido por uma turma (classId). Status manual no SP4.
+ */
+export const annualTrainingProgramTable = pgTable("annual_training_program", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
+  year: integer("year").notNull(),
+  catalogItemId: integer("catalog_item_id")
+    .notNull()
+    .references(() => trainingCatalogTable.id, { onDelete: "cascade" }),
+  unitId: integer("unit_id").references(() => unitsTable.id, {
+    onDelete: "set null",
+  }),
+  plannedMonth: integer("planned_month"),
+  modality: text("modality"),
+  plannedQuantity: integer("planned_quantity"),
+  responsible: text("responsible"),
+  status: text("status").notNull().default("planejada"),
+  notes: text("notes"),
+  // turma que cumpre o item; FK real via DDL (set null), padrão do repo.
+  classId: integer("class_id"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export type AnnualTrainingProgramItem =
+  typeof annualTrainingProgramTable.$inferSelect;
