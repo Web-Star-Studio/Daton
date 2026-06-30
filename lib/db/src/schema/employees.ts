@@ -144,6 +144,10 @@ export const employeeTrainingsTable = pgTable("employee_trainings", {
     .notNull()
     .default(sql`'[]'::jsonb`),
   legacyV1Id: text("legacy_v1_id").unique(),
+  // Vínculo leve com o catálogo de treinamentos (training_catalog.id). Integer
+  // simples no schema p/ evitar ciclo de import; a FK real entra por DDL
+  // (employee_trainings_catalog_item_fk, ON DELETE SET NULL).
+  catalogItemId: integer("catalog_item_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
