@@ -12,6 +12,7 @@ import questionnaireRouter from "./questionnaire";
 import autoTagRouter from "./auto-tag";
 import employeesRouter from "./employees";
 import trainingCatalogRouter from "./training-catalog";
+import competencyCatalogRouter from "./competency-catalog";
 import departmentsRouter from "./departments";
 import positionsRouter from "./positions";
 import documentsRouter from "./documents";
@@ -107,6 +108,14 @@ router.use(
     /^\/organizations\/[^/]+\/training-catalog(?:\/|$)/,
   ]),
   trainingCatalogRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/competency-catalog(?:\/|$)/,
+  ]),
+  competencyCatalogRouter,
 );
 router.use(
   requireAuth,
