@@ -300,6 +300,13 @@ CREATE INDEX IF NOT EXISTS training_classes_org_status_idx ON public.training_cl
 CREATE INDEX IF NOT EXISTS annual_training_program_org_year_idx ON public.annual_training_program (organization_id, year);
 CREATE INDEX IF NOT EXISTS employee_trainings_emp_catalog_status_idx ON public.employee_trainings (employee_id, catalog_item_id, status);
 
+-- ---------------------------------------------------------------------------
+-- SP6/B: indicadores de treinamento (fonte computada) + tolerância configurável
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.kpi_indicators ADD COLUMN IF NOT EXISTS computed_source varchar(32);
+ALTER TABLE public.kpi_indicators ADD COLUMN IF NOT EXISTS computed_metric varchar(64);
+ALTER TABLE public.kpi_year_configs ADD COLUMN IF NOT EXISTS tolerance numeric(20,8);
+
 COMMIT;
 
 -- Verificação
