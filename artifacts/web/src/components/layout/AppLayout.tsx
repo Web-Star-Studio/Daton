@@ -199,6 +199,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/aprendizagem/obrigatoriedades", module: "employees" },
       { prefix: "/aprendizagem/turmas", module: "employees" },
       { prefix: "/aprendizagem/programa", module: "employees" },
+      { prefix: "/aprendizagem/eficacia", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
       { prefix: "/organizacao/cargos", module: "positions" },
@@ -281,6 +282,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         crumbs.push({
           label: "Programa anual",
           href: "/aprendizagem/programa",
+        });
+      } else if (normalizedLocation.startsWith("/aprendizagem/eficacia")) {
+        crumbs.push({
+          label: "Avaliação de eficácia",
+          href: "/aprendizagem/eficacia",
         });
       }
     } else if (normalizedLocation.startsWith("/organizacao")) {
@@ -440,6 +446,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           { href: "/aprendizagem/obrigatoriedades", label: "Obrigatoriedades" },
           { href: "/aprendizagem/turmas", label: "Turmas" },
           { href: "/aprendizagem/programa", label: "Programa anual" },
+          { href: "/aprendizagem/eficacia", label: "Avaliação de eficácia" },
         ]
       : []),
   ];
