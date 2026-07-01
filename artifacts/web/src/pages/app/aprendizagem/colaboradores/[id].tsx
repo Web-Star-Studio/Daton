@@ -79,6 +79,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
+import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
+import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
 import { useAllActiveSgqProcesses } from "@/lib/governance-system-client";
 import {
   uploadFilesToStorage,
@@ -126,9 +128,12 @@ const TRAINING_STATUS: Record<string, string> = {
 };
 
 const TRAINING_STATUS_COLORS: Record<string, string> = {
-  pendente: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
-  concluido: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
-  vencido: "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+  pendente:
+    "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
+  concluido:
+    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  vencido:
+    "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
 };
 
 const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {
@@ -138,9 +143,12 @@ const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {
 };
 
 const EFFECTIVENESS_STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
-  effective: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
-  ineffective: "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+  pending:
+    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  effective:
+    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  ineffective:
+    "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
 };
 
 const COMPETENCY_TYPE_LABELS: Record<string, string> = {
@@ -1797,8 +1805,18 @@ function CompetenciasTab({
   };
 
   const handleDelete = async (compId: number) => {
-    await deleteMutation.mutateAsync({ orgId, empId, compId });
-    invalidate();
+    if (!confirm("Excluir esta competência? Esta ação não pode ser desfeita."))
+      return;
+    try {
+      await deleteMutation.mutateAsync({ orgId, empId, compId });
+      invalidate();
+    } catch {
+      toast({
+        title: "Não foi possível excluir a competência",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -1877,7 +1895,9 @@ function CompetenciasTab({
                   <span
                     className={cn(
                       "truncate",
-                      item.matched ? "text-emerald-900 dark:text-emerald-200" : "text-red-900 dark:text-red-200",
+                      item.matched
+                        ? "text-emerald-900 dark:text-emerald-200"
+                        : "text-red-900 dark:text-red-200",
                     )}
                   >
                     {item.requirement}
@@ -2393,8 +2413,18 @@ function TreinamentosTab({
   };
 
   const handleDelete = async (trainId: number) => {
-    await deleteMutation.mutateAsync({ orgId, empId, trainId });
-    invalidate();
+    if (!confirm("Excluir este treinamento? Esta ação não pode ser desfeita."))
+      return;
+    try {
+      await deleteMutation.mutateAsync({ orgId, empId, trainId });
+      invalidate();
+    } catch {
+      toast({
+        title: "Não foi possível excluir o treinamento",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const openReviewDialog = (training: EmployeeTraining) => {
@@ -2561,6 +2591,25 @@ function TreinamentosTab({
                           )}
                         </div>
                       )}
+                      {t.latestEffectivenessReview &&
+                      !t.latestEffectivenessReview.isEffective ? (
+                        <div className="mt-2 flex flex-col gap-1.5 border-t border-border/60 pt-2">
+                          <AcoesVinculadas
+                            orgId={orgId}
+                            sourceModule="training"
+                            refId={t.id}
+                          />
+                          {editable ? (
+                            <CriarAcaoButton
+                              orgId={orgId}
+                              source={{
+                                sourceModule: "training",
+                                sourceRef: { trainingId: t.id },
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                      ) : null}
                       {t.effectivenessReviews?.length ? (
                         <div className="mt-3 space-y-2">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
@@ -3094,8 +3143,22 @@ function ConscientizacaoTab({
   };
 
   const handleDelete = async (awaId: number) => {
-    await deleteMutation.mutateAsync({ orgId, empId, awaId });
-    invalidate();
+    if (
+      !confirm(
+        "Excluir este registro de conscientização? Esta ação não pode ser desfeita.",
+      )
+    )
+      return;
+    try {
+      await deleteMutation.mutateAsync({ orgId, empId, awaId });
+      invalidate();
+    } catch {
+      toast({
+        title: "Não foi possível excluir o registro",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

@@ -11,6 +11,7 @@ import {
   useCreateTraining,
   getListEmployeesQueryKey,
   getListOrganizationTrainingsQueryKey,
+  getListEmployeeCompetencyGapsQueryKey,
   getListUnitsQueryKey,
   CreateTrainingBodyStatus as CreateTrainingBodyStatusValues,
   CreateTrainingBodyTargetCompetencyType as CreateTrainingBodyTargetCompetencyTypeValues,
@@ -316,9 +317,20 @@ export default function TrainingDetailPage() {
   const deleteMutation = useDeleteTraining();
 
   const invalidateData = async () => {
-    await queryClient.invalidateQueries({
-      queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, apiFilters),
-    });
+    // invalida por prefixo (todas as variações de filtro), não só a chave exata
+    // desta página — senão a lista agregada, colaboradores e lacunas ficam stale
+    // após concluir/editar/excluir.
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: getListEmployeesQueryKey(orgId ?? 0),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: getListEmployeeCompetencyGapsQueryKey(orgId ?? 0),
+      }),
+    ]);
   };
 
   const openNewTraining = () => {
@@ -718,7 +730,11 @@ export default function TrainingDetailPage() {
                             </Tooltip>
                             {canWriteEmployees && (
                               <>
-                                <AcoesVinculadas orgId={orgId} sourceModule="training" refId={training.id} />
+                                <AcoesVinculadas
+                                  orgId={orgId}
+                                  sourceModule="training"
+                                  refId={training.id}
+                                />
                                 <CriarAcaoButton
                                   orgId={orgId}
                                   source={{

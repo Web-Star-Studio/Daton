@@ -240,7 +240,8 @@ function TrainingDialog({
       objective: item.objective ?? value.objective,
       description: item.programContent ?? value.description,
       institution: item.defaultInstructor ?? value.institution,
-      targetCompetencyName: item.targetCompetencyName ?? value.targetCompetencyName,
+      targetCompetencyName:
+        item.targetCompetencyName ?? value.targetCompetencyName,
       workloadHours: item.workloadHours ?? value.workloadHours,
       renewalMonths: item.validityMonths ?? value.renewalMonths,
     });
@@ -932,21 +933,6 @@ export default function ColaboradoresTreinamentosPage() {
           Novo treinamento
         </HeaderActionButton>
       ) : null}
-      {canWriteEmployees && activeTab === "matriz" ? (
-        <HeaderActionButton
-          size="sm"
-          disabled={!selectedPositionId}
-          onClick={() => {
-            setEditingRequirement(null);
-            setRequirementForm(getDefaultRequirementForm());
-            setRequirementDialogOpen(true);
-          }}
-          label="Novo requisito"
-          icon={<Plus className="h-3.5 w-3.5" />}
-        >
-          Novo requisito
-        </HeaderActionButton>
-      ) : null}
     </div>
   );
 
@@ -978,63 +964,77 @@ export default function ColaboradoresTreinamentosPage() {
 
   const handleSubmitTraining = async () => {
     const targetEmployeeId = Number(trainingForm.employeeId);
+    const wasEditing = !!editingTraining;
 
-    if (editingTraining) {
-      await updateTrainingMutation.mutateAsync({
-        orgId: orgId ?? 0,
-        empId: targetEmployeeId,
-        trainId: editingTraining.id,
-        data: {
-          title: trainingForm.title,
-          description: trainingForm.description || undefined,
-          objective: trainingForm.objective || undefined,
-          institution: trainingForm.institution || undefined,
-          targetCompetencyName: trainingForm.targetCompetencyName || undefined,
-          targetCompetencyType: trainingForm.targetCompetencyName
-            ? trainingForm.targetCompetencyType
-            : undefined,
-          targetCompetencyLevel: trainingForm.targetCompetencyName
-            ? trainingForm.targetCompetencyLevel
-            : undefined,
-          evaluationMethod: trainingForm.evaluationMethod || undefined,
-          renewalMonths: trainingForm.renewalMonths || undefined,
-          workloadHours: trainingForm.workloadHours || undefined,
-          completionDate: trainingForm.completionDate || undefined,
-          expirationDate: trainingForm.expirationDate || undefined,
-          status: trainingForm.status as UpdateTrainingBodyStatus,
-        },
+    try {
+      if (editingTraining) {
+        await updateTrainingMutation.mutateAsync({
+          orgId: orgId ?? 0,
+          empId: targetEmployeeId,
+          trainId: editingTraining.id,
+          data: {
+            title: trainingForm.title,
+            description: trainingForm.description || undefined,
+            objective: trainingForm.objective || undefined,
+            institution: trainingForm.institution || undefined,
+            targetCompetencyName:
+              trainingForm.targetCompetencyName || undefined,
+            targetCompetencyType: trainingForm.targetCompetencyName
+              ? trainingForm.targetCompetencyType
+              : undefined,
+            targetCompetencyLevel: trainingForm.targetCompetencyName
+              ? trainingForm.targetCompetencyLevel
+              : undefined,
+            evaluationMethod: trainingForm.evaluationMethod || undefined,
+            renewalMonths: trainingForm.renewalMonths || undefined,
+            workloadHours: trainingForm.workloadHours || undefined,
+            completionDate: trainingForm.completionDate || undefined,
+            expirationDate: trainingForm.expirationDate || undefined,
+            status: trainingForm.status as UpdateTrainingBodyStatus,
+          },
+        });
+      } else {
+        await createTrainingMutation.mutateAsync({
+          orgId: orgId ?? 0,
+          empId: targetEmployeeId,
+          data: {
+            title: trainingForm.title,
+            description: trainingForm.description || undefined,
+            objective: trainingForm.objective || undefined,
+            institution: trainingForm.institution || undefined,
+            targetCompetencyName:
+              trainingForm.targetCompetencyName || undefined,
+            targetCompetencyType: trainingForm.targetCompetencyName
+              ? trainingForm.targetCompetencyType
+              : undefined,
+            targetCompetencyLevel: trainingForm.targetCompetencyName
+              ? trainingForm.targetCompetencyLevel
+              : undefined,
+            evaluationMethod: trainingForm.evaluationMethod || undefined,
+            renewalMonths: trainingForm.renewalMonths || undefined,
+            workloadHours: trainingForm.workloadHours || undefined,
+            completionDate: trainingForm.completionDate || undefined,
+            expirationDate: trainingForm.expirationDate || undefined,
+            status: trainingForm.status,
+            catalogItemId: trainingForm.catalogItemId ?? undefined,
+          },
+        });
+      }
+
+      await invalidateTrainingData(targetEmployeeId);
+      setTrainingDialogOpen(false);
+      setEditingTraining(null);
+      setTrainingForm(getDefaultTrainingForm());
+      toast({
+        title: wasEditing ? "Treinamento atualizado" : "Treinamento registrado",
       });
-    } else {
-      await createTrainingMutation.mutateAsync({
-        orgId: orgId ?? 0,
-        empId: targetEmployeeId,
-        data: {
-          title: trainingForm.title,
-          description: trainingForm.description || undefined,
-          objective: trainingForm.objective || undefined,
-          institution: trainingForm.institution || undefined,
-          targetCompetencyName: trainingForm.targetCompetencyName || undefined,
-          targetCompetencyType: trainingForm.targetCompetencyName
-            ? trainingForm.targetCompetencyType
-            : undefined,
-          targetCompetencyLevel: trainingForm.targetCompetencyName
-            ? trainingForm.targetCompetencyLevel
-            : undefined,
-          evaluationMethod: trainingForm.evaluationMethod || undefined,
-          renewalMonths: trainingForm.renewalMonths || undefined,
-          workloadHours: trainingForm.workloadHours || undefined,
-          completionDate: trainingForm.completionDate || undefined,
-          expirationDate: trainingForm.expirationDate || undefined,
-          status: trainingForm.status,
-          catalogItemId: trainingForm.catalogItemId ?? undefined,
-        },
+    } catch {
+      toast({
+        title: "Não foi possível salvar o treinamento",
+        description: "Verifique os dados e tente novamente.",
+        variant: "destructive",
       });
     }
-
-    await invalidateTrainingData(targetEmployeeId);
-    setTrainingDialogOpen(false);
-    setEditingTraining(null);
-    setTrainingForm(getDefaultTrainingForm());
   };
 
   const handleDeleteTraining = async (training: OrganizationTraining) => {

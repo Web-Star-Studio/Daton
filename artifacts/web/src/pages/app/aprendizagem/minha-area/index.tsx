@@ -5,6 +5,7 @@ import {
   useListOrganizationTrainings,
   getListOrganizationTrainingsQueryKey,
 } from "@workspace/api-client-react";
+import { useLocation } from "wouter";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ const TRAINING_STATUS_BADGE: Record<string, string> = {
 export default function MinhaAreaPage() {
   usePageTitle("Minha área");
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const orgId = user?.organizationId;
   const employeeId = user?.employeeId ?? null;
   const [view, setView] = useState<"colaborador" | "gestor">("colaborador");
@@ -37,7 +39,10 @@ export default function MinhaAreaPage() {
     {
       query: {
         enabled: !!orgId && !!employeeId,
-        queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, myTrainingsParams),
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId ?? 0,
+          myTrainingsParams,
+        ),
       },
     },
   );
@@ -50,12 +55,16 @@ export default function MinhaAreaPage() {
     unitId: employee?.unitId ?? 0,
     effectivenessStatus: "pending" as const,
   };
-  const { data: teamResult } = useListOrganizationTrainings(orgId ?? 0, teamParams, {
-    query: {
-      enabled: !!orgId && view === "gestor" && !!employee?.unitId,
-      queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, teamParams),
+  const { data: teamResult } = useListOrganizationTrainings(
+    orgId ?? 0,
+    teamParams,
+    {
+      query: {
+        enabled: !!orgId && view === "gestor" && !!employee?.unitId,
+        queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, teamParams),
+      },
     },
-  });
+  );
   const teamPending = teamResult?.data ?? [];
 
   if (!employeeId) {
@@ -74,8 +83,9 @@ export default function MinhaAreaPage() {
         <div>
           <h2 className="text-lg font-semibold">{employee?.name ?? "—"}</h2>
           <p className="text-sm text-muted-foreground">
-            {[employee?.position, employee?.department].filter(Boolean).join(" · ") ||
-              "—"}
+            {[employee?.position, employee?.department]
+              .filter(Boolean)
+              .join(" · ") || "—"}
           </p>
         </div>
         <div className="flex gap-1 rounded-lg border p-0.5 text-xs">
@@ -92,7 +102,9 @@ export default function MinhaAreaPage() {
           <button
             onClick={() => setView("gestor")}
             className={`rounded-md px-3 py-1 font-medium ${
-              view === "gestor" ? "bg-blue-50 text-blue-700" : "text-muted-foreground"
+              view === "gestor"
+                ? "bg-blue-50 text-blue-700"
+                : "text-muted-foreground"
             }`}
           >
             Gestor (filial)
@@ -105,11 +117,16 @@ export default function MinhaAreaPage() {
           {/* Meus treinamentos */}
           <Section title={`Meus treinamentos (${myTrainings.length})`}>
             {myTrainings.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum treinamento.</p>
+              <p className="text-sm text-muted-foreground">
+                Nenhum treinamento.
+              </p>
             ) : (
               <ul className="divide-y">
                 {myTrainings.map((t) => (
-                  <li key={t.id} className="flex items-center gap-2 py-2 text-sm">
+                  <li
+                    key={t.id}
+                    className="flex items-center gap-2 py-2 text-sm"
+                  >
                     <span className="flex-1 truncate">{t.title}</span>
                     <Badge className={TRAINING_STATUS_BADGE[t.status] ?? ""}>
                       {t.status}
@@ -131,13 +148,18 @@ export default function MinhaAreaPage() {
                 {(employee?.competencies ?? []).map((c) => {
                   const gap = (c.acquiredLevel ?? 0) < (c.requiredLevel ?? 0);
                   return (
-                    <li key={c.id} className="flex items-center gap-2 py-2 text-sm">
+                    <li
+                      key={c.id}
+                      className="flex items-center gap-2 py-2 text-sm"
+                    >
                       <span className="flex-1 truncate">{c.name}</span>
                       <span className="text-xs text-muted-foreground">
                         {c.acquiredLevel ?? 0}/{c.requiredLevel ?? 0}
                       </span>
                       {gap ? (
-                        <Badge className="bg-amber-50 text-amber-700">Gap</Badge>
+                        <Badge className="bg-amber-50 text-amber-700">
+                          Gap
+                        </Badge>
                       ) : (
                         <Badge className="bg-green-50 text-green-700">OK</Badge>
                       )}
@@ -149,7 +171,10 @@ export default function MinhaAreaPage() {
           </Section>
 
           {/* Avaliações de eficácia pendentes */}
-          <Section title={`Eficácia pendente (${pendingEff.length})`} className="lg:col-span-2">
+          <Section
+            title={`Eficácia pendente (${pendingEff.length})`}
+            className="lg:col-span-2"
+          >
             {pendingEff.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Nenhuma avaliação de eficácia pendente.
@@ -157,9 +182,14 @@ export default function MinhaAreaPage() {
             ) : (
               <ul className="divide-y">
                 {pendingEff.map((t) => (
-                  <li key={t.id} className="flex items-center gap-2 py-2 text-sm">
+                  <li
+                    key={t.id}
+                    className="flex items-center gap-2 py-2 text-sm"
+                  >
                     <span className="flex-1 truncate">{t.title}</span>
-                    <Badge className="bg-amber-50 text-amber-700">A avaliar</Badge>
+                    <Badge className="bg-amber-50 text-amber-700">
+                      A avaliar
+                    </Badge>
                   </li>
                 ))}
               </ul>
@@ -167,7 +197,9 @@ export default function MinhaAreaPage() {
           </Section>
         </div>
       ) : (
-        <Section title={`Pendências de eficácia na filial (${teamPending.length})`}>
+        <Section
+          title={`Pendências de eficácia na filial (${teamPending.length})`}
+        >
           {!employee?.unitId ? (
             <p className="text-sm text-muted-foreground">
               Sem filial vinculada ao seu cadastro.
@@ -183,7 +215,9 @@ export default function MinhaAreaPage() {
                   <span className="flex-1 truncate">
                     {t.employeeName} · {t.title}
                   </span>
-                  <Badge className="bg-amber-50 text-amber-700">A avaliar</Badge>
+                  <Badge className="bg-amber-50 text-amber-700">
+                    A avaliar
+                  </Badge>
                 </li>
               ))}
             </ul>
@@ -192,7 +226,7 @@ export default function MinhaAreaPage() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => (window.location.href = "/aprendizagem/eficacia")}
+              onClick={() => navigate("/aprendizagem/eficacia")}
             >
               Abrir avaliação de eficácia
             </Button>
@@ -213,7 +247,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`rounded-xl border bg-card p-4 shadow-sm ${className ?? ""}`}>
+    <div
+      className={`rounded-xl border bg-card p-4 shadow-sm ${className ?? ""}`}
+    >
       <h3 className="mb-2 text-sm font-semibold">{title}</h3>
       {children}
     </div>

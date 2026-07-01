@@ -65,9 +65,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  active:
+    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
   inactive: "bg-muted text-muted-foreground border-border",
-  on_leave: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  on_leave:
+    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
 };
 
 const CONTRACT_LABELS: Record<string, string> = {
@@ -418,13 +420,19 @@ export default function ColaboradoresPage() {
           body: JSON.stringify({ cpf: rawCpf, birthdate: lookupBirthdate }),
         },
       );
-      const payload = (await response.json().catch(() => null)) as
-        | { nome?: string; error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        nome?: string;
+        error?: string;
+      } | null;
       if (!response.ok || !payload?.nome) {
-        throw new Error(payload?.error || "Falha ao consultar a Receita Federal");
+        throw new Error(
+          payload?.error || "Falha ao consultar a Receita Federal",
+        );
       }
-      setValue("name", payload.nome, { shouldValidate: true, shouldDirty: true });
+      setValue("name", payload.nome, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
       toast({
         title: "Dados encontrados",
         description: `Nome preenchido a partir da Receita Federal.`,
@@ -432,7 +440,8 @@ export default function ColaboradoresPage() {
     } catch (error) {
       toast({
         title: "Não foi possível consultar",
-        description: error instanceof Error ? error.message : "Erro desconhecido.",
+        description:
+          error instanceof Error ? error.message : "Erro desconhecido.",
         variant: "destructive",
       });
     } finally {
@@ -472,16 +481,32 @@ export default function ColaboradoresPage() {
 
   const executeBulkDelete = async () => {
     setIsDeleting(true);
+    const totalToDelete = selectedIds.size;
+    let failed = 0;
     try {
       for (const id of selectedIds) {
         try {
           await deleteEmpMut.mutateAsync({ orgId: orgId!, empId: id });
-        } catch {}
+        } catch {
+          failed++;
+        }
       }
       queryClient.invalidateQueries({
         queryKey: getListEmployeesQueryKey(orgId!),
       });
       setSelectedIds(new Set());
+      if (failed > 0) {
+        toast({
+          title: "Alguns colaboradores não puderam ser removidos",
+          description: `${failed} de ${totalToDelete} falharam. Tente novamente.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Colaboradores removidos",
+          description: `${totalToDelete} colaborador(es) removido(s).`,
+        });
+      }
     } finally {
       setIsDeleting(false);
       setConfirmDeleteOpen(false);
@@ -491,7 +516,11 @@ export default function ColaboradoresPage() {
   const stats = useMemo(() => {
     const r = result as
       | {
-          statusCounts?: { active?: number; inactive?: number; onLeave?: number };
+          statusCounts?: {
+            active?: number;
+            inactive?: number;
+            onLeave?: number;
+          };
           withUserCount?: number;
         }
       | undefined;
@@ -638,7 +667,9 @@ export default function ColaboradoresPage() {
     "rounded-xl border px-4 py-3 backdrop-blur-md text-left w-full cursor-pointer transition-colors hover:bg-card/60";
   const statusCardCls = (s: string, ring: string) =>
     `${cardBase} ${
-      !onlyWithUser && statusFilter === s ? `${ring} bg-card/60` : "border-border/60 bg-card/42"
+      !onlyWithUser && statusFilter === s
+        ? `${ring} bg-card/60`
+        : "border-border/60 bg-card/42"
     }`;
 
   const headerActions = useMemo(() => {
@@ -996,7 +1027,9 @@ export default function ColaboradoresPage() {
                       {...register("cpf", {
                         setValueAs: toRequiredString,
                         onChange: (event) => {
-                          event.target.value = formatCpfInput(event.target.value);
+                          event.target.value = formatCpfInput(
+                            event.target.value,
+                          );
                         },
                       })}
                       className="mt-1"
@@ -1012,7 +1045,9 @@ export default function ColaboradoresPage() {
                     <Input
                       type="date"
                       value={lookupBirthdate}
-                      onChange={(event) => setLookupBirthdate(event.target.value)}
+                      onChange={(event) =>
+                        setLookupBirthdate(event.target.value)
+                      }
                       className="mt-1"
                     />
                   </div>
@@ -1028,7 +1063,8 @@ export default function ColaboradoresPage() {
                   </Button>
                 </div>
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  Informe CPF e data de nascimento para autopreencher o nome via Receita Federal.
+                  Informe CPF e data de nascimento para autopreencher o nome via
+                  Receita Federal.
                 </p>
                 {errors.cpf && (
                   <p className="mt-1.5 text-xs text-destructive">
