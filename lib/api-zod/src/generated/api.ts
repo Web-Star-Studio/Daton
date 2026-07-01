@@ -17555,6 +17555,22 @@ export const CreateKpiCorporateIndicatorBody = zod
   );
 
 /**
+ * @summary Ativa (idempotente) os 6 indicadores corporativos de LMS para a organização
+ */
+export const ActivateLmsIndicatorsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ActivateLmsIndicatorsBody = zod.object({
+  year: zod.number(),
+});
+
+export const ActivateLmsIndicatorsResponse = zod.object({
+  activated: zod.number(),
+  indicatorIds: zod.array(zod.number()),
+});
+
+/**
  * @summary List SWOT strategic objectives in the organization
  */
 export const ListSwotObjectivesParams = zod.object({

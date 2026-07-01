@@ -24,6 +24,8 @@ import type {
   ActionPlanEvidence,
   ActionPlanListItem,
   ActionPlanSummary,
+  ActivateLmsIndicatorsBody,
+  ActivateLmsIndicatorsResponse,
   AddActionPlanCommentBody,
   AddActionPlanEvidenceBody,
   AddAssetDocumentBody,
@@ -30147,6 +30149,97 @@ export const useCreateKpiCorporateIndicator = <
   TContext
 > => {
   return useMutation(getCreateKpiCorporateIndicatorMutationOptions(options));
+};
+
+/**
+ * @summary Ativa (idempotente) os 6 indicadores corporativos de LMS para a organização
+ */
+export const getActivateLmsIndicatorsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/kpi/lms-indicators/activate`;
+};
+
+export const activateLmsIndicators = async (
+  orgId: number,
+  activateLmsIndicatorsBody: ActivateLmsIndicatorsBody,
+  options?: RequestInit,
+): Promise<ActivateLmsIndicatorsResponse> => {
+  return customFetch<ActivateLmsIndicatorsResponse>(
+    getActivateLmsIndicatorsUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(activateLmsIndicatorsBody),
+    },
+  );
+};
+
+export const getActivateLmsIndicatorsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof activateLmsIndicators>>,
+    TError,
+    { orgId: number; data: BodyType<ActivateLmsIndicatorsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof activateLmsIndicators>>,
+  TError,
+  { orgId: number; data: BodyType<ActivateLmsIndicatorsBody> },
+  TContext
+> => {
+  const mutationKey = ["activateLmsIndicators"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof activateLmsIndicators>>,
+    { orgId: number; data: BodyType<ActivateLmsIndicatorsBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return activateLmsIndicators(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ActivateLmsIndicatorsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof activateLmsIndicators>>
+>;
+export type ActivateLmsIndicatorsMutationBody =
+  BodyType<ActivateLmsIndicatorsBody>;
+export type ActivateLmsIndicatorsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Ativa (idempotente) os 6 indicadores corporativos de LMS para a organização
+ */
+export const useActivateLmsIndicators = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof activateLmsIndicators>>,
+    TError,
+    { orgId: number; data: BodyType<ActivateLmsIndicatorsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof activateLmsIndicators>>,
+  TError,
+  { orgId: number; data: BodyType<ActivateLmsIndicatorsBody> },
+  TContext
+> => {
+  return useMutation(getActivateLmsIndicatorsMutationOptions(options));
 };
 
 /**

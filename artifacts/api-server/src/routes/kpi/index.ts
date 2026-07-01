@@ -15,6 +15,8 @@ import {
   type KpiRollupStrategy,
 } from "@workspace/db";
 import {
+  ActivateLmsIndicatorsBody,
+  ActivateLmsIndicatorsParams,
   AddKpiMonthJustificationBody,
   AddKpiMonthJustificationParams,
   CreateKpiIndicatorBody,
@@ -55,6 +57,7 @@ import {
 import { normalizeKpiUnit, CORPORATE_UNIT_LABEL } from "../../services/kpi/units";
 import { computeRollupValue, computeRollupGoal, type RollupGoalResult } from "../../services/kpi/rollup";
 import { computeFeedStatus, expectedMonthsFor } from "../../services/kpi/feed-status";
+import { LMS_INDICATOR_DEFS } from "../../services/kpi/lms-metrics";
 
 const router: IRouter = Router();
 
@@ -1432,6 +1435,85 @@ router.post(
       childrenCount: childIds.length,
       strategy,
     });
+  },
+);
+
+// ─── LMS Indicators (idempotent activation) ────────────────────────────────
+// Cria (ou reusa) os 6 indicadores corporativos de aprendizagem derivados de
+// métricas computadas do LMS. Idempotente: chama múltiplas vezes sem duplicar.
+router.post(
+  "/organizations/:orgId/kpi/lms-indicators/activate",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = ActivateLmsIndicatorsParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const body = ActivateLmsIndicatorsBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+    const orgId = params.data.orgId;
+    const year = body.data.year;
+
+    let activated = 0;
+    const indicatorIds: number[] = [];
+
+    for (const def of LMS_INDICATOR_DEFS) {
+      // Check if indicator already exists for this org + metric
+      const [existing] = await db
+        .select({ id: kpiIndicatorsTable.id })
+        .from(kpiIndicatorsTable)
+        .where(
+          and(
+            eq(kpiIndicatorsTable.organizationId, orgId),
+            eq(kpiIndicatorsTable.computedSource, "lms"),
+            eq(kpiIndicatorsTable.computedMetric, def.metric),
+          ),
+        );
+
+      if (existing) {
+        indicatorIds.push(existing.id);
+        continue;
+      }
+
+      // Insert the indicator
+      const [row] = await db
+        .insert(kpiIndicatorsTable)
+        .values({
+          organizationId: orgId,
+          name: def.name,
+          measurement: def.measurement,
+          formulaVariables: [],
+          formulaExpression: "",
+          unit: null,
+          unitId: null,
+          direction: def.direction,
+          periodicity: "monthly",
+          category: def.category,
+          norms: def.norms,
+          computedSource: "lms",
+          computedMetric: def.metric,
+        })
+        .returning();
+
+      // Insert year config with default goal/tolerance (onConflictDoNothing for idempotency)
+      await db
+        .insert(kpiYearConfigsTable)
+        .values({
+          organizationId: orgId,
+          indicatorId: row.id,
+          year,
+          goal: String(def.goal),
+          tolerance: String(def.tolerance),
+        })
+        .onConflictDoNothing();
+
+      indicatorIds.push(row.id);
+      activated++;
+    }
+
+    res.json({ activated, indicatorIds });
   },
 );
 

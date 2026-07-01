@@ -33,6 +33,8 @@ export * from "./actionPlanSummaryByStatus";
 export * from "./actionPlanSummaryEffectivenessEvolutionItem";
 export * from "./actionPlanSummaryOdsDistributionItem";
 export * from "./actionPlanType";
+export * from "./activateLmsIndicatorsBody";
+export * from "./activateLmsIndicatorsResponse";
 export * from "./addActionPlanCommentBody";
 export * from "./addActionPlanEvidenceBody";
 export * from "./addAssetDocumentBody";

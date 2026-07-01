@@ -4168,6 +4168,15 @@ export interface CreateKpiCorporateIndicatorResponse {
   strategy: CreateKpiCorporateIndicatorResponseStrategy;
 }
 
+export interface ActivateLmsIndicatorsBody {
+  year: number;
+}
+
+export interface ActivateLmsIndicatorsResponse {
+  activated: number;
+  indicatorIds: number[];
+}
+
 export type ActionPlanStatus =
   (typeof ActionPlanStatus)[keyof typeof ActionPlanStatus];
 

@@ -8653,6 +8653,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreateKpiCorporateIndicatorResponse"
 
+  /organizations/{orgId}/kpi/lms-indicators/activate:
+    post:
+      operationId: activateLmsIndicators
+      tags: [kpi]
+      summary: Ativa (idempotente) os 6 indicadores corporativos de LMS para a organização
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivateLmsIndicatorsBody"
+      responses:
+        "200":
+          description: Indicadores ativados (ou já existentes)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivateLmsIndicatorsResponse"
+
   /organizations/{orgId}/swot/objectives:
     get:
       operationId: listSwotObjectives
@@ -17913,6 +17937,24 @@ components:
           type: string
           enum: [average, sum_values, min, max]
       required: [indicatorId, childrenCount, strategy]
+
+    ActivateLmsIndicatorsBody:
+      type: object
+      properties:
+        year:
+          type: integer
+      required: [year]
+
+    ActivateLmsIndicatorsResponse:
+      type: object
+      properties:
+        activated:
+          type: integer
+        indicatorIds:
+          type: array
+          items:
+            type: integer
+      required: [activated, indicatorIds]
 
     ActionPlanStatus:
       type: string

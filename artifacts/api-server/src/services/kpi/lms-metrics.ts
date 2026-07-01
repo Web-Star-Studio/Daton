@@ -18,6 +18,78 @@ export type LmsMetricKey =
   | "critical_gaps"
   | "expired_trainings";
 
+export const LMS_INDICATOR_DEFS: Array<{
+  metric: LmsMetricKey;
+  name: string;
+  measurement: string;
+  direction: "up" | "down";
+  category: string;
+  norms: string[];
+  goal: number;
+  tolerance: number;
+}> = [
+  {
+    metric: "pat_completion",
+    name: "% Cumprimento do PAT",
+    measurement: "% de itens do programa anual realizados",
+    direction: "up",
+    category: "RH",
+    norms: ["9001"],
+    goal: 80,
+    tolerance: 1,
+  },
+  {
+    metric: "effectiveness_overall",
+    name: "% Eficácia geral de treinamentos",
+    measurement: "% de avaliações de eficácia com resultado eficaz",
+    direction: "up",
+    category: "RH",
+    norms: ["9001"],
+    goal: 80,
+    tolerance: 1,
+  },
+  {
+    metric: "mandatory_coverage",
+    name: "% Cobertura de treinamentos obrigatórios",
+    measurement: "% de obrigatoriedades concluídas",
+    direction: "up",
+    category: "RH",
+    norms: ["9001"],
+    goal: 100,
+    tolerance: 2,
+  },
+  {
+    metric: "hours_per_employee",
+    name: "Horas de treinamento por colaborador",
+    measurement: "horas acumuladas ÷ colaboradores ativos",
+    direction: "up",
+    category: "RH",
+    norms: ["9001"],
+    goal: 20,
+    tolerance: 2,
+  },
+  {
+    metric: "critical_gaps",
+    name: "Colaboradores com gap crítico",
+    measurement: "nº de colaboradores com competência crítica não atendida",
+    direction: "down",
+    category: "RH",
+    norms: ["9001"],
+    goal: 0,
+    tolerance: 0,
+  },
+  {
+    metric: "expired_trainings",
+    name: "Treinamentos vencidos",
+    measurement: "nº de treinamentos vencidos e não renovados",
+    direction: "down",
+    category: "RH",
+    norms: ["9001"],
+    goal: 0,
+    tolerance: 0,
+  },
+];
+
 type Database = Pick<typeof db, "select">;
 
 // último dia do mês (ISO YYYY-MM-DD), UTC-safe.
