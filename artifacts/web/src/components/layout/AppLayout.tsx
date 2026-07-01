@@ -200,6 +200,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/aprendizagem/turmas", module: "employees" },
       { prefix: "/aprendizagem/programa", module: "employees" },
       { prefix: "/aprendizagem/eficacia", module: "employees" },
+      { prefix: "/aprendizagem/minha-area", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
       { prefix: "/organizacao/cargos", module: "positions" },
@@ -288,6 +289,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           label: "Avaliação de eficácia",
           href: "/aprendizagem/eficacia",
         });
+      } else if (normalizedLocation.startsWith("/aprendizagem/minha-area")) {
+        crumbs.push({ label: "Minha área", href: "/aprendizagem/minha-area" });
       }
     } else if (normalizedLocation.startsWith("/organizacao")) {
       crumbs.push({ label: "Organização", href: "/organizacao" });
@@ -447,6 +450,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           { href: "/aprendizagem/turmas", label: "Turmas" },
           { href: "/aprendizagem/programa", label: "Programa anual" },
           { href: "/aprendizagem/eficacia", label: "Avaliação de eficácia" },
+          { href: "/aprendizagem/minha-area", label: "Minha área" },
         ]
       : []),
   ];
