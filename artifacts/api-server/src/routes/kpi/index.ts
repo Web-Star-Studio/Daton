@@ -729,9 +729,10 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       objective_id: number | null;
       seq: number | null;
       goal: string | null;
+      tolerance: string | null;
     }>(sql`
       SELECT DISTINCT ON (indicator_id)
-        indicator_id, objective_id, seq, goal
+        indicator_id, objective_id, seq, goal, tolerance
       FROM ${kpiYearConfigsTable}
       WHERE organization_id = ${params.data.orgId}
         AND year < ${params.data.year}
@@ -752,6 +753,7 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         objectiveId: prior?.objective_id ?? null,
         seq: prior?.seq ?? null,
         goal: prior?.goal ?? null,
+        tolerance: prior?.tolerance ?? null,
         createdAt: now,
         updatedAt: now,
       };
