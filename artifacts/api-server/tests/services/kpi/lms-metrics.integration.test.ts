@@ -2,7 +2,9 @@ import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   db,
+  employeeCompetenciesTable,
   employeeTrainingsTable,
+  positionCompetencyRequirementsTable,
   trainingEffectivenessReviewsTable,
 } from "@workspace/db";
 import app from "../../../src/app";
@@ -11,6 +13,7 @@ import {
   authHeader,
   cleanupTestContext,
   createEmployee,
+  createPosition,
   createTestContext,
   type TestOrgContext,
 } from "../../../../../tests/support/backend";
@@ -88,5 +91,168 @@ describe("computeLmsMetric", () => {
       database: db,
     });
     expect(v).toBe(50);
+  });
+
+  it("mandatory_coverage = concluídos/total com requirementId (%)", async () => {
+    const ctx = await createTestContext({ seed: "lms-metric-cov" });
+    contexts.push(ctx);
+    const org = ctx.organizationId;
+    const emp = await createEmployee(ctx, { name: `Colaborador ${ctx.prefix}` });
+    // 2 trainings com requirementId; 1 concluído em mar/2026, 1 pendente
+    await db.insert(employeeTrainingsTable).values([
+      {
+        employeeId: emp.id,
+        title: `Obrigatório A ${ctx.prefix}`,
+        status: "concluido",
+        requirementId: 999,
+        completionDate: "2026-03-10",
+      },
+      {
+        employeeId: emp.id,
+        title: `Obrigatório B ${ctx.prefix}`,
+        status: "pendente",
+        requirementId: 999,
+      },
+    ]);
+    const v = await computeLmsMetric({
+      orgId: org,
+      metric: "mandatory_coverage",
+      year: 2026,
+      month: 3,
+      database: db,
+    });
+    expect(v).toBe(50);
+  });
+
+  it("hours_per_employee = total horas concluídas / colaboradores ativos", async () => {
+    const ctx = await createTestContext({ seed: "lms-metric-hrs" });
+    contexts.push(ctx);
+    const org = ctx.organizationId;
+    const emp = await createEmployee(ctx, { name: `Colaborador ${ctx.prefix}` });
+    // 1 treinamento concluído com 10 horas em mar/2026
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: emp.id,
+      title: `Treinamento Horas ${ctx.prefix}`,
+      status: "concluido",
+      workloadHours: 10,
+      completionDate: "2026-03-15",
+    });
+    const v = await computeLmsMetric({
+      orgId: org,
+      metric: "hours_per_employee",
+      year: 2026,
+      month: 3,
+      database: db,
+    });
+    // 10 horas / 1 colaborador ativo = 10
+    expect(v).toBe(10);
+  });
+
+  it("expired_trainings = count de treinamentos vencidos no mês", async () => {
+    const ctx = await createTestContext({ seed: "lms-metric-exp" });
+    contexts.push(ctx);
+    const org = ctx.organizationId;
+    const emp = await createEmployee(ctx, { name: `Colaborador ${ctx.prefix}` });
+    // 1 treinamento vencido em mar/2026 (status != 'concluido')
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: emp.id,
+      title: `Treinamento Vencido ${ctx.prefix}`,
+      status: "vencido",
+      expirationDate: "2026-03-20",
+    });
+    const v = await computeLmsMetric({
+      orgId: org,
+      metric: "expired_trainings",
+      year: 2026,
+      month: 3,
+      database: db,
+    });
+    expect(v).toBe(1);
+  });
+
+  it("critical_gaps = colaboradores com gap crítico (apenas mês corrente)", async () => {
+    const ctx = await createTestContext({ seed: "lms-metric-gaps" });
+    contexts.push(ctx);
+    const org = ctx.organizationId;
+    const now = new Date();
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = now.getUTCMonth() + 1;
+
+    // Cargo com requisito de nível 4 (crítico por requiredLevel >= 4)
+    const position = await createPosition(ctx, { name: `Cargo Crítico ${ctx.prefix}` });
+    await db.insert(positionCompetencyRequirementsTable).values({
+      positionId: position.id,
+      competencyName: "Segurança Viária",
+      competencyType: "habilidade",
+      requiredLevel: 4,
+      createdById: ctx.userId,
+      updatedById: ctx.userId,
+    });
+
+    // Colaborador com o cargo, sem competência registrada (gap = 4, crítico)
+    await createEmployee(ctx, {
+      name: `Colaborador Gap ${ctx.prefix}`,
+      position: position.name,
+    });
+
+    // mês corrente → deve retornar 1
+    const vCurrent = await computeLmsMetric({
+      orgId: org,
+      metric: "critical_gaps",
+      year: currentYear,
+      month: currentMonth,
+      database: db,
+    });
+    expect(vCurrent).toBe(1);
+
+    // mês passado → deve retornar null (snapshot, sem histórico)
+    const vPast = await computeLmsMetric({
+      orgId: org,
+      metric: "critical_gaps",
+      year: 2026,
+      month: 3,
+      database: db,
+    });
+    expect(vPast).toBeNull();
+  });
+
+  it("critical_gaps: colaborador com competência suficiente não conta", async () => {
+    const ctx = await createTestContext({ seed: "lms-metric-gaps-ok" });
+    contexts.push(ctx);
+    const org = ctx.organizationId;
+    const now = new Date();
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = now.getUTCMonth() + 1;
+
+    const position = await createPosition(ctx, { name: `Cargo OK ${ctx.prefix}` });
+    await db.insert(positionCompetencyRequirementsTable).values({
+      positionId: position.id,
+      competencyName: "Comunicação",
+      competencyType: "habilidade",
+      requiredLevel: 3,
+      createdById: ctx.userId,
+      updatedById: ctx.userId,
+    });
+
+    const emp = await createEmployee(ctx, {
+      name: `Colaborador OK ${ctx.prefix}`,
+      position: position.name,
+    });
+    // Competência atendida (acquiredLevel >= requiredLevel)
+    await db.insert(employeeCompetenciesTable).values({
+      employeeId: emp.id,
+      name: "Comunicação",
+      type: "habilidade",
+      acquiredLevel: 3,
+    });
+
+    const v = await computeLmsMetric({
+      orgId: org,
+      metric: "critical_gaps",
+      year: currentYear,
+      month: currentMonth,
+      database: db,
+    });
+    expect(v).toBe(0);
   });
 });
