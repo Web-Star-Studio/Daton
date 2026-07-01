@@ -11326,6 +11326,9 @@ components:
         unitId:
           type: integer
           nullable: true
+        employeeId:
+          type: integer
+          nullable: true
         lastLoginAt:
           type: string
           format: date-time
