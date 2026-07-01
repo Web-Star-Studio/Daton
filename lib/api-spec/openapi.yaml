@@ -12434,6 +12434,15 @@ components:
     OrganizationTraining:
       type: object
       properties:
+        catalogItemId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        requirementId:
+          type: integer
+          nullable: true
         id:
           type: integer
         employeeId:

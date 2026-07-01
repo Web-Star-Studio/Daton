@@ -1657,6 +1657,9 @@ export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewO
 export const ListOrganizationTrainingsResponse = zod.object({
   data: zod.array(
     zod.object({
+      catalogItemId: zod.number().nullish(),
+      dueDate: zod.string().nullish(),
+      requirementId: zod.number().nullish(),
       id: zod.number(),
       employeeId: zod.number(),
       employeeName: zod.string(),

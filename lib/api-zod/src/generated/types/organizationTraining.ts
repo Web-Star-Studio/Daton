@@ -12,6 +12,9 @@ import type { OrganizationTrainingTargetCompetencyType } from "./organizationTra
 import type { TrainingEffectivenessReview } from "./trainingEffectivenessReview";
 
 export interface OrganizationTraining {
+  catalogItemId?: number | null;
+  dueDate?: string | null;
+  requirementId?: number | null;
   id: number;
   employeeId: number;
   employeeName: string;

@@ -1360,6 +1360,9 @@ export const OrganizationTrainingEffectivenessStatus = {
 } as const;
 
 export interface OrganizationTraining {
+  catalogItemId?: number | null;
+  dueDate?: string | null;
+  requirementId?: number | null;
   id: number;
   employeeId: number;
   employeeName: string;
