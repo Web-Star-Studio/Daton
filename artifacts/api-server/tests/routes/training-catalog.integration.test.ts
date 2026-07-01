@@ -100,4 +100,37 @@ describe("training-catalog routes", () => {
       ),
     ).toBe(true);
   });
+
+  it("bloqueia exclusão de item vinculado a uma turma (preserva histórico)", async () => {
+    const context = await createTestContext({ seed: "catalog-del-guard" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-catalog`;
+
+    const item = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ title: `Vinculado ${context.prefix}` });
+    const itemId = item.body.id as number;
+
+    await request(app)
+      .post(`/api/organizations/${context.organizationId}/training-classes`)
+      .set(authHeader(context))
+      .send({ catalogItemId: itemId, startDate: "2026-06-15" });
+
+    // exclusão bloqueada enquanto houver turma vinculada
+    const blocked = await request(app)
+      .delete(`${base}/${itemId}`)
+      .set(authHeader(context));
+    expect(blocked.status).toBe(409);
+
+    // item sem vínculos ainda pode ser excluído
+    const free = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ title: `Livre ${context.prefix}` });
+    const freeDel = await request(app)
+      .delete(`${base}/${free.body.id}`)
+      .set(authHeader(context));
+    expect(freeDel.status).toBe(204);
+  });
 });

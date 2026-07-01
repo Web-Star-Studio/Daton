@@ -123,7 +123,16 @@ export const trainingRequirementsTable = pgTable("training_requirements", {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
-});
+}, (table) => [
+  // Evita obrigatoriedades duplicadas para o mesmo cargo+treinamento+escopo.
+  // Mantém `scope` na chave para uma regra 'geral' coexistir com uma 'filial'.
+  uniqueIndex("training_requirement_unique").on(
+    table.organizationId,
+    table.positionId,
+    table.catalogItemId,
+    table.scope,
+  ),
+]);
 
 export type TrainingRequirement = typeof trainingRequirementsTable.$inferSelect;
 

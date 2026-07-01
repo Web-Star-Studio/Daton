@@ -65,6 +65,27 @@ describe("training-requirements routes", () => {
     expect(removed.status).toBe(204);
   });
 
+  it("rejeita obrigatoriedade duplicada (mesmo cargo+treinamento+escopo)", async () => {
+    const context = await createTestContext({ seed: "training-req-dup" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-requirements`;
+    const position = await createPosition(context, { name: `Cargo ${context.prefix}` });
+    const catalogItemId = await createCatalogItem(context, `Treino ${context.prefix}`);
+    const payload = {
+      positionId: position.id,
+      catalogItemId,
+      deadlineType: "fixo",
+      deadlineDays: 30,
+      scope: "geral",
+    };
+
+    const first = await request(app).post(base).set(authHeader(context)).send(payload);
+    expect(first.status).toBe(201);
+
+    const second = await request(app).post(base).set(authHeader(context)).send(payload);
+    expect(second.status).toBe(409);
+  });
+
   it("preview resolve cargo (nome) + filial", async () => {
     const context = await createTestContext({ seed: "training-req-preview" });
     contexts.push(context);

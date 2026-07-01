@@ -167,6 +167,24 @@ router.post(
       res.status(400).json({ error: "Item do catálogo não encontrado" });
       return;
     }
+    // não permite obrigatoriedade duplicada (mesmo cargo+treinamento+escopo).
+    const [dup] = await db
+      .select({ id: trainingRequirementsTable.id })
+      .from(trainingRequirementsTable)
+      .where(
+        and(
+          eq(trainingRequirementsTable.organizationId, params.data.orgId),
+          eq(trainingRequirementsTable.positionId, body.data.positionId),
+          eq(trainingRequirementsTable.catalogItemId, body.data.catalogItemId),
+          eq(trainingRequirementsTable.scope, body.data.scope ?? "geral"),
+        ),
+      );
+    if (dup) {
+      res.status(409).json({
+        error: "Já existe obrigatoriedade para este cargo, treinamento e escopo",
+      });
+      return;
+    }
     const [row] = await db
       .insert(trainingRequirementsTable)
       .values({

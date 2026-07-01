@@ -1,6 +1,12 @@
 import { Router, type IRouter } from "express";
 import { and, asc, eq, ilike, sql, type SQL } from "drizzle-orm";
-import { db, trainingCatalogTable } from "@workspace/db";
+import {
+  db,
+  annualTrainingProgramTable,
+  trainingCatalogTable,
+  trainingClassesTable,
+  trainingRequirementsTable,
+} from "@workspace/db";
 import {
   CreateTrainingCatalogItemBody,
   CreateTrainingCatalogItemParams,
@@ -240,6 +246,46 @@ router.delete(
     }
     if (params.data.orgId !== req.auth!.organizationId) {
       res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    // Não excluir item ainda referenciado por turmas, obrigatoriedades ou PAT:
+    // isso apagaria histórico de execução (turmas → participantes/evidências).
+    // Nesses casos o correto é inativar o item (status), não excluir.
+    const [refClass] = await db
+      .select({ id: trainingClassesTable.id })
+      .from(trainingClassesTable)
+      .where(
+        and(
+          eq(trainingClassesTable.organizationId, params.data.orgId),
+          eq(trainingClassesTable.catalogItemId, params.data.itemId),
+        ),
+      )
+      .limit(1);
+    const [refReq] = await db
+      .select({ id: trainingRequirementsTable.id })
+      .from(trainingRequirementsTable)
+      .where(
+        and(
+          eq(trainingRequirementsTable.organizationId, params.data.orgId),
+          eq(trainingRequirementsTable.catalogItemId, params.data.itemId),
+        ),
+      )
+      .limit(1);
+    const [refPat] = await db
+      .select({ id: annualTrainingProgramTable.id })
+      .from(annualTrainingProgramTable)
+      .where(
+        and(
+          eq(annualTrainingProgramTable.organizationId, params.data.orgId),
+          eq(annualTrainingProgramTable.catalogItemId, params.data.itemId),
+        ),
+      )
+      .limit(1);
+    if (refClass || refReq || refPat) {
+      res.status(409).json({
+        error:
+          "Não é possível excluir: há turmas, obrigatoriedades ou itens do PAT vinculados. Inative o item em vez de excluir.",
+      });
       return;
     }
     const [row] = await db
