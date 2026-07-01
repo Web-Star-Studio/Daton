@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
-import { and, asc, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import {
   db,
   employeesTable,
   employeeTrainingsTable,
+  trainingCatalogTable,
   trainingClassesTable,
   trainingClassParticipantsTable,
 } from "@workspace/db";
@@ -170,6 +171,20 @@ router.post(
       res.status(400).json({ error: body.error.message });
       return;
     }
+    // isolamento multi-tenant: o item de catálogo tem de ser da própria org.
+    const [catalogItem] = await db
+      .select({ id: trainingCatalogTable.id })
+      .from(trainingCatalogTable)
+      .where(
+        and(
+          eq(trainingCatalogTable.id, body.data.catalogItemId),
+          eq(trainingCatalogTable.organizationId, params.data.orgId),
+        ),
+      );
+    if (!catalogItem) {
+      res.status(400).json({ error: "Item do catálogo não encontrado" });
+      return;
+    }
     const [row] = await db
       .insert(trainingClassesTable)
       .values({
@@ -334,6 +349,22 @@ router.post(
       );
     if (!cls) {
       res.status(404).json({ error: "Turma não encontrada" });
+      return;
+    }
+
+    // isolamento multi-tenant: todos os colaboradores têm de ser da própria org.
+    const orgEmployees = await db
+      .select({ id: employeesTable.id })
+      .from(employeesTable)
+      .where(
+        and(
+          inArray(employeesTable.id, body.data.employeeIds),
+          eq(employeesTable.organizationId, params.data.orgId),
+        ),
+      );
+    const validEmployeeIds = new Set(orgEmployees.map((e) => e.id));
+    if (body.data.employeeIds.some((id) => !validEmployeeIds.has(id))) {
+      res.status(400).json({ error: "Colaborador não encontrado" });
       return;
     }
 

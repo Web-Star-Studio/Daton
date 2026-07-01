@@ -3,6 +3,7 @@ import { and, asc, eq, sql, type SQL } from "drizzle-orm";
 import {
   db,
   positionsTable,
+  trainingCatalogTable,
   trainingRequirementsTable,
 } from "@workspace/db";
 import {
@@ -137,6 +138,33 @@ router.post(
     const body = CreateTrainingRequirementBody.safeParse(req.body);
     if (!body.success) {
       res.status(400).json({ error: body.error.message });
+      return;
+    }
+    // isolamento multi-tenant: cargo e item de catálogo têm de ser da própria org.
+    const [position] = await db
+      .select({ id: positionsTable.id })
+      .from(positionsTable)
+      .where(
+        and(
+          eq(positionsTable.id, body.data.positionId),
+          eq(positionsTable.organizationId, params.data.orgId),
+        ),
+      );
+    if (!position) {
+      res.status(400).json({ error: "Cargo não encontrado" });
+      return;
+    }
+    const [catalogItem] = await db
+      .select({ id: trainingCatalogTable.id })
+      .from(trainingCatalogTable)
+      .where(
+        and(
+          eq(trainingCatalogTable.id, body.data.catalogItemId),
+          eq(trainingCatalogTable.organizationId, params.data.orgId),
+        ),
+      );
+    if (!catalogItem) {
+      res.status(400).json({ error: "Item do catálogo não encontrado" });
       return;
     }
     const [row] = await db

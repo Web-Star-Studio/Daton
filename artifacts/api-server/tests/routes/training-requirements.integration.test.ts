@@ -96,4 +96,29 @@ describe("training-requirements routes", () => {
     expect(empty.status).toBe(200);
     expect(empty.body.requirements.length).toBe(0);
   });
+
+  it("bloqueia requisito com cargo ou catálogo de outra organização", async () => {
+    const orgA = await createTestContext({ seed: "training-req-tenant-a" });
+    const orgB = await createTestContext({ seed: "training-req-tenant-b" });
+    contexts.push(orgA, orgB);
+    const base = `/api/organizations/${orgA.organizationId}/training-requirements`;
+    const positionA = await createPosition(orgA, { name: `Cargo ${orgA.prefix}` });
+    const catalogA = await createCatalogItem(orgA, `Treino ${orgA.prefix}`);
+    const positionB = await createPosition(orgB, { name: `Cargo ${orgB.prefix}` });
+    const catalogB = await createCatalogItem(orgB, `Treino ${orgB.prefix}`);
+
+    // item de catálogo de outra org → 400
+    const r1 = await request(app)
+      .post(base)
+      .set(authHeader(orgA))
+      .send({ positionId: positionA.id, catalogItemId: catalogB, deadlineType: "fixo", deadlineDays: 30 });
+    expect(r1.status).toBe(400);
+
+    // cargo de outra org → 400
+    const r2 = await request(app)
+      .post(base)
+      .set(authHeader(orgA))
+      .send({ positionId: positionB.id, catalogItemId: catalogA, deadlineType: "fixo", deadlineDays: 30 });
+    expect(r2.status).toBe(400);
+  });
 });

@@ -44,7 +44,12 @@ export async function completeTrainingClass(args: {
   const [item] = await database
     .select()
     .from(trainingCatalogTable)
-    .where(eq(trainingCatalogTable.id, cls.catalogItemId));
+    .where(
+      and(
+        eq(trainingCatalogTable.id, cls.catalogItemId),
+        eq(trainingCatalogTable.organizationId, orgId),
+      ),
+    );
 
   const completionDate = cls.endDate ?? cls.startDate;
   const expirationDate =

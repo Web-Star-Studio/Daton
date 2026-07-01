@@ -122,7 +122,12 @@ export async function applyTrainingRequirements(args: {
     const [item] = await database
       .select()
       .from(trainingCatalogTable)
-      .where(eq(trainingCatalogTable.id, rule.catalogItemId));
+      .where(
+        and(
+          eq(trainingCatalogTable.id, rule.catalogItemId),
+          eq(trainingCatalogTable.organizationId, orgId),
+        ),
+      );
     if (!item) continue;
 
     const dueDate =

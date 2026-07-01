@@ -96,4 +96,45 @@ describe("training-classes routes", () => {
       .set(authHeader(context));
     expect(del.status).toBe(204);
   });
+
+  it("bloqueia matrícula de colaborador de outra organização", async () => {
+    const orgA = await createTestContext({ seed: "classes-tenant-a" });
+    const orgB = await createTestContext({ seed: "classes-tenant-b" });
+    contexts.push(orgA, orgB);
+    const baseA = `/api/organizations/${orgA.organizationId}/training-classes`;
+    const catalogA = await createCatalogItem(orgA, `Treino ${orgA.prefix}`);
+    const classA = await request(app)
+      .post(baseA)
+      .set(authHeader(orgA))
+      .send({ catalogItemId: catalogA, startDate: "2026-06-15" });
+    expect(classA.status).toBe(201);
+
+    // colaborador pertence à org B
+    const empB = await createEmployee(orgB, { name: `B ${orgB.prefix}` });
+
+    // org A tenta matricular colaborador da org B → rejeitado, sem efeito
+    const enroll = await request(app)
+      .post(`${baseA}/${classA.body.id}/participants`)
+      .set(authHeader(orgA))
+      .send({ employeeIds: [empB.id] });
+    expect(enroll.status).toBe(400);
+
+    const detail = await request(app)
+      .get(`${baseA}/${classA.body.id}`)
+      .set(authHeader(orgA));
+    expect(detail.body.participants.length).toBe(0);
+  });
+
+  it("bloqueia criação de turma com item de catálogo de outra organização", async () => {
+    const orgA = await createTestContext({ seed: "classes-cat-a" });
+    const orgB = await createTestContext({ seed: "classes-cat-b" });
+    contexts.push(orgA, orgB);
+    const catalogB = await createCatalogItem(orgB, `Treino ${orgB.prefix}`);
+
+    const created = await request(app)
+      .post(`/api/organizations/${orgA.organizationId}/training-classes`)
+      .set(authHeader(orgA))
+      .send({ catalogItemId: catalogB, startDate: "2026-06-15" });
+    expect(created.status).toBe(400);
+  });
 });

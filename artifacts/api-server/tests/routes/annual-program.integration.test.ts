@@ -78,4 +78,17 @@ describe("annual-program routes", () => {
       .set(authHeader(context));
     expect(removed.status).toBe(204);
   });
+
+  it("bloqueia item do PAT com catálogo de outra organização", async () => {
+    const orgA = await createTestContext({ seed: "pat-tenant-a" });
+    const orgB = await createTestContext({ seed: "pat-tenant-b" });
+    contexts.push(orgA, orgB);
+    const catalogB = await createCatalogItem(orgB, `Treino ${orgB.prefix}`);
+
+    const created = await request(app)
+      .post(`/api/organizations/${orgA.organizationId}/annual-program`)
+      .set(authHeader(orgA))
+      .send({ year: 2026, catalogItemId: catalogB });
+    expect(created.status).toBe(400);
+  });
 });

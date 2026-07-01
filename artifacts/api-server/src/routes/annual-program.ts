@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, asc, eq, type SQL } from "drizzle-orm";
-import { db, annualTrainingProgramTable } from "@workspace/db";
+import { db, annualTrainingProgramTable, trainingCatalogTable } from "@workspace/db";
 import {
   CreateAnnualProgramItemBody,
   CreateAnnualProgramItemParams,
@@ -81,6 +81,20 @@ router.post(
     const body = CreateAnnualProgramItemBody.safeParse(req.body);
     if (!body.success) {
       res.status(400).json({ error: body.error.message });
+      return;
+    }
+    // isolamento multi-tenant: o item de catálogo tem de ser da própria org.
+    const [catalogItem] = await db
+      .select({ id: trainingCatalogTable.id })
+      .from(trainingCatalogTable)
+      .where(
+        and(
+          eq(trainingCatalogTable.id, body.data.catalogItemId),
+          eq(trainingCatalogTable.organizationId, params.data.orgId),
+        ),
+      );
+    if (!catalogItem) {
+      res.status(400).json({ error: "Item do catálogo não encontrado" });
       return;
     }
     const [row] = await db
