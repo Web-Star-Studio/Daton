@@ -103,19 +103,42 @@ function pct(numer: number, denom: number): number | null {
   return Math.round((numer / denom) * 1000) / 10; // 1 casa
 }
 
-// NOTE: duplica a regra de gap crítico do endpoint GET /employees/competency-gaps
-// (employees.ts ~1583–1804). Uma futura refatoração poderá extrair para um serviço
-// compartilhado, mas está fora do escopo desta task para evitar risco na rota existente.
-async function countCriticalGapEmployees(
+// Replica buildCompetencyKey de employees.ts:175
+function normalizeText(v: string | null | undefined): string {
+  return (v || "").trim().toLocaleLowerCase("pt-BR");
+}
+function competencyKey(
+  name: string | null | undefined,
+  type: string | null | undefined,
+): string {
+  return `${normalizeText(name)}::${normalizeText(type) || "habilidade"}`;
+}
+
+/**
+ * Computes a Map of unitId → count of employees with at least one critical gap.
+ * Employees with null unitId are recorded under key -1.
+ * Shared by countCriticalGapEmployees (cards) and learning-summary (byUnit table).
+ *
+ * NOTE: duplica a regra de gap crítico do endpoint GET /employees/competency-gaps
+ * (employees.ts ~1583–1804). Uma futura refatoração poderá extrair para um serviço
+ * compartilhado, mas está fora do escopo desta task para evitar risco na rota existente.
+ */
+export async function computeCriticalGapCountsByUnit(
   orgId: number,
   database: Database,
-): Promise<number> {
+): Promise<Map<number, number>> {
+  const gapsByUnit = new Map<number, number>();
+
   const employees = await database
-    .select({ id: employeesTable.id, position: employeesTable.position })
+    .select({
+      id: employeesTable.id,
+      position: employeesTable.position,
+      unitId: employeesTable.unitId,
+    })
     .from(employeesTable)
     .where(eq(employeesTable.organizationId, orgId));
 
-  if (employees.length === 0) return 0;
+  if (employees.length === 0) return gapsByUnit;
 
   const positionNames = [
     ...new Set(
@@ -125,7 +148,7 @@ async function countCriticalGapEmployees(
     ),
   ];
 
-  if (positionNames.length === 0) return 0;
+  if (positionNames.length === 0) return gapsByUnit;
 
   const positions = await database
     .select()
@@ -137,7 +160,7 @@ async function countCriticalGapEmployees(
       ),
     );
 
-  if (positions.length === 0) return 0;
+  if (positions.length === 0) return gapsByUnit;
 
   const positionByName = new Map(positions.map((p) => [p.name, p]));
   const positionIds = positions.map((p) => p.id);
@@ -173,19 +196,6 @@ async function countCriticalGapEmployees(
     competenciesByEmployeeId.set(comp.employeeId, items);
   }
 
-  // Replica buildCompetencyKey de employees.ts:175
-  function normalizeText(v: string | null | undefined): string {
-    return (v || "").trim().toLocaleLowerCase("pt-BR");
-  }
-  function competencyKey(
-    name: string | null | undefined,
-    type: string | null | undefined,
-  ): string {
-    return `${normalizeText(name)}::${normalizeText(type) || "habilidade"}`;
-  }
-
-  const criticalGapEmployeeIds = new Set<number>();
-
   for (const employee of employees) {
     const position = employee.position
       ? positionByName.get(employee.position)
@@ -208,19 +218,35 @@ async function countCriticalGapEmployees(
       }
     }
 
+    let hasCriticalGap = false;
     for (const req of posReqs) {
       const key = competencyKey(req.competencyName, req.competencyType);
       const acquired = compByKey.get(key)?.acquiredLevel ?? 0;
       const gapLevel = Math.max(req.requiredLevel - acquired, 0);
       const critical = gapLevel >= 2 || req.requiredLevel >= 4;
       if (gapLevel > 0 && critical) {
-        criticalGapEmployeeIds.add(employee.id);
+        hasCriticalGap = true;
         break; // basta 1 gap crítico para contar o colaborador
       }
     }
+
+    if (hasCriticalGap) {
+      const key = employee.unitId ?? -1;
+      gapsByUnit.set(key, (gapsByUnit.get(key) ?? 0) + 1);
+    }
   }
 
-  return criticalGapEmployeeIds.size;
+  return gapsByUnit;
+}
+
+async function countCriticalGapEmployees(
+  orgId: number,
+  database: Database,
+): Promise<number> {
+  const map = await computeCriticalGapCountsByUnit(orgId, database);
+  let total = 0;
+  for (const count of map.values()) total += count;
+  return total;
 }
 
 export async function computeLmsMetric(args: {

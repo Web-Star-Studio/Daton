@@ -129,12 +129,71 @@ describe("GET /organizations/:orgId/learning/summary", () => {
     expect(expiredRow).toBeDefined();
     expect(expiredRow.employeeName).toBe("João Aprendiz");
 
-    // pendingEffectiveness: training without review — but we added a review above so this training shouldn't be pending
-    // Let's just assert the array structure
+    // pendingEffectiveness: training #1 has a review so it should NOT appear here.
+    // Just assert the array structure for this case; the dedicated test below covers the notExists path.
     for (const row of body.pendingEffectiveness) {
       expect(typeof row.employeeName).toBe("string");
       expect(typeof row.title).toBe("string");
     }
+    const pendingForReviewed = body.pendingEffectiveness.find(
+      (r: { title: string }) => r.title === "NR-35",
+    );
+    expect(pendingForReviewed).toBeUndefined();
+  });
+
+  it("pendingEffectiveness inclui treinamentos concluídos sem review de eficácia", async () => {
+    const ctx = await createTestContext({ seed: "lrn-pending-eff" });
+    contexts.push(ctx);
+
+    const unit = await createUnit(ctx, "Filial Pending");
+    const employee = await createEmployee(ctx, {
+      name: "Maria Pendente",
+      unitId: unit.id,
+    });
+
+    // Training A — concluído COM review (não deve aparecer em pendingEffectiveness)
+    const [trainingWithReview] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: "Treinamento Com Avaliação",
+        status: "concluido",
+        completionDate: "2026-03-10",
+      })
+      .returning({ id: employeeTrainingsTable.id });
+
+    await db.insert(trainingEffectivenessReviewsTable).values({
+      trainingId: trainingWithReview.id,
+      evaluatorUserId: ctx.userId,
+      evaluationDate: "2026-03-20",
+      isEffective: true,
+    });
+
+    // Training B — concluído SEM review (deve aparecer em pendingEffectiveness)
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: employee.id,
+      title: "Treinamento Sem Avaliação",
+      status: "concluido",
+      completionDate: "2026-04-01",
+    });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/learning/summary?year=2026`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+
+    const pending: Array<{ employeeName: string; title: string }> =
+      res.body.pendingEffectiveness;
+
+    // Training B (sem review) deve estar presente
+    const pendingB = pending.find((r) => r.title === "Treinamento Sem Avaliação");
+    expect(pendingB).toBeDefined();
+    expect(pendingB?.employeeName).toBe("Maria Pendente");
+
+    // Training A (com review) NÃO deve estar presente
+    const pendingA = pending.find((r) => r.title === "Treinamento Com Avaliação");
+    expect(pendingA).toBeUndefined();
   });
 
   it("rejeita orgId diferente do token (403)", async () => {

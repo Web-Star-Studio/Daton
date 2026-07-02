@@ -21201,6 +21201,8 @@ components:
       required:
         - unitId
         - unitName
+        - completion
+        - effectiveness
         - gaps
         - status
 

@@ -20194,8 +20194,8 @@ export const GetLearningDashboardSummaryResponse = zod.object({
     zod.object({
       unitId: zod.number(),
       unitName: zod.string(),
-      completion: zod.number().nullish(),
-      effectiveness: zod.number().nullish(),
+      completion: zod.number().nullable(),
+      effectiveness: zod.number().nullable(),
       gaps: zod.number(),
       status: zod.enum(["ok", "atencao", "critico", "sem-dados"]),
     }),

@@ -10,8 +10,8 @@ import type { LearningSummaryUnitRowStatus } from "./learningSummaryUnitRowStatu
 export interface LearningSummaryUnitRow {
   unitId: number;
   unitName: string;
-  completion?: number | null;
-  effectiveness?: number | null;
+  completion: number | null;
+  effectiveness: number | null;
   gaps: number;
   status: LearningSummaryUnitRowStatus;
 }

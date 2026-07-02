@@ -1,9 +1,9 @@
 import {
   and,
+  asc,
   count,
   desc,
   eq,
-  inArray,
   isNotNull,
   lte,
   notExists,
@@ -12,16 +12,13 @@ import {
 import {
   annualTrainingProgramTable,
   db,
-  employeeCompetenciesTable,
   employeesTable,
   employeeTrainingsTable,
-  positionCompetencyRequirementsTable,
-  positionsTable,
   trainingCatalogTable,
   trainingEffectivenessReviewsTable,
   unitsTable,
 } from "@workspace/db";
-import { computeLmsMetric } from "../kpi/lms-metrics";
+import { computeCriticalGapCountsByUnit, computeLmsMetric } from "../kpi/lms-metrics";
 
 type Database = Pick<typeof db, "select">;
 
@@ -44,140 +41,6 @@ function deriveStatus(
   return "atencao";
 }
 
-/**
- * Retorna um Map<unitId, count> de colaboradores com gap crítico por filial.
- * Replica a lógica de countCriticalGapEmployees (lms-metrics.ts) mas agrupa por unitId.
- */
-async function computeGapsByUnit(
-  orgId: number,
-  database: Database,
-): Promise<Map<number, number>> {
-  const employees = await database
-    .select({
-      id: employeesTable.id,
-      position: employeesTable.position,
-      unitId: employeesTable.unitId,
-    })
-    .from(employeesTable)
-    .where(eq(employeesTable.organizationId, orgId));
-
-  const gapsByUnit = new Map<number, number>();
-
-  if (employees.length === 0) return gapsByUnit;
-
-  const positionNames = [
-    ...new Set(
-      employees
-        .map((e) => e.position)
-        .filter((v): v is string => !!v),
-    ),
-  ];
-
-  if (positionNames.length === 0) return gapsByUnit;
-
-  const positions = await database
-    .select()
-    .from(positionsTable)
-    .where(
-      and(
-        eq(positionsTable.organizationId, orgId),
-        inArray(positionsTable.name, positionNames),
-      ),
-    );
-
-  if (positions.length === 0) return gapsByUnit;
-
-  const positionByName = new Map(positions.map((p) => [p.name, p]));
-  const positionIds = positions.map((p) => p.id);
-
-  const requirements = await database
-    .select()
-    .from(positionCompetencyRequirementsTable)
-    .where(
-      inArray(positionCompetencyRequirementsTable.positionId, positionIds),
-    );
-
-  const requirementsByPositionId = new Map<
-    number,
-    (typeof positionCompetencyRequirementsTable.$inferSelect)[]
-  >();
-  for (const req of requirements) {
-    const items = requirementsByPositionId.get(req.positionId) ?? [];
-    items.push(req);
-    requirementsByPositionId.set(req.positionId, items);
-  }
-
-  const employeeIds = employees.map((e) => e.id);
-  const competencies = await database
-    .select()
-    .from(employeeCompetenciesTable)
-    .where(inArray(employeeCompetenciesTable.employeeId, employeeIds));
-
-  const competenciesByEmployeeId = new Map<
-    number,
-    (typeof employeeCompetenciesTable.$inferSelect)[]
-  >();
-  for (const comp of competencies) {
-    const items = competenciesByEmployeeId.get(comp.employeeId) ?? [];
-    items.push(comp);
-    competenciesByEmployeeId.set(comp.employeeId, items);
-  }
-
-  function normalizeText(v: string | null | undefined): string {
-    return (v ?? "").trim().toLocaleLowerCase("pt-BR");
-  }
-  function competencyKey(
-    name: string | null | undefined,
-    type: string | null | undefined,
-  ): string {
-    return `${normalizeText(name)}::${normalizeText(type) || "habilidade"}`;
-  }
-
-  for (const employee of employees) {
-    const position = employee.position
-      ? positionByName.get(employee.position)
-      : null;
-    if (!position) continue;
-
-    const posReqs = requirementsByPositionId.get(position.id) ?? [];
-    if (posReqs.length === 0) continue;
-
-    const empComps = competenciesByEmployeeId.get(employee.id) ?? [];
-
-    const compByKey = new Map<
-      string,
-      (typeof employeeCompetenciesTable.$inferSelect)
-    >();
-    for (const comp of empComps) {
-      const key = competencyKey(comp.name, comp.type);
-      const existing = compByKey.get(key);
-      if (!existing || comp.acquiredLevel > existing.acquiredLevel) {
-        compByKey.set(key, comp);
-      }
-    }
-
-    let hasCriticalGap = false;
-    for (const req of posReqs) {
-      const key = competencyKey(req.competencyName, req.competencyType);
-      const acquired = compByKey.get(key)?.acquiredLevel ?? 0;
-      const gapLevel = Math.max(req.requiredLevel - acquired, 0);
-      const critical = gapLevel >= 2 || req.requiredLevel >= 4;
-      if (gapLevel > 0 && critical) {
-        hasCriticalGap = true;
-        break;
-      }
-    }
-
-    if (hasCriticalGap && employee.unitId !== null) {
-      gapsByUnit.set(
-        employee.unitId,
-        (gapsByUnit.get(employee.unitId) ?? 0) + 1,
-      );
-    }
-  }
-
-  return gapsByUnit;
-}
 
 export interface LearningSummaryCards {
   patCompletion: number | null;
@@ -321,8 +184,8 @@ export async function computeLearningSummary(args: {
     .where(and(...effConditions))
     .groupBy(employeesTable.unitId);
 
-  // Gaps críticos por filial
-  const unitGapsMap = await computeGapsByUnit(orgId, database);
+  // Gaps críticos por filial (via helper compartilhado com lms-metrics)
+  const unitGapsMap = await computeCriticalGapCountsByUnit(orgId, database);
 
   const patMap = new Map(
     patByUnit.map((r) => [r.unitId ?? -1, r]),
@@ -460,6 +323,7 @@ export async function computeLearningSummary(args: {
       eq(employeeTrainingsTable.employeeId, employeesTable.id),
     )
     .where(and(...pendingConditions))
+    .orderBy(asc(employeesTable.name))
     .limit(20);
 
   const pendingEffectiveness: LearningSummaryPendingRow[] = pendingRows.map(
