@@ -194,6 +194,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/qualidade/legislacoes", module: "legislations" },
       { prefix: "/qualidade/fornecedores", module: "suppliers" },
       { prefix: "/qualidade/regulatorios", module: "regulatoryDocuments" },
+      { prefix: "/aprendizagem/dashboard", module: "employees" },
       { prefix: "/aprendizagem/colaboradores", module: "employees" },
       { prefix: "/aprendizagem/catalogo", module: "employees" },
       { prefix: "/aprendizagem/obrigatoriedades", module: "employees" },
@@ -257,7 +258,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     } else if (normalizedLocation.startsWith("/aprendizagem")) {
       crumbs.push({ label: "Aprendizagem" });
 
-      if (normalizedLocation.startsWith("/aprendizagem/colaboradores")) {
+      if (normalizedLocation.startsWith("/aprendizagem/dashboard")) {
+        crumbs.push({ label: "Dashboard", href: "/aprendizagem/dashboard" });
+      } else if (normalizedLocation.startsWith("/aprendizagem/colaboradores")) {
         crumbs.push({
           label: "Colaboradores",
           href: "/aprendizagem/colaboradores",
@@ -444,6 +447,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const aprendizagemLinks: NavLink[] = [
     ...(hasModuleAccess("employees")
       ? [
+          { href: "/aprendizagem/dashboard", label: "Dashboard" },
           { href: "/aprendizagem/colaboradores", label: "Colaboradores" },
           { href: "/aprendizagem/catalogo", label: "Catálogo" },
           { href: "/aprendizagem/obrigatoriedades", label: "Obrigatoriedades" },
