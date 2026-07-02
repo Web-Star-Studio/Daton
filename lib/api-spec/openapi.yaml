@@ -10266,6 +10266,37 @@ paths:
         "204":
           description: Item removed
 
+  /organizations/{orgId}/learning/summary:
+    get:
+      operationId: getLearningDashboardSummary
+      tags: [trainings]
+      summary: Resumo do dashboard operacional de gestão de aprendizagem
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resumo do dashboard de aprendizagem
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningSummary"
+        "403":
+          description: Acesso negado
+
 components:
   schemas:
     TrainingCatalogItem:
@@ -21127,3 +21158,116 @@ components:
         - changes
         - createdAt
         - updatedAt
+
+    LearningSummaryCards:
+      type: object
+      properties:
+        patCompletion:
+          type: number
+          nullable: true
+        effectiveness:
+          type: number
+          nullable: true
+        criticalGaps:
+          type: number
+          nullable: true
+        expiredTrainings:
+          type: number
+          nullable: true
+      required:
+        - patCompletion
+        - effectiveness
+        - criticalGaps
+        - expiredTrainings
+
+    LearningSummaryUnitRow:
+      type: object
+      properties:
+        unitId:
+          type: integer
+        unitName:
+          type: string
+        completion:
+          type: number
+          nullable: true
+        effectiveness:
+          type: number
+          nullable: true
+        gaps:
+          type: integer
+        status:
+          type: string
+          enum: [ok, atencao, critico, sem-dados]
+      required:
+        - unitId
+        - unitName
+        - gaps
+        - status
+
+    LearningSummaryNormRow:
+      type: object
+      properties:
+        norm:
+          type: string
+        effectiveness:
+          type: number
+          nullable: true
+      required:
+        - norm
+        - effectiveness
+
+    LearningSummaryExpiredRow:
+      type: object
+      properties:
+        employeeName:
+          type: string
+        unitName:
+          type: string
+          nullable: true
+        title:
+          type: string
+        expirationDate:
+          type: string
+      required:
+        - employeeName
+        - title
+        - expirationDate
+
+    LearningSummaryPendingRow:
+      type: object
+      properties:
+        employeeName:
+          type: string
+        title:
+          type: string
+      required:
+        - employeeName
+        - title
+
+    LearningSummary:
+      type: object
+      properties:
+        cards:
+          $ref: "#/components/schemas/LearningSummaryCards"
+        byUnit:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningSummaryUnitRow"
+        byNorm:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningSummaryNormRow"
+        expired:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningSummaryExpiredRow"
+        pendingEffectiveness:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningSummaryPendingRow"
+      required:
+        - cards
+        - byUnit
+        - byNorm
+        - expired
+        - pendingEffectiveness

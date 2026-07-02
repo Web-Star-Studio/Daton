@@ -6294,6 +6294,57 @@ export interface DevelopmentProjectDetail {
   updatedAt: string;
 }
 
+export interface LearningSummaryCards {
+  patCompletion: number | null;
+  effectiveness: number | null;
+  criticalGaps: number | null;
+  expiredTrainings: number | null;
+}
+
+export type LearningSummaryUnitRowStatus =
+  (typeof LearningSummaryUnitRowStatus)[keyof typeof LearningSummaryUnitRowStatus];
+
+export const LearningSummaryUnitRowStatus = {
+  ok: "ok",
+  atencao: "atencao",
+  critico: "critico",
+  "sem-dados": "sem-dados",
+} as const;
+
+export interface LearningSummaryUnitRow {
+  unitId: number;
+  unitName: string;
+  completion?: number | null;
+  effectiveness?: number | null;
+  gaps: number;
+  status: LearningSummaryUnitRowStatus;
+}
+
+export interface LearningSummaryNormRow {
+  norm: string;
+  effectiveness: number | null;
+}
+
+export interface LearningSummaryExpiredRow {
+  employeeName: string;
+  unitName?: string | null;
+  title: string;
+  expirationDate: string;
+}
+
+export interface LearningSummaryPendingRow {
+  employeeName: string;
+  title: string;
+}
+
+export interface LearningSummary {
+  cards: LearningSummaryCards;
+  byUnit: LearningSummaryUnitRow[];
+  byNorm: LearningSummaryNormRow[];
+  expired: LearningSummaryExpiredRow[];
+  pendingEffectiveness: LearningSummaryPendingRow[];
+}
+
 export type ValidatePasswordResetToken200 = {
   valid: boolean;
 };
@@ -6674,4 +6725,9 @@ export type ListAnnualProgramParams = {
 
 export type ListAnnualProgram200 = {
   data: AnnualProgramItem[];
+};
+
+export type GetLearningDashboardSummaryParams = {
+  year: number;
+  unitId?: number;
 };

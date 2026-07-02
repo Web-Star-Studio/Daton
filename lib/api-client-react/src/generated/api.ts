@@ -143,6 +143,7 @@ import type {
   ErrorResponse,
   ExternalActionItem,
   GetDocumentAttachmentFileParams,
+  GetLearningDashboardSummaryParams,
   GetUnitQuestionnaireResponses200,
   GovernanceRiskOpportunityListItem,
   HealthStatus,
@@ -163,6 +164,7 @@ import type {
   KpiObjective,
   KpiYearConfig,
   KpiYearRow,
+  LearningSummary,
   Legislation,
   LegislationDetail,
   LinkEmployeeUnit201,
@@ -36160,3 +36162,124 @@ export const useDeleteAnnualProgramItem = <
 > => {
   return useMutation(getDeleteAnnualProgramItemMutationOptions(options));
 };
+
+/**
+ * @summary Resumo do dashboard operacional de gestão de aprendizagem
+ */
+export const getGetLearningDashboardSummaryUrl = (
+  orgId: number,
+  params: GetLearningDashboardSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/learning/summary?${stringifiedParams}`
+    : `/api/organizations/${orgId}/learning/summary`;
+};
+
+export const getLearningDashboardSummary = async (
+  orgId: number,
+  params: GetLearningDashboardSummaryParams,
+  options?: RequestInit,
+): Promise<LearningSummary> => {
+  return customFetch<LearningSummary>(
+    getGetLearningDashboardSummaryUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetLearningDashboardSummaryQueryKey = (
+  orgId: number,
+  params?: GetLearningDashboardSummaryParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/learning/summary`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetLearningDashboardSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLearningDashboardSummary>>,
+  TError = ErrorType<void>,
+>(
+  orgId: number,
+  params: GetLearningDashboardSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLearningDashboardSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetLearningDashboardSummaryQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getLearningDashboardSummary>>
+  > = ({ signal }) =>
+    getLearningDashboardSummary(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLearningDashboardSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLearningDashboardSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLearningDashboardSummary>>
+>;
+export type GetLearningDashboardSummaryQueryError = ErrorType<void>;
+
+/**
+ * @summary Resumo do dashboard operacional de gestão de aprendizagem
+ */
+
+export function useGetLearningDashboardSummary<
+  TData = Awaited<ReturnType<typeof getLearningDashboardSummary>>,
+  TError = ErrorType<void>,
+>(
+  orgId: number,
+  params: GetLearningDashboardSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLearningDashboardSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLearningDashboardSummaryQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

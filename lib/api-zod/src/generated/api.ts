@@ -20170,3 +20170,54 @@ export const DeleteAnnualProgramItemParams = zod.object({
   orgId: zod.coerce.number(),
   id: zod.coerce.number(),
 });
+
+/**
+ * @summary Resumo do dashboard operacional de gestão de aprendizagem
+ */
+export const GetLearningDashboardSummaryParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const GetLearningDashboardSummaryQueryParams = zod.object({
+  year: zod.coerce.number(),
+  unitId: zod.coerce.number().optional(),
+});
+
+export const GetLearningDashboardSummaryResponse = zod.object({
+  cards: zod.object({
+    patCompletion: zod.number().nullable(),
+    effectiveness: zod.number().nullable(),
+    criticalGaps: zod.number().nullable(),
+    expiredTrainings: zod.number().nullable(),
+  }),
+  byUnit: zod.array(
+    zod.object({
+      unitId: zod.number(),
+      unitName: zod.string(),
+      completion: zod.number().nullish(),
+      effectiveness: zod.number().nullish(),
+      gaps: zod.number(),
+      status: zod.enum(["ok", "atencao", "critico", "sem-dados"]),
+    }),
+  ),
+  byNorm: zod.array(
+    zod.object({
+      norm: zod.string(),
+      effectiveness: zod.number().nullable(),
+    }),
+  ),
+  expired: zod.array(
+    zod.object({
+      employeeName: zod.string(),
+      unitName: zod.string().nullish(),
+      title: zod.string(),
+      expirationDate: zod.string(),
+    }),
+  ),
+  pendingEffectiveness: zod.array(
+    zod.object({
+      employeeName: zod.string(),
+      title: zod.string(),
+    }),
+  ),
+});

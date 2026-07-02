@@ -39,6 +39,7 @@ import workEnvironmentRouter from "./work-environment";
 import measurementResourcesRouter from "./measurement-resources";
 import regulatoryDocumentsRouter from "./regulatory-documents";
 import pendenciasRouter from "./pendencias";
+import learningSummaryRouter from "./learning-summary";
 const router: IRouter = Router();
 
 function requireModuleAccessForPaths(
@@ -143,6 +144,14 @@ router.use(
     /^\/organizations\/[^/]+\/annual-program(?:\/|$)/,
   ]),
   annualProgramRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/learning\/summary(?:\/|$)/,
+  ]),
+  learningSummaryRouter,
 );
 router.use(
   requireAuth,
