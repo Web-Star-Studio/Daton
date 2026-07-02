@@ -706,6 +706,8 @@ export function LancarScreen({
     // Não-mensal sem mês de referência: a cadência fica indefinida — sinaliza e
     // leva pro cadastro pra configurar.
     const missingReference = isNonMonthly && refExpected.size === 0;
+    // Indicador alimentado automaticamente pelo módulo LMS — entradas manuais bloqueadas.
+    const isLmsSourced = ind.computedSource === "lms";
     // "Voltar" devolve à origem: aba Indicadores (deep-link) ou fila local.
     const backToIndicadores = cameFromIndicadores && !!onBackToIndicadores;
     return (
@@ -787,7 +789,14 @@ export function LancarScreen({
               </Select>
             </div>
 
-            {hasFormula ? (
+            {isLmsSourced ? (
+              <div className="flex items-start gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-[11px] text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
+                <span className="shrink-0 font-semibold">↻</span>
+                <span>
+                  Valor calculado automaticamente do módulo de Treinamento — não é possível lançar manualmente.
+                </span>
+              </div>
+            ) : hasFormula ? (
               <>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -878,7 +887,7 @@ export function LancarScreen({
               </div>
             </div>
 
-            <Button className="w-full" onClick={handleSave} disabled={saving}>
+            <Button className="w-full" onClick={handleSave} disabled={saving || isLmsSourced}>
               {saving ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : null}

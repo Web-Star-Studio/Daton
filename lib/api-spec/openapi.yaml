@@ -17589,6 +17589,14 @@ components:
           type: array
           items:
             type: string
+        computedSource:
+          type: string
+          nullable: true
+          description: Source system that auto-populates this indicator (e.g. "lms"). null = manual.
+        computedMetric:
+          type: string
+          nullable: true
+          description: Specific metric key within the source system (e.g. "completion_rate").
         createdAt:
           type: string
         updatedAt:

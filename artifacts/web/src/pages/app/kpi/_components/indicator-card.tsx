@@ -211,6 +211,15 @@ export function IndicatorCard({
               </p>
             );
           })()}
+          {/* Selo LMS: indicador alimentado automaticamente pelo módulo de Treinamento. */}
+          {indicator.computedSource === "lms" ? (
+            <p
+              className="mt-1 text-[10px] text-indigo-700 dark:text-indigo-300"
+              title="Valor calculado automaticamente a partir do módulo de Treinamento"
+            >
+              ↻ automático (Treinamento)
+            </p>
+          ) : null}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

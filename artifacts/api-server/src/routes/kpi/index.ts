@@ -86,6 +86,8 @@ function serializeIndicator(
     referenceMonth: r.referenceMonth ?? null,
     category: r.category ?? null,
     norms: r.norms ?? [],
+    computedSource: r.computedSource ?? null,
+    computedMetric: r.computedMetric ?? null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };

@@ -14304,6 +14304,18 @@ export const ListKpiIndicatorsResponseItem = zod.object({
     ),
   category: zod.string().nullish(),
   norms: zod.array(zod.string()),
+  computedSource: zod
+    .string()
+    .nullish()
+    .describe(
+      'Source system that auto-populates this indicator (e.g. \"lms\"). null = manual.',
+    ),
+  computedMetric: zod
+    .string()
+    .nullish()
+    .describe(
+      'Specific metric key within the source system (e.g. \"completion_rate\").',
+    ),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -14478,6 +14490,18 @@ export const UpdateKpiIndicatorResponse = zod.object({
     ),
   category: zod.string().nullish(),
   norms: zod.array(zod.string()),
+  computedSource: zod
+    .string()
+    .nullish()
+    .describe(
+      'Source system that auto-populates this indicator (e.g. \"lms\"). null = manual.',
+    ),
+  computedMetric: zod
+    .string()
+    .nullish()
+    .describe(
+      'Specific metric key within the source system (e.g. \"completion_rate\").',
+    ),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -14572,6 +14596,18 @@ export const ListKpiYearDataResponseItem = zod.object({
       ),
     category: zod.string().nullish(),
     norms: zod.array(zod.string()),
+    computedSource: zod
+      .string()
+      .nullish()
+      .describe(
+        'Source system that auto-populates this indicator (e.g. \"lms\"). null = manual.',
+      ),
+    computedMetric: zod
+      .string()
+      .nullish()
+      .describe(
+        'Specific metric key within the source system (e.g. \"completion_rate\").',
+      ),
     createdAt: zod.string(),
     updatedAt: zod.string(),
   }),
