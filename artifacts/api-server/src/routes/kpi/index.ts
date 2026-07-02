@@ -57,7 +57,7 @@ import {
 import { normalizeKpiUnit, CORPORATE_UNIT_LABEL } from "../../services/kpi/units";
 import { computeRollupValue, computeRollupGoal, type RollupGoalResult } from "../../services/kpi/rollup";
 import { computeFeedStatus, expectedMonthsFor } from "../../services/kpi/feed-status";
-import { LMS_INDICATOR_DEFS } from "../../services/kpi/lms-metrics";
+import { computeLmsMetric, LMS_INDICATOR_DEFS, type LmsMetricKey } from "../../services/kpi/lms-metrics";
 
 const router: IRouter = Router();
 
@@ -937,6 +937,61 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       cell.isComputed = true;
       cell.childrenWithData = replace.childrenWithData;
       cell.childrenTotal = replace.childrenTotal;
+    }
+    valuesByYearConfigId.set(yc.id, monthMap);
+  }
+
+  // ── LMS compose on-read (fonte computada) ──────────────────────────────────
+  // Indicadores com computedSource='lms' têm o valor calculado a partir das
+  // métricas do LMS. Diferença-chave do rollup: MATERIALIZAMOS a célula com
+  // upsert para que ela receba um id real — necessário para criar planos de ação
+  // vinculados ao kpiMonthlyValueId.
+  const lmsIndicators = indicators.filter((ind) => ind.computedSource === "lms");
+  for (const ind of lmsIndicators) {
+    const yc = yearConfigByIndicatorId.get(ind.id);
+    if (!yc || !ind.computedMetric) continue;
+    // Indicador ainda não persistiu yearConfig (sintético, id=0): pula
+    // materialização — não temos um yearConfigId válido para FK.
+    if (yc.id === 0) continue;
+    const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
+    for (let month = 1; month <= 12; month++) {
+      const existing = monthMap.get(month);
+      if (existing?.isOverridden) continue; // respeita override manual
+      const value = await computeLmsMetric({
+        orgId: params.data.orgId,
+        metric: ind.computedMetric as LmsMetricKey,
+        year: params.data.year,
+        month,
+        database: db,
+      });
+      if (value === null) continue; // não materializa mês sem valor
+      // Materializa (upsert) para ter id real → habilita plano de ação
+      const [mvRow] = await db
+        .insert(kpiMonthlyValuesTable)
+        .values({
+          organizationId: params.data.orgId,
+          yearConfigId: yc.id,
+          month,
+          value: String(value),
+          inputs: {},
+          isOverridden: false,
+        })
+        .onConflictDoUpdate({
+          target: [kpiMonthlyValuesTable.yearConfigId, kpiMonthlyValuesTable.month],
+          set: { value: String(value), updatedAt: new Date() },
+        })
+        .returning({ id: kpiMonthlyValuesTable.id });
+      monthMap.set(month, {
+        monthlyValueId: mvRow.id,
+        value,
+        inputs: {},
+        isOverridden: false,
+        isComputed: true,
+        childrenWithData: null,
+        childrenTotal: null,
+        justification: existing?.justification ?? null,
+        justificationsCount: existing?.justificationsCount ?? 0,
+      });
     }
     valuesByYearConfigId.set(yc.id, monthMap);
   }
