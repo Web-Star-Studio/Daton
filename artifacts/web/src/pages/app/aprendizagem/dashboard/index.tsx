@@ -1,7 +1,9 @@
 import { Link } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetLearningDashboardSummary,
   getGetLearningDashboardSummaryQueryKey,
+  useActivateLmsIndicators,
 } from "@workspace/api-client-react";
 import type {
   LearningSummaryUnitRow,
@@ -10,9 +12,11 @@ import type {
   LearningSummaryPendingRow,
 } from "@workspace/api-client-react";
 import { usePageTitle } from "@/contexts/LayoutContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 function formatPct(value: number | null): string {
   if (value === null) return "—";
@@ -137,6 +141,10 @@ export default function LearningDashboardPage() {
   usePageTitle("Dashboard");
   const { user } = useAuth();
   const orgId = user?.organizationId;
+  const { canWriteModule } = usePermissions();
+  const canWrite = canWriteModule("employees");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const currentYear = new Date().getFullYear();
   const params = { year: currentYear };
@@ -149,6 +157,20 @@ export default function LearningDashboardPage() {
     query: {
       enabled: !!orgId,
       queryKey: getGetLearningDashboardSummaryQueryKey(orgId ?? 0, params),
+    },
+  });
+
+  const { mutate: activateIndicators, isPending: isActivating } = useActivateLmsIndicators({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Indicadores de treinamento ativados" });
+        queryClient.invalidateQueries({
+          queryKey: getGetLearningDashboardSummaryQueryKey(orgId ?? 0, params),
+        });
+      },
+      onError: () => {
+        toast({ title: "Erro ao ativar indicadores", variant: "destructive" });
+      },
     },
   });
 
@@ -193,6 +215,23 @@ export default function LearningDashboardPage() {
 
   return (
     <div className="space-y-4">
+      {/* Header actions */}
+      {canWrite && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isActivating || !orgId}
+            onClick={() => {
+              if (!orgId) return;
+              activateIndicators({ orgId, data: { year: currentYear } });
+            }}
+          >
+            {isActivating ? "Ativando…" : "Ativar indicadores de treinamento"}
+          </Button>
+        </div>
+      )}
+
       {/* Metric Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetricCard

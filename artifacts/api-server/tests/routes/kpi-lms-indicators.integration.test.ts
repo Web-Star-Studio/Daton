@@ -64,6 +64,90 @@ describe("POST /organizations/:orgId/kpi/lms-indicators/activate", () => {
   });
 });
 
+describe("Desvio LMS → plano de ação (integração)", () => {
+  it("célula materializada do PAT pode ser vinculada a um plano de ação via sourceModule=kpi", async () => {
+    const ctx = await createTestContext({ seed: "lms-action-plan" });
+    contexts.push(ctx);
+
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+
+    // 1. Activate LMS indicators for the current year
+    const activateRes = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/kpi/lms-indicators/activate`)
+      .set(authHeader(ctx))
+      .send({ year: currentYear });
+    expect(activateRes.status).toBe(200);
+    const indicatorIds: number[] = activateRes.body.indicatorIds;
+
+    // 2. Create a training catalog item (required FK for PAT entries)
+    const [catalog] = await db
+      .insert(trainingCatalogTable)
+      .values({ organizationId: ctx.organizationId, title: "Treinamento PAT Desvio" })
+      .returning({ id: trainingCatalogTable.id });
+
+    // 3. Seed PAT items for the current month: 1 realizada + 1 planejada → 50%
+    await db.insert(annualTrainingProgramTable).values([
+      { organizationId: ctx.organizationId, year: currentYear, catalogItemId: catalog.id, plannedMonth: currentMonth, status: "realizada" },
+      { organizationId: ctx.organizationId, year: currentYear, catalogItemId: catalog.id, plannedMonth: currentMonth, status: "planejada" },
+    ]);
+
+    // 4. GET the year KPI data (this materializes the cell via compose-on-read)
+    const yearRes = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/kpi/years/${currentYear}`)
+      .set(authHeader(ctx));
+    expect(yearRes.status).toBe(200);
+
+    // 5. Find the pat_completion indicator
+    type KpiRow = { indicator: { id: number; name: string }; monthlyValues: Array<{ month: number; value: number | null; monthlyValueId: number | null }> };
+    const patEntry = (yearRes.body as KpiRow[]).find((row) => row.indicator.name === "% Cumprimento do PAT");
+    expect(patEntry).toBeDefined();
+
+    // 6. Assert current-month cell is materialized (monthlyValueId > 0)
+    const monthCell = patEntry!.monthlyValues.find((c) => c.month === currentMonth);
+    expect(monthCell).toBeDefined();
+    expect(monthCell!.value).toBeCloseTo(50, 0);
+    expect(monthCell!.monthlyValueId).not.toBeNull();
+    expect(monthCell!.monthlyValueId).toBeGreaterThan(0);
+
+    const cellId = monthCell!.monthlyValueId!;
+    const indicatorId = patEntry!.indicator.id;
+
+    // 7. Create a plano de ação referencing the materialized LMS cell
+    const createRes = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/action-plans`)
+      .set(authHeader(ctx))
+      .send({
+        sourceModule: "kpi",
+        sourceRef: {
+          kpiMonthlyValueId: cellId,
+          kpiIndicatorId: indicatorId,
+          kpiYear: currentYear,
+          kpiMonth: currentMonth,
+        },
+        title: "Corrigir desvio PAT — cumprimento abaixo da meta",
+      });
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.id).toBeGreaterThan(0);
+
+    // 8. Query back: the plan must appear when filtered by the cell id
+    const listRes = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/action-plans`)
+      .set(authHeader(ctx))
+      .query({ sourceModule: "kpi", sourceKpiMonthlyValueId: cellId });
+    expect(listRes.status).toBe(200);
+    expect(Array.isArray(listRes.body)).toBe(true);
+    expect(listRes.body.length).toBeGreaterThanOrEqual(1);
+    const found = (listRes.body as Array<{ id: number; sourceRef: { kpiMonthlyValueId?: number } }>)
+      .find((p) => p.id === createRes.body.id);
+    expect(found).toBeDefined();
+    expect(found!.sourceRef.kpiMonthlyValueId).toBe(cellId);
+
+    // Ensure the indicator ids set is a superset of what the test used
+    expect(indicatorIds).toContain(indicatorId);
+  });
+});
+
 describe("GET /organizations/:orgId/kpi/years/:year — LMS compose-on-read", () => {
   it("materializa célula de Janeiro com pat_completion=50 quando metade das atividades PAT realizadas", async () => {
     const ctx = await createTestContext({ seed: "lms-onread" });
