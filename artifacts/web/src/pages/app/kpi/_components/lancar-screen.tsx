@@ -114,7 +114,7 @@ function untreatedRedMonths(row: KpiYearRow): number[] {
       (mv) =>
         mv.value != null &&
         (!restrict || restrict.has(mv.month)) &&
-        getTrafficLight(mv.value, goal, direction) === "red" &&
+        getTrafficLight(mv.value, goal, direction, row.yearConfig.tolerance) === "red" &&
         mv.justificationsCount === 0 &&
         mv.actionPlansCount === 0,
     )
@@ -187,7 +187,7 @@ function HistoryPanel({
       <div className="grid grid-cols-4 gap-1.5">
         {MONTH_LABELS.map((label, i) => {
           const v = monthValues[i];
-          const st = getTrafficLight(v, goal, direction);
+          const st = getTrafficLight(v, goal, direction, row.yearConfig.tolerance);
           const month = i + 1;
           // Mês fora da referência (indicador não-mensal): travado, ignorado
           // nos cálculos. Se tiver valor, é anomalia (provável erro de carga).
@@ -468,8 +468,9 @@ export function LancarScreen({
   }, [selectedRow, hasFormula, parsedInputs, directValue]);
 
   const goal = selectedRow?.yearConfig.goal ?? null;
+  const tolerance = selectedRow?.yearConfig.tolerance ?? null;
   const direction = (selectedRow?.indicator.direction ?? "up") as KpiDirection;
-  const status = getTrafficLight(computedValue, goal, direction);
+  const status = getTrafficLight(computedValue, goal, direction, tolerance);
   const measureUnit = selectedRow?.indicator.measureUnit ?? "";
 
   // The chosen month may already have a saved value — drives the result box
@@ -479,7 +480,7 @@ export function LancarScreen({
   const monthlyValueId = savedMonthly?.monthlyValueId ?? null;
   const effectiveValue =
     computedValue !== null ? computedValue : (savedMonthly?.value ?? null);
-  const effectiveStatus = getTrafficLight(effectiveValue, goal, direction);
+  const effectiveStatus = getTrafficLight(effectiveValue, goal, direction, tolerance);
   const outOfTarget = effectiveStatus === "red";
 
   // Meses que o form pode lançar: não-futuros e, p/ indicador não-mensal,

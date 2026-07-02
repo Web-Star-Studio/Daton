@@ -129,7 +129,7 @@ export function IndicatorCard({
   // o anual — pra cliente perceber visualmente se o último mês destoou.
   const latestStatus: CardStatus = !latest
     ? "nodata"
-    : getTrafficLight(latest.value, goal, direction) ?? "nodata";
+    : getTrafficLight(latest.value, goal, direction, yearRow?.yearConfig.tolerance) ?? "nodata";
 
   const monthValueArray: (number | null)[] = Array.from({ length: 12 }, (_, i) => {
     const m = yearRow?.monthlyValues.find((v) => v.month === i + 1);
