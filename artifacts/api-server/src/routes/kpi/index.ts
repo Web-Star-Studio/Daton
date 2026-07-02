@@ -960,6 +960,16 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
   // upsert para que ela receba um id real — necessário para criar planos de ação
   // vinculados ao kpiMonthlyValueId.
   const lmsIndicators = indicators.filter((ind) => ind.computedSource === "lms");
+  // Não materializa meses futuros: ano passado = 12; ano corrente = até o mês
+  // atual; ano futuro = nenhum. Evita cél. vermelha (desvio não tratado) num mês
+  // que ainda não ocorreu.
+  const lmsNow = new Date();
+  const lmsMaxMonth =
+    params.data.year < lmsNow.getUTCFullYear()
+      ? 12
+      : params.data.year === lmsNow.getUTCFullYear()
+        ? lmsNow.getUTCMonth() + 1
+        : 0;
   for (const ind of lmsIndicators) {
     const yc = yearConfigByIndicatorId.get(ind.id);
     if (!yc || !ind.computedMetric) continue;
@@ -967,7 +977,7 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     // materialização — não temos um yearConfigId válido para FK.
     if (yc.id === 0) continue;
     const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
-    for (let month = 1; month <= 12; month++) {
+    for (let month = 1; month <= lmsMaxMonth; month++) {
       const existing = monthMap.get(month);
       if (existing?.isOverridden) continue; // respeita override manual
       const value = await computeLmsMetric({
