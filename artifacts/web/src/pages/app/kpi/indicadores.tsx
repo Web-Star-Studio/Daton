@@ -271,6 +271,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
     // Sinal autoritativo vindo do backend (rollupStrategy != null) — mesma
     // definição usada pela matriz de acesso no servidor. Espelha o contrato.
     isCorporate: ind.isCorporate ?? false,
+    isLms: (ind.computedSource ?? null) != null,
   });
   const canCreate =
     scope.role === "org_admin" ||

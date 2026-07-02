@@ -1,12 +1,14 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { annualTrainingProgramTable, db, kpiIndicatorsTable, trainingCatalogTable } from "@workspace/db";
+import { annualTrainingProgramTable, db, kpiIndicatorsTable, trainingCatalogTable, usersTable } from "@workspace/db";
 import app from "../../src/app";
 import {
   authHeader,
   cleanupTestContext,
   createTestContext,
+  createTestUser,
+  createUnit,
   type TestOrgContext,
 } from "../../../../tests/support/backend";
 
@@ -145,6 +147,57 @@ describe("Desvio LMS → plano de ação (integração)", () => {
 
     // Ensure the indicator ids set is a superset of what the test used
     expect(indicatorIds).toContain(indicatorId);
+  });
+});
+
+describe("GET /organizations/:orgId/kpi/years/:year — LMS visibility by role", () => {
+  it("manager e analyst veem LMS; operator NÃO vê", async () => {
+    const ctx = await createTestContext({ seed: "lms-visibility-role", modules: ["kpi"] });
+    contexts.push(ctx);
+
+    // 1. Activate LMS indicators
+    const activateRes = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/kpi/lms-indicators/activate`)
+      .set(authHeader(ctx))
+      .send({ year: 2026 });
+    expect(activateRes.status).toBe(200);
+    expect(activateRes.body.indicatorIds).toHaveLength(6);
+
+    // 2. Create users: manager (with a unit), analyst, operator
+    const unit = await createUnit(ctx, `Filial LMS ${ctx.prefix}`);
+    const mgr = await createTestUser(ctx, { role: "manager", modules: ["kpi"], suffix: "mgr-lms" });
+    // Set the manager's unitId so getRequesterKpiScope resolves it correctly
+    await db.update(usersTable).set({ unitId: unit.id }).where(eq(usersTable.id, mgr.id));
+
+    const analyst = await createTestUser(ctx, { role: "analyst", modules: ["kpi"], suffix: "an-lms" });
+    const operator = await createTestUser(ctx, { role: "operator", modules: ["kpi"], suffix: "op-lms" });
+
+    // 3. GET years/2026 as manager — LMS indicators must appear
+    const mgrRes = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/kpi/years/2026`)
+      .set({ Authorization: `Bearer ${mgr.token}` });
+    expect(mgrRes.status).toBe(200);
+    const mgrLms = (mgrRes.body as Array<{ indicator: { computedSource: string | null } }>)
+      .filter((r) => r.indicator.computedSource === "lms");
+    expect(mgrLms.length).toBe(6);
+
+    // 4. GET years/2026 as analyst — LMS indicators must appear
+    const anRes = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/kpi/years/2026`)
+      .set({ Authorization: `Bearer ${analyst.token}` });
+    expect(anRes.status).toBe(200);
+    const anLms = (anRes.body as Array<{ indicator: { computedSource: string | null } }>)
+      .filter((r) => r.indicator.computedSource === "lms");
+    expect(anLms.length).toBe(6);
+
+    // 5. GET years/2026 as operator — LMS indicators must NOT appear (no responsibleUserId)
+    const opRes = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/kpi/years/2026`)
+      .set({ Authorization: `Bearer ${operator.token}` });
+    expect(opRes.status).toBe(200);
+    const opLms = (opRes.body as Array<{ indicator: { computedSource: string | null } }>)
+      .filter((r) => r.indicator.computedSource === "lms");
+    expect(opLms.length).toBe(0);
   });
 });
 

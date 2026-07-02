@@ -151,11 +151,12 @@ async function getRequesterKpiScope(req: { auth?: { userId: number; role: KpiReq
 }
 
 /** Campos de acesso a partir de uma row de indicador. */
-function accessFieldsOf(r: { unitId: number | null; responsibleUserId: number | null; rollupStrategy: string | null; unit: string | null }): KpiIndicatorAccessFields {
+function accessFieldsOf(r: { unitId: number | null; responsibleUserId: number | null; rollupStrategy: string | null; unit: string | null; computedSource?: string | null }): KpiIndicatorAccessFields {
   return {
     unitId: r.unitId ?? null,
     responsibleUserId: r.responsibleUserId ?? null,
     isCorporate: isCorporateIndicator({ rollupStrategy: r.rollupStrategy, unit: r.unit }),
+    isLms: (r.computedSource ?? null) != null,
   };
 }
 
@@ -171,9 +172,16 @@ function kpiVisibilityCondition(scope: KpiRequesterScope): SQL | undefined {
       scope.unitId !== null ? eq(kpiIndicatorsTable.unitId, scope.unitId) : sql`false`,
       isNotNull(kpiIndicatorsTable.rollupStrategy),
       sql`lower(trim(${kpiIndicatorsTable.unit})) = ${CORPORATE_UNIT_LABEL.toLowerCase()}`,
+      isNotNull(kpiIndicatorsTable.computedSource),
     );
   }
-  // operator / analyst
+  if (scope.role === "analyst") {
+    return or(
+      eq(kpiIndicatorsTable.responsibleUserId, scope.userId),
+      isNotNull(kpiIndicatorsTable.computedSource),
+    );
+  }
+  // operator
   return eq(kpiIndicatorsTable.responsibleUserId, scope.userId);
 }
 
@@ -191,6 +199,7 @@ async function authorizeIndicatorAction(
       responsibleUserId: kpiIndicatorsTable.responsibleUserId,
       rollupStrategy: kpiIndicatorsTable.rollupStrategy,
       unit: kpiIndicatorsTable.unit,
+      computedSource: kpiIndicatorsTable.computedSource,
     })
     .from(kpiIndicatorsTable)
     .where(and(eq(kpiIndicatorsTable.id, indicatorId), eq(kpiIndicatorsTable.organizationId, orgId)));
@@ -421,7 +430,7 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
   const scope = await getRequesterKpiScope(req);
   const canCreate = canActOnKpiIndicator(
     scope,
-    { unitId: targetUnitId, responsibleUserId, isCorporate: false },
+    { unitId: targetUnitId, responsibleUserId, isCorporate: false, isLms: false },
     "createUnit",
   );
   if (!canCreate) { res.status(403).json({ error: "Sem permissão para criar indicador nesta filial" }); return; }
@@ -542,6 +551,7 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
       responsibleUserId: kpiIndicatorsTable.responsibleUserId,
       rollupStrategy: kpiIndicatorsTable.rollupStrategy,
       unit: kpiIndicatorsTable.unit,
+      computedSource: kpiIndicatorsTable.computedSource,
     })
     .from(kpiIndicatorsTable)
     .where(and(
@@ -1357,7 +1367,7 @@ router.post(
     if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
     const scope = await getRequesterKpiScope(req);
-    if (!canActOnKpiIndicator(scope, { unitId: null, responsibleUserId: null, isCorporate: true }, "createCorporate")) {
+    if (!canActOnKpiIndicator(scope, { unitId: null, responsibleUserId: null, isCorporate: true, isLms: false }, "createCorporate")) {
       res.status(403).json({ error: "Sem permissão para criar indicador corporativo" }); return;
     }
 
@@ -1409,6 +1419,7 @@ router.post(
         unitId: kpiIndicatorsTable.unitId,
         responsibleUserId: kpiIndicatorsTable.responsibleUserId,
         rollupStrategy: kpiIndicatorsTable.rollupStrategy,
+        computedSource: kpiIndicatorsTable.computedSource,
       })
       .from(kpiIndicatorsTable)
       .where(and(eq(kpiIndicatorsTable.organizationId, orgId), inArray(kpiIndicatorsTable.id, childIds)));
