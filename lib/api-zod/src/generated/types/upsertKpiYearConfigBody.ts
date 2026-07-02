@@ -10,4 +10,5 @@ export interface UpsertKpiYearConfigBody {
   objectiveId?: number | null;
   seq?: number | null;
   goal?: number | null;
+  tolerance?: number | null;
 }

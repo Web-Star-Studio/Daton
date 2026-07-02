@@ -122,6 +122,7 @@ function serializeYearConfig(
       : r.goal !== null && r.goal !== undefined
         ? parseFloat(r.goal)
         : null,
+    tolerance: r.tolerance != null ? Number(r.tolerance) : null,
     isGoalComputed: computedGoal ? true : false,
     goalChildrenWithData: computedGoal ? computedGoal.childrenWithGoal : null,
     goalChildrenTotal: computedGoal ? computedGoal.childrenTotal : null,
@@ -1106,6 +1107,8 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year", requ
       ? String(body.data.goal)
       : null;
 
+  const toleranceStr = body.data.tolerance != null ? String(body.data.tolerance) : null;
+
   const [row] = await db.insert(kpiYearConfigsTable).values({
     organizationId: params.data.orgId,
     indicatorId: params.data.indicatorId,
@@ -1113,12 +1116,14 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year", requ
     year: params.data.year,
     seq: body.data.seq ?? null,
     goal: goalStr,
+    tolerance: toleranceStr,
   }).onConflictDoUpdate({
     target: [kpiYearConfigsTable.organizationId, kpiYearConfigsTable.indicatorId, kpiYearConfigsTable.year],
     set: {
       objectiveId: body.data.objectiveId ?? null,
       seq: body.data.seq ?? null,
       goal: goalStr,
+      tolerance: toleranceStr,
       updatedAt: new Date(),
     },
   }).returning();

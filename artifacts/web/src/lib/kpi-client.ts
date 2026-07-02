@@ -122,17 +122,18 @@ export function getTrafficLight(
   value: number | null | undefined,
   goal: number | null | undefined,
   direction: KpiDirection,
+  tolerance?: number | null,
 ): TrafficLight | null {
   if (value === null || value === undefined) return null;
   if (goal === null || goal === undefined) return null;
-  const tolerance = 0.01;
+  const tol = tolerance ?? 0.01;
   if (direction === "up") {
     if (value >= goal) return "green";
-    if (value >= goal - tolerance) return "yellow";
+    if (value >= goal - tol) return "yellow";
     return "red";
   } else {
     if (value <= goal) return "green";
-    if (value <= goal + tolerance) return "yellow";
+    if (value <= goal + tol) return "yellow";
     return "red";
   }
 }

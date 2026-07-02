@@ -14583,6 +14583,7 @@ export const ListKpiYearDataResponseItem = zod.object({
     year: zod.number(),
     seq: zod.number().nullish(),
     goal: zod.number().nullish(),
+    tolerance: zod.number().nullish(),
     isGoalComputed: zod
       .boolean()
       .optional()
@@ -14691,6 +14692,7 @@ export const UpsertKpiYearConfigBody = zod.object({
   objectiveId: zod.number().nullish(),
   seq: zod.number().nullish(),
   goal: zod.number().nullish(),
+  tolerance: zod.number().nullish(),
 });
 
 export const UpsertKpiYearConfigResponse = zod.object({
@@ -14701,6 +14703,7 @@ export const UpsertKpiYearConfigResponse = zod.object({
   year: zod.number(),
   seq: zod.number().nullish(),
   goal: zod.number().nullish(),
+  tolerance: zod.number().nullish(),
   isGoalComputed: zod
     .boolean()
     .optional()

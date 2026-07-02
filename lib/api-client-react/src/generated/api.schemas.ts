@@ -4002,6 +4002,7 @@ export interface KpiYearConfig {
   year: number;
   seq?: number | null;
   goal?: number | null;
+  tolerance?: number | null;
   /** True quando a meta foi calculada das filiais (corporativo). */
   isGoalComputed?: boolean;
   /** Filiais com meta consideradas no cálculo (só quando isGoalComputed). */
@@ -4016,6 +4017,7 @@ export interface UpsertKpiYearConfigBody {
   objectiveId?: number | null;
   seq?: number | null;
   goal?: number | null;
+  tolerance?: number | null;
 }
 
 export type KpiMonthlyValueInputInputs = { [key: string]: number | null };
