@@ -83,6 +83,10 @@ import {
 } from "../middlewares/auth";
 import { applyTrainingRequirements } from "../services/aprendizagem/requirements-engine";
 import {
+  computeCompetencyGapStatusByEmployee,
+  computeTrainingCompletionByEmployee,
+} from "../services/aprendizagem/employee-learning-aggregates";
+import {
   ObjectNotFoundError,
   ObjectStorageService,
 } from "../lib/objectStorage";
@@ -1192,8 +1196,40 @@ router.get(
       .where(and(...baseConditions, hasLinkedUser));
     const withUserCount = withUserRow?.n ?? 0;
 
+    // ── Agregados de aprendizagem por colaborador (página corrente) ───────────
+    const pageEmployeeIds = rows.map((r) => r.id);
+    const pageEmployeesForGap = rows.map((r) => ({
+      id: r.id,
+      position: r.position,
+    }));
+    // Último dia do mês corrente (UTC), mesma lógica de learning-summary.ts:94–97
+    const _now = new Date();
+    const _endOfMonth = new Date(
+      Date.UTC(_now.getUTCFullYear(), _now.getUTCMonth() + 1, 0),
+    )
+      .toISOString()
+      .slice(0, 10);
+
+    const [gapStatusMap, trainingCompletionMap] = await Promise.all([
+      computeCompetencyGapStatusByEmployee(
+        db,
+        params.data.orgId,
+        pageEmployeesForGap,
+      ),
+      computeTrainingCompletionByEmployee(
+        db,
+        params.data.orgId,
+        pageEmployeeIds,
+        _endOfMonth,
+      ),
+    ]);
+
     res.json({
-      data: rows.map(formatEmployee),
+      data: rows.map((row) => ({
+        ...formatEmployee(row),
+        trainingCompletionPercent: trainingCompletionMap.get(row.id) ?? null,
+        competencyGapStatus: gapStatusMap.get(row.id) ?? "ok",
+      })),
       pagination: {
         page,
         pageSize,
