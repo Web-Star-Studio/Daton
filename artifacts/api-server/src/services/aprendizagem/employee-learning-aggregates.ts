@@ -9,6 +9,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   employeeCompetenciesTable,
+  employeesTable,
   employeeTrainingsTable,
   positionCompetencyRequirementsTable,
   positionsTable,
@@ -198,8 +199,8 @@ export async function computeTrainingCompletionByEmployee(
   if (employeeIds.length === 0) return completionMap;
 
   // Single batch query scoped to the page's employees.
-  // org-scoping: employees already belong to orgId (filtered by route);
-  // we add an implicit org check by only querying for this page's employee ids.
+  // Org-scoping is a real guarantee via INNER JOIN to employees filtered by
+  // organizationId — mirrors the mandatory_coverage pattern in lms-metrics.ts.
   const rows = await database
     .select({
       employeeId: employeeTrainingsTable.employeeId,
@@ -207,7 +208,16 @@ export async function computeTrainingCompletionByEmployee(
       done: sql<number>`count(*) filter (where ${employeeTrainingsTable.requirementId} is not null and ${employeeTrainingsTable.status} = 'concluido' and (${employeeTrainingsTable.completionDate} is null or ${employeeTrainingsTable.completionDate} <= ${endOfMonth}))`,
     })
     .from(employeeTrainingsTable)
-    .where(inArray(employeeTrainingsTable.employeeId, employeeIds))
+    .innerJoin(
+      employeesTable,
+      eq(employeeTrainingsTable.employeeId, employeesTable.id),
+    )
+    .where(
+      and(
+        eq(employeesTable.organizationId, orgId),
+        inArray(employeeTrainingsTable.employeeId, employeeIds),
+      ),
+    )
     .groupBy(employeeTrainingsTable.employeeId);
 
   for (const row of rows) {

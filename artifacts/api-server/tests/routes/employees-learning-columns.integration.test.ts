@@ -127,4 +127,57 @@ describe("GET /organizations/:orgId/employees — learning columns", () => {
     expect(semRequisitos!.trainingCompletionPercent).toBeNull();
     expect(semRequisitos!.competencyGapStatus).toBe("ok");
   });
+
+  it('returns competencyGapStatus "gap" for a non-critical gap (gapLevel=1, requiredLevel<4)', async () => {
+    const ctx = await createTestContext({ seed: "emp-gap-noncrit" });
+    contexts.push(ctx);
+
+    const unit = await createUnit(ctx, `Filial Gap ${ctx.prefix}`);
+
+    // Position with requiredLevel=2: gap is non-critical when acquiredLevel=1
+    // (gapLevel=1 < 2, requiredLevel=2 < 4 → NOT critical → "gap")
+    const position = await createPosition(ctx, { name: "Auxiliar" });
+
+    await db.insert(positionCompetencyRequirementsTable).values({
+      positionId: position.id,
+      competencyName: "Trabalho em equipe",
+      competencyType: "habilidade",
+      requiredLevel: 2,
+      sortOrder: 1,
+      createdById: ctx.userId,
+      updatedById: ctx.userId,
+    });
+
+    const employee = await createEmployee(ctx, {
+      name: `Auxiliar Gap ${ctx.prefix}`,
+      unitId: unit.id,
+      position: "Auxiliar",
+    });
+
+    // acquiredLevel=1, requiredLevel=2 → gapLevel=1 (non-critical)
+    await db.insert(employeeCompetenciesTable).values({
+      employeeId: employee.id,
+      name: "Trabalho em equipe",
+      type: "habilidade",
+      requiredLevel: 2,
+      acquiredLevel: 1,
+    });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+
+    const data: Array<{
+      id: number;
+      trainingCompletionPercent: number | null;
+      competencyGapStatus: "ok" | "gap" | "critical";
+    }> = res.body.data;
+
+    const gapEmployee = data.find((e) => e.id === employee.id);
+    expect(gapEmployee).toBeDefined();
+    expect(gapEmployee!.competencyGapStatus).toBe("gap");
+    expect(gapEmployee!.trainingCompletionPercent).toBeNull();
+  });
 });
