@@ -489,6 +489,7 @@ function Router() {
   const isOrgRoute =
     location.startsWith("/app") ||
     location.startsWith("/organizacao") ||
+    location.startsWith("/aprendizagem") ||
     location.startsWith("/governanca") ||
     location.startsWith("/qualidade") ||
     location.startsWith("/ambiental") ||

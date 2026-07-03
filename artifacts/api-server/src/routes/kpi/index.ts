@@ -1556,6 +1556,17 @@ router.post(
         );
 
       if (existing) {
+        // Garantir que o ano solicitado tenha year_config (activation pode ser chamada em anos distintos).
+        await db
+          .insert(kpiYearConfigsTable)
+          .values({
+            organizationId: orgId,
+            indicatorId: existing.id,
+            year,
+            goal: String(def.goal),
+            tolerance: String(def.tolerance),
+          })
+          .onConflictDoNothing();
         indicatorIds.push(existing.id);
         continue;
       }

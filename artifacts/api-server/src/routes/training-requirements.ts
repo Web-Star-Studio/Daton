@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, type SQL } from "drizzle-orm";
 import {
   db,
   positionsTable,
@@ -225,8 +225,40 @@ router.patch(
       res.status(400).json({ error: body.error.message });
       return;
     }
-    const updates: Partial<typeof trainingRequirementsTable.$inferInsert> = {};
     const b = body.data;
+    // isolamento multi-tenant: validar que cargo e item de catálogo pertencem à org antes de atualizar.
+    if (b.positionId !== undefined) {
+      const [position] = await db
+        .select({ id: positionsTable.id })
+        .from(positionsTable)
+        .where(
+          and(
+            eq(positionsTable.id, b.positionId),
+            eq(positionsTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!position) {
+        res.status(400).json({ error: "Cargo não encontrado" });
+        return;
+      }
+    }
+    if (b.catalogItemId !== undefined) {
+      const [catalogItem] = await db
+        .select({ id: trainingCatalogTable.id })
+        .from(trainingCatalogTable)
+        .where(
+          and(
+            eq(trainingCatalogTable.id, b.catalogItemId),
+            eq(trainingCatalogTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!catalogItem) {
+        res.status(400).json({ error: "Item do catálogo não encontrado" });
+        return;
+      }
+    }
+
+    const updates: Partial<typeof trainingRequirementsTable.$inferInsert> = {};
     if (b.positionId !== undefined) updates.positionId = b.positionId;
     if (b.catalogItemId !== undefined) updates.catalogItemId = b.catalogItemId;
     if (b.deadlineType !== undefined) updates.deadlineType = b.deadlineType;

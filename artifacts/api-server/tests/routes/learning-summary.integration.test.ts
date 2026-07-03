@@ -1,7 +1,6 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import { db, employeeTrainingsTable, trainingCatalogTable, trainingEffectivenessReviewsTable, annualTrainingProgramTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
 import app from "../../src/app";
 import {
   authHeader,
