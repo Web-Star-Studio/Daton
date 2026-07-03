@@ -1,6 +1,12 @@
 import { Router, type IRouter } from "express";
 import { and, asc, eq, type SQL } from "drizzle-orm";
-import { db, annualTrainingProgramTable, trainingCatalogTable } from "@workspace/db";
+import {
+  db,
+  annualTrainingProgramTable,
+  trainingCatalogTable,
+  trainingClassesTable,
+  unitsTable,
+} from "@workspace/db";
 import {
   CreateAnnualProgramItemBody,
   CreateAnnualProgramItemParams,
@@ -97,6 +103,21 @@ router.post(
       res.status(400).json({ error: "Item do catálogo não encontrado" });
       return;
     }
+    if (body.data.unitId != null) {
+      const [unit] = await db
+        .select({ id: unitsTable.id })
+        .from(unitsTable)
+        .where(
+          and(
+            eq(unitsTable.id, body.data.unitId),
+            eq(unitsTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!unit) {
+        res.status(400).json({ error: "Filial não encontrada" });
+        return;
+      }
+    }
     const [row] = await db
       .insert(annualTrainingProgramTable)
       .values({
@@ -136,8 +157,54 @@ router.patch(
       res.status(400).json({ error: body.error.message });
       return;
     }
-    const updates: Partial<typeof annualTrainingProgramTable.$inferInsert> = {};
     const b = body.data;
+    // isolamento multi-tenant: validar FKs fornecidas antes de atualizar.
+    if (b.catalogItemId !== undefined) {
+      const [catalogItem] = await db
+        .select({ id: trainingCatalogTable.id })
+        .from(trainingCatalogTable)
+        .where(
+          and(
+            eq(trainingCatalogTable.id, b.catalogItemId),
+            eq(trainingCatalogTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!catalogItem) {
+        res.status(400).json({ error: "Item do catálogo não encontrado" });
+        return;
+      }
+    }
+    if (b.unitId != null) {
+      const [unit] = await db
+        .select({ id: unitsTable.id })
+        .from(unitsTable)
+        .where(
+          and(
+            eq(unitsTable.id, b.unitId),
+            eq(unitsTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!unit) {
+        res.status(400).json({ error: "Filial não encontrada" });
+        return;
+      }
+    }
+    if (b.classId != null) {
+      const [trainingClass] = await db
+        .select({ id: trainingClassesTable.id })
+        .from(trainingClassesTable)
+        .where(
+          and(
+            eq(trainingClassesTable.id, b.classId),
+            eq(trainingClassesTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!trainingClass) {
+        res.status(400).json({ error: "Turma não encontrada" });
+        return;
+      }
+    }
+    const updates: Partial<typeof annualTrainingProgramTable.$inferInsert> = {};
     if (b.year !== undefined) updates.year = b.year;
     if (b.catalogItemId !== undefined) updates.catalogItemId = b.catalogItemId;
     if (b.unitId !== undefined) updates.unitId = b.unitId;

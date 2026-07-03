@@ -7,6 +7,7 @@ import {
   trainingCatalogTable,
   trainingClassesTable,
   trainingClassParticipantsTable,
+  unitsTable,
 } from "@workspace/db";
 import {
   AddTrainingClassParticipantsBody,
@@ -185,6 +186,21 @@ router.post(
       res.status(400).json({ error: "Item do catálogo não encontrado" });
       return;
     }
+    if (body.data.unitId != null) {
+      const [unit] = await db
+        .select({ id: unitsTable.id })
+        .from(unitsTable)
+        .where(
+          and(
+            eq(unitsTable.id, body.data.unitId),
+            eq(unitsTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!unit) {
+        res.status(400).json({ error: "Filial não encontrada" });
+        return;
+      }
+    }
     const [row] = await db
       .insert(trainingClassesTable)
       .values({
@@ -252,8 +268,24 @@ router.patch(
       res.status(400).json({ error: body.error.message });
       return;
     }
-    const updates: Partial<typeof trainingClassesTable.$inferInsert> = {};
     const b = body.data;
+    // isolamento multi-tenant: validar unitId antes de atualizar.
+    if (b.unitId != null) {
+      const [unit] = await db
+        .select({ id: unitsTable.id })
+        .from(unitsTable)
+        .where(
+          and(
+            eq(unitsTable.id, b.unitId),
+            eq(unitsTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!unit) {
+        res.status(400).json({ error: "Filial não encontrada" });
+        return;
+      }
+    }
+    const updates: Partial<typeof trainingClassesTable.$inferInsert> = {};
     if (b.code !== undefined) updates.code = b.code;
     if (b.startDate !== undefined) updates.startDate = b.startDate;
     if (b.endDate !== undefined) updates.endDate = b.endDate;

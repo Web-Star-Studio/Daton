@@ -270,21 +270,38 @@ router.patch(
     if (b.norm !== undefined) updates.norm = b.norm;
     if (b.notes !== undefined) updates.notes = b.notes;
 
-    const [row] = await db
-      .update(trainingRequirementsTable)
-      .set(updates)
-      .where(
-        and(
-          eq(trainingRequirementsTable.id, params.data.id),
-          eq(trainingRequirementsTable.organizationId, params.data.orgId),
-        ),
-      )
-      .returning();
-    if (!row) {
-      res.status(404).json({ error: "Obrigatoriedade não encontrada" });
-      return;
+    try {
+      const [row] = await db
+        .update(trainingRequirementsTable)
+        .set(updates)
+        .where(
+          and(
+            eq(trainingRequirementsTable.id, params.data.id),
+            eq(trainingRequirementsTable.organizationId, params.data.orgId),
+          ),
+        )
+        .returning();
+      if (!row) {
+        res.status(404).json({ error: "Obrigatoriedade não encontrada" });
+        return;
+      }
+      res.json(serialize(row));
+    } catch (error: unknown) {
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: unknown }).code)
+          : undefined;
+      if (code === "23505") {
+        res
+          .status(409)
+          .json({
+            error:
+              "Já existe uma obrigatoriedade com esse cargo/treinamento/escopo",
+          });
+        return;
+      }
+      throw error;
     }
-    res.json(serialize(row));
   },
 );
 
