@@ -1180,6 +1180,15 @@ export const EmployeeStatus = {
   on_leave: "on_leave",
 } as const;
 
+export type EmployeeCompetencyGapStatus =
+  (typeof EmployeeCompetencyGapStatus)[keyof typeof EmployeeCompetencyGapStatus];
+
+export const EmployeeCompetencyGapStatus = {
+  ok: "ok",
+  gap: "gap",
+  critical: "critical",
+} as const;
+
 export interface Employee {
   /** Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar). */
   autoLinkedTrainings?: EmployeeAutoLinkedTrainings;
@@ -1200,6 +1209,8 @@ export interface Employee {
   terminationDate?: string | null;
   status: EmployeeStatus;
   unitName?: string | null;
+  trainingCompletionPercent?: number | null;
+  competencyGapStatus?: EmployeeCompetencyGapStatus;
   createdAt: string;
   updatedAt: string;
 }

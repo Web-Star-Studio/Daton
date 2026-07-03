@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EmployeeAutoLinkedTrainings } from "./employeeAutoLinkedTrainings";
+import type { EmployeeCompetencyGapStatus } from "./employeeCompetencyGapStatus";
 import type { EmployeeContractType } from "./employeeContractType";
 import type { EmployeeStatus } from "./employeeStatus";
 
@@ -29,6 +30,8 @@ export interface Employee {
   terminationDate?: string | null;
   status: EmployeeStatus;
   unitName?: string | null;
+  trainingCompletionPercent?: number | null;
+  competencyGapStatus?: EmployeeCompetencyGapStatus;
   createdAt: string;
   updatedAt: string;
 }

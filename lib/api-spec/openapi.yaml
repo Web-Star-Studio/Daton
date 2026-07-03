@@ -12269,6 +12269,12 @@ components:
         unitName:
           type: string
           nullable: true
+        trainingCompletionPercent:
+          type: number
+          nullable: true
+        competencyGapStatus:
+          type: string
+          enum: [ok, gap, critical]
         createdAt:
           type: string
           format: date-time

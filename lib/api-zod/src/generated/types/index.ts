@@ -205,6 +205,7 @@ export * from "./employeeAwareness";
 export * from "./employeeCompetency";
 export * from "./employeeCompetencyGap";
 export * from "./employeeCompetencyGapCompetencyType";
+export * from "./employeeCompetencyGapStatus";
 export * from "./employeeCompetencyType";
 export * from "./employeeContractType";
 export * from "./employeeDetail";
