@@ -30,6 +30,12 @@ function daysUntil(dateStr: string): number {
   return Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+/** Format a date-only ISO string (YYYY-MM-DD) as DD/MM/AA without timezone shift. */
+function fmtDateShort(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y?.slice(2)}`;
+}
+
 function UrgencyBadge({ dueDate }: { dueDate?: string | null }) {
   if (!dueDate) return null;
   const d = daysUntil(dueDate);
@@ -340,31 +346,32 @@ export default function EficaciaPage() {
             {groups.emAvaliacao.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nenhum em avaliação.</p>
             ) : null}
-            {groups.emAvaliacao.map((t) => (
-              <div key={t.id} className="rounded-xl border bg-card p-3 shadow-sm">
-                <div className="text-sm font-medium">{t.employeeName}</div>
-                <div className="text-xs text-muted-foreground">{t.title}</div>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <RoleBadge role={t.effectivenessAssignedRole} />
-                  <UrgencyBadge dueDate={t.effectivenessDueDate} />
+            {groups.emAvaliacao.map((t) => {
+              const days = t.effectivenessDueDate ? daysUntil(t.effectivenessDueDate) : null;
+              return (
+                <div key={t.id} className="rounded-xl border bg-card p-3 shadow-sm">
+                  <div className="text-sm font-medium">{t.employeeName}</div>
+                  <div className="text-xs text-muted-foreground">{t.title}</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <RoleBadge role={t.effectivenessAssignedRole} />
+                    <UrgencyBadge dueDate={t.effectivenessDueDate} />
+                  </div>
+                  {days != null && days >= 0 ? (
+                    <p className="mt-1 text-xs text-muted-foreground">Vence em {days} dias</p>
+                  ) : null}
+                  {canWrite ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 w-full"
+                      onClick={() => openEval(t)}
+                    >
+                      Registrar avaliação
+                    </Button>
+                  ) : null}
                 </div>
-                {t.effectivenessDueDate ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Vence em {daysUntil(t.effectivenessDueDate)} dias
-                  </p>
-                ) : null}
-                {canWrite ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-2 w-full"
-                    onClick={() => openEval(t)}
-                  >
-                    Registrar avaliação
-                  </Button>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </Column>
 
           {/* Column: Concluídas */}
@@ -387,6 +394,14 @@ export default function EficaciaPage() {
                     {t.effectivenessScorePercent != null ? (
                       <span className="text-xs text-muted-foreground">
                         Eficácia: {t.effectivenessScorePercent}%
+                        {t.latestEffectivenessReview?.evaluationDate
+                          ? ` · Concluída ${fmtDateShort(t.latestEffectivenessReview.evaluationDate)}`
+                          : ""}
+                      </span>
+                    ) : t.latestEffectivenessReview?.evaluationDate ? (
+                      <span className="text-xs text-muted-foreground">
+                        Concluída{" "}
+                        {fmtDateShort(t.latestEffectivenessReview.evaluationDate)}
                       </span>
                     ) : null}
                     {(t.reviewerCount ?? 0) > 1 ? (
