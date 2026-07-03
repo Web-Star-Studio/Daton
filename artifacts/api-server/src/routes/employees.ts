@@ -1631,8 +1631,9 @@ router.get(
         // evaluationDate and effectivenessDueDate are both YYYY-MM-DD strings
         return reviews[0].evaluationDate <= r.effectivenessDueDate!;
       }).length;
-      onTimePercent =
-        (onTimeCount / withVerdictAndDueDate.length) * 100;
+      onTimePercent = Math.round(
+        (onTimeCount / withVerdictAndDueDate.length) * 100,
+      );
     }
 
     const stats = {
