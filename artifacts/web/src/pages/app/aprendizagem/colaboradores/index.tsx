@@ -57,6 +57,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useForm } from "react-hook-form";
+import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -79,6 +80,34 @@ const CONTRACT_LABELS: Record<string, string> = {
   temporary: "Temporário",
   terceirizado: "Terceirizado",
 };
+
+const COMPETENCY_BADGE: Record<
+  string,
+  { label: string; className: string }
+> = {
+  ok: {
+    label: "OK",
+    className:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  },
+  gap: {
+    label: "Gap",
+    className:
+      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  },
+  critical: {
+    label: "Crítico",
+    className:
+      "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+  },
+};
+
+function trainingBarColor(pct: number): string {
+  if (pct >= 92) return "bg-emerald-500";
+  if (pct >= 61) return "bg-blue-500";
+  if (pct >= 40) return "bg-amber-500";
+  return "bg-red-500";
+}
 
 function toRequiredString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -884,6 +913,12 @@ export default function ColaboradoresPage() {
                       Vínculo
                     </th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Competências
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground w-36">
+                      Treinamentos
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
                       Status
                     </th>
                     <th className="w-8"></th>
@@ -930,6 +965,53 @@ export default function ColaboradoresPage() {
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">
                           {CONTRACT_LABELS[emp.contractType] ||
                             emp.contractType}
+                        </td>
+                        <td className="px-4 py-3">
+                          {emp.competencyGapStatus &&
+                          COMPETENCY_BADGE[emp.competencyGapStatus] ? (
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border",
+                                COMPETENCY_BADGE[emp.competencyGapStatus]
+                                  .className,
+                              )}
+                            >
+                              {
+                                COMPETENCY_BADGE[emp.competencyGapStatus]
+                                  .label
+                              }
+                            </span>
+                          ) : (
+                            <span className="text-[13px] text-muted-foreground">
+                              —
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {emp.trainingCompletionPercent != null ? (
+                            <div className="flex items-center gap-2 min-w-[7rem]">
+                              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className={cn(
+                                    "h-full rounded-full transition-all",
+                                    trainingBarColor(
+                                      emp.trainingCompletionPercent,
+                                    ),
+                                  )}
+                                  style={{
+                                    width: `${Math.min(100, emp.trainingCompletionPercent)}%`,
+                                  }}
+                                />
+                              </div>
+                              <span className="text-[11px] text-muted-foreground tabular-nums w-8 shrink-0">
+                                {emp.trainingCompletionPercent}%
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[13px] text-muted-foreground">
+                              —
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span
