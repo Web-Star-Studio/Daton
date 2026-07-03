@@ -9,6 +9,7 @@ import {
   jsonb,
   unique,
   boolean,
+  varchar,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -152,6 +153,11 @@ export const employeeTrainingsTable = pgTable("employee_trainings", {
   // requirementId é integer simples no schema (FK real via DDL p/ evitar ciclo).
   dueDate: date("due_date"),
   requirementId: integer("requirement_id"),
+  // SP6/B: workflow de eficácia — prazo e papel do avaliador atribuído.
+  effectivenessDueDate: date("effectiveness_due_date"),
+  effectivenessAssignedRole: varchar("effectiveness_assigned_role", {
+    length: 20,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -176,6 +182,8 @@ export const trainingEffectivenessReviewsTable = pgTable(
     isEffective: boolean("is_effective"),
     resultLevel: integer("result_level"),
     comments: text("comments"),
+    // SP6/B: papel do avaliador na eficácia (gestor|rh|instrutor|colaborador).
+    evaluatorRole: varchar("evaluator_role", { length: 20 }),
     attachments: jsonb("attachments")
       .$type<EmployeeRecordAttachment[]>()
       .notNull()

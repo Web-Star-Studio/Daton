@@ -307,6 +307,13 @@ ALTER TABLE public.kpi_indicators ADD COLUMN IF NOT EXISTS computed_source varch
 ALTER TABLE public.kpi_indicators ADD COLUMN IF NOT EXISTS computed_metric varchar(64);
 ALTER TABLE public.kpi_year_configs ADD COLUMN IF NOT EXISTS tolerance numeric(20,8);
 
+-- ---------------------------------------------------------------------------
+-- Colaboradores+Eficácia (2026-07-03): workflow de eficácia (prazo/papel)
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.employee_trainings ADD COLUMN IF NOT EXISTS effectiveness_due_date date;
+ALTER TABLE public.employee_trainings ADD COLUMN IF NOT EXISTS effectiveness_assigned_role varchar(20);
+ALTER TABLE public.training_effectiveness_reviews ADD COLUMN IF NOT EXISTS evaluator_role varchar(20);
+
 COMMIT;
 
 -- Verificação

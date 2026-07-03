@@ -719,6 +719,7 @@ async function loadTrainingReviewRows(
       comments: trainingEffectivenessReviewsTable.comments,
       attachments: trainingEffectivenessReviewsTable.attachments,
       legacyV1Id: trainingEffectivenessReviewsTable.legacyV1Id,
+      evaluatorRole: trainingEffectivenessReviewsTable.evaluatorRole,
       createdAt: trainingEffectivenessReviewsTable.createdAt,
       evaluatorName: usersTable.name,
     })
@@ -1498,6 +1499,9 @@ router.get(
         catalogItemId: employeeTrainingsTable.catalogItemId,
         dueDate: employeeTrainingsTable.dueDate,
         requirementId: employeeTrainingsTable.requirementId,
+        effectivenessDueDate: employeeTrainingsTable.effectivenessDueDate,
+        effectivenessAssignedRole:
+          employeeTrainingsTable.effectivenessAssignedRole,
         createdAt: employeeTrainingsTable.createdAt,
         updatedAt: employeeTrainingsTable.updatedAt,
         employeeName: employeesTable.name,
