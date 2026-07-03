@@ -197,9 +197,16 @@ function toIsoDateTime(
 function getEffectivenessStatus(
   reviews: TrainingReviewRow[],
   training: typeof employeeTrainingsTable.$inferSelect,
-): "pending" | "effective" | "ineffective" | null {
+): "pending" | "in_review" | "effective" | "ineffective" | null {
   if (reviews.length > 0) {
     return reviews[0]?.isEffective ? "effective" : "ineffective";
+  }
+
+  if (
+    training.effectivenessAssignedRole != null ||
+    training.effectivenessDueDate != null
+  ) {
+    return "in_review";
   }
 
   if (training.evaluationMethod || training.targetCompetencyName) {
@@ -215,6 +222,7 @@ function formatTrainingEffectivenessReview(review: TrainingReviewRow) {
     trainingId: review.trainingId,
     evaluatorUserId: review.evaluatorUserId,
     evaluatorName: review.evaluatorName || null,
+    evaluatorRole: review.evaluatorRole || null,
     evaluationDate: review.evaluationDate,
     score: review.score,
     isEffective: review.isEffective,
@@ -1428,7 +1436,11 @@ router.get(
       return;
     }
 
-    const query = ListOrganizationTrainingsQueryParams.safeParse(req.query);
+    const query = ListOrganizationTrainingsQueryParams.extend({
+      effectivenessStatus: z
+        .enum(["pending", "in_review", "effective", "ineffective"])
+        .optional(),
+    }).safeParse(req.query);
     if (!query.success) {
       res.status(400).json({ error: query.error.message });
       return;
@@ -1563,6 +1575,19 @@ router.get(
           expirationDate: row.expirationDate,
           status: derivedStatus,
           effectivenessStatus,
+          effectivenessDueDate: row.effectivenessDueDate || null,
+          effectivenessAssignedRole:
+            (row.effectivenessAssignedRole as
+              | "gestor"
+              | "rh"
+              | "instrutor"
+              | "colaborador"
+              | null) || null,
+          reviewerCount: new Set(reviews.map((r) => r.evaluatorUserId)).size,
+          effectivenessScorePercent:
+            reviews[0] != null && reviews[0].score != null
+              ? reviews[0].score * 10
+              : null,
           attachments: formatEmployeeRecordAttachments(row.attachments),
           latestEffectivenessReview: reviews[0]
             ? formatTrainingEffectivenessReview(reviews[0])
@@ -1588,6 +1613,28 @@ router.get(
         return true;
       });
 
+    // ── onTimePercent stat ────────────────────────────────────────────────────
+    // Among trainings with a verdict (effective/ineffective) that have
+    // effectivenessDueDate set, the % whose most-recent evaluationDate <=
+    // effectivenessDueDate. If denominator is 0 → null.
+    const withVerdictAndDueDate = response.filter(
+      (r) =>
+        (r.effectivenessStatus === "effective" ||
+          r.effectivenessStatus === "ineffective") &&
+        r.effectivenessDueDate != null,
+    );
+    let onTimePercent: number | null = null;
+    if (withVerdictAndDueDate.length > 0) {
+      const onTimeCount = withVerdictAndDueDate.filter((r) => {
+        const reviews = reviewsByTrainingId.get(r.id) || [];
+        if (reviews.length === 0) return false;
+        // evaluationDate and effectivenessDueDate are both YYYY-MM-DD strings
+        return reviews[0].evaluationDate <= r.effectivenessDueDate!;
+      }).length;
+      onTimePercent =
+        (onTimeCount / withVerdictAndDueDate.length) * 100;
+    }
+
     const stats = {
       total: response.length,
       pendente: response.filter((r) => r.status === "pendente").length,
@@ -1596,6 +1643,7 @@ router.get(
       effectivenessPending: response.filter(
         (r) => r.effectivenessStatus === "pending",
       ).length,
+      onTimePercent,
     };
 
     const page = query.data.page || 1;
@@ -2863,6 +2911,172 @@ router.delete(
   },
 );
 
+const EffectivenessAssignmentParams = z.object({
+  orgId: z.coerce.number(),
+  empId: z.coerce.number(),
+  trainId: z.coerce.number(),
+});
+
+const EVALUATOR_ROLE_VALUES = [
+  "gestor",
+  "rh",
+  "instrutor",
+  "colaborador",
+] as const;
+
+const EffectivenessAssignmentBody = z.object({
+  evaluatorRole: z.enum(EVALUATOR_ROLE_VALUES),
+  dueDate: z.string().date(),
+});
+
+router.post(
+  "/organizations/:orgId/employees/:empId/trainings/:trainId/effectiveness-assignment",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = EffectivenessAssignmentParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    if (
+      !(await verifyEmployeeOwnership(params.data.empId, params.data.orgId))
+    ) {
+      res.status(404).json({ error: "Colaborador não encontrado" });
+      return;
+    }
+
+    const [training] = await db
+      .select()
+      .from(employeeTrainingsTable)
+      .where(
+        and(
+          eq(employeeTrainingsTable.id, params.data.trainId),
+          eq(employeeTrainingsTable.employeeId, params.data.empId),
+        ),
+      );
+    if (!training) {
+      res.status(404).json({ error: "Treinamento não encontrado" });
+      return;
+    }
+
+    const body = EffectivenessAssignmentBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+
+    await db
+      .update(employeeTrainingsTable)
+      .set({
+        effectivenessAssignedRole: body.data.evaluatorRole,
+        effectivenessDueDate: body.data.dueDate,
+      })
+      .where(eq(employeeTrainingsTable.id, training.id));
+
+    // Re-load with employee + unit join to return full listagem shape
+    const [updatedRow] = await db
+      .select({
+        id: employeeTrainingsTable.id,
+        employeeId: employeeTrainingsTable.employeeId,
+        title: employeeTrainingsTable.title,
+        description: employeeTrainingsTable.description,
+        objective: employeeTrainingsTable.objective,
+        institution: employeeTrainingsTable.institution,
+        targetCompetencyName: employeeTrainingsTable.targetCompetencyName,
+        targetCompetencyType: employeeTrainingsTable.targetCompetencyType,
+        targetCompetencyLevel: employeeTrainingsTable.targetCompetencyLevel,
+        evaluationMethod: employeeTrainingsTable.evaluationMethod,
+        renewalMonths: employeeTrainingsTable.renewalMonths,
+        workloadHours: employeeTrainingsTable.workloadHours,
+        completionDate: employeeTrainingsTable.completionDate,
+        expirationDate: employeeTrainingsTable.expirationDate,
+        status: employeeTrainingsTable.status,
+        attachments: employeeTrainingsTable.attachments,
+        legacyV1Id: employeeTrainingsTable.legacyV1Id,
+        catalogItemId: employeeTrainingsTable.catalogItemId,
+        dueDate: employeeTrainingsTable.dueDate,
+        requirementId: employeeTrainingsTable.requirementId,
+        effectivenessDueDate: employeeTrainingsTable.effectivenessDueDate,
+        effectivenessAssignedRole:
+          employeeTrainingsTable.effectivenessAssignedRole,
+        createdAt: employeeTrainingsTable.createdAt,
+        updatedAt: employeeTrainingsTable.updatedAt,
+        employeeName: employeesTable.name,
+        employeePosition: employeesTable.position,
+        employeeDepartment: employeesTable.department,
+        unitId: employeesTable.unitId,
+        unitName: unitsTable.name,
+      })
+      .from(employeeTrainingsTable)
+      .innerJoin(
+        employeesTable,
+        eq(employeeTrainingsTable.employeeId, employeesTable.id),
+      )
+      .leftJoin(unitsTable, eq(employeesTable.unitId, unitsTable.id))
+      .where(eq(employeeTrainingsTable.id, training.id));
+
+    const reviews = await loadTrainingReviewRows([updatedRow.id]);
+    const trainingReviews = reviews.get(updatedRow.id) || [];
+    const derivedStatus = deriveTrainingStatus(
+      updatedRow.status,
+      updatedRow.expirationDate,
+    );
+    const effectivenessStatus = getEffectivenessStatus(
+      trainingReviews,
+      updatedRow,
+    );
+
+    res.json({
+      id: updatedRow.id,
+      employeeId: updatedRow.employeeId,
+      employeeName: updatedRow.employeeName,
+      employeePosition: updatedRow.employeePosition,
+      employeeDepartment: updatedRow.employeeDepartment,
+      unitId: updatedRow.unitId,
+      unitName: updatedRow.unitName,
+      title: updatedRow.title,
+      description: updatedRow.description,
+      objective: updatedRow.objective,
+      institution: updatedRow.institution,
+      targetCompetencyName: updatedRow.targetCompetencyName,
+      targetCompetencyType: updatedRow.targetCompetencyType,
+      targetCompetencyLevel: updatedRow.targetCompetencyLevel,
+      evaluationMethod: updatedRow.evaluationMethod,
+      renewalMonths: updatedRow.renewalMonths,
+      workloadHours: updatedRow.workloadHours,
+      completionDate: updatedRow.completionDate,
+      expirationDate: updatedRow.expirationDate,
+      status: derivedStatus,
+      effectivenessStatus,
+      effectivenessDueDate: updatedRow.effectivenessDueDate || null,
+      effectivenessAssignedRole:
+        (updatedRow.effectivenessAssignedRole as
+          | "gestor"
+          | "rh"
+          | "instrutor"
+          | "colaborador"
+          | null) || null,
+      reviewerCount: new Set(trainingReviews.map((r) => r.evaluatorUserId))
+        .size,
+      effectivenessScorePercent:
+        trainingReviews[0] != null && trainingReviews[0].score != null
+          ? trainingReviews[0].score * 10
+          : null,
+      attachments: formatEmployeeRecordAttachments(updatedRow.attachments),
+      latestEffectivenessReview: trainingReviews[0]
+        ? formatTrainingEffectivenessReview(trainingReviews[0])
+        : null,
+      createdAt: toIsoDateTime(updatedRow.createdAt),
+      updatedAt: toIsoDateTime(updatedRow.updatedAt),
+    });
+  },
+);
+
 router.get(
   "/organizations/:orgId/employees/:empId/trainings/:trainId/effectiveness-reviews",
   requireAuth,
@@ -2941,7 +3155,9 @@ router.post(
       return;
     }
 
-    const body = CreateTrainingEffectivenessReviewBody.safeParse(req.body);
+    const body = CreateTrainingEffectivenessReviewBody.extend({
+      evaluatorRole: z.enum(EVALUATOR_ROLE_VALUES).optional(),
+    }).safeParse(req.body);
     if (!body.success) {
       res.status(400).json({ error: body.error.message });
       return;
@@ -2957,6 +3173,18 @@ router.post(
       return;
     }
 
+    // evaluatorRole: use body value if provided; otherwise inherit from training
+    const evaluatorRole =
+      (body.data.evaluatorRole ??
+        (training.effectivenessAssignedRole as
+          | "gestor"
+          | "rh"
+          | "instrutor"
+          | "colaborador"
+          | null
+          | undefined)) ??
+      null;
+
     const review = await db.transaction(async (tx) => {
       const [createdReview] = await tx
         .insert(trainingEffectivenessReviewsTable)
@@ -2969,6 +3197,7 @@ router.post(
           resultLevel: body.data.resultLevel,
           comments: body.data.comments?.trim() || null,
           attachments: attachments || [],
+          evaluatorRole: evaluatorRole ?? undefined,
         })
         .returning();
 
