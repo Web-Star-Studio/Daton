@@ -66,6 +66,7 @@ import type {
   CreateCorrectiveActionBody,
   CreateDepartmentBody,
   CreateDocumentBody,
+  CreateEffectivenessAssignmentBody,
   CreateEmployeeBody,
   CreateEmployeeProfileItemBody,
   CreateInternalAuditBody,
@@ -219,6 +220,7 @@ import type {
   OrganizationContactGroup,
   OrganizationContactGroupBody,
   OrganizationOnboardingAuthResponse,
+  OrganizationTraining,
   PaginatedEmployeeCompetencyGaps,
   PaginatedEmployees,
   PaginatedInternalAudits,
@@ -5683,6 +5685,134 @@ export const useDeleteTraining = <
   TContext
 > => {
   return useMutation(getDeleteTrainingMutationOptions(options));
+};
+
+/**
+ * @summary Assign effectiveness evaluator role and due date for an employee training
+ */
+export const getAssignTrainingEffectivenessUrl = (
+  orgId: number,
+  empId: number,
+  trainId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/${empId}/trainings/${trainId}/effectiveness-assignment`;
+};
+
+export const assignTrainingEffectiveness = async (
+  orgId: number,
+  empId: number,
+  trainId: number,
+  createEffectivenessAssignmentBody: CreateEffectivenessAssignmentBody,
+  options?: RequestInit,
+): Promise<OrganizationTraining> => {
+  return customFetch<OrganizationTraining>(
+    getAssignTrainingEffectivenessUrl(orgId, empId, trainId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createEffectivenessAssignmentBody),
+    },
+  );
+};
+
+export const getAssignTrainingEffectivenessMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignTrainingEffectiveness>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      trainId: number;
+      data: BodyType<CreateEffectivenessAssignmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof assignTrainingEffectiveness>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    trainId: number;
+    data: BodyType<CreateEffectivenessAssignmentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["assignTrainingEffectiveness"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof assignTrainingEffectiveness>>,
+    {
+      orgId: number;
+      empId: number;
+      trainId: number;
+      data: BodyType<CreateEffectivenessAssignmentBody>;
+    }
+  > = (props) => {
+    const { orgId, empId, trainId, data } = props ?? {};
+
+    return assignTrainingEffectiveness(
+      orgId,
+      empId,
+      trainId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AssignTrainingEffectivenessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignTrainingEffectiveness>>
+>;
+export type AssignTrainingEffectivenessMutationBody =
+  BodyType<CreateEffectivenessAssignmentBody>;
+export type AssignTrainingEffectivenessMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Assign effectiveness evaluator role and due date for an employee training
+ */
+export const useAssignTrainingEffectiveness = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignTrainingEffectiveness>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      trainId: number;
+      data: BodyType<CreateEffectivenessAssignmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof assignTrainingEffectiveness>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    trainId: number;
+    data: BodyType<CreateEffectivenessAssignmentBody>;
+  },
+  TContext
+> => {
+  return useMutation(getAssignTrainingEffectivenessMutationOptions(options));
 };
 
 /**

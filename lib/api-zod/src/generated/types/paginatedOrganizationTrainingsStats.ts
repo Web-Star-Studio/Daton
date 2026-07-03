@@ -12,4 +12,5 @@ export type PaginatedOrganizationTrainingsStats = {
   concluido: number;
   vencido: number;
   effectivenessPending: number;
+  onTimePercent?: number | null;
 };

@@ -12,6 +12,7 @@ export type OrganizationTrainingEffectivenessStatus =
 
 export const OrganizationTrainingEffectivenessStatus = {
   pending: "pending",
+  in_review: "in_review",
   effective: "effective",
   ineffective: "ineffective",
 } as const;

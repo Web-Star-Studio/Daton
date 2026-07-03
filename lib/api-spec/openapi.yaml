@@ -1061,7 +1061,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending, effective, ineffective]
+            enum: [pending, in_review, effective, ineffective]
         - name: page
           in: query
           schema:
@@ -1562,6 +1562,41 @@ paths:
       responses:
         "204":
           description: Training deleted
+
+  /organizations/{orgId}/employees/{empId}/trainings/{trainId}/effectiveness-assignment:
+    post:
+      operationId: assignTrainingEffectiveness
+      tags: [training-effectiveness]
+      summary: Assign effectiveness evaluator role and due date for an employee training
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: trainId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEffectivenessAssignmentBody"
+      responses:
+        "200":
+          description: Updated organization training with assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationTraining"
 
   /organizations/{orgId}/employees/{empId}/trainings/{trainId}/effectiveness-reviews:
     get:
@@ -12564,7 +12599,7 @@ components:
         effectivenessStatus:
           type: string
           nullable: true
-          enum: [pending, effective, ineffective]
+          enum: [pending, in_review, effective, ineffective]
         attachments:
           type: array
           items:
@@ -12572,6 +12607,19 @@ components:
         latestEffectivenessReview:
           allOf:
             - $ref: "#/components/schemas/TrainingEffectivenessReview"
+          nullable: true
+        effectivenessDueDate:
+          type: string
+          format: date
+          nullable: true
+        effectivenessAssignedRole:
+          type: string
+          enum: [gestor, rh, instrutor, colaborador]
+          nullable: true
+        reviewerCount:
+          type: integer
+        effectivenessScorePercent:
+          type: number
           nullable: true
         createdAt:
           type: string
@@ -12586,6 +12634,7 @@ components:
         - title
         - status
         - attachments
+        - reviewerCount
 
     EmployeeAwareness:
       type: object
@@ -12847,6 +12896,9 @@ components:
               type: integer
             effectivenessPending:
               type: integer
+            onTimePercent:
+              type: number
+              nullable: true
           required:
             - total
             - pendente
@@ -13367,6 +13419,9 @@ components:
           maximum: 5
         comments:
           type: string
+        evaluatorRole:
+          type: string
+          enum: [gestor, rh, instrutor, colaborador]
         attachments:
           type: array
           maxItems: 10
@@ -13375,6 +13430,19 @@ components:
       required:
         - evaluationDate
         - isEffective
+
+    CreateEffectivenessAssignmentBody:
+      type: object
+      required:
+        - evaluatorRole
+        - dueDate
+      properties:
+        evaluatorRole:
+          type: string
+          enum: [gestor, rh, instrutor, colaborador]
+        dueDate:
+          type: string
+          format: date
 
     CreatePositionCompetencyRequirementBody:
       type: object

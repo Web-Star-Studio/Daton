@@ -1631,7 +1631,7 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
   status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
   expiringWithinDays: zod.coerce.number().min(1).optional(),
   effectivenessStatus: zod
-    .enum(["pending", "effective", "ineffective"])
+    .enum(["pending", "in_review", "effective", "ineffective"])
     .optional(),
   page: zod.coerce.number().min(1).optional(),
   pageSize: zod.coerce
@@ -1685,7 +1685,7 @@ export const ListOrganizationTrainingsResponse = zod.object({
       expirationDate: zod.string().nullish(),
       status: zod.enum(["pendente", "concluido", "vencido"]),
       effectivenessStatus: zod
-        .enum(["pending", "effective", "ineffective"])
+        .enum(["pending", "in_review", "effective", "ineffective"])
         .nullish(),
       attachments: zod.array(
         zod.object({
@@ -1749,6 +1749,12 @@ export const ListOrganizationTrainingsResponse = zod.object({
           createdAt: zod.string().datetime({}).optional(),
         })
         .nullish(),
+      effectivenessDueDate: zod.string().date().nullish(),
+      effectivenessAssignedRole: zod
+        .enum(["gestor", "rh", "instrutor", "colaborador"])
+        .nullish(),
+      reviewerCount: zod.number(),
+      effectivenessScorePercent: zod.number().nullish(),
       createdAt: zod.string().datetime({}).optional(),
       updatedAt: zod.string().datetime({}).optional(),
     }),
@@ -1765,6 +1771,7 @@ export const ListOrganizationTrainingsResponse = zod.object({
     concluido: zod.number(),
     vencido: zod.number(),
     effectivenessPending: zod.number(),
+    onTimePercent: zod.number().nullish(),
   }),
 });
 
@@ -3049,6 +3056,134 @@ export const DeleteTrainingParams = zod.object({
 });
 
 /**
+ * @summary Assign effectiveness evaluator role and due date for an employee training
+ */
+export const AssignTrainingEffectivenessParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  trainId: zod.coerce.number(),
+});
+
+export const AssignTrainingEffectivenessBody = zod.object({
+  evaluatorRole: zod.enum(["gestor", "rh", "instrutor", "colaborador"]),
+  dueDate: zod.string().date(),
+});
+
+export const assignTrainingEffectivenessResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const assignTrainingEffectivenessResponseAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneScoreMin = 0;
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneScoreMax = 10;
+
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMin = 0;
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMax = 5;
+
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
+
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const AssignTrainingEffectivenessResponse = zod.object({
+  catalogItemId: zod.number().nullish(),
+  dueDate: zod.string().nullish(),
+  requirementId: zod.number().nullish(),
+  id: zod.number(),
+  employeeId: zod.number(),
+  employeeName: zod.string(),
+  employeePosition: zod.string().nullish(),
+  employeeDepartment: zod.string().nullish(),
+  unitId: zod.number().nullish(),
+  unitName: zod.string().nullish(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  objective: zod.string().nullish(),
+  institution: zod.string().nullish(),
+  targetCompetencyName: zod.string().nullish(),
+  targetCompetencyType: zod
+    .enum(["formacao", "experiencia", "habilidade"])
+    .nullish(),
+  targetCompetencyLevel: zod.number().nullish(),
+  evaluationMethod: zod.string().nullish(),
+  renewalMonths: zod.number().nullish(),
+  workloadHours: zod.number().nullish(),
+  completionDate: zod.string().nullish(),
+  expirationDate: zod.string().nullish(),
+  status: zod.enum(["pendente", "concluido", "vencido"]),
+  effectivenessStatus: zod
+    .enum(["pending", "in_review", "effective", "ineffective"])
+    .nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(assignTrainingEffectivenessResponseAttachmentsItemFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          assignTrainingEffectivenessResponseAttachmentsItemObjectPathRegExp,
+        ),
+    }),
+  ),
+  latestEffectivenessReview: zod
+    .object({
+      id: zod.number(),
+      trainingId: zod.number(),
+      evaluatorUserId: zod.number(),
+      evaluatorName: zod.string().nullish(),
+      evaluationDate: zod.string().date(),
+      score: zod
+        .number()
+        .min(
+          assignTrainingEffectivenessResponseLatestEffectivenessReviewOneScoreMin,
+        )
+        .max(
+          assignTrainingEffectivenessResponseLatestEffectivenessReviewOneScoreMax,
+        )
+        .nullish(),
+      isEffective: zod.boolean().nullish(),
+      resultLevel: zod
+        .number()
+        .min(
+          assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMin,
+        )
+        .max(
+          assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMax,
+        )
+        .nullish(),
+      comments: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp,
+            ),
+        }),
+      ),
+      createdAt: zod.string().datetime({}).optional(),
+    })
+    .nullish(),
+  effectivenessDueDate: zod.string().date().nullish(),
+  effectivenessAssignedRole: zod
+    .enum(["gestor", "rh", "instrutor", "colaborador"])
+    .nullish(),
+  reviewerCount: zod.number(),
+  effectivenessScorePercent: zod.number().nullish(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
  * @summary List effectiveness reviews for an employee training
  */
 export const ListTrainingEffectivenessReviewsParams = zod.object({
@@ -3143,6 +3278,9 @@ export const CreateTrainingEffectivenessReviewBody = zod.object({
     .max(createTrainingEffectivenessReviewBodyResultLevelMax)
     .optional(),
   comments: zod.string().optional(),
+  evaluatorRole: zod
+    .enum(["gestor", "rh", "instrutor", "colaborador"])
+    .optional(),
   attachments: zod
     .array(
       zod.object({

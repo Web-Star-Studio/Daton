@@ -1366,8 +1366,20 @@ export type OrganizationTrainingEffectivenessStatus =
 
 export const OrganizationTrainingEffectivenessStatus = {
   pending: "pending",
+  in_review: "in_review",
   effective: "effective",
   ineffective: "ineffective",
+} as const;
+
+export type OrganizationTrainingEffectivenessAssignedRole =
+  | (typeof OrganizationTrainingEffectivenessAssignedRole)[keyof typeof OrganizationTrainingEffectivenessAssignedRole]
+  | null;
+
+export const OrganizationTrainingEffectivenessAssignedRole = {
+  gestor: "gestor",
+  rh: "rh",
+  instrutor: "instrutor",
+  colaborador: "colaborador",
 } as const;
 
 export interface OrganizationTraining {
@@ -1397,6 +1409,10 @@ export interface OrganizationTraining {
   effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
+  effectivenessDueDate?: string | null;
+  effectivenessAssignedRole?: OrganizationTrainingEffectivenessAssignedRole;
+  reviewerCount: number;
+  effectivenessScorePercent?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1499,6 +1515,7 @@ export type PaginatedOrganizationTrainingsStats = {
   concluido: number;
   vencido: number;
   effectivenessPending: number;
+  onTimePercent?: number | null;
 };
 
 export interface PaginatedOrganizationTrainings {
@@ -1857,6 +1874,16 @@ export interface UpdateAwarenessBody {
   attachments?: EmployeeRecordAttachment[];
 }
 
+export type CreateTrainingEffectivenessReviewBodyEvaluatorRole =
+  (typeof CreateTrainingEffectivenessReviewBodyEvaluatorRole)[keyof typeof CreateTrainingEffectivenessReviewBodyEvaluatorRole];
+
+export const CreateTrainingEffectivenessReviewBodyEvaluatorRole = {
+  gestor: "gestor",
+  rh: "rh",
+  instrutor: "instrutor",
+  colaborador: "colaborador",
+} as const;
+
 export interface CreateTrainingEffectivenessReviewBody {
   evaluationDate: string;
   /**
@@ -1871,8 +1898,24 @@ export interface CreateTrainingEffectivenessReviewBody {
    */
   resultLevel?: number;
   comments?: string;
+  evaluatorRole?: CreateTrainingEffectivenessReviewBodyEvaluatorRole;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
+}
+
+export type CreateEffectivenessAssignmentBodyEvaluatorRole =
+  (typeof CreateEffectivenessAssignmentBodyEvaluatorRole)[keyof typeof CreateEffectivenessAssignmentBodyEvaluatorRole];
+
+export const CreateEffectivenessAssignmentBodyEvaluatorRole = {
+  gestor: "gestor",
+  rh: "rh",
+  instrutor: "instrutor",
+  colaborador: "colaborador",
+} as const;
+
+export interface CreateEffectivenessAssignmentBody {
+  evaluatorRole: CreateEffectivenessAssignmentBodyEvaluatorRole;
+  dueDate: string;
 }
 
 export type CreatePositionCompetencyRequirementBodyCompetencyType =
@@ -6438,6 +6481,7 @@ export type ListOrganizationTrainingsEffectivenessStatus =
 
 export const ListOrganizationTrainingsEffectivenessStatus = {
   pending: "pending",
+  in_review: "in_review",
   effective: "effective",
   ineffective: "ineffective",
 } as const;
