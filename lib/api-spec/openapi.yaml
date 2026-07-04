@@ -1062,6 +1062,34 @@ paths:
           schema:
             type: string
             enum: [pending, in_review, effective, ineffective]
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [needs_evaluation, all]
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: norm
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: evaluatorRole
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gestor, rh, instrutor, colaborador]
+        - name: boardColumn
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pendentes, em_avaliacao, concluidas]
         - name: page
           in: query
           schema:
@@ -12897,6 +12925,23 @@ components:
             effectivenessPending:
               type: integer
             onTimePercent:
+              type: number
+              nullable: true
+            boardCounts:
+              type: object
+              required: [pendentes, emAvaliacao, concluidas]
+              properties:
+                pendentes:
+                  type: integer
+                emAvaliacao:
+                  type: integer
+                concluidas:
+                  type: integer
+            eficazes:
+              type: integer
+            naoEficazes:
+              type: integer
+            eficazPercent:
               type: number
               nullable: true
           required:

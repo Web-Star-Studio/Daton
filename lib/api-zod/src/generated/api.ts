@@ -1633,6 +1633,13 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
   effectivenessStatus: zod
     .enum(["pending", "in_review", "effective", "ineffective"])
     .optional(),
+  scope: zod.enum(["needs_evaluation", "all"]).optional(),
+  year: zod.coerce.number().optional(),
+  norm: zod.coerce.string().optional(),
+  evaluatorRole: zod
+    .enum(["gestor", "rh", "instrutor", "colaborador"])
+    .optional(),
+  boardColumn: zod.enum(["pendentes", "em_avaliacao", "concluidas"]).optional(),
   page: zod.coerce.number().min(1).optional(),
   pageSize: zod.coerce
     .number()
@@ -1772,6 +1779,16 @@ export const ListOrganizationTrainingsResponse = zod.object({
     vencido: zod.number(),
     effectivenessPending: zod.number(),
     onTimePercent: zod.number().nullish(),
+    boardCounts: zod
+      .object({
+        pendentes: zod.number(),
+        emAvaliacao: zod.number(),
+        concluidas: zod.number(),
+      })
+      .optional(),
+    eficazes: zod.number().optional(),
+    naoEficazes: zod.number().optional(),
+    eficazPercent: zod.number().nullish(),
   }),
 });
 

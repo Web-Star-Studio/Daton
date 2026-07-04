@@ -5,7 +5,10 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListOrganizationTrainingsBoardColumn } from "./listOrganizationTrainingsBoardColumn";
 import type { ListOrganizationTrainingsEffectivenessStatus } from "./listOrganizationTrainingsEffectivenessStatus";
+import type { ListOrganizationTrainingsEvaluatorRole } from "./listOrganizationTrainingsEvaluatorRole";
+import type { ListOrganizationTrainingsScope } from "./listOrganizationTrainingsScope";
 import type { ListOrganizationTrainingsStatus } from "./listOrganizationTrainingsStatus";
 
 export type ListOrganizationTrainingsParams = {
@@ -20,6 +23,11 @@ export type ListOrganizationTrainingsParams = {
    */
   expiringWithinDays?: number;
   effectivenessStatus?: ListOrganizationTrainingsEffectivenessStatus;
+  scope?: ListOrganizationTrainingsScope;
+  year?: number;
+  norm?: string;
+  evaluatorRole?: ListOrganizationTrainingsEvaluatorRole;
+  boardColumn?: ListOrganizationTrainingsBoardColumn;
   /**
    * @minimum 1
    */

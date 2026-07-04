@@ -1509,6 +1509,12 @@ export type PaginatedOrganizationTrainingsPagination = {
   totalPages: number;
 };
 
+export type PaginatedOrganizationTrainingsStatsBoardCounts = {
+  pendentes: number;
+  emAvaliacao: number;
+  concluidas: number;
+};
+
 export type PaginatedOrganizationTrainingsStats = {
   total: number;
   pendente: number;
@@ -1516,6 +1522,10 @@ export type PaginatedOrganizationTrainingsStats = {
   vencido: number;
   effectivenessPending: number;
   onTimePercent?: number | null;
+  boardCounts?: PaginatedOrganizationTrainingsStatsBoardCounts;
+  eficazes?: number;
+  naoEficazes?: number;
+  eficazPercent?: number | null;
 };
 
 export interface PaginatedOrganizationTrainings {
@@ -6456,6 +6466,11 @@ export type ListOrganizationTrainingsParams = {
    */
   expiringWithinDays?: number;
   effectivenessStatus?: ListOrganizationTrainingsEffectivenessStatus;
+  scope?: ListOrganizationTrainingsScope;
+  year?: number;
+  norm?: string;
+  evaluatorRole?: ListOrganizationTrainingsEvaluatorRole;
+  boardColumn?: ListOrganizationTrainingsBoardColumn;
   /**
    * @minimum 1
    */
@@ -6484,6 +6499,33 @@ export const ListOrganizationTrainingsEffectivenessStatus = {
   in_review: "in_review",
   effective: "effective",
   ineffective: "ineffective",
+} as const;
+
+export type ListOrganizationTrainingsScope =
+  (typeof ListOrganizationTrainingsScope)[keyof typeof ListOrganizationTrainingsScope];
+
+export const ListOrganizationTrainingsScope = {
+  needs_evaluation: "needs_evaluation",
+  all: "all",
+} as const;
+
+export type ListOrganizationTrainingsEvaluatorRole =
+  (typeof ListOrganizationTrainingsEvaluatorRole)[keyof typeof ListOrganizationTrainingsEvaluatorRole];
+
+export const ListOrganizationTrainingsEvaluatorRole = {
+  gestor: "gestor",
+  rh: "rh",
+  instrutor: "instrutor",
+  colaborador: "colaborador",
+} as const;
+
+export type ListOrganizationTrainingsBoardColumn =
+  (typeof ListOrganizationTrainingsBoardColumn)[keyof typeof ListOrganizationTrainingsBoardColumn];
+
+export const ListOrganizationTrainingsBoardColumn = {
+  pendentes: "pendentes",
+  em_avaliacao: "em_avaliacao",
+  concluidas: "concluidas",
 } as const;
 
 export type ListEmployeeCompetencyGapsParams = {

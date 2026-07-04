@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { PaginatedOrganizationTrainingsStatsBoardCounts } from "./paginatedOrganizationTrainingsStatsBoardCounts";
 
 export type PaginatedOrganizationTrainingsStats = {
   total: number;
@@ -13,4 +14,8 @@ export type PaginatedOrganizationTrainingsStats = {
   vencido: number;
   effectivenessPending: number;
   onTimePercent?: number | null;
+  boardCounts?: PaginatedOrganizationTrainingsStatsBoardCounts;
+  eficazes?: number;
+  naoEficazes?: number;
+  eficazPercent?: number | null;
 };
