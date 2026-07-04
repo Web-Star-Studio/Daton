@@ -1525,13 +1525,34 @@ router.get(
        *  - `needs_evaluation`: apenas treinamentos com avaliação configurada ou review registrado.
        *  - `all` (padrão): todos os treinamentos — mantém compatibilidade com os callers existentes. */
       scope: z.enum(["needs_evaluation", "all"]).optional().default("all"),
+      /** Filtro por ano de conclusão (completionDate). */
+      year: z.coerce.number().int().min(2000).max(2100).optional(),
+      /** Filtro por papel atribuído para avaliação de eficácia. */
+      evaluatorRole: z
+        .enum(["gestor", "rh", "instrutor", "colaborador"])
+        .optional(),
+      /** Filtro por norma do item do catálogo vinculado ao treinamento. */
+      norm: z.string().optional(),
+      /** Coluna do board: aplica condição de coluna à query de dados e ao COUNT
+       *  de paginação. As stats (boardCounts, eficazes…) sempre cobrem o
+       *  conjunto filtrado inteiro, independente desta coluna. */
+      boardColumn: z
+        .enum(["pendentes", "em_avaliacao", "concluidas"])
+        .optional(),
     }).safeParse(req.query);
     if (!query.success) {
       res.status(400).json({ error: query.error.message });
       return;
     }
 
-    const conditions = [eq(employeesTable.organizationId, params.data.orgId)];
+    const page = query.data.page ?? 1;
+    const pageSize = query.data.pageSize ?? 25;
+    const offset = (page - 1) * pageSize;
+
+    // ── Condições compartilhadas (sem boardColumn) ────────────────────────────
+    const conditions: ReturnType<typeof and>[] = [
+      eq(employeesTable.organizationId, params.data.orgId),
+    ];
     const normalizedSearch = query.data.search?.trim();
     if (normalizedSearch) {
       const pattern = `%${normalizedSearch}%`;
@@ -1576,7 +1597,81 @@ router.get(
     if (query.data.scope === "needs_evaluation") {
       conditions.push(boardNeedsEvaluationScope);
     }
+    // ── Filtros novos (T2) ────────────────────────────────────────────────────
+    if (query.data.status) {
+      const st = query.data.status;
+      if (st === "concluido") {
+        conditions.push(
+          and(
+            eq(employeeTrainingsTable.status, "concluido"),
+            or(
+              isNull(employeeTrainingsTable.expirationDate),
+              sql`${employeeTrainingsTable.expirationDate} >= current_date`,
+            )!,
+          )!,
+        );
+      } else if (st === "vencido") {
+        conditions.push(
+          or(
+            eq(employeeTrainingsTable.status, "vencido"),
+            and(
+              isNotNull(employeeTrainingsTable.expirationDate),
+              sql`${employeeTrainingsTable.expirationDate} < current_date`,
+            )!,
+          )!,
+        );
+      } else {
+        conditions.push(eq(employeeTrainingsTable.status, st));
+      }
+    }
+    if (query.data.year) {
+      conditions.push(
+        sql`extract(year from ${employeeTrainingsTable.completionDate}) = ${query.data.year}`,
+      );
+    }
+    if (query.data.evaluatorRole) {
+      conditions.push(
+        eq(
+          employeeTrainingsTable.effectivenessAssignedRole,
+          query.data.evaluatorRole,
+        ),
+      );
+    }
+    if (query.data.norm) {
+      const normValue = query.data.norm;
+      conditions.push(
+        exists(
+          db
+            .select({ one: sql<number>`1` })
+            .from(trainingCatalogTable)
+            .where(
+              and(
+                eq(
+                  trainingCatalogTable.id,
+                  sql`${employeeTrainingsTable.catalogItemId}`,
+                ),
+                eq(trainingCatalogTable.norm, normValue),
+              ),
+            ),
+        ),
+      );
+    }
 
+    // ── Condição de coluna do board (só para query de dados + COUNT) ──────────
+    const boardColumnCondition =
+      query.data.boardColumn === "pendentes"
+        ? boardPendentes
+        : query.data.boardColumn === "em_avaliacao"
+          ? boardEmAvaliacao
+          : query.data.boardColumn === "concluidas"
+            ? boardConcluidas
+            : null;
+
+    const dataConditions = boardColumnCondition
+      ? [...conditions, boardColumnCondition]
+      : conditions;
+
+    // ── Query de DADOS — paginação SQL real ───────────────────────────────────
     const rows = await db
       .select({
         id: employeeTrainingsTable.id,
@@ -1616,12 +1711,112 @@ router.get(
         eq(employeeTrainingsTable.employeeId, employeesTable.id),
       )
       .leftJoin(unitsTable, eq(employeesTable.unitId, unitsTable.id))
-      .where(and(...conditions))
+      .where(and(...dataConditions))
       .orderBy(
         sql`${employeesTable.name} asc`,
         sql`${employeeTrainingsTable.createdAt} desc`,
-      );
+        sql`${employeeTrainingsTable.id} asc`,
+      )
+      .limit(pageSize)
+      .offset(offset);
 
+    // ── COUNT para pagination.total (mesmas condições + boardColumn) ──────────
+    const [countRow] = await db
+      .select({ paginationTotal: count() })
+      .from(employeeTrainingsTable)
+      .innerJoin(
+        employeesTable,
+        eq(employeeTrainingsTable.employeeId, employeesTable.id),
+      )
+      .where(and(...dataConditions));
+    const paginationTotal = countRow?.paginationTotal ?? 0;
+
+    // ── Stats por query agregada (conjunto filtrado, SEM boardColumn) ─────────
+    // Subqueries correlacionadas para a última review por treinamento
+    const latestIsEffective = sql`(
+      select r.is_effective
+      from training_effectiveness_reviews r
+      where r.training_id = ${employeeTrainingsTable.id}
+      order by r.evaluation_date desc, r.created_at desc
+      limit 1
+    )`;
+    const latestEvalDate = sql`(
+      select r.evaluation_date
+      from training_effectiveness_reviews r
+      where r.training_id = ${employeeTrainingsTable.id}
+      order by r.evaluation_date desc, r.created_at desc
+      limit 1
+    )`;
+
+    const [statsRow] = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        // Board column counts
+        boardPendentesCount: sql<number>`count(*) filter (where ${boardPendentes})::int`,
+        boardEmAvaliacaoCount: sql<number>`count(*) filter (where ${boardEmAvaliacao})::int`,
+        boardConcluidasCount: sql<number>`count(*) filter (where ${boardConcluidas})::int`,
+        // Legacy training-status stats (replicating deriveTrainingStatus logic)
+        pendenteCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'pendente')::int`,
+        concluidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'concluido' and (${employeeTrainingsTable.expirationDate} is null or ${employeeTrainingsTable.expirationDate} >= current_date))::int`,
+        vencidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'vencido' or (${employeeTrainingsTable.expirationDate} is not null and ${employeeTrainingsTable.expirationDate} < current_date))::int`,
+        // effectivenessPending: no review, no assignment/dueDate, but has eval config
+        effectivenessPendingCount: sql<number>`count(*) filter (where
+          not exists (select 1 from training_effectiveness_reviews r2 where r2.training_id = ${employeeTrainingsTable.id})
+          and ${employeeTrainingsTable.effectivenessAssignedRole} is null
+          and ${employeeTrainingsTable.effectivenessDueDate} is null
+          and (${employeeTrainingsTable.evaluationMethod} is not null or ${employeeTrainingsTable.targetCompetencyName} is not null)
+        )::int`,
+        // eficazes / naoEficazes: última review por treinamento
+        eficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = true)::int`,
+        naoEficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = false)::int`,
+        // onTime: concluídas com dueDate onde latestEvalDate <= dueDate
+        onTimeCount: sql<number>`count(*) filter (where
+          ${boardConcluidas}
+          and ${employeeTrainingsTable.effectivenessDueDate} is not null
+          and ${latestEvalDate} <= ${employeeTrainingsTable.effectivenessDueDate}
+        )::int`,
+        withDueDateCount: sql<number>`count(*) filter (where ${boardConcluidas} and ${employeeTrainingsTable.effectivenessDueDate} is not null)::int`,
+      })
+      .from(employeeTrainingsTable)
+      .innerJoin(
+        employeesTable,
+        eq(employeeTrainingsTable.employeeId, employeesTable.id),
+      )
+      .where(and(...conditions)); // SEM boardColumn — stats cobrem o conjunto inteiro
+
+    // Compute derived stats
+    const eficazes = statsRow?.eficazesCount ?? 0;
+    const naoEficazes = statsRow?.naoEficazesCount ?? 0;
+    const eficazDenom = eficazes + naoEficazes;
+    const eficazPercent =
+      eficazDenom > 0 ? Math.round((eficazes / eficazDenom) * 100) : null;
+
+    const withDueDateCount = statsRow?.withDueDateCount ?? 0;
+    const onTimePercent =
+      withDueDateCount > 0
+        ? Math.round(((statsRow?.onTimeCount ?? 0) / withDueDateCount) * 100)
+        : null;
+
+    const stats = {
+      // Campos legados (mantidos para compatibilidade com callers existentes)
+      total: statsRow?.total ?? 0,
+      pendente: statsRow?.pendenteCount ?? 0,
+      concluido: statsRow?.concluidoCount ?? 0,
+      vencido: statsRow?.vencidoCount ?? 0,
+      effectivenessPending: statsRow?.effectivenessPendingCount ?? 0,
+      onTimePercent,
+      // Novos campos de board (T2)
+      boardCounts: {
+        pendentes: statsRow?.boardPendentesCount ?? 0,
+        emAvaliacao: statsRow?.boardEmAvaliacaoCount ?? 0,
+        concluidas: statsRow?.boardConcluidasCount ?? 0,
+      },
+      eficazes,
+      naoEficazes,
+      eficazPercent,
+    };
+
+    // ── Reviews — apenas para os IDs da página ────────────────────────────────
     const reviewsByTrainingId = await loadTrainingReviewRows(
       rows.map((row) => row.id),
     );
@@ -1632,7 +1827,8 @@ router.get(
         )
       : null;
 
-    const response = rows
+    // ── Formatar + filtros em memória (efectivenessStatus, expiringWithinDays) ─
+    const pageData = rows
       .map((row) => {
         const reviews = reviewsByTrainingId.get(row.id) || [];
         const derivedStatus = deriveTrainingStatus(
@@ -1685,7 +1881,8 @@ router.get(
         };
       })
       .filter((row) => {
-        if (query.data.status && row.status !== query.data.status) return false;
+        // `status` já está nas condições SQL; filtramos apenas os casos que
+        // dependem de lógica de aplicação (effectivenessStatus, expiringWithinDays).
         if (
           query.data.effectivenessStatus &&
           row.effectivenessStatus !== query.data.effectivenessStatus
@@ -1701,52 +1898,13 @@ router.get(
         return true;
       });
 
-    // ── onTimePercent stat ────────────────────────────────────────────────────
-    // Among trainings with a verdict (effective/ineffective) that have
-    // effectivenessDueDate set, the % whose most-recent evaluationDate <=
-    // effectivenessDueDate. If denominator is 0 → null.
-    const withVerdictAndDueDate = response.filter(
-      (r) =>
-        (r.effectivenessStatus === "effective" ||
-          r.effectivenessStatus === "ineffective") &&
-        r.effectivenessDueDate != null,
-    );
-    let onTimePercent: number | null = null;
-    if (withVerdictAndDueDate.length > 0) {
-      const onTimeCount = withVerdictAndDueDate.filter((r) => {
-        const reviews = reviewsByTrainingId.get(r.id) || [];
-        if (reviews.length === 0) return false;
-        // evaluationDate and effectivenessDueDate are both YYYY-MM-DD strings
-        return reviews[0].evaluationDate <= r.effectivenessDueDate!;
-      }).length;
-      onTimePercent = Math.round(
-        (onTimeCount / withVerdictAndDueDate.length) * 100,
-      );
-    }
-
-    const stats = {
-      total: response.length,
-      pendente: response.filter((r) => r.status === "pendente").length,
-      concluido: response.filter((r) => r.status === "concluido").length,
-      vencido: response.filter((r) => r.status === "vencido").length,
-      effectivenessPending: response.filter(
-        (r) => r.effectivenessStatus === "pending",
-      ).length,
-      onTimePercent,
-    };
-
-    const page = query.data.page || 1;
-    const pageSize = query.data.pageSize || 25;
-    const total = response.length;
-    const offset = (page - 1) * pageSize;
-
     res.json({
-      data: response.slice(offset, offset + pageSize),
+      data: pageData,
       pagination: {
         page,
         pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
+        total: paginationTotal,
+        totalPages: Math.ceil(paginationTotal / pageSize),
       },
       stats,
     });
