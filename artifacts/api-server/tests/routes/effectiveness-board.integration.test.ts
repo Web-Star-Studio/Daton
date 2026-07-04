@@ -375,6 +375,103 @@ describe("Board de eficácia — T2: paginação SQL + stats agregadas + filtros
     expect(bc.emAvaliacao).toBe(3);
     expect(bc.concluidas).toBe(2);
   });
+
+  it("stats.onTimePercent reflects aggregate over full set (1 of 2 on time = 50%)", async () => {
+    // Seeds 2 concluded trainings (each with a review) that also have effectivenessDueDate:
+    //   G — evaluationDate=2024-03-01 <= effectivenessDueDate=2024-03-15 → on time
+    //   H — evaluationDate=2024-05-01 >  effectivenessDueDate=2024-04-30 → late
+    // Expected: onTimePercent = 50 (1 of 2).
+    // Also verified with pageSize=1 to prove the stat comes from the aggregate, not the page.
+    const ctx = await createTestContext({ seed: "board-t2-ontime" });
+    contexts.push(ctx);
+
+    const unit = await createUnit(ctx, `Filial T2-ontime ${ctx.prefix}`);
+    const employee = await createEmployee(ctx, {
+      name: `Colaborador T2-ontime ${ctx.prefix}`,
+      unitId: unit.id,
+    });
+    const evaluatorUser = await createTestUser(ctx, { suffix: "eval-ontime" });
+
+    // G — on time: evaluationDate (2024-03-01) <= effectivenessDueDate (2024-03-15)
+    const [trainingG] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: `T2-G ontime ${ctx.prefix}`,
+        status: "concluido",
+        completionDate: "2024-01-10",
+        effectivenessDueDate: "2024-03-15",
+      })
+      .returning();
+
+    await db.insert(trainingEffectivenessReviewsTable).values({
+      trainingId: trainingG.id,
+      evaluatorUserId: evaluatorUser.id,
+      evaluationDate: "2024-03-01",
+      isEffective: true,
+    });
+
+    // H — late: evaluationDate (2024-05-01) > effectivenessDueDate (2024-04-30)
+    const [trainingH] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: `T2-H late ${ctx.prefix}`,
+        status: "concluido",
+        completionDate: "2024-02-10",
+        effectivenessDueDate: "2024-04-30",
+      })
+      .returning();
+
+    await db.insert(trainingEffectivenessReviewsTable).values({
+      trainingId: trainingH.id,
+      evaluatorUserId: evaluatorUser.id,
+      evaluationDate: "2024-05-01",
+      isEffective: false,
+    });
+
+    const base = `/api/organizations/${ctx.organizationId}/employees/trainings`;
+
+    // pageSize=100 — baseline check
+    const res100 = await request(app)
+      .get(`${base}?scope=needs_evaluation&pageSize=100`)
+      .set(authHeader(ctx));
+
+    expect(res100.status).toBe(200);
+    expect(res100.body.stats.onTimePercent).toBe(50);
+
+    // pageSize=1 — must return the same aggregate stat even though only 1 row is on the page
+    const res1 = await request(app)
+      .get(`${base}?scope=needs_evaluation&pageSize=1&page=1`)
+      .set(authHeader(ctx));
+
+    expect(res1.status).toBe(200);
+    expect(res1.body.data.length).toBe(1);
+    expect(res1.body.stats.onTimePercent).toBe(50);
+
+    void trainingG; // used above
+    void trainingH; // used above
+  });
+
+  it("stats.eficazes and stats.naoEficazes are independent of page size (aggregate, not page)", async () => {
+    // Uses the standard T2 seed: eficazes=1 (A), naoEficazes=1 (E), 6 total rows.
+    // With pageSize=1 only 1 row is returned, but stats must still reflect the full set.
+    const ctx = await createTestContext({ seed: "board-t2-eficaz-page" });
+    contexts.push(ctx);
+
+    const { base } = await seedT2(ctx);
+
+    const res = await request(app)
+      .get(`${base}?scope=needs_evaluation&pageSize=1&page=1`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBe(1);
+    // Stats must reflect the full filtered set (A=eficaz, E=naoEficaz), not just the 1-row page
+    expect(res.body.stats.eficazes).toBe(1);
+    expect(res.body.stats.naoEficazes).toBe(1);
+    expect(res.body.stats.eficazPercent).toBe(50);
+  });
 });
 
 // ─── T2 seed helper ──────────────────────────────────────────────────────────
