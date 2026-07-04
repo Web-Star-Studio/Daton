@@ -163,6 +163,13 @@ export default function ObrigatoriedadesPage() {
 
   const handleSave = async () => {
     if (!orgId || !form.positionId || !form.catalogItemId) return;
+    if (
+      form.deadlineType === "fixo" &&
+      (form.deadlineDays === "" ||
+        Number.isNaN(Number(form.deadlineDays)) ||
+        Number(form.deadlineDays) < 0)
+    )
+      return;
     const data = {
       positionId: Number(form.positionId),
       catalogItemId: Number(form.catalogItemId),
@@ -349,7 +356,7 @@ export default function ObrigatoriedadesPage() {
             </Select>
           </Field>
           {form.deadlineType === "fixo" ? (
-            <Field label="Prazo em dias">
+            <Field label="Prazo em dias *">
               <Input
                 type="number"
                 value={form.deadlineDays}
@@ -443,6 +450,10 @@ export default function ObrigatoriedadesPage() {
             disabled={
               !form.positionId ||
               !form.catalogItemId ||
+              (form.deadlineType === "fixo" &&
+                (form.deadlineDays === "" ||
+                  Number.isNaN(Number(form.deadlineDays)) ||
+                  Number(form.deadlineDays) < 0)) ||
               createMutation.isPending ||
               updateMutation.isPending
             }
