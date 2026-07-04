@@ -32,7 +32,7 @@ export default function MinhaAreaPage() {
     },
   });
 
-  const myTrainingsParams = { employeeId: employeeId ?? 0 };
+  const myTrainingsParams = { employeeId: employeeId ?? 0, pageSize: 200 };
   const { data: myTrainingsResult } = useListOrganizationTrainings(
     orgId ?? 0,
     myTrainingsParams,
@@ -54,6 +54,7 @@ export default function MinhaAreaPage() {
   const teamParams = {
     unitId: employee?.unitId ?? 0,
     effectivenessStatus: "pending" as const,
+    pageSize: 200,
   };
   const { data: teamResult } = useListOrganizationTrainings(
     orgId ?? 0,

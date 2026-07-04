@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetTrainingClass,
@@ -60,33 +60,57 @@ export function TurmaDetailPanel({
     p: TrainingClassParticipant,
     attendance: string,
   ) => {
-    await updateParticipant.mutateAsync({
-      orgId,
-      id: classId,
-      participantId: p.id,
-      data: { attendance },
-    });
-    invalidateDetail();
+    try {
+      await updateParticipant.mutateAsync({
+        orgId,
+        id: classId,
+        participantId: p.id,
+        data: { attendance },
+      });
+      invalidateDetail();
+    } catch {
+      toast({
+        title: "Erro ao salvar presença",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const setScore = async (p: TrainingClassParticipant, score: number) => {
-    await updateParticipant.mutateAsync({
-      orgId,
-      id: classId,
-      participantId: p.id,
-      data: { score },
-    });
-    invalidateDetail();
+    try {
+      await updateParticipant.mutateAsync({
+        orgId,
+        id: classId,
+        participantId: p.id,
+        data: { score },
+      });
+      invalidateDetail();
+    } catch {
+      toast({
+        title: "Erro ao salvar nota",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleComplete = async () => {
-    const res = await completeMutation.mutateAsync({ orgId, id: classId });
-    invalidateDetail();
-    onChanged();
-    toast({
-      title: "Turma concluída",
-      description: `${res.completed} treino(s) registrado(s) como concluído(s).`,
-    });
+    try {
+      const res = await completeMutation.mutateAsync({ orgId, id: classId });
+      invalidateDetail();
+      onChanged();
+      toast({
+        title: "Turma concluída",
+        description: `${res.completed} treino(s) registrado(s) como concluído(s).`,
+      });
+    } catch {
+      toast({
+        title: "Erro ao concluir turma",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleUpload = async (files: FileList | null) => {
@@ -178,7 +202,7 @@ export function TurmaDetailPanel({
                 className="flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2"
               >
                 <span className="flex-1 truncate text-sm">{p.employeeName}</span>
-                {canWrite ? (
+                {canWrite && !isDone ? (
                   <div className="flex gap-1">
                     <button
                       onClick={() => void setAttendance(p, "presente")}
@@ -228,15 +252,10 @@ export function TurmaDetailPanel({
                 <tr key={p.id} className="border-t">
                   <td className="py-1.5">{p.employeeName}</td>
                   <td className="py-1.5">
-                    <Input
-                      type="number"
-                      defaultValue={p.score ?? ""}
-                      disabled={!canWrite}
-                      className="h-8 w-20"
-                      onBlur={(e) => {
-                        const v = e.target.value;
-                        if (v !== "") void setScore(p, Number(v));
-                      }}
+                    <ScoreInput
+                      score={p.score ?? null}
+                      disabled={!canWrite || isDone}
+                      onSave={(v) => void setScore(p, v)}
                     />
                   </td>
                   <td className="py-1.5">
@@ -298,5 +317,33 @@ export function TurmaDetailPanel({
         ) : null}
       </div>
     </div>
+  );
+}
+
+// Controlled score input that stays in sync with refetched data.
+function ScoreInput({
+  score,
+  disabled,
+  onSave,
+}: {
+  score: number | null;
+  disabled: boolean;
+  onSave: (v: number) => void;
+}) {
+  const [val, setVal] = useState(score != null ? String(score) : "");
+  useEffect(() => {
+    setVal(score != null ? String(score) : "");
+  }, [score]);
+  return (
+    <Input
+      type="number"
+      value={val}
+      disabled={disabled}
+      className="h-8 w-20"
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={() => {
+        if (val !== "" && val !== String(score ?? "")) onSave(Number(val));
+      }}
+    />
   );
 }

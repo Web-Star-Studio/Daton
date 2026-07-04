@@ -24,6 +24,18 @@ function formatPct(value: number | null): string {
 }
 
 function formatDate(iso: string): string {
+  // Parse YYYY-MM-DD as local date to avoid UTC midnight shift.
+  const parts = iso.slice(0, 10).split("-");
+  if (parts.length === 3) {
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit",
+      });
+    }
+  }
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("pt-BR", {

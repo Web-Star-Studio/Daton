@@ -25,9 +25,15 @@ import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vincu
 function daysUntil(dateStr: string): number {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  const due = new Date(dateStr);
-  due.setHours(0, 0, 0, 0);
+  const [y, m, d] = dateStr.split("-");
+  const due = new Date(Number(y), Number(m) - 1, Number(d));
   return Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/** Return local date string YYYY-MM-DD without UTC shift. */
+function localDateToday(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 /** Format a date-only ISO string (YYYY-MM-DD) as DD/MM/AA without timezone shift. */
@@ -103,7 +109,7 @@ export default function EficaciaPage() {
 
   // ── Query ─────────────────────────────────────────────────────────────────
 
-  const params = { status: "concluido" as const };
+  const params = { status: "concluido" as const, pageSize: 200 };
   const { data: result, isLoading } = useListOrganizationTrainings(
     orgId ?? 0,
     params,
@@ -193,32 +199,39 @@ export default function EficaciaPage() {
 
   const handleSaveReview = async () => {
     if (!orgId || !target) return;
-    const today = new Date().toISOString().slice(0, 10);
-    await reviewMutation.mutateAsync({
-      orgId,
-      empId: target.employeeId,
-      trainId: target.id,
-      data: {
-        evaluationDate: today,
-        score: Math.round(avg * 2 * 10) / 10, // 0–10
-        isEffective,
-        resultLevel: Math.round(avg), // 1–5
-        comments: comments || undefined,
-        evaluatorRole:
-          (target.effectivenessAssignedRole as
-            | "gestor"
-            | "rh"
-            | "instrutor"
-            | "colaborador"
-            | undefined) ?? undefined,
-      },
-    });
-    invalidate();
-    setTarget(null);
-    toast({
-      title: "Avaliação registrada",
-      description: isEffective ? "Resultado: Eficaz" : "Resultado: Não eficaz",
-    });
+    try {
+      await reviewMutation.mutateAsync({
+        orgId,
+        empId: target.employeeId,
+        trainId: target.id,
+        data: {
+          evaluationDate: localDateToday(),
+          score: Math.round(avg * 2 * 10) / 10, // 0–10
+          isEffective,
+          resultLevel: Math.round(avg), // 1–5
+          comments: comments || undefined,
+          evaluatorRole:
+            (target.effectivenessAssignedRole as
+              | "gestor"
+              | "rh"
+              | "instrutor"
+              | "colaborador"
+              | undefined) ?? undefined,
+        },
+      });
+      invalidate();
+      setTarget(null);
+      toast({
+        title: "Avaliação registrada",
+        description: isEffective ? "Resultado: Eficaz" : "Resultado: Não eficaz",
+      });
+    } catch {
+      toast({
+        title: "Erro ao salvar avaliação",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   // ── Assign dialog ("Iniciar avaliação") ───────────────────────────────────
@@ -239,18 +252,26 @@ export default function EficaciaPage() {
 
   const handleSaveAssign = async () => {
     if (!orgId || !assignTarget || !assignDueDate) return;
-    await assignMutation.mutateAsync({
-      orgId,
-      empId: assignTarget.employeeId,
-      trainId: assignTarget.id,
-      data: {
-        evaluatorRole: assignRole as "gestor" | "rh" | "instrutor" | "colaborador",
-        dueDate: assignDueDate,
-      },
-    });
-    invalidate();
-    setAssignTarget(null);
-    toast({ title: "Avaliação iniciada", description: "Card movido para Em avaliação." });
+    try {
+      await assignMutation.mutateAsync({
+        orgId,
+        empId: assignTarget.employeeId,
+        trainId: assignTarget.id,
+        data: {
+          evaluatorRole: assignRole as "gestor" | "rh" | "instrutor" | "colaborador",
+          dueDate: assignDueDate,
+        },
+      });
+      invalidate();
+      setAssignTarget(null);
+      toast({ title: "Avaliação iniciada", description: "Card movido para Em avaliação." });
+    } catch {
+      toast({
+        title: "Erro ao iniciar avaliação",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
