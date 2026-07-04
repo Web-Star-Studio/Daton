@@ -474,6 +474,226 @@ describe("Board de eficácia — T2: paginação SQL + stats agregadas + filtros
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// T3 — effectivenessStatus e expiringWithinDays em SQL (paginação correta)
+// Verifica que filtros antes do LIMIT garantem pagination.total correto.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Board de eficácia — T3: effectivenessStatus e expiringWithinDays em SQL", () => {
+  /**
+   * Usa o seed T2 (6 treinamentos).
+   * D é o único "pending" (evaluationMethod=Prova, sem review/assignedRole/dueDate).
+   * Testa: effectivenessStatus=pending com pageSize=2 → ≤2 linhas, todos pending,
+   *   pagination.total = 1 (contagem real de pending, não total do conjunto).
+   */
+  it("effectivenessStatus=pending: pagination.total = contagem real de pending", async () => {
+    const ctx = await createTestContext({ seed: "board-t3-pending" });
+    contexts.push(ctx);
+
+    const { base } = await seedT2(ctx);
+
+    const res = await request(app)
+      .get(`${base}?effectivenessStatus=pending&pageSize=2&page=1`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeLessThanOrEqual(2);
+    for (const t of res.body.data) {
+      expect(t.effectivenessStatus).toBe("pending");
+    }
+    // Apenas D é pending no seed T2 → total deve ser 1, não 6
+    expect(res.body.pagination.total).toBe(1);
+  });
+
+  /**
+   * Usa o seed T2.
+   * A tem 2 reviews: a mais antiga (2024-04-01) isEffective=false,
+   *   a mais recente (2024-05-01) isEffective=true → effectivenessStatus=effective.
+   * E tem 1 review: isEffective=false → effectivenessStatus=ineffective.
+   * Filtrando effectivenessStatus=effective: apenas A deve aparecer,
+   *   provando que o filtro usa a review MAIS RECENTE.
+   */
+  it("effectivenessStatus=effective: retorna apenas trainings com latest review effective", async () => {
+    const ctx = await createTestContext({ seed: "board-t3-effective" });
+    contexts.push(ctx);
+
+    const { base, trainingIds } = await seedT2(ctx);
+
+    const res = await request(app)
+      .get(`${base}?effectivenessStatus=effective&pageSize=100`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    expect(res.body.pagination.total).toBe(1);
+    expect(res.body.data.length).toBe(1);
+    // A aparece (latest=true); E NÃO aparece (only review=false)
+    expect(res.body.data[0].id).toBe(trainingIds.trainingA);
+    expect(res.body.data[0].effectivenessStatus).toBe("effective");
+  });
+
+  /**
+   * Usa o seed T2.
+   * E tem 1 review: isEffective=false → ineffective.
+   * A tem 2 reviews: a mais recente isEffective=true → NÃO é ineffective.
+   */
+  it("effectivenessStatus=ineffective: retorna apenas trainings com latest review ineffective", async () => {
+    const ctx = await createTestContext({ seed: "board-t3-ineffective" });
+    contexts.push(ctx);
+
+    const { base, trainingIds } = await seedT2(ctx);
+
+    const res = await request(app)
+      .get(`${base}?effectivenessStatus=ineffective&pageSize=100`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    expect(res.body.pagination.total).toBe(1);
+    expect(res.body.data[0].id).toBe(trainingIds.trainingE);
+    expect(res.body.data[0].effectivenessStatus).toBe("ineffective");
+  });
+
+  /**
+   * expiringWithinDays=30: apenas treinamentos com expirationDate
+   * entre hoje e hoje+30 dias, paginados corretamente.
+   * Seed:
+   *   P1 — expirationDate = hoje+10d → dentro do prazo ✓
+   *   P2 — expirationDate = hoje+60d → fora do prazo ✗
+   *   P3 — expirationDate = ontem     → já vencido ✗
+   *   P4 — sem expirationDate          → excluído ✗
+   * Espera: pagination.total=1, pageSize=5 retorna apenas P1.
+   */
+  it("expiringWithinDays=30: pagination.total = apenas trainings dentro do prazo", async () => {
+    const ctx = await createTestContext({ seed: "board-t3-expiring" });
+    contexts.push(ctx);
+
+    const unit = await createUnit(ctx, `Filial T3-exp ${ctx.prefix}`);
+    const employee = await createEmployee(ctx, {
+      name: `Colaborador T3-exp ${ctx.prefix}`,
+      unitId: unit.id,
+    });
+
+    const in10d = new Date(Date.now() + 10 * 86400000)
+      .toISOString()
+      .split("T")[0];
+    const in60d = new Date(Date.now() + 60 * 86400000)
+      .toISOString()
+      .split("T")[0];
+    const yesterday = new Date(Date.now() - 86400000)
+      .toISOString()
+      .split("T")[0];
+
+    // P1 — vence em 10 dias → dentro de 30 dias ✓
+    const [trainingP1] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: `T3-P1 expiring ${ctx.prefix}`,
+        status: "concluido",
+        completionDate: "2024-01-01",
+        expirationDate: in10d,
+      })
+      .returning();
+
+    // P2 — vence em 60 dias → fora do horizonte de 30 dias ✗
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: employee.id,
+      title: `T3-P2 not-yet ${ctx.prefix}`,
+      status: "concluido",
+      completionDate: "2024-01-01",
+      expirationDate: in60d,
+    });
+
+    // P3 — venceu ontem → excluído (expirationDate < today) ✗
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: employee.id,
+      title: `T3-P3 expired ${ctx.prefix}`,
+      status: "concluido",
+      completionDate: "2024-01-01",
+      expirationDate: yesterday,
+    });
+
+    // P4 — sem expirationDate → excluído ✗
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: employee.id,
+      title: `T3-P4 no-exp ${ctx.prefix}`,
+      status: "concluido",
+      completionDate: "2024-01-01",
+    });
+
+    const base = `/api/organizations/${ctx.organizationId}/employees/trainings`;
+
+    const res = await request(app)
+      .get(`${base}?expiringWithinDays=30&pageSize=5&page=1`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    // Apenas P1 está no prazo
+    expect(res.body.pagination.total).toBe(1);
+    expect(res.body.data.length).toBe(1);
+    expect(res.body.data[0].id).toBe(trainingP1.id);
+  });
+
+  /**
+   * expiringWithinDays=30 com pageSize=1: pagination.total permanece correto
+   * mesmo quando a página retorna menos itens que o total.
+   * Seed: P1 (hoje+5d) + P2 (hoje+15d) + P3 (hoje+60d fora do prazo).
+   * Espera: pagination.total=2, pageSize=1 retorna 1 linha.
+   */
+  it("expiringWithinDays=30: pagination.total correto com pageSize=1 (2 matches)", async () => {
+    const ctx = await createTestContext({ seed: "board-t3-expiring-page" });
+    contexts.push(ctx);
+
+    const unit = await createUnit(ctx, `Filial T3-exp-pg ${ctx.prefix}`);
+    const employee = await createEmployee(ctx, {
+      name: `Colaborador T3-exp-pg ${ctx.prefix}`,
+      unitId: unit.id,
+    });
+
+    const in5d = new Date(Date.now() + 5 * 86400000)
+      .toISOString()
+      .split("T")[0];
+    const in15d = new Date(Date.now() + 15 * 86400000)
+      .toISOString()
+      .split("T")[0];
+    const in60d = new Date(Date.now() + 60 * 86400000)
+      .toISOString()
+      .split("T")[0];
+
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: employee.id,
+      title: `T3-Q1 exp5d ${ctx.prefix}`,
+      status: "concluido",
+      completionDate: "2024-01-01",
+      expirationDate: in5d,
+    });
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: employee.id,
+      title: `T3-Q2 exp15d ${ctx.prefix}`,
+      status: "concluido",
+      completionDate: "2024-01-01",
+      expirationDate: in15d,
+    });
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: employee.id,
+      title: `T3-Q3 exp60d ${ctx.prefix}`,
+      status: "concluido",
+      completionDate: "2024-01-01",
+      expirationDate: in60d,
+    });
+
+    const base = `/api/organizations/${ctx.organizationId}/employees/trainings`;
+
+    const res = await request(app)
+      .get(`${base}?expiringWithinDays=30&pageSize=1&page=1`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBe(1); // apenas 1 na página
+    expect(res.body.pagination.total).toBe(2); // mas 2 no total dentro do prazo
+    expect(res.body.pagination.totalPages).toBe(2);
+  });
+});
+
 // ─── T2 seed helper ──────────────────────────────────────────────────────────
 
 async function seedT2(ctx: Awaited<ReturnType<typeof createTestContext>>) {

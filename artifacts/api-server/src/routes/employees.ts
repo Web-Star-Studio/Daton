@@ -1656,6 +1656,59 @@ router.get(
         ),
       );
     }
+    // ── effectivenessStatus → SQL (paginação-safe; antes do LIMIT) ───────────
+    if (query.data.effectivenessStatus) {
+      const es = query.data.effectivenessStatus;
+      if (es === "in_review") {
+        // NOT hasReview AND (assignedRole IS NOT NULL OR dueDate IS NOT NULL)
+        conditions.push(boardEmAvaliacao);
+      } else if (es === "pending") {
+        // NOT hasReview AND assignedRole IS NULL AND dueDate IS NULL
+        // AND (evaluationMethod IS NOT NULL OR targetCompetencyName IS NOT NULL)
+        conditions.push(
+          and(
+            boardPendentes,
+            or(
+              isNotNull(employeeTrainingsTable.evaluationMethod),
+              isNotNull(employeeTrainingsTable.targetCompetencyName),
+            )!,
+          )!,
+        );
+      } else {
+        // effective / ineffective: hasReview AND latest review is_effective = ?
+        const latestIsEffSq = sql`(
+          select r.is_effective
+          from training_effectiveness_reviews r
+          where r.training_id = ${employeeTrainingsTable.id}
+          order by r.evaluation_date desc, r.created_at desc
+          limit 1
+        )`;
+        conditions.push(
+          and(
+            boardHasReviewExists,
+            es === "effective"
+              ? sql`${latestIsEffSq} = true`
+              : sql`${latestIsEffSq} = false`,
+          )!,
+        );
+      }
+    }
+    // ── expiringWithinDays → SQL (paginação-safe; antes do LIMIT) ────────────
+    if (query.data.expiringWithinDays) {
+      const days = query.data.expiringWithinDays;
+      // Calcular o horizonte em JS para passar como string DATE — evita ambiguidade
+      // de tipo na binding `current_date + $N` em alguns drivers.
+      const horizonDate = new Date(Date.now() + days * 86400000)
+        .toISOString()
+        .split("T")[0];
+      conditions.push(
+        and(
+          isNotNull(employeeTrainingsTable.expirationDate),
+          sql`${employeeTrainingsTable.expirationDate} >= current_date`,
+          sql`${employeeTrainingsTable.expirationDate} <= ${horizonDate}::date`,
+        )!,
+      );
+    }
 
     // ── Condição de coluna do board (só para query de dados + COUNT) ──────────
     const boardColumnCondition =
@@ -1820,14 +1873,8 @@ router.get(
     const reviewsByTrainingId = await loadTrainingReviewRows(
       rows.map((row) => row.id),
     );
-    const today = new Date(getTodayIsoDate());
-    const expirationHorizon = query.data.expiringWithinDays
-      ? new Date(
-          today.getTime() + query.data.expiringWithinDays * 24 * 60 * 60 * 1000,
-        )
-      : null;
 
-    // ── Formatar + filtros em memória (efectivenessStatus, expiringWithinDays) ─
+    // ── Formatar linha (efectivenessStatus e expiringWithinDays já estão no SQL) ─
     const pageData = rows
       .map((row) => {
         const reviews = reviewsByTrainingId.get(row.id) || [];
@@ -1879,23 +1926,6 @@ router.get(
           createdAt: toIsoDateTime(row.createdAt),
           updatedAt: toIsoDateTime(row.updatedAt),
         };
-      })
-      .filter((row) => {
-        // `status` já está nas condições SQL; filtramos apenas os casos que
-        // dependem de lógica de aplicação (effectivenessStatus, expiringWithinDays).
-        if (
-          query.data.effectivenessStatus &&
-          row.effectivenessStatus !== query.data.effectivenessStatus
-        )
-          return false;
-        if (expirationHorizon) {
-          if (!row.expirationDate) return false;
-          const expirationDate = new Date(row.expirationDate);
-          if (Number.isNaN(expirationDate.getTime())) return false;
-          if (expirationDate < today || expirationDate > expirationHorizon)
-            return false;
-        }
-        return true;
       });
 
     res.json({
