@@ -4,9 +4,16 @@ import {
   useListOrganizationTrainings,
   useCreateTrainingEffectivenessReview,
   useAssignTrainingEffectiveness,
+  useListUnits,
+  useListTrainingCatalog,
   getListOrganizationTrainingsQueryKey,
+  getListUnitsQueryKey,
+  getListTrainingCatalogQueryKey,
 } from "@workspace/api-client-react";
-import type { OrganizationTraining } from "@workspace/api-client-react";
+import type {
+  OrganizationTraining,
+  ListOrganizationTrainingsEvaluatorRole,
+} from "@workspace/api-client-react";
 import { usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -17,8 +24,14 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const DEFAULT_PAGE_SIZE = 20;
+const CURRENT_YEAR = new Date().getFullYear();
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -107,66 +120,155 @@ export default function EficaciaPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // ── Query ─────────────────────────────────────────────────────────────────
+  // ── Filter state ──────────────────────────────────────────────────────────
 
-  const params = { status: "concluido" as const, pageSize: 200 };
-  const { data: result, isLoading } = useListOrganizationTrainings(
+  const [unitId, setUnitId] = useState<string>("");
+  const [year, setYear] = useState<string>("");
+  const [norm, setNorm] = useState<string>("");
+  const [evaluatorRole, setEvaluatorRole] = useState<string>("");
+  const [scope, setScope] = useState<"needs_evaluation" | "all">("needs_evaluation");
+
+  // Per-column page sizes (grow-pageSize pagination — each column independent)
+  const [pageSizePendentes, setPageSizePendentes] = useState(DEFAULT_PAGE_SIZE);
+  const [pageSizeEmAvaliacao, setPageSizeEmAvaliacao] = useState(DEFAULT_PAGE_SIZE);
+  const [pageSizeConcluidas, setPageSizeConcluidas] = useState(DEFAULT_PAGE_SIZE);
+
+  function resetPageSizes() {
+    setPageSizePendentes(DEFAULT_PAGE_SIZE);
+    setPageSizeEmAvaliacao(DEFAULT_PAGE_SIZE);
+    setPageSizeConcluidas(DEFAULT_PAGE_SIZE);
+  }
+
+  // Filter setters that also reset pagination
+  function handleSetUnitId(v: string) {
+    setUnitId(v);
+    resetPageSizes();
+  }
+  function handleSetYear(v: string) {
+    setYear(v);
+    resetPageSizes();
+  }
+  function handleSetNorm(v: string) {
+    setNorm(v);
+    resetPageSizes();
+  }
+  function handleSetEvaluatorRole(v: string) {
+    setEvaluatorRole(v);
+    resetPageSizes();
+  }
+  function handleSetScope(v: "needs_evaluation" | "all") {
+    setScope(v);
+    resetPageSizes();
+  }
+
+  // ── Filter data: units and catalog norms ──────────────────────────────────
+
+  const { data: units } = useListUnits(orgId ?? 0, {
+    query: { enabled: !!orgId, queryKey: getListUnitsQueryKey(orgId ?? 0) },
+  });
+
+  const catalogParams = { pageSize: 500 };
+  const { data: catalog } = useListTrainingCatalog(orgId ?? 0, catalogParams, {
+    query: {
+      enabled: !!orgId,
+      queryKey: getListTrainingCatalogQueryKey(orgId ?? 0, catalogParams),
+    },
+  });
+
+  const unitOptions = useMemo(
+    () =>
+      (units ?? []).map((u) => ({
+        value: String(u.id),
+        label: u.code ? `${u.code} — ${u.name}` : u.name,
+      })),
+    [units],
+  );
+
+  const normOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: Array<{ value: string; label: string }> = [];
+    for (const item of catalog?.data ?? []) {
+      if (item.norm && !seen.has(item.norm)) {
+        seen.add(item.norm);
+        opts.push({ value: item.norm, label: item.norm });
+      }
+    }
+    return opts;
+  }, [catalog]);
+
+  const yearOptions = useMemo(() => {
+    const opts: Array<{ value: string; label: string }> = [];
+    for (let y = CURRENT_YEAR; y >= 2009; y--) {
+      opts.push({ value: String(y), label: String(y) });
+    }
+    return opts;
+  }, []);
+
+  // ── Shared query params ───────────────────────────────────────────────────
+
+  const sharedParams = {
+    status: "concluido" as const,
+    scope,
+    unitId: unitId ? Number(unitId) : undefined,
+    year: year ? Number(year) : undefined,
+    norm: norm || undefined,
+    evaluatorRole: (evaluatorRole || undefined) as ListOrganizationTrainingsEvaluatorRole | undefined,
+  };
+
+  // ── Three column queries ──────────────────────────────────────────────────
+
+  const paramsPendentes = { ...sharedParams, boardColumn: "pendentes" as const, page: 1, pageSize: pageSizePendentes };
+  const { data: resultPendentes, isLoading: loadingPendentes } = useListOrganizationTrainings(
     orgId ?? 0,
-    params,
+    paramsPendentes,
     {
       query: {
         enabled: !!orgId,
-        queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, params),
+        queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, paramsPendentes),
       },
     },
   );
-  const trainings = result?.data ?? [];
 
-  // ── Filter ────────────────────────────────────────────────────────────────
+  const paramsEmAvaliacao = { ...sharedParams, boardColumn: "em_avaliacao" as const, page: 1, pageSize: pageSizeEmAvaliacao };
+  const { data: resultEmAvaliacao, isLoading: loadingEmAvaliacao } = useListOrganizationTrainings(
+    orgId ?? 0,
+    paramsEmAvaliacao,
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, paramsEmAvaliacao),
+      },
+    },
+  );
 
-  const [filterRole, setFilterRole] = useState<string>("all");
+  const paramsConcluidas = { ...sharedParams, boardColumn: "concluidas" as const, page: 1, pageSize: pageSizeConcluidas };
+  const { data: resultConcluidas, isLoading: loadingConcluidas } = useListOrganizationTrainings(
+    orgId ?? 0,
+    paramsConcluidas,
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, paramsConcluidas),
+      },
+    },
+  );
 
-  const filtered = useMemo(() => {
-    if (filterRole === "all") return trainings;
-    return trainings.filter((t) => t.effectivenessAssignedRole === filterRole);
-  }, [trainings, filterRole]);
+  const isLoading = loadingPendentes || loadingEmAvaliacao || loadingConcluidas;
 
-  // ── Groups ────────────────────────────────────────────────────────────────
+  const pendentes = resultPendentes?.data ?? [];
+  const emAvaliacao = resultEmAvaliacao?.data ?? [];
+  const concluidas = resultConcluidas?.data ?? [];
 
-  const groups = useMemo(() => {
-    const pendentes: OrganizationTraining[] = [];
-    const emAvaliacao: OrganizationTraining[] = [];
-    const concluidas: OrganizationTraining[] = [];
-    for (const t of filtered) {
-      if (t.effectivenessStatus === "effective" || t.effectivenessStatus === "ineffective") {
-        concluidas.push(t);
-      } else if (t.effectivenessStatus === "in_review") {
-        emAvaliacao.push(t);
-      } else {
-        pendentes.push(t);
-      }
-    }
-    return { pendentes, emAvaliacao, concluidas };
-  }, [filtered]);
+  // Stats come from any of the three queries — use pendentes (same for all)
+  const stats = resultPendentes?.stats;
+  const boardCounts = stats?.boardCounts;
 
-  // ── Metrics ───────────────────────────────────────────────────────────────
+  // ── Metric values from server stats ──────────────────────────────────────
 
-  const metrics = useMemo(() => {
-    const eficazes = trainings.filter((t) => t.effectivenessStatus === "effective").length;
-    const naoEficazes = trainings.filter((t) => t.effectivenessStatus === "ineffective").length;
-    const denom = eficazes + naoEficazes;
-    const eficazPct = denom > 0 ? `${Math.round((eficazes / denom) * 100)}%` : "—";
-    const onTimePct =
-      result?.stats?.onTimePercent != null ? `${result.stats.onTimePercent}%` : "—";
-    return {
-      pendentes: trainings.filter(
-        (t) => t.effectivenessStatus === "pending" || t.effectivenessStatus == null,
-      ).length,
-      eficazPct,
-      naoEficazes,
-      onTimePct,
-    };
-  }, [trainings, result]);
+  const metricPendentes = boardCounts?.pendentes ?? 0;
+  const metricEficazPct = stats?.eficazPercent != null ? `${stats.eficazPercent}%` : "—";
+  const metricNaoEficazes = stats?.naoEficazes ?? 0;
+  const metricOnTimePct = stats?.onTimePercent != null ? `${stats.onTimePercent}%` : "—";
 
   // ── Invalidate ────────────────────────────────────────────────────────────
 
@@ -278,48 +380,102 @@ export default function EficaciaPage() {
 
   return (
     <div className="space-y-4">
-      {/* Metric cards */}
+      {/* Metric cards — sourced from server stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Metric
           label="Pendentes"
-          value={metrics.pendentes}
+          value={metricPendentes}
           subtitle="a realizar"
           accent="text-amber-700"
         />
         <Metric
           label="Eficazes"
-          value={metrics.eficazPct}
+          value={metricEficazPct}
           subtitle="média geral"
           accent="text-green-700"
         />
         <Metric
           label="Não eficazes"
-          value={metrics.naoEficazes}
+          value={metricNaoEficazes}
           subtitle="ação corretiva aberta"
           accent="text-red-700"
         />
-        <Metric
-          label="Realizadas no prazo"
-          value={metrics.onTimePct}
-          subtitle=""
-        />
+        <Metric label="Realizadas no prazo" value={metricOnTimePct} subtitle="" />
       </div>
 
-      {/* Filter */}
-      <div className="flex items-center gap-2">
-        <Label className="text-xs text-muted-foreground shrink-0">Avaliador:</Label>
-        <Select
-          value={filterRole}
-          onChange={(e) => setFilterRole(e.target.value)}
-          className="w-auto text-sm"
-        >
-          <option value="all">Todos os avaliadores</option>
-          {ROLE_OPTIONS.map((r) => (
-            <option key={r.value} value={r.value}>
-              {r.label}
-            </option>
-          ))}
-        </Select>
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-end gap-3">
+        {/* Filial */}
+        <div className="flex flex-col gap-1 min-w-[180px]">
+          <Label className="text-xs text-muted-foreground">Filial</Label>
+          <SearchableSelect
+            value={unitId}
+            onChange={handleSetUnitId}
+            options={unitOptions}
+            placeholder="Todas as filiais"
+            searchPlaceholder="Buscar filial..."
+          />
+        </div>
+
+        {/* Ano */}
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs text-muted-foreground">Ano</Label>
+          <Select
+            value={year}
+            onChange={(e) => handleSetYear(e.target.value)}
+            className="w-auto text-sm"
+          >
+            <option value="">Todos os anos</option>
+            {yearOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {/* Norma */}
+        <div className="flex flex-col gap-1 min-w-[160px]">
+          <Label className="text-xs text-muted-foreground">Norma</Label>
+          <SearchableSelect
+            value={norm}
+            onChange={handleSetNorm}
+            options={normOptions}
+            placeholder="Todas as normas"
+            searchPlaceholder="Buscar norma..."
+          />
+        </div>
+
+        {/* Avaliador */}
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs text-muted-foreground">Avaliador</Label>
+          <Select
+            value={evaluatorRole}
+            onChange={(e) => handleSetEvaluatorRole(e.target.value)}
+            className="w-auto text-sm"
+          >
+            <option value="">Todos os avaliadores</option>
+            {ROLE_OPTIONS.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {/* Scope toggle */}
+        <div className="flex items-center gap-2 pb-1">
+          <input
+            id="scope-all"
+            type="checkbox"
+            checked={scope === "all"}
+            onChange={(e) => handleSetScope(e.target.checked ? "all" : "needs_evaluation")}
+            className="h-4 w-4 rounded border-input accent-primary"
+          />
+          <Label htmlFor="scope-all" className="text-xs text-muted-foreground cursor-pointer">
+            Ver todos (inclui histórico)
+          </Label>
+        </div>
       </div>
 
       {isLoading ? (
@@ -327,11 +483,11 @@ export default function EficaciaPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-3">
           {/* Column: Pendentes */}
-          <Column title="Pendentes" count={groups.pendentes.length}>
-            {groups.pendentes.length === 0 ? (
+          <Column title="Pendentes" count={boardCounts?.pendentes ?? 0}>
+            {pendentes.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nada pendente.</p>
             ) : null}
-            {groups.pendentes.map((t) => (
+            {pendentes.map((t) => (
               <div key={t.id} className="rounded-xl border bg-card p-3 shadow-sm">
                 <div className="text-sm font-medium">{t.employeeName}</div>
                 <div className="text-xs text-muted-foreground">{t.title}</div>
@@ -360,14 +516,24 @@ export default function EficaciaPage() {
                 ) : null}
               </div>
             ))}
+            {pageSizePendentes < (boardCounts?.pendentes ?? 0) ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() => setPageSizePendentes((n) => n + DEFAULT_PAGE_SIZE)}
+              >
+                Carregar mais
+              </Button>
+            ) : null}
           </Column>
 
           {/* Column: Em avaliação */}
-          <Column title="Em avaliação" count={groups.emAvaliacao.length}>
-            {groups.emAvaliacao.length === 0 ? (
+          <Column title="Em avaliação" count={boardCounts?.emAvaliacao ?? 0}>
+            {emAvaliacao.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nenhum em avaliação.</p>
             ) : null}
-            {groups.emAvaliacao.map((t) => {
+            {emAvaliacao.map((t) => {
               const days = t.effectivenessDueDate ? daysUntil(t.effectivenessDueDate) : null;
               return (
                 <div key={t.id} className="rounded-xl border bg-card p-3 shadow-sm">
@@ -393,14 +559,24 @@ export default function EficaciaPage() {
                 </div>
               );
             })}
+            {pageSizeEmAvaliacao < (boardCounts?.emAvaliacao ?? 0) ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() => setPageSizeEmAvaliacao((n) => n + DEFAULT_PAGE_SIZE)}
+              >
+                Carregar mais
+              </Button>
+            ) : null}
           </Column>
 
           {/* Column: Concluídas */}
-          <Column title="Concluídas" count={groups.concluidas.length}>
-            {groups.concluidas.length === 0 ? (
+          <Column title="Concluídas" count={boardCounts?.concluidas ?? 0}>
+            {concluidas.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nenhuma avaliação ainda.</p>
             ) : null}
-            {groups.concluidas.map((t) => {
+            {concluidas.map((t) => {
               const ineffective = t.effectivenessStatus === "ineffective";
               return (
                 <div key={t.id} className="rounded-xl border bg-card p-3 shadow-sm">
@@ -421,8 +597,7 @@ export default function EficaciaPage() {
                       </span>
                     ) : t.latestEffectivenessReview?.evaluationDate ? (
                       <span className="text-xs text-muted-foreground">
-                        Concluída{" "}
-                        {fmtDateShort(t.latestEffectivenessReview.evaluationDate)}
+                        Concluída {fmtDateShort(t.latestEffectivenessReview.evaluationDate)}
                       </span>
                     ) : null}
                     {(t.reviewerCount ?? 0) > 1 ? (
@@ -445,6 +620,16 @@ export default function EficaciaPage() {
                 </div>
               );
             })}
+            {pageSizeConcluidas < (boardCounts?.concluidas ?? 0) ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() => setPageSizeConcluidas((n) => n + DEFAULT_PAGE_SIZE)}
+              >
+                Carregar mais
+              </Button>
+            ) : null}
           </Column>
         </div>
       )}
