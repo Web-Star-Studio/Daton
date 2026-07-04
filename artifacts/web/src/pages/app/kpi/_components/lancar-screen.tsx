@@ -143,8 +143,9 @@ function HistoryPanel({
   measureUnit: string;
   /** Foca o mês no form (cria lançamento se vazio, edita se já tem valor). */
   onSelectMonth: (month: number) => void;
-  /** Limpa o valor do mês (deixa em branco) — gatilho do "×" no canto da célula. */
-  onClearMonth: (month: number) => void;
+  /** Limpa o valor do mês (deixa em branco) — gatilho do "×" no canto da célula.
+   *  Undefined desabilita o botão "×" (e.g., indicadores LMS read-only). */
+  onClearMonth?: (month: number) => void;
 }) {
   const monthValues = Array.from(
     { length: 12 },
@@ -263,8 +264,9 @@ function HistoryPanel({
                 </div>
               )}
               {/* "×" pra limpar o valor do mês (deixa em branco): meses lançáveis
-                 com valor salvo (inclusive zero) E anomalias fora da referência. */}
-              {v !== null && (clickable || isAnomaly) ? (
+                 com valor salvo (inclusive zero) E anomalias fora da referência.
+                 Oculto quando onClearMonth não é fornecido (e.g., indicadores LMS). */}
+              {v !== null && (clickable || isAnomaly) && onClearMonth ? (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -953,7 +955,7 @@ export function LancarScreen({
             selectedMonth={month}
             measureUnit={measureUnit}
             onSelectMonth={setMonth}
-            onClearMonth={setClearMonth}
+            onClearMonth={isLmsSourced ? undefined : setClearMonth}
           />
         </div>
         {racMonth !== null ? (
@@ -973,7 +975,7 @@ export function LancarScreen({
           />
         ) : null}
         <AlertDialog
-          open={clearMonth !== null}
+          open={clearMonth !== null && !isLmsSourced}
           onOpenChange={(open) => {
             if (!open) setClearMonth(null);
           }}

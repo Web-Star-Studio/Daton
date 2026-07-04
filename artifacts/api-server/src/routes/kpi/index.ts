@@ -1571,7 +1571,8 @@ router.post(
         continue;
       }
 
-      // Insert the indicator
+      // Insert the indicator — onConflictDoNothing targets the partial unique index
+      // kpi_indicators_lms_metric_unique so concurrent activations are safe.
       const [row] = await db
         .insert(kpiIndicatorsTable)
         .values({
@@ -1589,22 +1590,40 @@ router.post(
           computedSource: "lms",
           computedMetric: def.metric,
         })
+        .onConflictDoNothing()
         .returning();
+
+      // If a concurrent activation won the race, re-fetch the row it created.
+      let indicatorId = row?.id;
+      if (indicatorId === undefined) {
+        const [raced] = await db
+          .select({ id: kpiIndicatorsTable.id })
+          .from(kpiIndicatorsTable)
+          .where(
+            and(
+              eq(kpiIndicatorsTable.organizationId, orgId),
+              eq(kpiIndicatorsTable.computedSource, "lms"),
+              eq(kpiIndicatorsTable.computedMetric, def.metric),
+            ),
+          );
+        indicatorId = raced?.id;
+      }
+      if (indicatorId === undefined) continue; // should never happen
 
       // Insert year config with default goal/tolerance (onConflictDoNothing for idempotency)
       await db
         .insert(kpiYearConfigsTable)
         .values({
           organizationId: orgId,
-          indicatorId: row.id,
+          indicatorId,
           year,
           goal: String(def.goal),
           tolerance: String(def.tolerance),
         })
         .onConflictDoNothing();
 
-      indicatorIds.push(row.id);
-      activated++;
+      indicatorIds.push(indicatorId);
+      if (row) activated++; // only count truly new indicators
     }
 
     res.json({ activated, indicatorIds });

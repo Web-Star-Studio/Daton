@@ -236,38 +236,44 @@ router.patch(
     if (body.data.isMandatory !== undefined)
       updates.isMandatory = body.data.isMandatory;
 
-    const [row] = await db
-      .update(competencyCatalogTable)
-      .set(updates)
-      .where(
-        and(
-          eq(competencyCatalogTable.id, params.data.itemId),
-          eq(competencyCatalogTable.organizationId, params.data.orgId),
-        ),
-      )
-      .returning();
+    // Catalog update + free-text propagation are atomic: a mid-failure must not
+    // leave the catalog renamed but employee/position usages still on the old name.
+    const row = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(competencyCatalogTable)
+        .set(updates)
+        .where(
+          and(
+            eq(competencyCatalogTable.id, params.data.itemId),
+            eq(competencyCatalogTable.organizationId, params.data.orgId),
+          ),
+        )
+        .returning();
 
-    // Propaga o rename aos usos texto-livre, escopado por organização.
-    if (renamedTo) {
-      await db
-        .update(employeeCompetenciesTable)
-        .set({ name: renamedTo })
-        .where(
-          and(
-            sql`lower(${employeeCompetenciesTable.name}) = lower(${current.name})`,
-            sql`${employeeCompetenciesTable.employeeId} in (select ${employeesTable.id} from ${employeesTable} where ${employeesTable.organizationId} = ${params.data.orgId})`,
-          ),
-        );
-      await db
-        .update(positionCompetencyRequirementsTable)
-        .set({ competencyName: renamedTo })
-        .where(
-          and(
-            sql`lower(${positionCompetencyRequirementsTable.competencyName}) = lower(${current.name})`,
-            sql`${positionCompetencyRequirementsTable.positionId} in (select ${positionsTable.id} from ${positionsTable} where ${positionsTable.organizationId} = ${params.data.orgId})`,
-          ),
-        );
-    }
+      // Propaga o rename aos usos texto-livre, escopado por organização.
+      if (renamedTo) {
+        await tx
+          .update(employeeCompetenciesTable)
+          .set({ name: renamedTo })
+          .where(
+            and(
+              sql`lower(${employeeCompetenciesTable.name}) = lower(${current.name})`,
+              sql`${employeeCompetenciesTable.employeeId} in (select ${employeesTable.id} from ${employeesTable} where ${employeesTable.organizationId} = ${params.data.orgId})`,
+            ),
+          );
+        await tx
+          .update(positionCompetencyRequirementsTable)
+          .set({ competencyName: renamedTo })
+          .where(
+            and(
+              sql`lower(${positionCompetencyRequirementsTable.competencyName}) = lower(${current.name})`,
+              sql`${positionCompetencyRequirementsTable.positionId} in (select ${positionsTable.id} from ${positionsTable} where ${positionsTable.organizationId} = ${params.data.orgId})`,
+            ),
+          );
+      }
+
+      return updated;
+    });
 
     res.json(serialize(row));
   },

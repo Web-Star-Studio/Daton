@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, jsonb, numeric, pgTable, serial, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, numeric, pgTable, serial, text, timestamp, unique, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -86,7 +86,12 @@ export const kpiIndicatorsTable = pgTable("kpi_indicators", {
     .default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  // Partial unique index prevents duplicate LMS-computed indicators per org+metric.
+  uniqueIndex("kpi_indicators_lms_metric_unique")
+    .on(table.organizationId, table.computedSource, table.computedMetric)
+    .where(sql`computed_source is not null`),
+]);
 
 export const kpiYearConfigsTable = pgTable("kpi_year_configs", {
   id: serial("id").primaryKey(),

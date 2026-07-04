@@ -314,6 +314,14 @@ ALTER TABLE public.employee_trainings ADD COLUMN IF NOT EXISTS effectiveness_due
 ALTER TABLE public.employee_trainings ADD COLUMN IF NOT EXISTS effectiveness_assigned_role varchar(20);
 ALTER TABLE public.training_effectiveness_reviews ADD COLUMN IF NOT EXISTS evaluator_role varchar(20);
 
+-- ---------------------------------------------------------------------------
+-- Índice único parcial: impede duplicação de indicador LMS por org+métrica
+-- (cobre ativações concorrentes; reflete o uniqueIndex no schema Drizzle)
+-- ---------------------------------------------------------------------------
+CREATE UNIQUE INDEX IF NOT EXISTS kpi_indicators_lms_metric_unique
+  ON public.kpi_indicators (organization_id, computed_source, computed_metric)
+  WHERE computed_source IS NOT NULL;
+
 COMMIT;
 
 -- Verificação
