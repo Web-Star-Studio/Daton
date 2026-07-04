@@ -12,9 +12,10 @@ import {
 type Database = Pick<typeof defaultDb, "select" | "insert">;
 
 function addDaysIso(isoDate: string, days: number): string | null {
-  const d = new Date(isoDate);
+  // Force UTC parse so arithmetic is timezone-safe regardless of server locale.
+  const d = new Date(isoDate + "T00:00:00Z");
   if (Number.isNaN(d.getTime())) return null;
-  d.setDate(d.getDate() + days);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
@@ -131,7 +132,7 @@ export async function applyTrainingRequirements(args: {
     if (!item) continue;
 
     const dueDate =
-      rule.deadlineType === "fixo" && rule.deadlineDays && emp.admissionDate
+      rule.deadlineType === "fixo" && rule.deadlineDays != null && emp.admissionDate
         ? addDaysIso(emp.admissionDate, rule.deadlineDays)
         : null;
 

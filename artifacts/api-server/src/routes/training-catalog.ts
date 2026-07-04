@@ -193,7 +193,14 @@ router.patch(
 
     const updates: Partial<typeof trainingCatalogTable.$inferInsert> = {};
     const b = body.data;
-    if (b.title !== undefined) updates.title = b.title.trim();
+    if (b.title !== undefined) {
+      const trimmedTitle = b.title.trim();
+      if (!trimmedTitle) {
+        res.status(400).json({ error: "Informe o título do treinamento" });
+        return;
+      }
+      updates.title = trimmedTitle;
+    }
     if (b.category !== undefined) updates.category = b.category;
     if (b.modality !== undefined) updates.modality = b.modality;
     if (b.norm !== undefined) updates.norm = b.norm;

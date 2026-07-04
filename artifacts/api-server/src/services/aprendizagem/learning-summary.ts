@@ -245,6 +245,7 @@ export async function computeLearningSummary(args: {
       and(
         eq(employeesTable.organizationId, orgId),
         isNotNull(trainingCatalogTable.norm),
+        unitId !== undefined ? eq(employeesTable.unitId, unitId) : undefined,
       ),
     )
     .groupBy(trainingCatalogTable.norm);

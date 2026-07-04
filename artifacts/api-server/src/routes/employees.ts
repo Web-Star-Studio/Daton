@@ -82,6 +82,7 @@ import {
   requireWriteAccess,
 } from "../middlewares/auth";
 import { applyTrainingRequirements } from "../services/aprendizagem/requirements-engine";
+import { addMonthsClamped } from "../services/aprendizagem/date-helpers";
 import {
   computeCompetencyGapStatusByEmployee,
   computeTrainingCompletionByEmployee,
@@ -2778,11 +2779,8 @@ router.post(
       values.completionDate &&
       values.renewalMonths
     ) {
-      const d = new Date(values.completionDate);
-      if (!Number.isNaN(d.getTime())) {
-        d.setMonth(d.getMonth() + values.renewalMonths);
-        values.expirationDate = d.toISOString().slice(0, 10);
-      }
+      const expDate = addMonthsClamped(values.completionDate, values.renewalMonths);
+      if (expDate) values.expirationDate = expDate;
     }
 
     const finalTitle = values.title?.trim();

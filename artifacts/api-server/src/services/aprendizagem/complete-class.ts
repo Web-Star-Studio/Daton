@@ -6,15 +6,9 @@ import {
   trainingCatalogTable,
   employeeTrainingsTable,
 } from "@workspace/db";
+import { addMonthsClamped } from "./date-helpers";
 
 type Database = Pick<typeof defaultDb, "select" | "insert" | "update">;
-
-function addMonthsIso(isoDate: string, months: number): string | null {
-  const d = new Date(isoDate);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0, 10);
-}
 
 /**
  * Conclui uma turma: para cada participante presente e aprovado, grava/atualiza o
@@ -54,7 +48,7 @@ export async function completeTrainingClass(args: {
   const completionDate = cls.endDate ?? cls.startDate;
   const expirationDate =
     item?.validityMonths && completionDate
-      ? addMonthsIso(completionDate, item.validityMonths)
+      ? addMonthsClamped(completionDate, item.validityMonths)
       : null;
 
   const participants = await database
