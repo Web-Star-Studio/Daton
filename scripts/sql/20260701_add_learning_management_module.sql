@@ -322,6 +322,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS kpi_indicators_lms_metric_unique
   ON public.kpi_indicators (organization_id, computed_source, computed_metric)
   WHERE computed_source IS NOT NULL;
 
+-- ---------------------------------------------------------------------------
+-- Follow-up: índices de perf do board de eficácia (PR #112 review)
+-- ---------------------------------------------------------------------------
+-- Cobre EXISTS(training_id=…) + latest-review ORDER BY evaluation_date DESC, created_at DESC LIMIT 1
+CREATE INDEX IF NOT EXISTS ter_training_id_date_idx
+  ON public.training_effectiveness_reviews (training_id, evaluation_date DESC, created_at DESC);
+
+-- Filtro por papel do avaliador no board
+CREATE INDEX IF NOT EXISTS et_effectiveness_role_idx
+  ON public.employee_trainings (effectiveness_assigned_role);
+
+-- Filtro por ano de conclusão no board
+CREATE INDEX IF NOT EXISTS et_completion_date_idx
+  ON public.employee_trainings (completion_date);
+
 COMMIT;
 
 -- Verificação

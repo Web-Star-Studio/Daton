@@ -137,4 +137,43 @@ describe("training-classes routes", () => {
       .send({ catalogItemId: catalogB, startDate: "2026-06-15" });
     expect(created.status).toBe(400);
   });
+
+  it("PATCH score-only preserva result manual (não clobbers override)", async () => {
+    const context = await createTestContext({ seed: "classes-score-only" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-classes`;
+    const catalogItemId = await createCatalogItem(context, `Treino Score ${context.prefix}`);
+    const emp = await createEmployee(context, { name: `E ${context.prefix}` });
+
+    const created = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ catalogItemId, startDate: "2026-07-01", minScore: 7 });
+    const classId = created.body.id as number;
+
+    await request(app)
+      .post(`${base}/${classId}/participants`)
+      .set(authHeader(context))
+      .send({ employeeIds: [emp.id] });
+
+    const detail = await request(app).get(`${base}/${classId}`).set(authHeader(context));
+    const participantId = detail.body.participants[0].id as number;
+
+    // Seta result manual explicitamente (sem attendance)
+    const manual = await request(app)
+      .patch(`${base}/${classId}/participants/${participantId}`)
+      .set(authHeader(context))
+      .send({ result: "aprovado" });
+    expect(manual.status).toBe(200);
+    expect(manual.body.result).toBe("aprovado");
+
+    // PATCH só com score (sem attendance, sem result) → NÃO deve sobrescrever o result manual
+    const scoreOnly = await request(app)
+      .patch(`${base}/${classId}/participants/${participantId}`)
+      .set(authHeader(context))
+      .send({ score: 3 }); // nota baixa que recomputaria "reprovado" se recalculasse
+    expect(scoreOnly.status).toBe(200);
+    expect(scoreOnly.body.result).toBe("aprovado"); // preservado
+    expect(scoreOnly.body.score).toBe(3); // score atualizado
+  });
 });

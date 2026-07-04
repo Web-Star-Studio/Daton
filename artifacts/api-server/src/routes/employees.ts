@@ -2643,7 +2643,7 @@ router.patch(
     }
 
     const [before] = await db
-      .select({ position: employeesTable.position })
+      .select({ position: employeesTable.position, unitId: employeesTable.unitId })
       .from(employeesTable)
       .where(
         and(
@@ -2668,13 +2668,17 @@ router.patch(
       return;
     }
 
-    // Mudança de cargo → recomputa obrigatoriedades (adiciona/aproveita; nunca remove).
-    let autoLinked = { generated: 0, reused: 0 };
-    if (
+    // Mudança de cargo OU de filial → recomputa obrigatoriedades (adiciona/aproveita; nunca remove).
+    const positionChanged =
       payload.position !== undefined &&
       before &&
-      payload.position !== before.position
-    ) {
+      payload.position !== before.position;
+    const unitChanged =
+      payload.unitId !== undefined &&
+      before &&
+      payload.unitId !== before.unitId;
+    let autoLinked = { generated: 0, reused: 0 };
+    if (positionChanged || unitChanged) {
       autoLinked = await applyTrainingRequirements({
         orgId: params.data.orgId,
         employeeId: params.data.empId,

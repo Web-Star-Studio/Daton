@@ -400,24 +400,32 @@ router.post(
       return;
     }
 
+    // Batch-fetch pending trainings para todos os participantes de uma vez (evita N+1).
+    const pendingTrainings = await db
+      .select({ id: employeeTrainingsTable.id, employeeId: employeeTrainingsTable.employeeId })
+      .from(employeeTrainingsTable)
+      .where(
+        and(
+          inArray(employeeTrainingsTable.employeeId, body.data.employeeIds),
+          eq(employeeTrainingsTable.catalogItemId, cls.catalogItemId),
+          eq(employeeTrainingsTable.status, "pendente"),
+        ),
+      );
+    // Keep only first match per employee (same as original single-select behaviour).
+    const pendingByEmployee = new Map<number, number>();
+    for (const t of pendingTrainings) {
+      if (!pendingByEmployee.has(t.employeeId)) {
+        pendingByEmployee.set(t.employeeId, t.id);
+      }
+    }
+
     for (const employeeId of body.data.employeeIds) {
-      // vincula um pendente do mesmo item, se existir
-      const [pending] = await db
-        .select({ id: employeeTrainingsTable.id })
-        .from(employeeTrainingsTable)
-        .where(
-          and(
-            eq(employeeTrainingsTable.employeeId, employeeId),
-            eq(employeeTrainingsTable.catalogItemId, cls.catalogItemId),
-            eq(employeeTrainingsTable.status, "pendente"),
-          ),
-        );
       await db
         .insert(trainingClassParticipantsTable)
         .values({
           classId: params.data.id,
           employeeId,
-          employeeTrainingId: pending?.id ?? null,
+          employeeTrainingId: pendingByEmployee.get(employeeId) ?? null,
         })
         .onConflictDoNothing();
     }
@@ -479,7 +487,12 @@ router.patch(
         ? body.data.attendance
         : current.attendance;
     const score = body.data.score !== undefined ? body.data.score : current.score;
-    const result = deriveResult(attendance, score, cls.minScore, body.data.result);
+    // Só recomputa result quando o PATCH fornece explicitamente `result` ou `attendance`.
+    // Score sozinho (sem attendance/result) preserva o result manual existente.
+    const result =
+      body.data.result !== undefined || body.data.attendance !== undefined
+        ? deriveResult(attendance, score, cls.minScore, body.data.result)
+        : current.result;
 
     const [row] = await db
       .update(trainingClassParticipantsTable)
