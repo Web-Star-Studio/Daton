@@ -1,5 +1,17 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, or, count, sql, exists, inArray } from "drizzle-orm";
+import {
+  eq,
+  and,
+  ilike,
+  or,
+  not,
+  isNull,
+  isNotNull,
+  count,
+  sql,
+  exists,
+  inArray,
+} from "drizzle-orm";
 import { z } from "zod";
 import {
   db,
@@ -95,6 +107,74 @@ import {
   lookupCpfReceitaFederal,
   InfosimplesError,
 } from "../lib/infosimples";
+
+// ─── Board de Eficácia — fragmentos SQL reutilizáveis (T1) ──────────────────
+// Usados nas tasks T2 (filtro por coluna) e T3 (contagens das colunas do board).
+
+/**
+ * EXISTS: o treinamento tem pelo menos uma avaliação de eficácia registrada.
+ * SQL: EXISTS (SELECT 1 FROM training_effectiveness_reviews r
+ *              WHERE r.training_id = employee_trainings.id)
+ */
+export const boardHasReviewExists = exists(
+  db
+    .select({ one: sql<number>`1` })
+    .from(trainingEffectivenessReviewsTable)
+    .where(
+      eq(
+        trainingEffectivenessReviewsTable.trainingId,
+        employeeTrainingsTable.id,
+      ),
+    ),
+);
+
+/**
+ * Coluna "Concluídas": treinamentos com review registrado.
+ * SQL: hasReview
+ */
+export const boardConcluidas = boardHasReviewExists;
+
+/**
+ * Coluna "Em Avaliação": sem review, mas com papel ou prazo de avaliação atribuídos.
+ * SQL: NOT hasReview
+ *      AND (effectiveness_assigned_role IS NOT NULL OR effectiveness_due_date IS NOT NULL)
+ */
+export const boardEmAvaliacao = and(
+  not(boardHasReviewExists),
+  or(
+    isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
+    isNotNull(employeeTrainingsTable.effectivenessDueDate),
+  )!,
+)!;
+
+/**
+ * Coluna "Pendentes": sem review e sem qualquer configuração de avaliação atribuída.
+ * SQL: NOT hasReview
+ *      AND effectiveness_assigned_role IS NULL
+ *      AND effectiveness_due_date IS NULL
+ */
+export const boardPendentes = and(
+  not(boardHasReviewExists),
+  isNull(employeeTrainingsTable.effectivenessAssignedRole),
+  isNull(employeeTrainingsTable.effectivenessDueDate),
+)!;
+
+/**
+ * Filtro de escopo `needs_evaluation`: inclui apenas treinamentos que têm
+ * alguma configuração de avaliação de eficácia ou já possuem uma review.
+ * SQL: evaluation_method IS NOT NULL
+ *      OR target_competency_name IS NOT NULL
+ *      OR effectiveness_assigned_role IS NOT NULL
+ *      OR EXISTS (review)
+ */
+export const boardNeedsEvaluationScope = or(
+  isNotNull(employeeTrainingsTable.evaluationMethod),
+  isNotNull(employeeTrainingsTable.targetCompetencyName),
+  isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
+  boardHasReviewExists,
+)!;
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -1441,6 +1521,10 @@ router.get(
       effectivenessStatus: z
         .enum(["pending", "in_review", "effective", "ineffective"])
         .optional(),
+      /** Escopo do board de eficácia.
+       *  - `needs_evaluation`: apenas treinamentos com avaliação configurada ou review registrado.
+       *  - `all` (padrão): todos os treinamentos — mantém compatibilidade com os callers existentes. */
+      scope: z.enum(["needs_evaluation", "all"]).optional().default("all"),
     }).safeParse(req.query);
     if (!query.success) {
       res.status(400).json({ error: query.error.message });
@@ -1488,6 +1572,9 @@ router.get(
           ),
         )!,
       );
+    }
+    if (query.data.scope === "needs_evaluation") {
+      conditions.push(boardNeedsEvaluationScope);
     }
 
     const rows = await db
