@@ -10,6 +10,44 @@ export type SearchableOption = {
   label: string;
 };
 
+/**
+ * Constrói opções {value,label} a partir de uma lista de nomes (ex.: usuários,
+ * competências), deduplicando case-insensitive. Garante que o valor atual —
+ * possivelmente livre/legado/externo (ex.: instrutor de fora do sistema) —
+ * sempre apareça, já que o SearchableSelect mostra o placeholder quando o
+ * `value` não está entre as opções.
+ */
+export function toNameOptions(
+  names: Array<string | null | undefined>,
+  current?: string | null,
+): SearchableOption[] {
+  const cur = current?.trim();
+  const curKey = cur?.toLowerCase();
+  const seen = new Set<string>();
+  const options: SearchableOption[] = [];
+  for (const raw of names) {
+    const name = raw?.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // Se o nome casa (case-insensitive) com o valor atual mas em grafia diferente
+    // (ex.: salvo "joão silva" vs catálogo "João Silva"), usa o valor atual como
+    // `value` para o SearchableSelect casar exatamente (o.value === value) — senão
+    // o trigger mostraria o placeholder. O `label` fica a grafia do catálogo.
+    if (cur && key === curKey) {
+      options.push({ value: cur, label: name });
+    } else {
+      options.push({ value: name, label: name });
+    }
+  }
+  // Valor atual ausente do catálogo (externo/legado novo) → injeta no topo.
+  if (cur && curKey && !seen.has(curKey)) {
+    options.unshift({ value: cur, label: cur });
+  }
+  return options;
+}
+
 export type SearchableSelectProps = {
   value: string;
   onChange: (value: string) => void;
