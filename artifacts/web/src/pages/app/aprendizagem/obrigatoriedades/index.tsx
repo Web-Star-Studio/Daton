@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
@@ -87,10 +88,12 @@ export default function ObrigatoriedadesPage() {
   });
   const requirements = result?.data ?? [];
 
-  const { data: positions = [] } = useListPositions(orgId ?? 0, {
+  const { data: positions = [], isLoading: positionsLoading } =
+    useListPositions(orgId ?? 0, {
     query: { enabled: !!orgId, queryKey: getListPositionsQueryKey(orgId ?? 0) },
   });
-  const { data: catalogResult } = useListTrainingCatalog(orgId ?? 0, undefined, {
+  const { data: catalogResult, isLoading: catalogLoading } =
+    useListTrainingCatalog(orgId ?? 0, undefined, {
     query: {
       enabled: !!orgId,
       queryKey: getListTrainingCatalogQueryKey(orgId ?? 0),
@@ -314,32 +317,32 @@ export default function ObrigatoriedadesPage() {
       >
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Cargo *">
-            <Select
+            <SearchableSelect
               value={form.positionId}
-              onChange={(e) => setForm({ ...form, positionId: e.target.value })}
-            >
-              <option value="">Selecione...</option>
-              {positions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </Select>
+              onChange={(v) => setForm({ ...form, positionId: v })}
+              options={positions.map((p) => ({
+                value: String(p.id),
+                label: p.name,
+              }))}
+              isLoading={positionsLoading}
+              placeholder="Selecione o cargo..."
+              searchPlaceholder="Buscar cargo..."
+              emptyMessage="Nenhum cargo cadastrado."
+            />
           </Field>
           <Field label="Treinamento *">
-            <Select
+            <SearchableSelect
               value={form.catalogItemId}
-              onChange={(e) =>
-                setForm({ ...form, catalogItemId: e.target.value })
-              }
-            >
-              <option value="">Selecione...</option>
-              {catalogItems.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title}
-                </option>
-              ))}
-            </Select>
+              onChange={(v) => setForm({ ...form, catalogItemId: v })}
+              options={catalogItems.map((c) => ({
+                value: String(c.id),
+                label: c.title,
+              }))}
+              isLoading={catalogLoading}
+              placeholder="Selecione o treinamento..."
+              searchPlaceholder="Buscar treinamento..."
+              emptyMessage="Nenhum treinamento no catálogo."
+            />
           </Field>
           <Field label="Tipo de prazo *">
             <Select
