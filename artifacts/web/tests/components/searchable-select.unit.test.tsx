@@ -59,4 +59,31 @@ describe("SearchableSelect — robustez a labels duplicados (#121)", () => {
     await user.click(screen.getByText("Todos"));
     expect(onChange).toHaveBeenCalledWith("");
   });
+
+  it("modo server-side: digitar chama onSearchChange e o cmdk não re-filtra (#119)", async () => {
+    const onSearchChange = vi.fn();
+    // options já chegam filtradas do servidor → o cmdk não deve filtrar de novo.
+    const options = [
+      { value: "1", label: "Alpha" },
+      { value: "2", label: "Beta" },
+    ];
+    render(
+      <SearchableSelect
+        value=""
+        onChange={vi.fn()}
+        options={options}
+        searchValue=""
+        onSearchChange={onSearchChange}
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox"));
+    await user.type(screen.getByPlaceholderText("Buscar..."), "zzz");
+
+    // A busca vai ao servidor (não filtra local); ambas as options seguem visíveis.
+    expect(onSearchChange).toHaveBeenCalled();
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.getByText("Beta")).toBeInTheDocument();
+  });
 });

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useListAnnualProgram,
   useCreateAnnualProgramItem,
@@ -88,21 +89,23 @@ export default function ProgramaAnualPage() {
   const { user } = useAuth();
   const orgId = user?.organizationId;
 
-  // Responsável: picker de usuários (useListUserOptions — acessível a não-admin,
-  // permite digitar externo). pageSize 100 cobre a org p/ filtro client-side.
-  const usersQuery = useListUserOptions(
-    orgId ?? 0,
-    { page: 1, pageSize: 100 },
-    {
-      query: {
-        enabled: !!orgId,
-        queryKey: getListUserOptionsQueryKey(orgId ?? 0, {
-          page: 1,
-          pageSize: 100,
-        }),
-      },
+  // Responsável: picker de usuários com busca server-side (escala p/ orgs >100
+  // usuários — #119; permite digitar externo). useListUserOptions é acessível a
+  // não-admin.
+  const [userSearch, setUserSearch] = useState("");
+  const debouncedUserSearch = useDebouncedValue(userSearch, 300);
+  const userParams = {
+    search: debouncedUserSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  };
+  const usersQuery = useListUserOptions(orgId ?? 0, userParams, {
+    query: {
+      enabled: !!orgId,
+      queryKey: getListUserOptionsQueryKey(orgId ?? 0, userParams),
+      placeholderData: keepPreviousData,
     },
-  );
+  });
   const userNames = useMemo(
     () => (usersQuery.data ?? []).map((u) => u.name),
     [usersQuery.data],
@@ -455,6 +458,8 @@ export default function ProgramaAnualPage() {
               onChange={(v) => setForm({ ...form, responsible: v })}
               options={toNameOptions(userNames, form.responsible)}
               onCreateOption={(v) => setForm({ ...form, responsible: v })}
+              searchValue={userSearch}
+              onSearchChange={setUserSearch}
               isLoading={usersQuery.isLoading}
               placeholder="Selecione um usuário…"
               searchPlaceholder="Buscar usuário ou digitar…"

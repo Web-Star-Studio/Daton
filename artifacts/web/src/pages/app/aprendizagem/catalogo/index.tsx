@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useListTrainingCatalog,
   useCreateTrainingCatalogItem,
@@ -140,22 +141,23 @@ export default function CatalogoPage() {
   const { user } = useAuth();
   const orgId = user?.organizationId;
 
-  // Pickers: usuários (instrutor/responsável padrão) e competências (vinculada).
-  // useListUserOptions (não useListOrgUsers, que é admin-only) — acessível a
-  // quem edita o módulo; pageSize 100 cobre a org inteira p/ filtro client-side.
-  const usersQuery = useListUserOptions(
-    orgId ?? 0,
-    { page: 1, pageSize: 100 },
-    {
-      query: {
-        enabled: !!orgId,
-        queryKey: getListUserOptionsQueryKey(orgId ?? 0, {
-          page: 1,
-          pageSize: 100,
-        }),
-      },
+  // Picker de usuários (instrutor): busca server-side (escala p/ orgs >100
+  // usuários — #119). useListUserOptions (não useListOrgUsers, admin-only) é
+  // acessível a quem edita. Competências continuam client-side (não paginam).
+  const [userSearch, setUserSearch] = useState("");
+  const debouncedUserSearch = useDebouncedValue(userSearch, 300);
+  const userParams = {
+    search: debouncedUserSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  };
+  const usersQuery = useListUserOptions(orgId ?? 0, userParams, {
+    query: {
+      enabled: !!orgId,
+      queryKey: getListUserOptionsQueryKey(orgId ?? 0, userParams),
+      placeholderData: keepPreviousData,
     },
-  );
+  });
   const userNames = useMemo(
     () => (usersQuery.data ?? []).map((u) => u.name),
     [usersQuery.data],
@@ -581,6 +583,8 @@ export default function CatalogoPage() {
               onChange={(v) => setForm({ ...form, defaultInstructor: v })}
               options={toNameOptions(userNames, form.defaultInstructor)}
               onCreateOption={(v) => setForm({ ...form, defaultInstructor: v })}
+              searchValue={userSearch}
+              onSearchChange={setUserSearch}
               isLoading={usersQuery.isLoading}
               placeholder="Selecione um usuário…"
               searchPlaceholder="Buscar usuário ou digitar…"
