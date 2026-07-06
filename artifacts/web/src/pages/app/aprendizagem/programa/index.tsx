@@ -317,7 +317,11 @@ export default function ProgramaAnualPage() {
                       {item.unitId ? (unitName.get(item.unitId) ?? "—") : "—"}
                     </td>
                     <td className="px-4 py-2 text-muted-foreground">
-                      {item.plannedMonth ? MONTHS[item.plannedMonth - 1] : "—"}
+                      {item.plannedMonth
+                        ? `${MONTHS[item.plannedMonth - 1]}/${String(
+                            item.year,
+                          ).slice(-2)}`
+                        : "—"}
                     </td>
                     <td className="px-4 py-2 text-muted-foreground">
                       {item.modality ?? "—"}

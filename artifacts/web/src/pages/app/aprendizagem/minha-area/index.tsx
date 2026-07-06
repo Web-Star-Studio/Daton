@@ -10,6 +10,8 @@ import { usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { AlertTriangle, Clock } from "lucide-react";
 
 const TRAINING_STATUS_BADGE: Record<string, string> = {
   concluido: "bg-green-50 text-green-700",
@@ -50,6 +52,12 @@ export default function MinhaAreaPage() {
   const pendingEff = myTrainings.filter(
     (t) => t.status === "concluido" && t.effectivenessStatus === "pending",
   );
+  const stats = {
+    total: myTrainings.length,
+    concluidos: myTrainings.filter((t) => t.status === "concluido").length,
+    pendentes: myTrainings.filter((t) => t.status === "pendente").length,
+    vencidos: myTrainings.filter((t) => t.status === "vencido").length,
+  };
 
   const teamParams = {
     unitId: employee?.unitId ?? 0,
@@ -114,7 +122,38 @@ export default function MinhaAreaPage() {
       </div>
 
       {view === "colaborador" ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <>
+          {/* Tiles de contagem */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatTile label="Treinamentos" value={stats.total} />
+            <StatTile label="Concluídos" value={stats.concluidos} tone="green" />
+            <StatTile label="Pendentes" value={stats.pendentes} tone="amber" />
+            <StatTile label="Vencidos" value={stats.vencidos} tone="red" />
+          </div>
+
+          {/* Alertas do colaborador */}
+          {(stats.vencidos > 0 || stats.pendentes > 0) && (
+            <div className="space-y-2">
+              {stats.vencidos > 0 && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Você tem {stats.vencidos} treinamento
+                  {stats.vencidos > 1 ? "s" : ""} vencido
+                  {stats.vencidos > 1 ? "s" : ""} — regularize com seu gestor/RH.
+                </div>
+              )}
+              {stats.pendentes > 0 && (
+                <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  <Clock className="h-4 w-4 shrink-0" />
+                  {stats.pendentes} treinamento
+                  {stats.pendentes > 1 ? "s" : ""} pendente
+                  {stats.pendentes > 1 ? "s" : ""} a concluir.
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="grid gap-4 lg:grid-cols-2">
           {/* Meus treinamentos */}
           <Section title={`Meus treinamentos (${myTrainings.length})`}>
             {myTrainings.length === 0 ? (
@@ -154,7 +193,11 @@ export default function MinhaAreaPage() {
                       className="flex items-center gap-2 py-2 text-sm"
                     >
                       <span className="flex-1 truncate">{c.name}</span>
-                      <span className="text-xs text-muted-foreground">
+                      <CompetencyDots
+                        acquired={c.acquiredLevel ?? 0}
+                        required={c.requiredLevel ?? 0}
+                      />
+                      <span className="w-8 text-right text-xs text-muted-foreground">
                         {c.acquiredLevel ?? 0}/{c.requiredLevel ?? 0}
                       </span>
                       {gap ? (
@@ -196,7 +239,8 @@ export default function MinhaAreaPage() {
               </ul>
             )}
           </Section>
-        </div>
+          </div>
+        </>
       ) : (
         <Section
           title={`Pendências de eficácia na filial (${teamPending.length})`}
@@ -253,6 +297,65 @@ function Section({
     >
       <h3 className="mb-2 text-sm font-semibold">{title}</h3>
       {children}
+    </div>
+  );
+}
+
+const STAT_TONE: Record<string, string> = {
+  green: "text-emerald-600",
+  amber: "text-amber-600",
+  red: "text-red-600",
+};
+
+function StatTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "green" | "amber" | "red";
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-3 shadow-sm">
+      <div
+        className={cn(
+          "text-2xl font-semibold tabular-nums",
+          tone ? STAT_TONE[tone] : "text-foreground",
+        )}
+      >
+        {value}
+      </div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+/** Matriz visual de nível: bolinhas cheias (adquirido), contorno (lacuna até o
+ *  requerido) e vazias (acima do requerido). */
+function CompetencyDots({
+  acquired,
+  required,
+}: {
+  acquired: number;
+  required: number;
+}) {
+  const total = Math.max(acquired, required, 1);
+  return (
+    <div className="flex items-center gap-0.5" aria-hidden>
+      {Array.from({ length: total }).map((_, i) => (
+        <span
+          key={i}
+          className={cn(
+            "h-2.5 w-2.5 rounded-full",
+            i < acquired
+              ? "bg-emerald-500"
+              : i < required
+                ? "border border-amber-400"
+                : "bg-muted",
+          )}
+        />
+      ))}
     </div>
   );
 }
