@@ -29,6 +29,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import {
+  SearchableSelect,
+  toNameOptions,
+} from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
@@ -846,15 +850,26 @@ export default function ColaboradoresPage() {
               </option>
             ))}
           </Select>
-          <Input
-            placeholder="Filtrar por cargo..."
-            value={positionFilter}
-            onChange={(e) => {
-              setPositionFilter(e.target.value);
-              handleFilterChange();
-            }}
-            className="h-9 text-[13px] w-44"
-          />
+          <div className="w-44">
+            <SearchableSelect
+              value={positionFilter}
+              onChange={(v) => {
+                setPositionFilter(v);
+                handleFilterChange();
+              }}
+              options={toNameOptions(
+                positions.map((p) => p.name),
+                positionFilter,
+              )}
+              onCreateOption={(v) => {
+                setPositionFilter(v);
+                handleFilterChange();
+              }}
+              createOptionLabel={(input) => `Filtrar por “${input}”`}
+              placeholder="Todos os cargos"
+              searchPlaceholder="Buscar cargo..."
+            />
+          </div>
         </div>
 
         {isLoading ? (
