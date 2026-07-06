@@ -6,8 +6,8 @@ import {
   useUpdateTrainingCatalogItem,
   useDeleteTrainingCatalogItem,
   getListTrainingCatalogQueryKey,
-  useListOrgUsers,
-  getListOrgUsersQueryKey,
+  useListUserOptions,
+  getListUserOptionsQueryKey,
   useListCompetencyCatalog,
   getListCompetencyCatalogQueryKey,
 } from "@workspace/api-client-react";
@@ -141,14 +141,23 @@ export default function CatalogoPage() {
   const orgId = user?.organizationId;
 
   // Pickers: usuários (instrutor/responsável padrão) e competências (vinculada).
-  const usersQuery = useListOrgUsers(orgId ?? 0, {
-    query: {
-      enabled: !!orgId,
-      queryKey: getListOrgUsersQueryKey(orgId ?? 0),
+  // useListUserOptions (não useListOrgUsers, que é admin-only) — acessível a
+  // quem edita o módulo; pageSize 100 cobre a org inteira p/ filtro client-side.
+  const usersQuery = useListUserOptions(
+    orgId ?? 0,
+    { page: 1, pageSize: 100 },
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListUserOptionsQueryKey(orgId ?? 0, {
+          page: 1,
+          pageSize: 100,
+        }),
+      },
     },
-  });
+  );
   const userNames = useMemo(
-    () => (usersQuery.data?.users ?? []).map((u) => u.name),
+    () => (usersQuery.data ?? []).map((u) => u.name),
     [usersQuery.data],
   );
   const competencyQuery = useListCompetencyCatalog(orgId ?? 0, {

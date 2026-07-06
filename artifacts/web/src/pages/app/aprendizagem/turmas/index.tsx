@@ -10,8 +10,8 @@ import {
   useListUnits,
   useListEmployees,
   getListEmployeesQueryKey,
-  useListOrgUsers,
-  getListOrgUsersQueryKey,
+  useListUserOptions,
+  getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
 import type { TrainingClass } from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
@@ -80,15 +80,23 @@ export default function TurmasPage() {
   const { user } = useAuth();
   const orgId = user?.organizationId;
 
-  // Instrutor: picker de usuários da org (permite digitar externo).
-  const usersQuery = useListOrgUsers(orgId ?? 0, {
-    query: {
-      enabled: !!orgId,
-      queryKey: getListOrgUsersQueryKey(orgId ?? 0),
+  // Instrutor: picker de usuários (useListUserOptions — acessível a não-admin,
+  // permite digitar externo). pageSize 100 cobre a org p/ filtro client-side.
+  const usersQuery = useListUserOptions(
+    orgId ?? 0,
+    { page: 1, pageSize: 100 },
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListUserOptionsQueryKey(orgId ?? 0, {
+          page: 1,
+          pageSize: 100,
+        }),
+      },
     },
-  });
+  );
   const userNames = useMemo(
-    () => (usersQuery.data?.users ?? []).map((u) => u.name),
+    () => (usersQuery.data ?? []).map((u) => u.name),
     [usersQuery.data],
   );
   const { canWriteModule } = usePermissions();
