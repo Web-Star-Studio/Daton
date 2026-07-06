@@ -53,14 +53,22 @@ export default function MinhaAreaPage() {
     (t) => t.status === "concluido" && t.effectivenessStatus === "pending",
   );
   // Contagens do agregado do servidor (cobre o conjunto inteiro, não só a
-  // página de 200) — evita subcontagem com muitos treinamentos.
+  // página de 200). Sem as stats, cai para o cálculo pela página — sempre
+  // coerente entre si (nunca total do servidor com demais zerados).
   const s = myTrainingsResult?.stats;
-  const counts = {
-    total: s?.total ?? myTrainings.length,
-    concluidos: s?.concluido ?? 0,
-    pendentes: s?.pendente ?? 0,
-    vencidos: s?.vencido ?? 0,
-  };
+  const counts = s
+    ? {
+        total: s.total,
+        concluidos: s.concluido,
+        pendentes: s.pendente,
+        vencidos: s.vencido,
+      }
+    : {
+        total: myTrainings.length,
+        concluidos: myTrainings.filter((t) => t.status === "concluido").length,
+        pendentes: myTrainings.filter((t) => t.status === "pendente").length,
+        vencidos: myTrainings.filter((t) => t.status === "vencido").length,
+      };
 
   const teamParams = {
     unitId: employee?.unitId ?? 0,
@@ -158,7 +166,7 @@ export default function MinhaAreaPage() {
 
           <div className="grid gap-4 lg:grid-cols-2">
           {/* Meus treinamentos */}
-          <Section title={`Meus treinamentos (${myTrainings.length})`}>
+          <Section title={`Meus treinamentos (${counts.total})`}>
             {myTrainings.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Nenhum treinamento.
@@ -219,7 +227,7 @@ export default function MinhaAreaPage() {
 
           {/* Avaliações de eficácia pendentes */}
           <Section
-            title={`Eficácia pendente (${pendingEff.length})`}
+            title={`Eficácia pendente (${s?.effectivenessPending ?? pendingEff.length})`}
             className="lg:col-span-2"
           >
             {pendingEff.length === 0 ? (
