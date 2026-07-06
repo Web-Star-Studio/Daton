@@ -243,4 +243,68 @@ describe("GET /organizations/:orgId/kpi/years/:year — LMS compose-on-read", ()
     expect(janCell!.monthlyValueId).not.toBeNull();
     expect(janCell!.monthlyValueId).toBeGreaterThan(0);
   });
+
+  it("#116: limpa a célula materializada quando a métrica fica sem dado", async () => {
+    const ctx = await createTestContext({ seed: "lms-clear" });
+    contexts.push(ctx);
+
+    await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/kpi/lms-indicators/activate`,
+      )
+      .set(authHeader(ctx))
+      .send({ year: 2026 });
+
+    const [catalog] = await db
+      .insert(trainingCatalogTable)
+      .values({
+        organizationId: ctx.organizationId,
+        title: "Treino Clear LMS",
+      })
+      .returning({ id: trainingCatalogTable.id });
+
+    await db.insert(annualTrainingProgramTable).values([
+      {
+        organizationId: ctx.organizationId,
+        year: 2026,
+        catalogItemId: catalog.id,
+        plannedMonth: 1,
+        status: "realizada",
+      },
+      {
+        organizationId: ctx.organizationId,
+        year: 2026,
+        catalogItemId: catalog.id,
+        plannedMonth: 1,
+        status: "planejada",
+      },
+    ]);
+
+    const janValue = (body: unknown): number | null | undefined =>
+      (
+        body as Array<{
+          indicator: { name: string };
+          monthlyValues: Array<{ month: number; value: number | null }>;
+        }>
+      )
+        .find((r) => r.indicator.name === "% Cumprimento do PAT")
+        ?.monthlyValues.find((c) => c.month === 1)?.value;
+
+    // 1ª leitura: materializa (~50%)
+    const res1 = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/kpi/years/2026`)
+      .set(authHeader(ctx));
+    expect(janValue(res1.body)).toBeCloseTo(50, 0);
+
+    // Remove os dados PAT → a métrica fica sem denominador (null)
+    await db
+      .delete(annualTrainingProgramTable)
+      .where(eq(annualTrainingProgramTable.organizationId, ctx.organizationId));
+
+    // 2ª leitura: célula LIMPA — não persiste o 50 antigo (#116)
+    const res2 = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/kpi/years/2026`)
+      .set(authHeader(ctx));
+    expect(janValue(res2.body) ?? null).toBeNull();
+  });
 });
