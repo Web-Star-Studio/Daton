@@ -987,7 +987,27 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         month,
         database: db,
       });
-      if (value === null) continue; // não materializa mês sem valor
+      if (value === null) {
+        // Métrica sem valor (ex.: sem denominador). Se havia um valor COMPUTADO
+        // materializado (não-null; override já saiu acima), LIMPA o value: UPDATE
+        // set value=null (não DELETE — preserva a linha, as justificativas via FK
+        // cascade e o vínculo de plano de ação; `value` é nullable) e MANTÉM a
+        // célula no read com o monthlyValueId/justificativas, só zerando o value.
+        // Só escreve se ainda não estava null (evita write-on-read). Ver #116.
+        if (existing && existing.value !== null) {
+          await db
+            .update(kpiMonthlyValuesTable)
+            .set({ value: null, updatedAt: new Date() })
+            .where(
+              and(
+                eq(kpiMonthlyValuesTable.yearConfigId, yc.id),
+                eq(kpiMonthlyValuesTable.month, month),
+              ),
+            );
+          monthMap.set(month, { ...existing, value: null });
+        }
+        continue; // não materializa mês sem valor
+      }
       // Materializa (upsert) para ter id real → habilita plano de ação
       const [mvRow] = await db
         .insert(kpiMonthlyValuesTable)

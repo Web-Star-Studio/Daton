@@ -243,4 +243,78 @@ describe("GET /organizations/:orgId/kpi/years/:year — LMS compose-on-read", ()
     expect(janCell!.monthlyValueId).not.toBeNull();
     expect(janCell!.monthlyValueId).toBeGreaterThan(0);
   });
+
+  it("#116: limpa a célula materializada quando a métrica fica sem dado", async () => {
+    const ctx = await createTestContext({ seed: "lms-clear" });
+    contexts.push(ctx);
+
+    await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/kpi/lms-indicators/activate`,
+      )
+      .set(authHeader(ctx))
+      .send({ year: 2026 });
+
+    const [catalog] = await db
+      .insert(trainingCatalogTable)
+      .values({
+        organizationId: ctx.organizationId,
+        title: "Treino Clear LMS",
+      })
+      .returning({ id: trainingCatalogTable.id });
+
+    await db.insert(annualTrainingProgramTable).values([
+      {
+        organizationId: ctx.organizationId,
+        year: 2026,
+        catalogItemId: catalog.id,
+        plannedMonth: 1,
+        status: "realizada",
+      },
+      {
+        organizationId: ctx.organizationId,
+        year: 2026,
+        catalogItemId: catalog.id,
+        plannedMonth: 1,
+        status: "planejada",
+      },
+    ]);
+
+    const janCell = (body: unknown) =>
+      (
+        body as Array<{
+          indicator: { name: string };
+          monthlyValues: Array<{
+            month: number;
+            value: number | null;
+            monthlyValueId: number | null;
+          }>;
+        }>
+      )
+        .find((r) => r.indicator.name === "% Cumprimento do PAT")
+        ?.monthlyValues.find((c) => c.month === 1);
+
+    // 1ª leitura: materializa (~50%) numa linha real
+    const res1 = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/kpi/years/2026`)
+      .set(authHeader(ctx));
+    expect(janCell(res1.body)?.value).toBeCloseTo(50, 0);
+    const idBefore = janCell(res1.body)?.monthlyValueId;
+    expect(idBefore).toBeGreaterThan(0);
+
+    // Remove os dados PAT → a métrica fica sem denominador (null)
+    await db
+      .delete(annualTrainingProgramTable)
+      .where(eq(annualTrainingProgramTable.organizationId, ctx.organizationId));
+
+    // 2ª leitura: value LIMPO (não o 50 antigo), mas a célula continua existindo
+    // com o mesmo monthlyValueId — justificativas/plano de ação preservados. #116
+    const res2 = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/kpi/years/2026`)
+      .set(authHeader(ctx));
+    const jan2 = janCell(res2.body);
+    expect(jan2).toBeDefined();
+    expect(jan2!.value).toBeNull();
+    expect(jan2!.monthlyValueId).toBe(idBefore);
+  });
 });
