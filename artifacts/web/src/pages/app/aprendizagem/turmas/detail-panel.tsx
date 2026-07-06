@@ -201,6 +201,7 @@ export function TurmaDetailPanel({
                 key={p.id}
                 className="flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2"
               >
+                <InitialsAvatar name={p.employeeName} />
                 <span className="flex-1 truncate text-sm">{p.employeeName}</span>
                 {canWrite && !isDone ? (
                   <div className="flex gap-1">
@@ -250,7 +251,12 @@ export function TurmaDetailPanel({
             <tbody>
               {participants.map((p) => (
                 <tr key={p.id} className="border-t">
-                  <td className="py-1.5">{p.employeeName}</td>
+                  <td className="py-1.5">
+                    <span className="flex items-center gap-2">
+                      <InitialsAvatar name={p.employeeName} />
+                      {p.employeeName}
+                    </span>
+                  </td>
                   <td className="py-1.5">
                     <ScoreInput
                       score={p.score ?? null}
@@ -345,5 +351,25 @@ function ScoreInput({
         if (val !== "" && val !== String(score ?? "")) onSave(Number(val));
       }}
     />
+  );
+}
+
+/** Iniciais do nome (primeiro + último) para o avatar do participante. */
+function getInitials(name: string | null | undefined): string {
+  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
+  return (first + last).toUpperCase();
+}
+
+function InitialsAvatar({ name }: { name: string | null | undefined }) {
+  return (
+    <span
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground"
+      aria-hidden
+    >
+      {getInitials(name)}
+    </span>
   );
 }
