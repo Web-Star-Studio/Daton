@@ -180,7 +180,11 @@ export function SearchableSelect({
               return (
                 <CommandPrimitive.Item
                   key={opt.value}
-                  value={opt.label}
+                  // Chave interna do cmdk = value ÚNICO (não o label): labels
+                  // duplicados (homônimos) colidiam e um ficava inselecionável.
+                  // `keywords` mantém a busca por nome. Ver #121.
+                  value={opt.value}
+                  keywords={[opt.label]}
                   onSelect={() => {
                     onChange(opt.value);
                     setOpen(false);
