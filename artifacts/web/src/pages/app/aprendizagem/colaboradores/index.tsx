@@ -861,6 +861,11 @@ export default function ColaboradoresPage() {
                 positions.map((p) => p.name),
                 positionFilter,
               )}
+              onCreateOption={(v) => {
+                setPositionFilter(v);
+                handleFilterChange();
+              }}
+              createOptionLabel={(input) => `Filtrar por “${input}”`}
               placeholder="Todos os cargos"
               searchPlaceholder="Buscar cargo..."
             />

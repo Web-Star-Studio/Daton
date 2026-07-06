@@ -52,11 +52,14 @@ export default function MinhaAreaPage() {
   const pendingEff = myTrainings.filter(
     (t) => t.status === "concluido" && t.effectivenessStatus === "pending",
   );
-  const stats = {
-    total: myTrainings.length,
-    concluidos: myTrainings.filter((t) => t.status === "concluido").length,
-    pendentes: myTrainings.filter((t) => t.status === "pendente").length,
-    vencidos: myTrainings.filter((t) => t.status === "vencido").length,
+  // Contagens do agregado do servidor (cobre o conjunto inteiro, não só a
+  // página de 200) — evita subcontagem com muitos treinamentos.
+  const s = myTrainingsResult?.stats;
+  const counts = {
+    total: s?.total ?? myTrainings.length,
+    concluidos: s?.concluido ?? 0,
+    pendentes: s?.pendente ?? 0,
+    vencidos: s?.vencido ?? 0,
   };
 
   const teamParams = {
@@ -125,29 +128,29 @@ export default function MinhaAreaPage() {
         <>
           {/* Tiles de contagem */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <StatTile label="Treinamentos" value={stats.total} />
-            <StatTile label="Concluídos" value={stats.concluidos} tone="green" />
-            <StatTile label="Pendentes" value={stats.pendentes} tone="amber" />
-            <StatTile label="Vencidos" value={stats.vencidos} tone="red" />
+            <StatTile label="Treinamentos" value={counts.total} />
+            <StatTile label="Concluídos" value={counts.concluidos} tone="green" />
+            <StatTile label="Pendentes" value={counts.pendentes} tone="amber" />
+            <StatTile label="Vencidos" value={counts.vencidos} tone="red" />
           </div>
 
           {/* Alertas do colaborador */}
-          {(stats.vencidos > 0 || stats.pendentes > 0) && (
+          {(counts.vencidos > 0 || counts.pendentes > 0) && (
             <div className="space-y-2">
-              {stats.vencidos > 0 && (
+              {counts.vencidos > 0 && (
                 <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
-                  Você tem {stats.vencidos} treinamento
-                  {stats.vencidos > 1 ? "s" : ""} vencido
-                  {stats.vencidos > 1 ? "s" : ""} — regularize com seu gestor/RH.
+                  Você tem {counts.vencidos} treinamento
+                  {counts.vencidos > 1 ? "s" : ""} vencido
+                  {counts.vencidos > 1 ? "s" : ""} — regularize com seu gestor/RH.
                 </div>
               )}
-              {stats.pendentes > 0 && (
+              {counts.pendentes > 0 && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
                   <Clock className="h-4 w-4 shrink-0" />
-                  {stats.pendentes} treinamento
-                  {stats.pendentes > 1 ? "s" : ""} pendente
-                  {stats.pendentes > 1 ? "s" : ""} a concluir.
+                  {counts.pendentes} treinamento
+                  {counts.pendentes > 1 ? "s" : ""} pendente
+                  {counts.pendentes > 1 ? "s" : ""} a concluir.
                 </div>
               )}
             </div>
@@ -331,8 +334,8 @@ function StatTile({
   );
 }
 
-/** Matriz visual de nível: bolinhas cheias (adquirido), contorno (lacuna até o
- *  requerido) e vazias (acima do requerido). */
+/** Matriz visual de nível: escala = max(adquirido, requerido). Bolinhas cheias
+ *  (nível adquirido) e contorno âmbar (lacuna até o requerido). */
 function CompetencyDots({
   acquired,
   required,
@@ -348,11 +351,7 @@ function CompetencyDots({
           key={i}
           className={cn(
             "h-2.5 w-2.5 rounded-full",
-            i < acquired
-              ? "bg-emerald-500"
-              : i < required
-                ? "border border-amber-400"
-                : "bg-muted",
+            i < acquired ? "bg-emerald-500" : "border border-amber-400",
           )}
         />
       ))}
