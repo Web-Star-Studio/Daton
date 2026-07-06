@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import ColaboradoresPage from "@/pages/app/qualidade/colaboradores";
+import ColaboradoresPage from "@/pages/app/aprendizagem/colaboradores";
 import { renderWithQueryClient } from "../support/render";
 
 const permissionsState = {
@@ -52,9 +52,13 @@ vi.mock("@workspace/api-client-react", () => ({
   useListPositions: () => ({
     data: [{ id: 1, name: "Analista da Qualidade" }],
   }),
+  useListTrainingCatalog: () => ({ data: undefined }),
+  usePreviewTrainingRequirements: () => ({ data: undefined }),
   getListEmployeesQueryKey: () => ["employees"],
   getListDepartmentsQueryKey: () => ["departments"],
   getListPositionsQueryKey: () => ["positions"],
+  getListTrainingCatalogQueryKey: () => ["training-catalog"],
+  getPreviewTrainingRequirementsQueryKey: () => ["preview-training-requirements"],
 }));
 
 describe("employees page", () => {

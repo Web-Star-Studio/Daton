@@ -80,7 +80,7 @@ test("creates an employee with profile history and opens the detail page", async
     },
   });
 
-  await authenticatedPage.goto("/organizacao/colaboradores");
+  await authenticatedPage.goto("/aprendizagem/colaboradores");
   await authenticatedPage
     .getByRole("button", { name: "Novo Colaborador" })
     .click();
@@ -108,7 +108,7 @@ test("creates an employee with profile history and opens the detail page", async
   await authenticatedPage.getByRole("link", { name: employeeName }).click();
 
   await expect(authenticatedPage).toHaveURL(
-    /\/organizacao\/colaboradores\/\d+$/,
+    /\/aprendizagem\/colaboradores\/\d+$/,
   );
   await expect(authenticatedPage.getByText(employeeName)).toBeVisible();
   await expect(authenticatedPage.getByText(experienceTitle)).toBeVisible();
@@ -248,10 +248,10 @@ test("manages training matrix, closes a competency gap, and records awareness li
     "manual",
   );
 
-  await authenticatedPage.goto("/organizacao/colaboradores");
+  await authenticatedPage.goto("/aprendizagem/colaboradores");
   await authenticatedPage.getByRole("link", { name: "Treinamentos" }).click();
   await expect(authenticatedPage).toHaveURL(
-    /\/organizacao\/colaboradores\/treinamentos$/,
+    /\/aprendizagem\/colaboradores\/treinamentos$/,
   );
 
   await authenticatedPage.getByRole("tab", { name: "Matriz" }).click();
@@ -283,7 +283,7 @@ test("manages training matrix, closes a competency gap, and records awareness li
     .getByRole("button", { name: "Criar treinamento" })
     .click();
   await expect(authenticatedPage).toHaveURL(
-    new RegExp(`/organizacao/colaboradores/${employee.id}`),
+    new RegExp(`/aprendizagem/colaboradores/${employee.id}`),
   );
 
   const trainingDialog = authenticatedPage.getByRole("dialog", {
@@ -334,7 +334,7 @@ test("manages training matrix, closes a competency gap, and records awareness li
     authenticatedPage.getByText(/Eficaz em 2024-03-25/i),
   ).toBeVisible();
 
-  await authenticatedPage.goto("/organizacao/colaboradores/treinamentos");
+  await authenticatedPage.goto("/aprendizagem/colaboradores/treinamentos");
   await authenticatedPage.getByRole("tab", { name: "Lacunas" }).click();
   await expect(
     authenticatedPage.getByText(
@@ -343,7 +343,7 @@ test("manages training matrix, closes a competency gap, and records awareness li
   ).toBeVisible();
 
   await authenticatedPage.goto(
-    `/organizacao/colaboradores/${employee.id}?tab=conscientizacao`,
+    `/aprendizagem/colaboradores/${employee.id}?tab=conscientizacao`,
   );
   await expect(authenticatedPage.getByText(employeeName)).toBeVisible();
   await authenticatedPage
@@ -389,4 +389,11 @@ test("manages training matrix, closes a competency gap, and records awareness li
       `Objetivo: ${objective.code} · ${objective.description}`,
     ),
   ).toBeVisible();
+});
+
+test("redireciona URLs antigas de colaboradores para /aprendizagem", async ({
+  authenticatedPage,
+}) => {
+  await authenticatedPage.goto("/organizacao/colaboradores");
+  await expect(authenticatedPage).toHaveURL(/\/aprendizagem\/colaboradores$/);
 });

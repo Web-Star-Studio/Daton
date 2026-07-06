@@ -15,6 +15,8 @@ import {
   type KpiRollupStrategy,
 } from "@workspace/db";
 import {
+  ActivateLmsIndicatorsBody,
+  ActivateLmsIndicatorsParams,
   AddKpiMonthJustificationBody,
   AddKpiMonthJustificationParams,
   CreateKpiIndicatorBody,
@@ -55,6 +57,7 @@ import {
 import { normalizeKpiUnit, CORPORATE_UNIT_LABEL } from "../../services/kpi/units";
 import { computeRollupValue, computeRollupGoal, type RollupGoalResult } from "../../services/kpi/rollup";
 import { computeFeedStatus, expectedMonthsFor } from "../../services/kpi/feed-status";
+import { computeLmsMetric, LMS_INDICATOR_DEFS, type LmsMetricKey } from "../../services/kpi/lms-metrics";
 
 const router: IRouter = Router();
 
@@ -83,6 +86,8 @@ function serializeIndicator(
     referenceMonth: r.referenceMonth ?? null,
     category: r.category ?? null,
     norms: r.norms ?? [],
+    computedSource: r.computedSource ?? null,
+    computedMetric: r.computedMetric ?? null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
@@ -119,6 +124,7 @@ function serializeYearConfig(
       : r.goal !== null && r.goal !== undefined
         ? parseFloat(r.goal)
         : null,
+    tolerance: r.tolerance != null ? Number(r.tolerance) : null,
     isGoalComputed: computedGoal ? true : false,
     goalChildrenWithData: computedGoal ? computedGoal.childrenWithGoal : null,
     goalChildrenTotal: computedGoal ? computedGoal.childrenTotal : null,
@@ -145,11 +151,12 @@ async function getRequesterKpiScope(req: { auth?: { userId: number; role: KpiReq
 }
 
 /** Campos de acesso a partir de uma row de indicador. */
-function accessFieldsOf(r: { unitId: number | null; responsibleUserId: number | null; rollupStrategy: string | null; unit: string | null }): KpiIndicatorAccessFields {
+function accessFieldsOf(r: { unitId: number | null; responsibleUserId: number | null; rollupStrategy: string | null; unit: string | null; computedSource?: string | null }): KpiIndicatorAccessFields {
   return {
     unitId: r.unitId ?? null,
     responsibleUserId: r.responsibleUserId ?? null,
     isCorporate: isCorporateIndicator({ rollupStrategy: r.rollupStrategy, unit: r.unit }),
+    isLms: (r.computedSource ?? null) != null,
   };
 }
 
@@ -165,9 +172,16 @@ function kpiVisibilityCondition(scope: KpiRequesterScope): SQL | undefined {
       scope.unitId !== null ? eq(kpiIndicatorsTable.unitId, scope.unitId) : sql`false`,
       isNotNull(kpiIndicatorsTable.rollupStrategy),
       sql`lower(trim(${kpiIndicatorsTable.unit})) = ${CORPORATE_UNIT_LABEL.toLowerCase()}`,
+      isNotNull(kpiIndicatorsTable.computedSource),
     );
   }
-  // operator / analyst
+  if (scope.role === "analyst") {
+    return or(
+      eq(kpiIndicatorsTable.responsibleUserId, scope.userId),
+      isNotNull(kpiIndicatorsTable.computedSource),
+    );
+  }
+  // operator
   return eq(kpiIndicatorsTable.responsibleUserId, scope.userId);
 }
 
@@ -185,6 +199,7 @@ async function authorizeIndicatorAction(
       responsibleUserId: kpiIndicatorsTable.responsibleUserId,
       rollupStrategy: kpiIndicatorsTable.rollupStrategy,
       unit: kpiIndicatorsTable.unit,
+      computedSource: kpiIndicatorsTable.computedSource,
     })
     .from(kpiIndicatorsTable)
     .where(and(eq(kpiIndicatorsTable.id, indicatorId), eq(kpiIndicatorsTable.organizationId, orgId)));
@@ -415,7 +430,7 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
   const scope = await getRequesterKpiScope(req);
   const canCreate = canActOnKpiIndicator(
     scope,
-    { unitId: targetUnitId, responsibleUserId, isCorporate: false },
+    { unitId: targetUnitId, responsibleUserId, isCorporate: false, isLms: false },
     "createUnit",
   );
   if (!canCreate) { res.status(403).json({ error: "Sem permissão para criar indicador nesta filial" }); return; }
@@ -536,6 +551,7 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
       responsibleUserId: kpiIndicatorsTable.responsibleUserId,
       rollupStrategy: kpiIndicatorsTable.rollupStrategy,
       unit: kpiIndicatorsTable.unit,
+      computedSource: kpiIndicatorsTable.computedSource,
     })
     .from(kpiIndicatorsTable)
     .where(and(
@@ -729,9 +745,10 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       objective_id: number | null;
       seq: number | null;
       goal: string | null;
+      tolerance: string | null;
     }>(sql`
       SELECT DISTINCT ON (indicator_id)
-        indicator_id, objective_id, seq, goal
+        indicator_id, objective_id, seq, goal, tolerance
       FROM ${kpiYearConfigsTable}
       WHERE organization_id = ${params.data.orgId}
         AND year < ${params.data.year}
@@ -752,6 +769,7 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         objectiveId: prior?.objective_id ?? null,
         seq: prior?.seq ?? null,
         goal: prior?.goal ?? null,
+        tolerance: prior?.tolerance ?? null,
         createdAt: now,
         updatedAt: now,
       };
@@ -936,6 +954,71 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     valuesByYearConfigId.set(yc.id, monthMap);
   }
 
+  // ── LMS compose on-read (fonte computada) ──────────────────────────────────
+  // Indicadores com computedSource='lms' têm o valor calculado a partir das
+  // métricas do LMS. Diferença-chave do rollup: MATERIALIZAMOS a célula com
+  // upsert para que ela receba um id real — necessário para criar planos de ação
+  // vinculados ao kpiMonthlyValueId.
+  const lmsIndicators = indicators.filter((ind) => ind.computedSource === "lms");
+  // Não materializa meses futuros: ano passado = 12; ano corrente = até o mês
+  // atual; ano futuro = nenhum. Evita cél. vermelha (desvio não tratado) num mês
+  // que ainda não ocorreu.
+  const lmsNow = new Date();
+  const lmsMaxMonth =
+    params.data.year < lmsNow.getUTCFullYear()
+      ? 12
+      : params.data.year === lmsNow.getUTCFullYear()
+        ? lmsNow.getUTCMonth() + 1
+        : 0;
+  for (const ind of lmsIndicators) {
+    const yc = yearConfigByIndicatorId.get(ind.id);
+    if (!yc || !ind.computedMetric) continue;
+    // Indicador ainda não persistiu yearConfig (sintético, id=0): pula
+    // materialização — não temos um yearConfigId válido para FK.
+    if (yc.id === 0) continue;
+    const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
+    for (let month = 1; month <= lmsMaxMonth; month++) {
+      const existing = monthMap.get(month);
+      if (existing?.isOverridden) continue; // respeita override manual
+      const value = await computeLmsMetric({
+        orgId: params.data.orgId,
+        metric: ind.computedMetric as LmsMetricKey,
+        year: params.data.year,
+        month,
+        database: db,
+      });
+      if (value === null) continue; // não materializa mês sem valor
+      // Materializa (upsert) para ter id real → habilita plano de ação
+      const [mvRow] = await db
+        .insert(kpiMonthlyValuesTable)
+        .values({
+          organizationId: params.data.orgId,
+          yearConfigId: yc.id,
+          month,
+          value: String(value),
+          inputs: {},
+          isOverridden: false,
+        })
+        .onConflictDoUpdate({
+          target: [kpiMonthlyValuesTable.yearConfigId, kpiMonthlyValuesTable.month],
+          set: { value: String(value), updatedAt: new Date() },
+        })
+        .returning({ id: kpiMonthlyValuesTable.id });
+      monthMap.set(month, {
+        monthlyValueId: mvRow.id,
+        value,
+        inputs: {},
+        isOverridden: false,
+        isComputed: true,
+        childrenWithData: null,
+        childrenTotal: null,
+        justification: existing?.justification ?? null,
+        justificationsCount: existing?.justificationsCount ?? 0,
+      });
+    }
+    valuesByYearConfigId.set(yc.id, monthMap);
+  }
+
   // ─── Rollup da META (tolerância) on-read ─────────────────────────────────
   // Uma vez por corporativo (a meta é por ano, não por mês).
   const computedGoalByIndicatorId = new Map<number, RollupGoalResult>();
@@ -1046,6 +1129,8 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year", requ
       ? String(body.data.goal)
       : null;
 
+  const toleranceStr = body.data.tolerance != null ? String(body.data.tolerance) : null;
+
   const [row] = await db.insert(kpiYearConfigsTable).values({
     organizationId: params.data.orgId,
     indicatorId: params.data.indicatorId,
@@ -1053,12 +1138,14 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year", requ
     year: params.data.year,
     seq: body.data.seq ?? null,
     goal: goalStr,
+    tolerance: toleranceStr,
   }).onConflictDoUpdate({
     target: [kpiYearConfigsTable.organizationId, kpiYearConfigsTable.indicatorId, kpiYearConfigsTable.year],
     set: {
       objectiveId: body.data.objectiveId ?? null,
       seq: body.data.seq ?? null,
       goal: goalStr,
+      tolerance: toleranceStr,
       updatedAt: new Date(),
     },
   }).returning();
@@ -1290,7 +1377,7 @@ router.post(
     if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
     const scope = await getRequesterKpiScope(req);
-    if (!canActOnKpiIndicator(scope, { unitId: null, responsibleUserId: null, isCorporate: true }, "createCorporate")) {
+    if (!canActOnKpiIndicator(scope, { unitId: null, responsibleUserId: null, isCorporate: true, isLms: false }, "createCorporate")) {
       res.status(403).json({ error: "Sem permissão para criar indicador corporativo" }); return;
     }
 
@@ -1342,6 +1429,7 @@ router.post(
         unitId: kpiIndicatorsTable.unitId,
         responsibleUserId: kpiIndicatorsTable.responsibleUserId,
         rollupStrategy: kpiIndicatorsTable.rollupStrategy,
+        computedSource: kpiIndicatorsTable.computedSource,
       })
       .from(kpiIndicatorsTable)
       .where(and(eq(kpiIndicatorsTable.organizationId, orgId), inArray(kpiIndicatorsTable.id, childIds)));
@@ -1430,6 +1518,115 @@ router.post(
       childrenCount: childIds.length,
       strategy,
     });
+  },
+);
+
+// ─── LMS Indicators (idempotent activation) ────────────────────────────────
+// Cria (ou reusa) os 6 indicadores corporativos de aprendizagem derivados de
+// métricas computadas do LMS. Idempotente: chama múltiplas vezes sem duplicar.
+router.post(
+  "/organizations/:orgId/kpi/lms-indicators/activate",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = ActivateLmsIndicatorsParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const body = ActivateLmsIndicatorsBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+    const orgId = params.data.orgId;
+    const year = body.data.year;
+
+    let activated = 0;
+    const indicatorIds: number[] = [];
+
+    for (const def of LMS_INDICATOR_DEFS) {
+      // Check if indicator already exists for this org + metric
+      const [existing] = await db
+        .select({ id: kpiIndicatorsTable.id })
+        .from(kpiIndicatorsTable)
+        .where(
+          and(
+            eq(kpiIndicatorsTable.organizationId, orgId),
+            eq(kpiIndicatorsTable.computedSource, "lms"),
+            eq(kpiIndicatorsTable.computedMetric, def.metric),
+          ),
+        );
+
+      if (existing) {
+        // Garantir que o ano solicitado tenha year_config (activation pode ser chamada em anos distintos).
+        await db
+          .insert(kpiYearConfigsTable)
+          .values({
+            organizationId: orgId,
+            indicatorId: existing.id,
+            year,
+            goal: String(def.goal),
+            tolerance: String(def.tolerance),
+          })
+          .onConflictDoNothing();
+        indicatorIds.push(existing.id);
+        continue;
+      }
+
+      // Insert the indicator — onConflictDoNothing targets the partial unique index
+      // kpi_indicators_lms_metric_unique so concurrent activations are safe.
+      const [row] = await db
+        .insert(kpiIndicatorsTable)
+        .values({
+          organizationId: orgId,
+          name: def.name,
+          measurement: def.measurement,
+          formulaVariables: [],
+          formulaExpression: "",
+          unit: null,
+          unitId: null,
+          direction: def.direction,
+          periodicity: "monthly",
+          category: def.category,
+          norms: def.norms,
+          computedSource: "lms",
+          computedMetric: def.metric,
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      // If a concurrent activation won the race, re-fetch the row it created.
+      let indicatorId = row?.id;
+      if (indicatorId === undefined) {
+        const [raced] = await db
+          .select({ id: kpiIndicatorsTable.id })
+          .from(kpiIndicatorsTable)
+          .where(
+            and(
+              eq(kpiIndicatorsTable.organizationId, orgId),
+              eq(kpiIndicatorsTable.computedSource, "lms"),
+              eq(kpiIndicatorsTable.computedMetric, def.metric),
+            ),
+          );
+        indicatorId = raced?.id;
+      }
+      if (indicatorId === undefined) continue; // should never happen
+
+      // Insert year config with default goal/tolerance (onConflictDoNothing for idempotency)
+      await db
+        .insert(kpiYearConfigsTable)
+        .values({
+          organizationId: orgId,
+          indicatorId,
+          year,
+          goal: String(def.goal),
+          tolerance: String(def.tolerance),
+        })
+        .onConflictDoNothing();
+
+      indicatorIds.push(indicatorId);
+      if (row) activated++; // only count truly new indicators
+    }
+
+    res.json({ activated, indicatorIds });
   },
 );
 

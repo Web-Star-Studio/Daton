@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateTrainingEffectivenessReviewBodyEvaluatorRole } from "./createTrainingEffectivenessReviewBodyEvaluatorRole";
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 
 export interface CreateTrainingEffectivenessReviewBody {
@@ -21,6 +22,7 @@ export interface CreateTrainingEffectivenessReviewBody {
    */
   resultLevel?: number;
   comments?: string;
+  evaluatorRole?: CreateTrainingEffectivenessReviewBodyEvaluatorRole;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
 }

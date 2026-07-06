@@ -11,6 +11,7 @@ export type ListOrganizationTrainingsEffectivenessStatus =
 
 export const ListOrganizationTrainingsEffectivenessStatus = {
   pending: "pending",
+  in_review: "in_review",
   effective: "effective",
   ineffective: "ineffective",
 } as const;

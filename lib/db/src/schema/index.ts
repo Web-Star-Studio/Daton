@@ -8,6 +8,7 @@ export * from "./conversations";
 export * from "./messages";
 export * from "./questionnaire";
 export * from "./employees";
+export * from "./learning-catalog";
 export * from "./departments";
 export * from "./department-units";
 export * from "./documents";

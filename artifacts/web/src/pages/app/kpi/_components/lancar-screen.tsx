@@ -114,7 +114,7 @@ function untreatedRedMonths(row: KpiYearRow): number[] {
       (mv) =>
         mv.value != null &&
         (!restrict || restrict.has(mv.month)) &&
-        getTrafficLight(mv.value, goal, direction) === "red" &&
+        getTrafficLight(mv.value, goal, direction, row.yearConfig.tolerance) === "red" &&
         mv.justificationsCount === 0 &&
         mv.actionPlansCount === 0,
     )
@@ -143,8 +143,9 @@ function HistoryPanel({
   measureUnit: string;
   /** Foca o mês no form (cria lançamento se vazio, edita se já tem valor). */
   onSelectMonth: (month: number) => void;
-  /** Limpa o valor do mês (deixa em branco) — gatilho do "×" no canto da célula. */
-  onClearMonth: (month: number) => void;
+  /** Limpa o valor do mês (deixa em branco) — gatilho do "×" no canto da célula.
+   *  Undefined desabilita o botão "×" (e.g., indicadores LMS read-only). */
+  onClearMonth?: (month: number) => void;
 }) {
   const monthValues = Array.from(
     { length: 12 },
@@ -187,7 +188,7 @@ function HistoryPanel({
       <div className="grid grid-cols-4 gap-1.5">
         {MONTH_LABELS.map((label, i) => {
           const v = monthValues[i];
-          const st = getTrafficLight(v, goal, direction);
+          const st = getTrafficLight(v, goal, direction, row.yearConfig.tolerance);
           const month = i + 1;
           // Mês fora da referência (indicador não-mensal): travado, ignorado
           // nos cálculos. Se tiver valor, é anomalia (provável erro de carga).
@@ -263,8 +264,9 @@ function HistoryPanel({
                 </div>
               )}
               {/* "×" pra limpar o valor do mês (deixa em branco): meses lançáveis
-                 com valor salvo (inclusive zero) E anomalias fora da referência. */}
-              {v !== null && (clickable || isAnomaly) ? (
+                 com valor salvo (inclusive zero) E anomalias fora da referência.
+                 Oculto quando onClearMonth não é fornecido (e.g., indicadores LMS). */}
+              {v !== null && (clickable || isAnomaly) && onClearMonth ? (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -468,8 +470,9 @@ export function LancarScreen({
   }, [selectedRow, hasFormula, parsedInputs, directValue]);
 
   const goal = selectedRow?.yearConfig.goal ?? null;
+  const tolerance = selectedRow?.yearConfig.tolerance ?? null;
   const direction = (selectedRow?.indicator.direction ?? "up") as KpiDirection;
-  const status = getTrafficLight(computedValue, goal, direction);
+  const status = getTrafficLight(computedValue, goal, direction, tolerance);
   const measureUnit = selectedRow?.indicator.measureUnit ?? "";
 
   // The chosen month may already have a saved value — drives the result box
@@ -479,7 +482,7 @@ export function LancarScreen({
   const monthlyValueId = savedMonthly?.monthlyValueId ?? null;
   const effectiveValue =
     computedValue !== null ? computedValue : (savedMonthly?.value ?? null);
-  const effectiveStatus = getTrafficLight(effectiveValue, goal, direction);
+  const effectiveStatus = getTrafficLight(effectiveValue, goal, direction, tolerance);
   const outOfTarget = effectiveStatus === "red";
 
   // Meses que o form pode lançar: não-futuros e, p/ indicador não-mensal,
@@ -705,6 +708,8 @@ export function LancarScreen({
     // Não-mensal sem mês de referência: a cadência fica indefinida — sinaliza e
     // leva pro cadastro pra configurar.
     const missingReference = isNonMonthly && refExpected.size === 0;
+    // Indicador alimentado automaticamente pelo módulo LMS — entradas manuais bloqueadas.
+    const isLmsSourced = ind.computedSource === "lms";
     // "Voltar" devolve à origem: aba Indicadores (deep-link) ou fila local.
     const backToIndicadores = cameFromIndicadores && !!onBackToIndicadores;
     return (
@@ -786,7 +791,14 @@ export function LancarScreen({
               </Select>
             </div>
 
-            {hasFormula ? (
+            {isLmsSourced ? (
+              <div className="flex items-start gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-[11px] text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
+                <span className="shrink-0 font-semibold">↻</span>
+                <span>
+                  Valor calculado automaticamente do módulo de Treinamento — não é possível lançar manualmente.
+                </span>
+              </div>
+            ) : hasFormula ? (
               <>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -877,7 +889,7 @@ export function LancarScreen({
               </div>
             </div>
 
-            <Button className="w-full" onClick={handleSave} disabled={saving}>
+            <Button className="w-full" onClick={handleSave} disabled={saving || isLmsSourced}>
               {saving ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : null}
@@ -943,7 +955,7 @@ export function LancarScreen({
             selectedMonth={month}
             measureUnit={measureUnit}
             onSelectMonth={setMonth}
-            onClearMonth={setClearMonth}
+            onClearMonth={isLmsSourced ? undefined : setClearMonth}
           />
         </div>
         {racMonth !== null ? (
@@ -963,7 +975,7 @@ export function LancarScreen({
           />
         ) : null}
         <AlertDialog
-          open={clearMonth !== null}
+          open={clearMonth !== null && !isLmsSourced}
           onOpenChange={(open) => {
             if (!open) setClearMonth(null);
           }}

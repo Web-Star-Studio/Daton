@@ -5,6 +5,308 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * Item do catálogo de treinamentos (definição reutilizável).
+ */
+export interface TrainingCatalogItem {
+  id: number;
+  organizationId: number;
+  title: string;
+  category?: string | null;
+  modality?: string | null;
+  norm?: string | null;
+  clause?: string | null;
+  workloadHours?: number | null;
+  validityMonths?: number | null;
+  isMandatory: boolean;
+  status: string;
+  targetCompetencyName?: string | null;
+  targetCompetencyType?: string | null;
+  targetCompetencyLevel?: number | null;
+  defaultInstructor?: string | null;
+  objective?: string | null;
+  programContent?: string | null;
+  evaluationMethod?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTrainingCatalogItemBody {
+  /** @minLength 1 */
+  title: string;
+  category?: string;
+  modality?: string;
+  norm?: string;
+  clause?: string;
+  workloadHours?: number;
+  validityMonths?: number | null;
+  isMandatory?: boolean;
+  status?: string;
+  targetCompetencyName?: string;
+  targetCompetencyType?: string;
+  targetCompetencyLevel?: number;
+  defaultInstructor?: string;
+  objective?: string;
+  programContent?: string;
+  evaluationMethod?: string;
+}
+
+export interface UpdateTrainingCatalogItemBody {
+  /** @minLength 1 */
+  title?: string;
+  category?: string;
+  modality?: string;
+  norm?: string;
+  clause?: string;
+  workloadHours?: number;
+  validityMonths?: number | null;
+  isMandatory?: boolean;
+  status?: string;
+  targetCompetencyName?: string;
+  targetCompetencyType?: string;
+  targetCompetencyLevel?: number;
+  defaultInstructor?: string;
+  objective?: string;
+  programContent?: string;
+  evaluationMethod?: string;
+}
+
+export type PaginatedTrainingCatalogPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export interface PaginatedTrainingCatalog {
+  data: TrainingCatalogItem[];
+  pagination: PaginatedTrainingCatalogPagination;
+}
+
+/**
+ * Item do banco de competências (catálogo gerenciável por organização).
+ */
+export interface CompetencyCatalogItem {
+  id: number;
+  organizationId: number;
+  name: string;
+  competencyType?: string | null;
+  category?: string | null;
+  norm?: string | null;
+  isMandatory: boolean;
+  usageCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCompetencyCatalogItemBody {
+  /** @minLength 1 */
+  name: string;
+  competencyType?: string;
+  category?: string;
+  norm?: string;
+  isMandatory?: boolean;
+}
+
+export interface UpdateCompetencyCatalogItemBody {
+  /** @minLength 1 */
+  name?: string;
+  competencyType?: string;
+  category?: string;
+  norm?: string;
+  isMandatory?: boolean;
+}
+
+/**
+ * Obrigatoriedade — regra que torna um item do catálogo obrigatório para um cargo.
+ */
+export interface TrainingRequirement {
+  id: number;
+  organizationId: number;
+  positionId: number;
+  catalogItemId: number;
+  deadlineType: string;
+  deadlineDays?: number | null;
+  scope: string;
+  filialUnitIds: number[];
+  recurrence: string;
+  isCritical: boolean;
+  norm?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTrainingRequirementBody {
+  positionId: number;
+  catalogItemId: number;
+  deadlineType: string;
+  deadlineDays?: number | null;
+  scope?: string;
+  filialUnitIds?: number[];
+  recurrence?: string;
+  isCritical?: boolean;
+  norm?: string;
+  notes?: string;
+}
+
+export interface UpdateTrainingRequirementBody {
+  positionId?: number;
+  catalogItemId?: number;
+  deadlineType?: string;
+  deadlineDays?: number | null;
+  scope?: string;
+  filialUnitIds?: number[];
+  recurrence?: string;
+  isCritical?: boolean;
+  norm?: string;
+  notes?: string;
+}
+
+export interface TrainingRequirementPreview {
+  requirements: TrainingRequirement[];
+}
+
+export interface EmployeeRecordAttachment {
+  fileName: string;
+  /** @maximum 20971520 */
+  fileSize: number;
+  contentType: string;
+  /** @pattern ^/objects/uploads/.+ */
+  objectPath: string;
+}
+
+/**
+ * Turma — instância agendada de um item do catálogo.
+ */
+export interface TrainingClass {
+  id: number;
+  organizationId: number;
+  catalogItemId: number;
+  code?: string | null;
+  startDate: string;
+  endDate?: string | null;
+  unitId?: number | null;
+  location?: string | null;
+  instructor?: string | null;
+  modality?: string | null;
+  workloadHours?: number | null;
+  capacity?: number | null;
+  minScore?: number | null;
+  status: string;
+  notes?: string | null;
+  attachments: EmployeeRecordAttachment[];
+  participantCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TrainingClassParticipant {
+  id: number;
+  classId: number;
+  employeeId: number;
+  employeeName?: string | null;
+  attendance?: string | null;
+  score?: number | null;
+  result?: string | null;
+  employeeTrainingId?: number | null;
+  createdAt: string;
+}
+
+export type TrainingClassDetail = TrainingClass & {
+  participants: TrainingClassParticipant[];
+};
+
+export interface CreateTrainingClassBody {
+  catalogItemId: number;
+  code?: string;
+  startDate: string;
+  endDate?: string;
+  unitId?: number;
+  location?: string;
+  instructor?: string;
+  modality?: string;
+  workloadHours?: number;
+  capacity?: number;
+  minScore?: number;
+  status?: string;
+  notes?: string;
+  /** @maxItems 20 */
+  attachments?: EmployeeRecordAttachment[];
+}
+
+export interface UpdateTrainingClassBody {
+  code?: string;
+  startDate?: string;
+  endDate?: string;
+  unitId?: number | null;
+  location?: string;
+  instructor?: string;
+  modality?: string;
+  workloadHours?: number;
+  capacity?: number;
+  minScore?: number;
+  status?: string;
+  notes?: string;
+  /** @maxItems 20 */
+  attachments?: EmployeeRecordAttachment[];
+}
+
+export interface AddTrainingClassParticipantsBody {
+  employeeIds: number[];
+}
+
+export interface UpdateTrainingClassParticipantBody {
+  attendance?: string | null;
+  score?: number | null;
+  result?: string | null;
+}
+
+/**
+ * Item do Programa Anual de Treinamento (PAT).
+ */
+export interface AnnualProgramItem {
+  id: number;
+  organizationId: number;
+  year: number;
+  catalogItemId: number;
+  unitId?: number | null;
+  plannedMonth?: number | null;
+  modality?: string | null;
+  plannedQuantity?: number | null;
+  responsible?: string | null;
+  status: string;
+  notes?: string | null;
+  classId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAnnualProgramItemBody {
+  year: number;
+  catalogItemId: number;
+  unitId?: number;
+  plannedMonth?: number;
+  modality?: string;
+  plannedQuantity?: number;
+  responsible?: string;
+  status?: string;
+  notes?: string;
+}
+
+export interface UpdateAnnualProgramItemBody {
+  year?: number;
+  catalogItemId?: number;
+  unitId?: number | null;
+  plannedMonth?: number | null;
+  modality?: string;
+  plannedQuantity?: number;
+  responsible?: string;
+  status?: string;
+  notes?: string;
+  classId?: number | null;
+}
+
 export type RoadSafetyFactorType =
   (typeof RoadSafetyFactorType)[keyof typeof RoadSafetyFactorType];
 
@@ -248,6 +550,7 @@ export interface User {
   role: string;
   theme: UserTheme;
   unitId?: number | null;
+  employeeId?: number | null;
   lastLoginAt?: string | null;
   createdAt: string;
 }
@@ -849,6 +1152,14 @@ export interface ComplianceTag {
   sourceQuestionId?: number | null;
 }
 
+/**
+ * Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar).
+ */
+export type EmployeeAutoLinkedTrainings = {
+  generated: number;
+  reused: number;
+};
+
 export type EmployeeContractType =
   (typeof EmployeeContractType)[keyof typeof EmployeeContractType];
 
@@ -869,7 +1180,18 @@ export const EmployeeStatus = {
   on_leave: "on_leave",
 } as const;
 
+export type EmployeeCompetencyGapStatus =
+  (typeof EmployeeCompetencyGapStatus)[keyof typeof EmployeeCompetencyGapStatus];
+
+export const EmployeeCompetencyGapStatus = {
+  ok: "ok",
+  gap: "gap",
+  critical: "critical",
+} as const;
+
 export interface Employee {
+  /** Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar). */
+  autoLinkedTrainings?: EmployeeAutoLinkedTrainings;
   id: number;
   organizationId: number;
   unitId?: number | null;
@@ -887,6 +1209,8 @@ export interface Employee {
   terminationDate?: string | null;
   status: EmployeeStatus;
   unitName?: string | null;
+  trainingCompletionPercent?: number | null;
+  competencyGapStatus?: EmployeeCompetencyGapStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -899,15 +1223,6 @@ export interface EmployeeProfileItemAttachment {
   contentType: string;
   objectPath: string;
   uploadedAt: string;
-}
-
-export interface EmployeeRecordAttachment {
-  fileName: string;
-  /** @maximum 20971520 */
-  fileSize: number;
-  contentType: string;
-  /** @pattern ^/objects/uploads/.+ */
-  objectPath: string;
 }
 
 export type EmployeeProfileItemCategory =
@@ -1002,6 +1317,8 @@ export interface TrainingEffectivenessReview {
 }
 
 export interface EmployeeTraining {
+  dueDate?: string | null;
+  requirementId?: number | null;
   id: number;
   employeeId: number;
   title: string;
@@ -1049,11 +1366,26 @@ export type OrganizationTrainingEffectivenessStatus =
 
 export const OrganizationTrainingEffectivenessStatus = {
   pending: "pending",
+  in_review: "in_review",
   effective: "effective",
   ineffective: "ineffective",
 } as const;
 
+export type OrganizationTrainingEffectivenessAssignedRole =
+  | (typeof OrganizationTrainingEffectivenessAssignedRole)[keyof typeof OrganizationTrainingEffectivenessAssignedRole]
+  | null;
+
+export const OrganizationTrainingEffectivenessAssignedRole = {
+  gestor: "gestor",
+  rh: "rh",
+  instrutor: "instrutor",
+  colaborador: "colaborador",
+} as const;
+
 export interface OrganizationTraining {
+  catalogItemId?: number | null;
+  dueDate?: string | null;
+  requirementId?: number | null;
   id: number;
   employeeId: number;
   employeeName: string;
@@ -1077,6 +1409,10 @@ export interface OrganizationTraining {
   effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
+  effectivenessDueDate?: string | null;
+  effectivenessAssignedRole?: OrganizationTrainingEffectivenessAssignedRole;
+  reviewerCount: number;
+  effectivenessScorePercent?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1173,12 +1509,23 @@ export type PaginatedOrganizationTrainingsPagination = {
   totalPages: number;
 };
 
+export type PaginatedOrganizationTrainingsStatsBoardCounts = {
+  pendentes: number;
+  emAvaliacao: number;
+  concluidas: number;
+};
+
 export type PaginatedOrganizationTrainingsStats = {
   total: number;
   pendente: number;
   concluido: number;
   vencido: number;
   effectivenessPending: number;
+  onTimePercent?: number | null;
+  boardCounts?: PaginatedOrganizationTrainingsStatsBoardCounts;
+  eficazes?: number;
+  naoEficazes?: number;
+  eficazPercent?: number | null;
 };
 
 export interface PaginatedOrganizationTrainings {
@@ -1416,7 +1763,9 @@ export const CreateTrainingBodyStatus = {
 } as const;
 
 export interface CreateTrainingBody {
-  title: string;
+  /** Se informado, copia (snapshot) os campos do item do catálogo ausentes no body e vincula o registro. */
+  catalogItemId?: number;
+  title?: string;
   description?: string;
   objective?: string;
   institution?: string;
@@ -1535,6 +1884,16 @@ export interface UpdateAwarenessBody {
   attachments?: EmployeeRecordAttachment[];
 }
 
+export type CreateTrainingEffectivenessReviewBodyEvaluatorRole =
+  (typeof CreateTrainingEffectivenessReviewBodyEvaluatorRole)[keyof typeof CreateTrainingEffectivenessReviewBodyEvaluatorRole];
+
+export const CreateTrainingEffectivenessReviewBodyEvaluatorRole = {
+  gestor: "gestor",
+  rh: "rh",
+  instrutor: "instrutor",
+  colaborador: "colaborador",
+} as const;
+
 export interface CreateTrainingEffectivenessReviewBody {
   evaluationDate: string;
   /**
@@ -1549,8 +1908,24 @@ export interface CreateTrainingEffectivenessReviewBody {
    */
   resultLevel?: number;
   comments?: string;
+  evaluatorRole?: CreateTrainingEffectivenessReviewBodyEvaluatorRole;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
+}
+
+export type CreateEffectivenessAssignmentBodyEvaluatorRole =
+  (typeof CreateEffectivenessAssignmentBodyEvaluatorRole)[keyof typeof CreateEffectivenessAssignmentBodyEvaluatorRole];
+
+export const CreateEffectivenessAssignmentBodyEvaluatorRole = {
+  gestor: "gestor",
+  rh: "rh",
+  instrutor: "instrutor",
+  colaborador: "colaborador",
+} as const;
+
+export interface CreateEffectivenessAssignmentBody {
+  evaluatorRole: CreateEffectivenessAssignmentBodyEvaluatorRole;
+  dueDate: string;
 }
 
 export type CreatePositionCompetencyRequirementBodyCompetencyType =
@@ -3590,6 +3965,10 @@ export interface KpiIndicator {
   referenceMonth?: number | null;
   category?: string | null;
   norms: string[];
+  /** Source system that auto-populates this indicator (e.g. "lms"). null = manual. */
+  computedSource?: string | null;
+  /** Specific metric key within the source system (e.g. "completion_rate"). */
+  computedMetric?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -3691,6 +4070,7 @@ export interface KpiYearConfig {
   year: number;
   seq?: number | null;
   goal?: number | null;
+  tolerance?: number | null;
   /** True quando a meta foi calculada das filiais (corporativo). */
   isGoalComputed?: boolean;
   /** Filiais com meta consideradas no cálculo (só quando isGoalComputed). */
@@ -3705,6 +4085,7 @@ export interface UpsertKpiYearConfigBody {
   objectiveId?: number | null;
   seq?: number | null;
   goal?: number | null;
+  tolerance?: number | null;
 }
 
 export type KpiMonthlyValueInputInputs = { [key: string]: number | null };
@@ -3855,6 +4236,15 @@ export interface CreateKpiCorporateIndicatorResponse {
   indicatorId: number;
   childrenCount: number;
   strategy: CreateKpiCorporateIndicatorResponseStrategy;
+}
+
+export interface ActivateLmsIndicatorsBody {
+  year: number;
+}
+
+export interface ActivateLmsIndicatorsResponse {
+  activated: number;
+  indicatorIds: number[];
 }
 
 export type ActionPlanStatus =
@@ -5968,6 +6358,57 @@ export interface DevelopmentProjectDetail {
   updatedAt: string;
 }
 
+export interface LearningSummaryCards {
+  patCompletion: number | null;
+  effectiveness: number | null;
+  criticalGaps: number | null;
+  expiredTrainings: number | null;
+}
+
+export type LearningSummaryUnitRowStatus =
+  (typeof LearningSummaryUnitRowStatus)[keyof typeof LearningSummaryUnitRowStatus];
+
+export const LearningSummaryUnitRowStatus = {
+  ok: "ok",
+  atencao: "atencao",
+  critico: "critico",
+  "sem-dados": "sem-dados",
+} as const;
+
+export interface LearningSummaryUnitRow {
+  unitId: number;
+  unitName: string;
+  completion: number | null;
+  effectiveness: number | null;
+  gaps: number;
+  status: LearningSummaryUnitRowStatus;
+}
+
+export interface LearningSummaryNormRow {
+  norm: string;
+  effectiveness: number | null;
+}
+
+export interface LearningSummaryExpiredRow {
+  employeeName: string;
+  unitName?: string | null;
+  title: string;
+  expirationDate: string;
+}
+
+export interface LearningSummaryPendingRow {
+  employeeName: string;
+  title: string;
+}
+
+export interface LearningSummary {
+  cards: LearningSummaryCards;
+  byUnit: LearningSummaryUnitRow[];
+  byNorm: LearningSummaryNormRow[];
+  expired: LearningSummaryExpiredRow[];
+  pendingEffectiveness: LearningSummaryPendingRow[];
+}
+
 export type ValidatePasswordResetToken200 = {
   valid: boolean;
 };
@@ -6025,6 +6466,11 @@ export type ListOrganizationTrainingsParams = {
    */
   expiringWithinDays?: number;
   effectivenessStatus?: ListOrganizationTrainingsEffectivenessStatus;
+  scope?: ListOrganizationTrainingsScope;
+  year?: number;
+  norm?: string;
+  evaluatorRole?: ListOrganizationTrainingsEvaluatorRole;
+  boardColumn?: ListOrganizationTrainingsBoardColumn;
   /**
    * @minimum 1
    */
@@ -6050,8 +6496,36 @@ export type ListOrganizationTrainingsEffectivenessStatus =
 
 export const ListOrganizationTrainingsEffectivenessStatus = {
   pending: "pending",
+  in_review: "in_review",
   effective: "effective",
   ineffective: "ineffective",
+} as const;
+
+export type ListOrganizationTrainingsScope =
+  (typeof ListOrganizationTrainingsScope)[keyof typeof ListOrganizationTrainingsScope];
+
+export const ListOrganizationTrainingsScope = {
+  needs_evaluation: "needs_evaluation",
+  all: "all",
+} as const;
+
+export type ListOrganizationTrainingsEvaluatorRole =
+  (typeof ListOrganizationTrainingsEvaluatorRole)[keyof typeof ListOrganizationTrainingsEvaluatorRole];
+
+export const ListOrganizationTrainingsEvaluatorRole = {
+  gestor: "gestor",
+  rh: "rh",
+  instrutor: "instrutor",
+  colaborador: "colaborador",
+} as const;
+
+export type ListOrganizationTrainingsBoardColumn =
+  (typeof ListOrganizationTrainingsBoardColumn)[keyof typeof ListOrganizationTrainingsBoardColumn];
+
+export const ListOrganizationTrainingsBoardColumn = {
+  pendentes: "pendentes",
+  em_avaliacao: "em_avaliacao",
+  concluidas: "concluidas",
 } as const;
 
 export type ListEmployeeCompetencyGapsParams = {
@@ -6295,4 +6769,62 @@ export type ListActionPlansParams = {
    * When sourceModule=kpi, filter by linked monthly value id
    */
   sourceKpiMonthlyValueId?: number;
+};
+
+export type ListTrainingCatalogParams = {
+  search?: string;
+  norm?: string;
+  category?: string;
+  modality?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type ListCompetencyCatalog200 = {
+  data: CompetencyCatalogItem[];
+};
+
+export type ListTrainingRequirementsParams = {
+  positionId?: number;
+  deadlineType?: string;
+  scope?: string;
+};
+
+export type ListTrainingRequirements200 = {
+  data: TrainingRequirement[];
+};
+
+export type PreviewTrainingRequirementsParams = {
+  position: string;
+  unitId?: number;
+};
+
+export type ListTrainingClassesParams = {
+  status?: string;
+  unitId?: number;
+  catalogItemId?: number;
+};
+
+export type ListTrainingClasses200 = {
+  data: TrainingClass[];
+};
+
+export type CompleteTrainingClass200 = {
+  completed: number;
+};
+
+export type ListAnnualProgramParams = {
+  year?: number;
+  unitId?: number;
+  status?: string;
+};
+
+export type ListAnnualProgram200 = {
+  data: AnnualProgramItem[];
+};
+
+export type GetLearningDashboardSummaryParams = {
+  year: number;
+  unitId?: number;
 };

@@ -1,5 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import {
+  Switch,
+  Route,
+  Redirect,
+  Router as WouterRouter,
+  useLocation,
+  useSearch,
+} from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
@@ -17,10 +24,17 @@ import OrganizacaoUnitsPage from "@/pages/app/organizacao/unidades";
 import OrganizacaoDepartmentsPage from "@/pages/app/organizacao/departamentos";
 import OrganizacaoPositionsPage from "@/pages/app/organizacao/cargos";
 import OrganizacaoSwotPage from "@/pages/app/organizacao/swot";
-import OrganizacaoEmployeesPage from "@/pages/app/organizacao/colaboradores";
-import OrganizacaoEmployeeTrainingsPage from "@/pages/app/organizacao/colaboradores/treinamentos";
-import OrganizacaoTrainingDetailPage from "@/pages/app/organizacao/colaboradores/treinamento-detalhe";
-import OrganizacaoEmployeeDetailPage from "@/pages/app/organizacao/colaboradores/[id]";
+import AprendizagemDashboardPage from "@/pages/app/aprendizagem/dashboard";
+import AprendizagemEmployeesPage from "@/pages/app/aprendizagem/colaboradores";
+import AprendizagemCatalogoPage from "@/pages/app/aprendizagem/catalogo";
+import AprendizagemObrigatoriedadesPage from "@/pages/app/aprendizagem/obrigatoriedades";
+import AprendizagemTurmasPage from "@/pages/app/aprendizagem/turmas";
+import AprendizagemProgramaPage from "@/pages/app/aprendizagem/programa";
+import AprendizagemEficaciaPage from "@/pages/app/aprendizagem/eficacia";
+import AprendizagemMinhaAreaPage from "@/pages/app/aprendizagem/minha-area";
+import AprendizagemEmployeeTrainingsPage from "@/pages/app/aprendizagem/colaboradores/treinamentos";
+import AprendizagemTrainingDetailPage from "@/pages/app/aprendizagem/colaboradores/treinamento-detalhe";
+import AprendizagemEmployeeDetailPage from "@/pages/app/aprendizagem/colaboradores/[id]";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import GovernancePage from "@/pages/app/governanca";
 import GovernanceDetailPage from "@/pages/app/governanca/[id]";
@@ -125,25 +139,63 @@ function AdminPages() {
   );
 }
 
+function LegacyEmployeesRedirect({ to }: { to: string }) {
+  const search = useSearch();
+  return <Redirect to={search ? `${to}?${search}` : to} replace />;
+}
+
 function AppPages() {
   return (
     <Switch>
       <Route path="/organizacao" component={OrganizacaoOverviewPage} />
+      <Route path="/organizacao/colaboradores">
+        <LegacyEmployeesRedirect to="/aprendizagem/colaboradores" />
+      </Route>
+      <Route path="/organizacao/colaboradores/treinamentos">
+        <LegacyEmployeesRedirect to="/aprendizagem/colaboradores/treinamentos" />
+      </Route>
+      <Route path="/organizacao/colaboradores/treinamentos/:title">
+        {(params) => (
+          <LegacyEmployeesRedirect
+            to={`/aprendizagem/colaboradores/treinamentos/${params.title}`}
+          />
+        )}
+      </Route>
+      <Route path="/organizacao/colaboradores/:id">
+        {(params) => (
+          <LegacyEmployeesRedirect
+            to={`/aprendizagem/colaboradores/${params.id}`}
+          />
+        )}
+      </Route>
       <Route
-        path="/organizacao/colaboradores"
-        component={OrganizacaoEmployeesPage}
+        path="/aprendizagem/colaboradores"
+        component={AprendizagemEmployeesPage}
       />
       <Route
-        path="/organizacao/colaboradores/treinamentos"
-        component={OrganizacaoEmployeeTrainingsPage}
+        path="/aprendizagem/colaboradores/treinamentos"
+        component={AprendizagemEmployeeTrainingsPage}
       />
       <Route
-        path="/organizacao/colaboradores/treinamentos/:title"
-        component={OrganizacaoTrainingDetailPage}
+        path="/aprendizagem/colaboradores/treinamentos/:title"
+        component={AprendizagemTrainingDetailPage}
       />
       <Route
-        path="/organizacao/colaboradores/:id"
-        component={OrganizacaoEmployeeDetailPage}
+        path="/aprendizagem/colaboradores/:id"
+        component={AprendizagemEmployeeDetailPage}
+      />
+      <Route path="/aprendizagem/catalogo" component={AprendizagemCatalogoPage} />
+      <Route
+        path="/aprendizagem/obrigatoriedades"
+        component={AprendizagemObrigatoriedadesPage}
+      />
+      <Route path="/aprendizagem/turmas" component={AprendizagemTurmasPage} />
+      <Route path="/aprendizagem/programa" component={AprendizagemProgramaPage} />
+      <Route path="/aprendizagem/dashboard" component={AprendizagemDashboardPage} />
+      <Route path="/aprendizagem/eficacia" component={AprendizagemEficaciaPage} />
+      <Route
+        path="/aprendizagem/minha-area"
+        component={AprendizagemMinhaAreaPage}
       />
       <Route path="/organizacao/unidades" component={OrganizacaoUnitsPage} />
       <Route path="/organizacao/unidades/:id" component={UnitDetailPage} />
@@ -254,21 +306,69 @@ function AppPages() {
       <Route path="/configuracoes/sistema" component={SystemSettingsPage} />
       <Route path="/app" component={AppIndex} />
       <Route path="/app/organizacao" component={OrganizacaoOverviewPage} />
+      <Route path="/app/organizacao/colaboradores">
+        <LegacyEmployeesRedirect to="/app/aprendizagem/colaboradores" />
+      </Route>
+      <Route path="/app/organizacao/colaboradores/treinamentos">
+        <LegacyEmployeesRedirect to="/app/aprendizagem/colaboradores/treinamentos" />
+      </Route>
+      <Route path="/app/organizacao/colaboradores/treinamentos/:title">
+        {(params) => (
+          <LegacyEmployeesRedirect
+            to={`/app/aprendizagem/colaboradores/treinamentos/${params.title}`}
+          />
+        )}
+      </Route>
+      <Route path="/app/organizacao/colaboradores/:id">
+        {(params) => (
+          <LegacyEmployeesRedirect
+            to={`/app/aprendizagem/colaboradores/${params.id}`}
+          />
+        )}
+      </Route>
       <Route
-        path="/app/organizacao/colaboradores"
-        component={OrganizacaoEmployeesPage}
+        path="/app/aprendizagem/colaboradores"
+        component={AprendizagemEmployeesPage}
       />
       <Route
-        path="/app/organizacao/colaboradores/treinamentos"
-        component={OrganizacaoEmployeeTrainingsPage}
+        path="/app/aprendizagem/colaboradores/treinamentos"
+        component={AprendizagemEmployeeTrainingsPage}
       />
       <Route
-        path="/app/organizacao/colaboradores/treinamentos/:title"
-        component={OrganizacaoTrainingDetailPage}
+        path="/app/aprendizagem/colaboradores/treinamentos/:title"
+        component={AprendizagemTrainingDetailPage}
       />
       <Route
-        path="/app/organizacao/colaboradores/:id"
-        component={OrganizacaoEmployeeDetailPage}
+        path="/app/aprendizagem/colaboradores/:id"
+        component={AprendizagemEmployeeDetailPage}
+      />
+      <Route
+        path="/app/aprendizagem/catalogo"
+        component={AprendizagemCatalogoPage}
+      />
+      <Route
+        path="/app/aprendizagem/obrigatoriedades"
+        component={AprendizagemObrigatoriedadesPage}
+      />
+      <Route
+        path="/app/aprendizagem/turmas"
+        component={AprendizagemTurmasPage}
+      />
+      <Route
+        path="/app/aprendizagem/programa"
+        component={AprendizagemProgramaPage}
+      />
+      <Route
+        path="/app/aprendizagem/dashboard"
+        component={AprendizagemDashboardPage}
+      />
+      <Route
+        path="/app/aprendizagem/eficacia"
+        component={AprendizagemEficaciaPage}
+      />
+      <Route
+        path="/app/aprendizagem/minha-area"
+        component={AprendizagemMinhaAreaPage}
       />
       <Route
         path="/app/organizacao/unidades"
@@ -389,6 +489,7 @@ function Router() {
   const isOrgRoute =
     location.startsWith("/app") ||
     location.startsWith("/organizacao") ||
+    location.startsWith("/aprendizagem") ||
     location.startsWith("/governanca") ||
     location.startsWith("/qualidade") ||
     location.startsWith("/ambiental") ||

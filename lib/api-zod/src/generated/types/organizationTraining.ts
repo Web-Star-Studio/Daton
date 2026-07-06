@@ -6,12 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
+import type { OrganizationTrainingEffectivenessAssignedRole } from "./organizationTrainingEffectivenessAssignedRole";
 import type { OrganizationTrainingEffectivenessStatus } from "./organizationTrainingEffectivenessStatus";
 import type { OrganizationTrainingStatus } from "./organizationTrainingStatus";
 import type { OrganizationTrainingTargetCompetencyType } from "./organizationTrainingTargetCompetencyType";
 import type { TrainingEffectivenessReview } from "./trainingEffectivenessReview";
 
 export interface OrganizationTraining {
+  catalogItemId?: number | null;
+  dueDate?: string | null;
+  requirementId?: number | null;
   id: number;
   employeeId: number;
   employeeName: string;
@@ -35,6 +39,10 @@ export interface OrganizationTraining {
   effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
+  effectivenessDueDate?: string | null;
+  effectivenessAssignedRole?: OrganizationTrainingEffectivenessAssignedRole;
+  reviewerCount: number;
+  effectivenessScorePercent?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -129,7 +129,7 @@ export function IndicatorCard({
   // o anual — pra cliente perceber visualmente se o último mês destoou.
   const latestStatus: CardStatus = !latest
     ? "nodata"
-    : getTrafficLight(latest.value, goal, direction) ?? "nodata";
+    : getTrafficLight(latest.value, goal, direction, yearRow?.yearConfig.tolerance) ?? "nodata";
 
   const monthValueArray: (number | null)[] = Array.from({ length: 12 }, (_, i) => {
     const m = yearRow?.monthlyValues.find((v) => v.month === i + 1);
@@ -211,6 +211,15 @@ export function IndicatorCard({
               </p>
             );
           })()}
+          {/* Selo LMS: indicador alimentado automaticamente pelo módulo de Treinamento. */}
+          {indicator.computedSource === "lms" ? (
+            <p
+              className="mt-1 text-[10px] text-indigo-700 dark:text-indigo-300"
+              title="Valor calculado automaticamente a partir do módulo de Treinamento"
+            >
+              ↻ automático (Treinamento)
+            </p>
+          ) : null}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

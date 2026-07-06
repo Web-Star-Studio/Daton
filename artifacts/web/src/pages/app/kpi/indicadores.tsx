@@ -159,6 +159,7 @@ type IndicatorFormData = {
   norms: string[];
   objectiveId: string;
   goal: string;
+  tolerance: string;
 };
 
 const defaultIndicatorForm = (): IndicatorFormData => ({
@@ -176,6 +177,7 @@ const defaultIndicatorForm = (): IndicatorFormData => ({
   norms: [],
   objectiveId: "",
   goal: "",
+  tolerance: "",
 });
 
 function buildEditFormFromIndicator(
@@ -205,6 +207,7 @@ function buildEditFormFromIndicator(
     objectiveId:
       yearRow?.yearConfig.objectiveId != null ? String(yearRow.yearConfig.objectiveId) : "",
     goal: yearRow?.yearConfig.goal != null ? String(yearRow.yearConfig.goal) : "",
+    tolerance: yearRow?.yearConfig.tolerance != null ? String(yearRow.yearConfig.tolerance) : "",
   };
 }
 
@@ -268,6 +271,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
     // Sinal autoritativo vindo do backend (rollupStrategy != null) — mesma
     // definição usada pela matriz de acesso no servidor. Espelha o contrato.
     isCorporate: ind.isCorporate ?? false,
+    isLms: (ind.computedSource ?? null) != null,
   });
   const canCreate =
     scope.role === "org_admin" ||
@@ -564,6 +568,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           data: {
             goal: indicatorForm.goal ? parseFloat(indicatorForm.goal) : null,
             objectiveId: indicatorForm.objectiveId ? parseInt(indicatorForm.objectiveId) : null,
+            tolerance: indicatorForm.tolerance ? parseFloat(indicatorForm.tolerance) : null,
           },
         });
         toast({ title: "Indicador atualizado" });
@@ -585,7 +590,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           norms: indicatorForm.norms,
         };
         const created = await createIndicator.mutateAsync({ orgId, data });
-        if (indicatorForm.goal || indicatorForm.objectiveId) {
+        if (indicatorForm.goal || indicatorForm.objectiveId || indicatorForm.tolerance) {
           await upsertYearConfig.mutateAsync({
             orgId,
             indicatorId: created.id,
@@ -593,6 +598,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
             data: {
               goal: indicatorForm.goal ? parseFloat(indicatorForm.goal) : null,
               objectiveId: indicatorForm.objectiveId ? parseInt(indicatorForm.objectiveId) : null,
+              tolerance: indicatorForm.tolerance ? parseFloat(indicatorForm.tolerance) : null,
             },
           });
         }
@@ -1313,6 +1319,20 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                   />
                 </div>
               )}
+            </div>
+            <div className="mt-3">
+              <div className="space-y-1.5">
+                <Label>Tolerância do semáforo ({year})</Label>
+                <Input
+                  type="number"
+                  value={indicatorForm.tolerance}
+                  onChange={(e) => setIndicatorForm((f) => ({ ...f, tolerance: e.target.value }))}
+                  placeholder="Ex: 1"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Margem de atenção (amarelo) antes de atingir a meta. Padrão: 0,01.
+                </p>
+              </div>
             </div>
           </div>
         </div>

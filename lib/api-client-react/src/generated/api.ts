@@ -24,6 +24,8 @@ import type {
   ActionPlanEvidence,
   ActionPlanListItem,
   ActionPlanSummary,
+  ActivateLmsIndicatorsBody,
+  ActivateLmsIndicatorsResponse,
   AddActionPlanCommentBody,
   AddActionPlanEvidenceBody,
   AddAssetDocumentBody,
@@ -33,7 +35,9 @@ import type {
   AddMaintenanceRecordAttachmentBody,
   AddMeasurementResourceAttachmentBody,
   AddRegulatoryDocumentAttachmentBody,
+  AddTrainingClassParticipantsBody,
   AddWorkEnvironmentAttachmentBody,
+  AnnualProgramItem,
   ApplicabilityDecision,
   ApplicabilityDecisionBody,
   ApproveDocumentBody,
@@ -45,19 +49,24 @@ import type {
   AuthResponse,
   BulkDeletePositions200,
   BulkDeletePositionsBody,
+  CompetencyCatalogItem,
   CompleteOrganizationOnboardingBody,
+  CompleteTrainingClass200,
   ComplianceTag,
   ConfirmPasswordResetBody,
   CorrectiveAction,
   CreateActionPlanBody,
+  CreateAnnualProgramItemBody,
   CreateAssetBody,
   CreateAssetMaintenancePlanBody,
   CreateAssetMaintenanceRecordBody,
   CreateAwarenessBody,
   CreateCompetencyBody,
+  CreateCompetencyCatalogItemBody,
   CreateCorrectiveActionBody,
   CreateDepartmentBody,
   CreateDocumentBody,
+  CreateEffectivenessAssignmentBody,
   CreateEmployeeBody,
   CreateEmployeeProfileItemBody,
   CreateInternalAuditBody,
@@ -95,7 +104,10 @@ import type {
   CreateSwotObjectiveBody,
   CreateSwotPerspectiveBody,
   CreateTrainingBody,
+  CreateTrainingCatalogItemBody,
+  CreateTrainingClassBody,
   CreateTrainingEffectivenessReviewBody,
+  CreateTrainingRequirementBody,
   CreateUnitBody,
   CreateWorkEnvironmentControlBody,
   CreateWorkEnvironmentVerificationBody,
@@ -132,6 +144,7 @@ import type {
   ErrorResponse,
   ExternalActionItem,
   GetDocumentAttachmentFileParams,
+  GetLearningDashboardSummaryParams,
   GetUnitQuestionnaireResponses200,
   GovernanceRiskOpportunityListItem,
   HealthStatus,
@@ -152,11 +165,15 @@ import type {
   KpiObjective,
   KpiYearConfig,
   KpiYearRow,
+  LearningSummary,
   Legislation,
   LegislationDetail,
   LinkEmployeeUnit201,
   LinkEmployeeUnitBody,
   ListActionPlansParams,
+  ListAnnualProgram200,
+  ListAnnualProgramParams,
+  ListCompetencyCatalog200,
   ListDocumentsParams,
   ListEmployeeCompetencyGapsParams,
   ListEmployeesParams,
@@ -178,6 +195,11 @@ import type {
   ListRegulatoryDocumentAuditParams,
   ListRegulatoryDocumentsParams,
   ListSgqProcessesParams,
+  ListTrainingCatalogParams,
+  ListTrainingClasses200,
+  ListTrainingClassesParams,
+  ListTrainingRequirements200,
+  ListTrainingRequirementsParams,
   ListUserOptionsParams,
   ListWorkEnvironmentControlsParams,
   LoginBody,
@@ -198,6 +220,7 @@ import type {
   OrganizationContactGroup,
   OrganizationContactGroupBody,
   OrganizationOnboardingAuthResponse,
+  OrganizationTraining,
   PaginatedEmployeeCompetencyGaps,
   PaginatedEmployees,
   PaginatedInternalAudits,
@@ -207,9 +230,11 @@ import type {
   PaginatedOrganizationTrainings,
   PaginatedRegulatoryDocuments,
   PaginatedSgqProcesses,
+  PaginatedTrainingCatalog,
   Position,
   PositionCompetencyMatrixRevision,
   PositionCompetencyRequirement,
+  PreviewTrainingRequirementsParams,
   ProcessRegulatoryAlertsResponse,
   ProjectDevelopmentApplicabilityState,
   QuestionnaireTheme,
@@ -244,16 +269,24 @@ import type {
   SwotObjective,
   SwotPerspective,
   SyncInternalAuditChecklistBody,
+  TrainingCatalogItem,
+  TrainingClass,
+  TrainingClassDetail,
+  TrainingClassParticipant,
   TrainingEffectivenessReview,
+  TrainingRequirement,
+  TrainingRequirementPreview,
   Unit,
   UnitLegislation,
   UnitLegislationWithLegislation,
   UpdateActionPlanBody,
+  UpdateAnnualProgramItemBody,
   UpdateApplicabilityDecisionBody,
   UpdateAssetBody,
   UpdateAssetMaintenancePlanBody,
   UpdateAwarenessBody,
   UpdateCompetencyBody,
+  UpdateCompetencyCatalogItemBody,
   UpdateCorrectiveActionBody,
   UpdateDepartmentBody,
   UpdateDevelopmentProjectBody,
@@ -301,6 +334,10 @@ import type {
   UpdateSwotObjectiveBody,
   UpdateSwotPerspectiveBody,
   UpdateTrainingBody,
+  UpdateTrainingCatalogItemBody,
+  UpdateTrainingClassBody,
+  UpdateTrainingClassParticipantBody,
+  UpdateTrainingRequirementBody,
   UpdateUnitBody,
   UpdateUnitLegislationBody,
   UpdateUserModules200,
@@ -5648,6 +5685,134 @@ export const useDeleteTraining = <
   TContext
 > => {
   return useMutation(getDeleteTrainingMutationOptions(options));
+};
+
+/**
+ * @summary Assign effectiveness evaluator role and due date for an employee training
+ */
+export const getAssignTrainingEffectivenessUrl = (
+  orgId: number,
+  empId: number,
+  trainId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/${empId}/trainings/${trainId}/effectiveness-assignment`;
+};
+
+export const assignTrainingEffectiveness = async (
+  orgId: number,
+  empId: number,
+  trainId: number,
+  createEffectivenessAssignmentBody: CreateEffectivenessAssignmentBody,
+  options?: RequestInit,
+): Promise<OrganizationTraining> => {
+  return customFetch<OrganizationTraining>(
+    getAssignTrainingEffectivenessUrl(orgId, empId, trainId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createEffectivenessAssignmentBody),
+    },
+  );
+};
+
+export const getAssignTrainingEffectivenessMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignTrainingEffectiveness>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      trainId: number;
+      data: BodyType<CreateEffectivenessAssignmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof assignTrainingEffectiveness>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    trainId: number;
+    data: BodyType<CreateEffectivenessAssignmentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["assignTrainingEffectiveness"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof assignTrainingEffectiveness>>,
+    {
+      orgId: number;
+      empId: number;
+      trainId: number;
+      data: BodyType<CreateEffectivenessAssignmentBody>;
+    }
+  > = (props) => {
+    const { orgId, empId, trainId, data } = props ?? {};
+
+    return assignTrainingEffectiveness(
+      orgId,
+      empId,
+      trainId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AssignTrainingEffectivenessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignTrainingEffectiveness>>
+>;
+export type AssignTrainingEffectivenessMutationBody =
+  BodyType<CreateEffectivenessAssignmentBody>;
+export type AssignTrainingEffectivenessMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Assign effectiveness evaluator role and due date for an employee training
+ */
+export const useAssignTrainingEffectiveness = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignTrainingEffectiveness>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      trainId: number;
+      data: BodyType<CreateEffectivenessAssignmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof assignTrainingEffectiveness>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    trainId: number;
+    data: BodyType<CreateEffectivenessAssignmentBody>;
+  },
+  TContext
+> => {
+  return useMutation(getAssignTrainingEffectivenessMutationOptions(options));
 };
 
 /**
@@ -30119,6 +30284,97 @@ export const useCreateKpiCorporateIndicator = <
 };
 
 /**
+ * @summary Ativa (idempotente) os 6 indicadores corporativos de LMS para a organização
+ */
+export const getActivateLmsIndicatorsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/kpi/lms-indicators/activate`;
+};
+
+export const activateLmsIndicators = async (
+  orgId: number,
+  activateLmsIndicatorsBody: ActivateLmsIndicatorsBody,
+  options?: RequestInit,
+): Promise<ActivateLmsIndicatorsResponse> => {
+  return customFetch<ActivateLmsIndicatorsResponse>(
+    getActivateLmsIndicatorsUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(activateLmsIndicatorsBody),
+    },
+  );
+};
+
+export const getActivateLmsIndicatorsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof activateLmsIndicators>>,
+    TError,
+    { orgId: number; data: BodyType<ActivateLmsIndicatorsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof activateLmsIndicators>>,
+  TError,
+  { orgId: number; data: BodyType<ActivateLmsIndicatorsBody> },
+  TContext
+> => {
+  const mutationKey = ["activateLmsIndicators"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof activateLmsIndicators>>,
+    { orgId: number; data: BodyType<ActivateLmsIndicatorsBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return activateLmsIndicators(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ActivateLmsIndicatorsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof activateLmsIndicators>>
+>;
+export type ActivateLmsIndicatorsMutationBody =
+  BodyType<ActivateLmsIndicatorsBody>;
+export type ActivateLmsIndicatorsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Ativa (idempotente) os 6 indicadores corporativos de LMS para a organização
+ */
+export const useActivateLmsIndicators = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof activateLmsIndicators>>,
+    TError,
+    { orgId: number; data: BodyType<ActivateLmsIndicatorsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof activateLmsIndicators>>,
+  TError,
+  { orgId: number; data: BodyType<ActivateLmsIndicatorsBody> },
+  TContext
+> => {
+  return useMutation(getActivateLmsIndicatorsMutationOptions(options));
+};
+
+/**
  * @summary List SWOT strategic objectives in the organization
  */
 export const getListSwotObjectivesUrl = (orgId: number) => {
@@ -33334,3 +33590,2826 @@ export const useCreateRoadSafetyMeasurement = <
 > => {
   return useMutation(getCreateRoadSafetyMeasurementMutationOptions(options));
 };
+
+/**
+ * @summary List the organization's training catalog
+ */
+export const getListTrainingCatalogUrl = (
+  orgId: number,
+  params?: ListTrainingCatalogParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/training-catalog?${stringifiedParams}`
+    : `/api/organizations/${orgId}/training-catalog`;
+};
+
+export const listTrainingCatalog = async (
+  orgId: number,
+  params?: ListTrainingCatalogParams,
+  options?: RequestInit,
+): Promise<PaginatedTrainingCatalog> => {
+  return customFetch<PaginatedTrainingCatalog>(
+    getListTrainingCatalogUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTrainingCatalogQueryKey = (
+  orgId: number,
+  params?: ListTrainingCatalogParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/training-catalog`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListTrainingCatalogQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrainingCatalog>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListTrainingCatalogParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrainingCatalog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTrainingCatalogQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTrainingCatalog>>
+  > = ({ signal }) =>
+    listTrainingCatalog(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTrainingCatalog>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTrainingCatalogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrainingCatalog>>
+>;
+export type ListTrainingCatalogQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the organization's training catalog
+ */
+
+export function useListTrainingCatalog<
+  TData = Awaited<ReturnType<typeof listTrainingCatalog>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListTrainingCatalogParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrainingCatalog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTrainingCatalogQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a training catalog item
+ */
+export const getCreateTrainingCatalogItemUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/training-catalog`;
+};
+
+export const createTrainingCatalogItem = async (
+  orgId: number,
+  createTrainingCatalogItemBody: CreateTrainingCatalogItemBody,
+  options?: RequestInit,
+): Promise<TrainingCatalogItem> => {
+  return customFetch<TrainingCatalogItem>(
+    getCreateTrainingCatalogItemUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createTrainingCatalogItemBody),
+    },
+  );
+};
+
+export const getCreateTrainingCatalogItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTrainingCatalogItem>>,
+    TError,
+    { orgId: number; data: BodyType<CreateTrainingCatalogItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTrainingCatalogItem>>,
+  TError,
+  { orgId: number; data: BodyType<CreateTrainingCatalogItemBody> },
+  TContext
+> => {
+  const mutationKey = ["createTrainingCatalogItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTrainingCatalogItem>>,
+    { orgId: number; data: BodyType<CreateTrainingCatalogItemBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createTrainingCatalogItem(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTrainingCatalogItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTrainingCatalogItem>>
+>;
+export type CreateTrainingCatalogItemMutationBody =
+  BodyType<CreateTrainingCatalogItemBody>;
+export type CreateTrainingCatalogItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a training catalog item
+ */
+export const useCreateTrainingCatalogItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTrainingCatalogItem>>,
+    TError,
+    { orgId: number; data: BodyType<CreateTrainingCatalogItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTrainingCatalogItem>>,
+  TError,
+  { orgId: number; data: BodyType<CreateTrainingCatalogItemBody> },
+  TContext
+> => {
+  return useMutation(getCreateTrainingCatalogItemMutationOptions(options));
+};
+
+/**
+ * @summary Get a training catalog item
+ */
+export const getGetTrainingCatalogItemUrl = (orgId: number, itemId: number) => {
+  return `/api/organizations/${orgId}/training-catalog/${itemId}`;
+};
+
+export const getTrainingCatalogItem = async (
+  orgId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<TrainingCatalogItem> => {
+  return customFetch<TrainingCatalogItem>(
+    getGetTrainingCatalogItemUrl(orgId, itemId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetTrainingCatalogItemQueryKey = (
+  orgId: number,
+  itemId: number,
+) => {
+  return [`/api/organizations/${orgId}/training-catalog/${itemId}`] as const;
+};
+
+export const getGetTrainingCatalogItemQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTrainingCatalogItem>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  itemId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTrainingCatalogItem>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTrainingCatalogItemQueryKey(orgId, itemId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTrainingCatalogItem>>
+  > = ({ signal }) =>
+    getTrainingCatalogItem(orgId, itemId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && itemId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTrainingCatalogItem>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTrainingCatalogItemQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTrainingCatalogItem>>
+>;
+export type GetTrainingCatalogItemQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a training catalog item
+ */
+
+export function useGetTrainingCatalogItem<
+  TData = Awaited<ReturnType<typeof getTrainingCatalogItem>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  itemId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTrainingCatalogItem>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTrainingCatalogItemQueryOptions(
+    orgId,
+    itemId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a training catalog item
+ */
+export const getUpdateTrainingCatalogItemUrl = (
+  orgId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/training-catalog/${itemId}`;
+};
+
+export const updateTrainingCatalogItem = async (
+  orgId: number,
+  itemId: number,
+  updateTrainingCatalogItemBody: UpdateTrainingCatalogItemBody,
+  options?: RequestInit,
+): Promise<TrainingCatalogItem> => {
+  return customFetch<TrainingCatalogItem>(
+    getUpdateTrainingCatalogItemUrl(orgId, itemId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateTrainingCatalogItemBody),
+    },
+  );
+};
+
+export const getUpdateTrainingCatalogItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrainingCatalogItem>>,
+    TError,
+    {
+      orgId: number;
+      itemId: number;
+      data: BodyType<UpdateTrainingCatalogItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTrainingCatalogItem>>,
+  TError,
+  {
+    orgId: number;
+    itemId: number;
+    data: BodyType<UpdateTrainingCatalogItemBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateTrainingCatalogItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTrainingCatalogItem>>,
+    {
+      orgId: number;
+      itemId: number;
+      data: BodyType<UpdateTrainingCatalogItemBody>;
+    }
+  > = (props) => {
+    const { orgId, itemId, data } = props ?? {};
+
+    return updateTrainingCatalogItem(orgId, itemId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTrainingCatalogItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTrainingCatalogItem>>
+>;
+export type UpdateTrainingCatalogItemMutationBody =
+  BodyType<UpdateTrainingCatalogItemBody>;
+export type UpdateTrainingCatalogItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a training catalog item
+ */
+export const useUpdateTrainingCatalogItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrainingCatalogItem>>,
+    TError,
+    {
+      orgId: number;
+      itemId: number;
+      data: BodyType<UpdateTrainingCatalogItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTrainingCatalogItem>>,
+  TError,
+  {
+    orgId: number;
+    itemId: number;
+    data: BodyType<UpdateTrainingCatalogItemBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateTrainingCatalogItemMutationOptions(options));
+};
+
+/**
+ * @summary Delete a training catalog item (referencing trainings keep their snapshot; link is nulled)
+ */
+export const getDeleteTrainingCatalogItemUrl = (
+  orgId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/training-catalog/${itemId}`;
+};
+
+export const deleteTrainingCatalogItem = async (
+  orgId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTrainingCatalogItemUrl(orgId, itemId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTrainingCatalogItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
+    TError,
+    { orgId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
+  TError,
+  { orgId: number; itemId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTrainingCatalogItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
+    { orgId: number; itemId: number }
+  > = (props) => {
+    const { orgId, itemId } = props ?? {};
+
+    return deleteTrainingCatalogItem(orgId, itemId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTrainingCatalogItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTrainingCatalogItem>>
+>;
+
+export type DeleteTrainingCatalogItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a training catalog item (referencing trainings keep their snapshot; link is nulled)
+ */
+export const useDeleteTrainingCatalogItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
+    TError,
+    { orgId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
+  TError,
+  { orgId: number; itemId: number },
+  TContext
+> => {
+  return useMutation(getDeleteTrainingCatalogItemMutationOptions(options));
+};
+
+/**
+ * @summary List the organization's competency catalog
+ */
+export const getListCompetencyCatalogUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/competency-catalog`;
+};
+
+export const listCompetencyCatalog = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<ListCompetencyCatalog200> => {
+  return customFetch<ListCompetencyCatalog200>(
+    getListCompetencyCatalogUrl(orgId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCompetencyCatalogQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/competency-catalog`] as const;
+};
+
+export const getListCompetencyCatalogQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCompetencyCatalog>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCompetencyCatalog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCompetencyCatalogQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCompetencyCatalog>>
+  > = ({ signal }) =>
+    listCompetencyCatalog(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCompetencyCatalog>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCompetencyCatalogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCompetencyCatalog>>
+>;
+export type ListCompetencyCatalogQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the organization's competency catalog
+ */
+
+export function useListCompetencyCatalog<
+  TData = Awaited<ReturnType<typeof listCompetencyCatalog>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCompetencyCatalog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCompetencyCatalogQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a competency catalog item (idempotent by name, case-insensitive)
+ */
+export const getCreateCompetencyCatalogItemUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/competency-catalog`;
+};
+
+export const createCompetencyCatalogItem = async (
+  orgId: number,
+  createCompetencyCatalogItemBody: CreateCompetencyCatalogItemBody,
+  options?: RequestInit,
+): Promise<CompetencyCatalogItem> => {
+  return customFetch<CompetencyCatalogItem>(
+    getCreateCompetencyCatalogItemUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCompetencyCatalogItemBody),
+    },
+  );
+};
+
+export const getCreateCompetencyCatalogItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCompetencyCatalogItem>>,
+    TError,
+    { orgId: number; data: BodyType<CreateCompetencyCatalogItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCompetencyCatalogItem>>,
+  TError,
+  { orgId: number; data: BodyType<CreateCompetencyCatalogItemBody> },
+  TContext
+> => {
+  const mutationKey = ["createCompetencyCatalogItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCompetencyCatalogItem>>,
+    { orgId: number; data: BodyType<CreateCompetencyCatalogItemBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createCompetencyCatalogItem(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCompetencyCatalogItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCompetencyCatalogItem>>
+>;
+export type CreateCompetencyCatalogItemMutationBody =
+  BodyType<CreateCompetencyCatalogItemBody>;
+export type CreateCompetencyCatalogItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a competency catalog item (idempotent by name, case-insensitive)
+ */
+export const useCreateCompetencyCatalogItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCompetencyCatalogItem>>,
+    TError,
+    { orgId: number; data: BodyType<CreateCompetencyCatalogItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCompetencyCatalogItem>>,
+  TError,
+  { orgId: number; data: BodyType<CreateCompetencyCatalogItemBody> },
+  TContext
+> => {
+  return useMutation(getCreateCompetencyCatalogItemMutationOptions(options));
+};
+
+/**
+ * @summary Update a competency catalog item (rename propagates to free-text usages)
+ */
+export const getUpdateCompetencyCatalogItemUrl = (
+  orgId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/competency-catalog/${itemId}`;
+};
+
+export const updateCompetencyCatalogItem = async (
+  orgId: number,
+  itemId: number,
+  updateCompetencyCatalogItemBody: UpdateCompetencyCatalogItemBody,
+  options?: RequestInit,
+): Promise<CompetencyCatalogItem> => {
+  return customFetch<CompetencyCatalogItem>(
+    getUpdateCompetencyCatalogItemUrl(orgId, itemId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateCompetencyCatalogItemBody),
+    },
+  );
+};
+
+export const getUpdateCompetencyCatalogItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompetencyCatalogItem>>,
+    TError,
+    {
+      orgId: number;
+      itemId: number;
+      data: BodyType<UpdateCompetencyCatalogItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCompetencyCatalogItem>>,
+  TError,
+  {
+    orgId: number;
+    itemId: number;
+    data: BodyType<UpdateCompetencyCatalogItemBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateCompetencyCatalogItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCompetencyCatalogItem>>,
+    {
+      orgId: number;
+      itemId: number;
+      data: BodyType<UpdateCompetencyCatalogItemBody>;
+    }
+  > = (props) => {
+    const { orgId, itemId, data } = props ?? {};
+
+    return updateCompetencyCatalogItem(orgId, itemId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCompetencyCatalogItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCompetencyCatalogItem>>
+>;
+export type UpdateCompetencyCatalogItemMutationBody =
+  BodyType<UpdateCompetencyCatalogItemBody>;
+export type UpdateCompetencyCatalogItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a competency catalog item (rename propagates to free-text usages)
+ */
+export const useUpdateCompetencyCatalogItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompetencyCatalogItem>>,
+    TError,
+    {
+      orgId: number;
+      itemId: number;
+      data: BodyType<UpdateCompetencyCatalogItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCompetencyCatalogItem>>,
+  TError,
+  {
+    orgId: number;
+    itemId: number;
+    data: BodyType<UpdateCompetencyCatalogItemBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateCompetencyCatalogItemMutationOptions(options));
+};
+
+/**
+ * @summary Remove a competency from the catalog (usages keep their stored text)
+ */
+export const getDeleteCompetencyCatalogItemUrl = (
+  orgId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/competency-catalog/${itemId}`;
+};
+
+export const deleteCompetencyCatalogItem = async (
+  orgId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCompetencyCatalogItemUrl(orgId, itemId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCompetencyCatalogItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>,
+    TError,
+    { orgId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>,
+  TError,
+  { orgId: number; itemId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCompetencyCatalogItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>,
+    { orgId: number; itemId: number }
+  > = (props) => {
+    const { orgId, itemId } = props ?? {};
+
+    return deleteCompetencyCatalogItem(orgId, itemId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCompetencyCatalogItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>
+>;
+
+export type DeleteCompetencyCatalogItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove a competency from the catalog (usages keep their stored text)
+ */
+export const useDeleteCompetencyCatalogItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>,
+    TError,
+    { orgId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCompetencyCatalogItem>>,
+  TError,
+  { orgId: number; itemId: number },
+  TContext
+> => {
+  return useMutation(getDeleteCompetencyCatalogItemMutationOptions(options));
+};
+
+/**
+ * @summary List the organization's training requirements (obrigatoriedades)
+ */
+export const getListTrainingRequirementsUrl = (
+  orgId: number,
+  params?: ListTrainingRequirementsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/training-requirements?${stringifiedParams}`
+    : `/api/organizations/${orgId}/training-requirements`;
+};
+
+export const listTrainingRequirements = async (
+  orgId: number,
+  params?: ListTrainingRequirementsParams,
+  options?: RequestInit,
+): Promise<ListTrainingRequirements200> => {
+  return customFetch<ListTrainingRequirements200>(
+    getListTrainingRequirementsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTrainingRequirementsQueryKey = (
+  orgId: number,
+  params?: ListTrainingRequirementsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/training-requirements`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListTrainingRequirementsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrainingRequirements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListTrainingRequirementsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrainingRequirements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListTrainingRequirementsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTrainingRequirements>>
+  > = ({ signal }) =>
+    listTrainingRequirements(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTrainingRequirements>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTrainingRequirementsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrainingRequirements>>
+>;
+export type ListTrainingRequirementsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the organization's training requirements (obrigatoriedades)
+ */
+
+export function useListTrainingRequirements<
+  TData = Awaited<ReturnType<typeof listTrainingRequirements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListTrainingRequirementsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrainingRequirements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTrainingRequirementsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a training requirement
+ */
+export const getCreateTrainingRequirementUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/training-requirements`;
+};
+
+export const createTrainingRequirement = async (
+  orgId: number,
+  createTrainingRequirementBody: CreateTrainingRequirementBody,
+  options?: RequestInit,
+): Promise<TrainingRequirement> => {
+  return customFetch<TrainingRequirement>(
+    getCreateTrainingRequirementUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createTrainingRequirementBody),
+    },
+  );
+};
+
+export const getCreateTrainingRequirementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTrainingRequirement>>,
+    TError,
+    { orgId: number; data: BodyType<CreateTrainingRequirementBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTrainingRequirement>>,
+  TError,
+  { orgId: number; data: BodyType<CreateTrainingRequirementBody> },
+  TContext
+> => {
+  const mutationKey = ["createTrainingRequirement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTrainingRequirement>>,
+    { orgId: number; data: BodyType<CreateTrainingRequirementBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createTrainingRequirement(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTrainingRequirementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTrainingRequirement>>
+>;
+export type CreateTrainingRequirementMutationBody =
+  BodyType<CreateTrainingRequirementBody>;
+export type CreateTrainingRequirementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a training requirement
+ */
+export const useCreateTrainingRequirement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTrainingRequirement>>,
+    TError,
+    { orgId: number; data: BodyType<CreateTrainingRequirementBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTrainingRequirement>>,
+  TError,
+  { orgId: number; data: BodyType<CreateTrainingRequirementBody> },
+  TContext
+> => {
+  return useMutation(getCreateTrainingRequirementMutationOptions(options));
+};
+
+/**
+ * @summary Preview requirements that would apply to a position + unit (no generation)
+ */
+export const getPreviewTrainingRequirementsUrl = (
+  orgId: number,
+  params: PreviewTrainingRequirementsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/training-requirements/preview?${stringifiedParams}`
+    : `/api/organizations/${orgId}/training-requirements/preview`;
+};
+
+export const previewTrainingRequirements = async (
+  orgId: number,
+  params: PreviewTrainingRequirementsParams,
+  options?: RequestInit,
+): Promise<TrainingRequirementPreview> => {
+  return customFetch<TrainingRequirementPreview>(
+    getPreviewTrainingRequirementsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getPreviewTrainingRequirementsQueryKey = (
+  orgId: number,
+  params?: PreviewTrainingRequirementsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/training-requirements/preview`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getPreviewTrainingRequirementsQueryOptions = <
+  TData = Awaited<ReturnType<typeof previewTrainingRequirements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params: PreviewTrainingRequirementsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof previewTrainingRequirements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getPreviewTrainingRequirementsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof previewTrainingRequirements>>
+  > = ({ signal }) =>
+    previewTrainingRequirements(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof previewTrainingRequirements>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type PreviewTrainingRequirementsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof previewTrainingRequirements>>
+>;
+export type PreviewTrainingRequirementsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Preview requirements that would apply to a position + unit (no generation)
+ */
+
+export function usePreviewTrainingRequirements<
+  TData = Awaited<ReturnType<typeof previewTrainingRequirements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params: PreviewTrainingRequirementsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof previewTrainingRequirements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getPreviewTrainingRequirementsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a training requirement
+ */
+export const getUpdateTrainingRequirementUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/training-requirements/${id}`;
+};
+
+export const updateTrainingRequirement = async (
+  orgId: number,
+  id: number,
+  updateTrainingRequirementBody: UpdateTrainingRequirementBody,
+  options?: RequestInit,
+): Promise<TrainingRequirement> => {
+  return customFetch<TrainingRequirement>(
+    getUpdateTrainingRequirementUrl(orgId, id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateTrainingRequirementBody),
+    },
+  );
+};
+
+export const getUpdateTrainingRequirementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrainingRequirement>>,
+    TError,
+    {
+      orgId: number;
+      id: number;
+      data: BodyType<UpdateTrainingRequirementBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTrainingRequirement>>,
+  TError,
+  { orgId: number; id: number; data: BodyType<UpdateTrainingRequirementBody> },
+  TContext
+> => {
+  const mutationKey = ["updateTrainingRequirement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTrainingRequirement>>,
+    { orgId: number; id: number; data: BodyType<UpdateTrainingRequirementBody> }
+  > = (props) => {
+    const { orgId, id, data } = props ?? {};
+
+    return updateTrainingRequirement(orgId, id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTrainingRequirementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTrainingRequirement>>
+>;
+export type UpdateTrainingRequirementMutationBody =
+  BodyType<UpdateTrainingRequirementBody>;
+export type UpdateTrainingRequirementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a training requirement
+ */
+export const useUpdateTrainingRequirement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrainingRequirement>>,
+    TError,
+    {
+      orgId: number;
+      id: number;
+      data: BodyType<UpdateTrainingRequirementBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTrainingRequirement>>,
+  TError,
+  { orgId: number; id: number; data: BodyType<UpdateTrainingRequirementBody> },
+  TContext
+> => {
+  return useMutation(getUpdateTrainingRequirementMutationOptions(options));
+};
+
+/**
+ * @summary Delete a training requirement
+ */
+export const getDeleteTrainingRequirementUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/training-requirements/${id}`;
+};
+
+export const deleteTrainingRequirement = async (
+  orgId: number,
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTrainingRequirementUrl(orgId, id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTrainingRequirementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrainingRequirement>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTrainingRequirement>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTrainingRequirement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTrainingRequirement>>,
+    { orgId: number; id: number }
+  > = (props) => {
+    const { orgId, id } = props ?? {};
+
+    return deleteTrainingRequirement(orgId, id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTrainingRequirementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTrainingRequirement>>
+>;
+
+export type DeleteTrainingRequirementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a training requirement
+ */
+export const useDeleteTrainingRequirement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrainingRequirement>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTrainingRequirement>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTrainingRequirementMutationOptions(options));
+};
+
+/**
+ * @summary List training classes
+ */
+export const getListTrainingClassesUrl = (
+  orgId: number,
+  params?: ListTrainingClassesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/training-classes?${stringifiedParams}`
+    : `/api/organizations/${orgId}/training-classes`;
+};
+
+export const listTrainingClasses = async (
+  orgId: number,
+  params?: ListTrainingClassesParams,
+  options?: RequestInit,
+): Promise<ListTrainingClasses200> => {
+  return customFetch<ListTrainingClasses200>(
+    getListTrainingClassesUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTrainingClassesQueryKey = (
+  orgId: number,
+  params?: ListTrainingClassesParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/training-classes`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListTrainingClassesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrainingClasses>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListTrainingClassesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrainingClasses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTrainingClassesQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTrainingClasses>>
+  > = ({ signal }) =>
+    listTrainingClasses(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTrainingClasses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTrainingClassesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrainingClasses>>
+>;
+export type ListTrainingClassesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List training classes
+ */
+
+export function useListTrainingClasses<
+  TData = Awaited<ReturnType<typeof listTrainingClasses>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListTrainingClassesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrainingClasses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTrainingClassesQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a training class
+ */
+export const getCreateTrainingClassUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/training-classes`;
+};
+
+export const createTrainingClass = async (
+  orgId: number,
+  createTrainingClassBody: CreateTrainingClassBody,
+  options?: RequestInit,
+): Promise<TrainingClass> => {
+  return customFetch<TrainingClass>(getCreateTrainingClassUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTrainingClassBody),
+  });
+};
+
+export const getCreateTrainingClassMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTrainingClass>>,
+    TError,
+    { orgId: number; data: BodyType<CreateTrainingClassBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTrainingClass>>,
+  TError,
+  { orgId: number; data: BodyType<CreateTrainingClassBody> },
+  TContext
+> => {
+  const mutationKey = ["createTrainingClass"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTrainingClass>>,
+    { orgId: number; data: BodyType<CreateTrainingClassBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createTrainingClass(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTrainingClassMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTrainingClass>>
+>;
+export type CreateTrainingClassMutationBody = BodyType<CreateTrainingClassBody>;
+export type CreateTrainingClassMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a training class
+ */
+export const useCreateTrainingClass = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTrainingClass>>,
+    TError,
+    { orgId: number; data: BodyType<CreateTrainingClassBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTrainingClass>>,
+  TError,
+  { orgId: number; data: BodyType<CreateTrainingClassBody> },
+  TContext
+> => {
+  return useMutation(getCreateTrainingClassMutationOptions(options));
+};
+
+/**
+ * @summary Get a training class with participants
+ */
+export const getGetTrainingClassUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/training-classes/${id}`;
+};
+
+export const getTrainingClass = async (
+  orgId: number,
+  id: number,
+  options?: RequestInit,
+): Promise<TrainingClassDetail> => {
+  return customFetch<TrainingClassDetail>(getGetTrainingClassUrl(orgId, id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTrainingClassQueryKey = (orgId: number, id: number) => {
+  return [`/api/organizations/${orgId}/training-classes/${id}`] as const;
+};
+
+export const getGetTrainingClassQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTrainingClass>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTrainingClass>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTrainingClassQueryKey(orgId, id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTrainingClass>>
+  > = ({ signal }) =>
+    getTrainingClass(orgId, id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && id),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTrainingClass>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTrainingClassQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTrainingClass>>
+>;
+export type GetTrainingClassQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a training class with participants
+ */
+
+export function useGetTrainingClass<
+  TData = Awaited<ReturnType<typeof getTrainingClass>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTrainingClass>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTrainingClassQueryOptions(orgId, id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a training class (including evidence attachments)
+ */
+export const getUpdateTrainingClassUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/training-classes/${id}`;
+};
+
+export const updateTrainingClass = async (
+  orgId: number,
+  id: number,
+  updateTrainingClassBody: UpdateTrainingClassBody,
+  options?: RequestInit,
+): Promise<TrainingClass> => {
+  return customFetch<TrainingClass>(getUpdateTrainingClassUrl(orgId, id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateTrainingClassBody),
+  });
+};
+
+export const getUpdateTrainingClassMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrainingClass>>,
+    TError,
+    { orgId: number; id: number; data: BodyType<UpdateTrainingClassBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTrainingClass>>,
+  TError,
+  { orgId: number; id: number; data: BodyType<UpdateTrainingClassBody> },
+  TContext
+> => {
+  const mutationKey = ["updateTrainingClass"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTrainingClass>>,
+    { orgId: number; id: number; data: BodyType<UpdateTrainingClassBody> }
+  > = (props) => {
+    const { orgId, id, data } = props ?? {};
+
+    return updateTrainingClass(orgId, id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTrainingClassMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTrainingClass>>
+>;
+export type UpdateTrainingClassMutationBody = BodyType<UpdateTrainingClassBody>;
+export type UpdateTrainingClassMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a training class (including evidence attachments)
+ */
+export const useUpdateTrainingClass = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrainingClass>>,
+    TError,
+    { orgId: number; id: number; data: BodyType<UpdateTrainingClassBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTrainingClass>>,
+  TError,
+  { orgId: number; id: number; data: BodyType<UpdateTrainingClassBody> },
+  TContext
+> => {
+  return useMutation(getUpdateTrainingClassMutationOptions(options));
+};
+
+/**
+ * @summary Delete a training class
+ */
+export const getDeleteTrainingClassUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/training-classes/${id}`;
+};
+
+export const deleteTrainingClass = async (
+  orgId: number,
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTrainingClassUrl(orgId, id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTrainingClassMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrainingClass>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTrainingClass>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTrainingClass"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTrainingClass>>,
+    { orgId: number; id: number }
+  > = (props) => {
+    const { orgId, id } = props ?? {};
+
+    return deleteTrainingClass(orgId, id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTrainingClassMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTrainingClass>>
+>;
+
+export type DeleteTrainingClassMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a training class
+ */
+export const useDeleteTrainingClass = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrainingClass>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTrainingClass>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTrainingClassMutationOptions(options));
+};
+
+/**
+ * @summary Enroll employees into a class
+ */
+export const getAddTrainingClassParticipantsUrl = (
+  orgId: number,
+  id: number,
+) => {
+  return `/api/organizations/${orgId}/training-classes/${id}/participants`;
+};
+
+export const addTrainingClassParticipants = async (
+  orgId: number,
+  id: number,
+  addTrainingClassParticipantsBody: AddTrainingClassParticipantsBody,
+  options?: RequestInit,
+): Promise<TrainingClassDetail> => {
+  return customFetch<TrainingClassDetail>(
+    getAddTrainingClassParticipantsUrl(orgId, id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addTrainingClassParticipantsBody),
+    },
+  );
+};
+
+export const getAddTrainingClassParticipantsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTrainingClassParticipants>>,
+    TError,
+    {
+      orgId: number;
+      id: number;
+      data: BodyType<AddTrainingClassParticipantsBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addTrainingClassParticipants>>,
+  TError,
+  {
+    orgId: number;
+    id: number;
+    data: BodyType<AddTrainingClassParticipantsBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["addTrainingClassParticipants"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addTrainingClassParticipants>>,
+    {
+      orgId: number;
+      id: number;
+      data: BodyType<AddTrainingClassParticipantsBody>;
+    }
+  > = (props) => {
+    const { orgId, id, data } = props ?? {};
+
+    return addTrainingClassParticipants(orgId, id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddTrainingClassParticipantsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addTrainingClassParticipants>>
+>;
+export type AddTrainingClassParticipantsMutationBody =
+  BodyType<AddTrainingClassParticipantsBody>;
+export type AddTrainingClassParticipantsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Enroll employees into a class
+ */
+export const useAddTrainingClassParticipants = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTrainingClassParticipants>>,
+    TError,
+    {
+      orgId: number;
+      id: number;
+      data: BodyType<AddTrainingClassParticipantsBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addTrainingClassParticipants>>,
+  TError,
+  {
+    orgId: number;
+    id: number;
+    data: BodyType<AddTrainingClassParticipantsBody>;
+  },
+  TContext
+> => {
+  return useMutation(getAddTrainingClassParticipantsMutationOptions(options));
+};
+
+/**
+ * @summary Update a participant (attendance / score / result)
+ */
+export const getUpdateTrainingClassParticipantUrl = (
+  orgId: number,
+  id: number,
+  participantId: number,
+) => {
+  return `/api/organizations/${orgId}/training-classes/${id}/participants/${participantId}`;
+};
+
+export const updateTrainingClassParticipant = async (
+  orgId: number,
+  id: number,
+  participantId: number,
+  updateTrainingClassParticipantBody: UpdateTrainingClassParticipantBody,
+  options?: RequestInit,
+): Promise<TrainingClassParticipant> => {
+  return customFetch<TrainingClassParticipant>(
+    getUpdateTrainingClassParticipantUrl(orgId, id, participantId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateTrainingClassParticipantBody),
+    },
+  );
+};
+
+export const getUpdateTrainingClassParticipantMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrainingClassParticipant>>,
+    TError,
+    {
+      orgId: number;
+      id: number;
+      participantId: number;
+      data: BodyType<UpdateTrainingClassParticipantBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTrainingClassParticipant>>,
+  TError,
+  {
+    orgId: number;
+    id: number;
+    participantId: number;
+    data: BodyType<UpdateTrainingClassParticipantBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateTrainingClassParticipant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTrainingClassParticipant>>,
+    {
+      orgId: number;
+      id: number;
+      participantId: number;
+      data: BodyType<UpdateTrainingClassParticipantBody>;
+    }
+  > = (props) => {
+    const { orgId, id, participantId, data } = props ?? {};
+
+    return updateTrainingClassParticipant(
+      orgId,
+      id,
+      participantId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTrainingClassParticipantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTrainingClassParticipant>>
+>;
+export type UpdateTrainingClassParticipantMutationBody =
+  BodyType<UpdateTrainingClassParticipantBody>;
+export type UpdateTrainingClassParticipantMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a participant (attendance / score / result)
+ */
+export const useUpdateTrainingClassParticipant = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrainingClassParticipant>>,
+    TError,
+    {
+      orgId: number;
+      id: number;
+      participantId: number;
+      data: BodyType<UpdateTrainingClassParticipantBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTrainingClassParticipant>>,
+  TError,
+  {
+    orgId: number;
+    id: number;
+    participantId: number;
+    data: BodyType<UpdateTrainingClassParticipantBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateTrainingClassParticipantMutationOptions(options));
+};
+
+/**
+ * @summary Remove a participant
+ */
+export const getDeleteTrainingClassParticipantUrl = (
+  orgId: number,
+  id: number,
+  participantId: number,
+) => {
+  return `/api/organizations/${orgId}/training-classes/${id}/participants/${participantId}`;
+};
+
+export const deleteTrainingClassParticipant = async (
+  orgId: number,
+  id: number,
+  participantId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteTrainingClassParticipantUrl(orgId, id, participantId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteTrainingClassParticipantMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrainingClassParticipant>>,
+    TError,
+    { orgId: number; id: number; participantId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTrainingClassParticipant>>,
+  TError,
+  { orgId: number; id: number; participantId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTrainingClassParticipant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTrainingClassParticipant>>,
+    { orgId: number; id: number; participantId: number }
+  > = (props) => {
+    const { orgId, id, participantId } = props ?? {};
+
+    return deleteTrainingClassParticipant(
+      orgId,
+      id,
+      participantId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTrainingClassParticipantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTrainingClassParticipant>>
+>;
+
+export type DeleteTrainingClassParticipantMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove a participant
+ */
+export const useDeleteTrainingClassParticipant = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrainingClassParticipant>>,
+    TError,
+    { orgId: number; id: number; participantId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTrainingClassParticipant>>,
+  TError,
+  { orgId: number; id: number; participantId: number },
+  TContext
+> => {
+  return useMutation(getDeleteTrainingClassParticipantMutationOptions(options));
+};
+
+/**
+ * @summary Complete a class — writes employee_trainings for approved participants
+ */
+export const getCompleteTrainingClassUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/training-classes/${id}/complete`;
+};
+
+export const completeTrainingClass = async (
+  orgId: number,
+  id: number,
+  options?: RequestInit,
+): Promise<CompleteTrainingClass200> => {
+  return customFetch<CompleteTrainingClass200>(
+    getCompleteTrainingClassUrl(orgId, id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getCompleteTrainingClassMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeTrainingClass>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeTrainingClass>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  const mutationKey = ["completeTrainingClass"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeTrainingClass>>,
+    { orgId: number; id: number }
+  > = (props) => {
+    const { orgId, id } = props ?? {};
+
+    return completeTrainingClass(orgId, id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteTrainingClassMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeTrainingClass>>
+>;
+
+export type CompleteTrainingClassMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Complete a class — writes employee_trainings for approved participants
+ */
+export const useCompleteTrainingClass = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeTrainingClass>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeTrainingClass>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  return useMutation(getCompleteTrainingClassMutationOptions(options));
+};
+
+/**
+ * @summary List annual training program items
+ */
+export const getListAnnualProgramUrl = (
+  orgId: number,
+  params?: ListAnnualProgramParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/annual-program?${stringifiedParams}`
+    : `/api/organizations/${orgId}/annual-program`;
+};
+
+export const listAnnualProgram = async (
+  orgId: number,
+  params?: ListAnnualProgramParams,
+  options?: RequestInit,
+): Promise<ListAnnualProgram200> => {
+  return customFetch<ListAnnualProgram200>(
+    getListAnnualProgramUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAnnualProgramQueryKey = (
+  orgId: number,
+  params?: ListAnnualProgramParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/annual-program`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListAnnualProgramQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAnnualProgram>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListAnnualProgramParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAnnualProgram>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAnnualProgramQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAnnualProgram>>
+  > = ({ signal }) =>
+    listAnnualProgram(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAnnualProgram>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAnnualProgramQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAnnualProgram>>
+>;
+export type ListAnnualProgramQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List annual training program items
+ */
+
+export function useListAnnualProgram<
+  TData = Awaited<ReturnType<typeof listAnnualProgram>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListAnnualProgramParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAnnualProgram>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAnnualProgramQueryOptions(orgId, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an annual program item
+ */
+export const getCreateAnnualProgramItemUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/annual-program`;
+};
+
+export const createAnnualProgramItem = async (
+  orgId: number,
+  createAnnualProgramItemBody: CreateAnnualProgramItemBody,
+  options?: RequestInit,
+): Promise<AnnualProgramItem> => {
+  return customFetch<AnnualProgramItem>(getCreateAnnualProgramItemUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAnnualProgramItemBody),
+  });
+};
+
+export const getCreateAnnualProgramItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAnnualProgramItem>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAnnualProgramItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAnnualProgramItem>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAnnualProgramItemBody> },
+  TContext
+> => {
+  const mutationKey = ["createAnnualProgramItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAnnualProgramItem>>,
+    { orgId: number; data: BodyType<CreateAnnualProgramItemBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createAnnualProgramItem(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAnnualProgramItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAnnualProgramItem>>
+>;
+export type CreateAnnualProgramItemMutationBody =
+  BodyType<CreateAnnualProgramItemBody>;
+export type CreateAnnualProgramItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an annual program item
+ */
+export const useCreateAnnualProgramItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAnnualProgramItem>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAnnualProgramItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAnnualProgramItem>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAnnualProgramItemBody> },
+  TContext
+> => {
+  return useMutation(getCreateAnnualProgramItemMutationOptions(options));
+};
+
+/**
+ * @summary Update an annual program item (including class link / status)
+ */
+export const getUpdateAnnualProgramItemUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/annual-program/${id}`;
+};
+
+export const updateAnnualProgramItem = async (
+  orgId: number,
+  id: number,
+  updateAnnualProgramItemBody: UpdateAnnualProgramItemBody,
+  options?: RequestInit,
+): Promise<AnnualProgramItem> => {
+  return customFetch<AnnualProgramItem>(
+    getUpdateAnnualProgramItemUrl(orgId, id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateAnnualProgramItemBody),
+    },
+  );
+};
+
+export const getUpdateAnnualProgramItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAnnualProgramItem>>,
+    TError,
+    { orgId: number; id: number; data: BodyType<UpdateAnnualProgramItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAnnualProgramItem>>,
+  TError,
+  { orgId: number; id: number; data: BodyType<UpdateAnnualProgramItemBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAnnualProgramItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAnnualProgramItem>>,
+    { orgId: number; id: number; data: BodyType<UpdateAnnualProgramItemBody> }
+  > = (props) => {
+    const { orgId, id, data } = props ?? {};
+
+    return updateAnnualProgramItem(orgId, id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAnnualProgramItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAnnualProgramItem>>
+>;
+export type UpdateAnnualProgramItemMutationBody =
+  BodyType<UpdateAnnualProgramItemBody>;
+export type UpdateAnnualProgramItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an annual program item (including class link / status)
+ */
+export const useUpdateAnnualProgramItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAnnualProgramItem>>,
+    TError,
+    { orgId: number; id: number; data: BodyType<UpdateAnnualProgramItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAnnualProgramItem>>,
+  TError,
+  { orgId: number; id: number; data: BodyType<UpdateAnnualProgramItemBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAnnualProgramItemMutationOptions(options));
+};
+
+/**
+ * @summary Delete an annual program item
+ */
+export const getDeleteAnnualProgramItemUrl = (orgId: number, id: number) => {
+  return `/api/organizations/${orgId}/annual-program/${id}`;
+};
+
+export const deleteAnnualProgramItem = async (
+  orgId: number,
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAnnualProgramItemUrl(orgId, id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAnnualProgramItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAnnualProgramItem>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAnnualProgramItem>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAnnualProgramItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAnnualProgramItem>>,
+    { orgId: number; id: number }
+  > = (props) => {
+    const { orgId, id } = props ?? {};
+
+    return deleteAnnualProgramItem(orgId, id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAnnualProgramItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAnnualProgramItem>>
+>;
+
+export type DeleteAnnualProgramItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an annual program item
+ */
+export const useDeleteAnnualProgramItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAnnualProgramItem>>,
+    TError,
+    { orgId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAnnualProgramItem>>,
+  TError,
+  { orgId: number; id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAnnualProgramItemMutationOptions(options));
+};
+
+/**
+ * @summary Resumo do dashboard operacional de gestão de aprendizagem
+ */
+export const getGetLearningDashboardSummaryUrl = (
+  orgId: number,
+  params: GetLearningDashboardSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/learning/summary?${stringifiedParams}`
+    : `/api/organizations/${orgId}/learning/summary`;
+};
+
+export const getLearningDashboardSummary = async (
+  orgId: number,
+  params: GetLearningDashboardSummaryParams,
+  options?: RequestInit,
+): Promise<LearningSummary> => {
+  return customFetch<LearningSummary>(
+    getGetLearningDashboardSummaryUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetLearningDashboardSummaryQueryKey = (
+  orgId: number,
+  params?: GetLearningDashboardSummaryParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/learning/summary`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetLearningDashboardSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLearningDashboardSummary>>,
+  TError = ErrorType<void>,
+>(
+  orgId: number,
+  params: GetLearningDashboardSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLearningDashboardSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetLearningDashboardSummaryQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getLearningDashboardSummary>>
+  > = ({ signal }) =>
+    getLearningDashboardSummary(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLearningDashboardSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLearningDashboardSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLearningDashboardSummary>>
+>;
+export type GetLearningDashboardSummaryQueryError = ErrorType<void>;
+
+/**
+ * @summary Resumo do dashboard operacional de gestão de aprendizagem
+ */
+
+export function useGetLearningDashboardSummary<
+  TData = Awaited<ReturnType<typeof getLearningDashboardSummary>>,
+  TError = ErrorType<void>,
+>(
+  orgId: number,
+  params: GetLearningDashboardSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLearningDashboardSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLearningDashboardSummaryQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

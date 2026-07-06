@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, jsonb, numeric, pgTable, serial, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, numeric, pgTable, serial, text, timestamp, unique, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -78,13 +78,20 @@ export const kpiIndicatorsTable = pgTable("kpi_indicators", {
    * Default operacional: 'sum_inputs' (correto pra razões).
    */
   rollupStrategy: varchar("rollup_strategy", { length: 32 }),
+  computedSource: varchar("computed_source", { length: 32 }),
+  computedMetric: varchar("computed_metric", { length: 64 }),
   norms: jsonb("norms")
     .$type<string[]>()
     .notNull()
     .default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  // Partial unique index prevents duplicate LMS-computed indicators per org+metric.
+  uniqueIndex("kpi_indicators_lms_metric_unique")
+    .on(table.organizationId, table.computedSource, table.computedMetric)
+    .where(sql`computed_source is not null`),
+]);
 
 export const kpiYearConfigsTable = pgTable("kpi_year_configs", {
   id: serial("id").primaryKey(),
@@ -97,6 +104,7 @@ export const kpiYearConfigsTable = pgTable("kpi_year_configs", {
   // 0,0008436) precisam de casas suficientes pra não truncar pra "0,0008".
   // Aumentar scale é não-destrutivo no Postgres (ALTER COLUMN TYPE preserva).
   goal: numeric("goal", { precision: 20, scale: 8 }),
+  tolerance: numeric("tolerance", { precision: 20, scale: 8 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

@@ -33,6 +33,7 @@ function serializeAuthUser(user: {
   organizationId: number;
   role: string;
   unitId: number | null;
+  employeeId?: number | null;
   theme: string;
   createdAt: Date;
   lastLoginAt: Date | null;
@@ -44,6 +45,7 @@ function serializeAuthUser(user: {
     organizationId: user.organizationId,
     role: user.role,
     unitId: user.unitId ?? null,
+    employeeId: user.employeeId ?? null,
     theme: user.theme,
     createdAt: user.createdAt.toISOString(),
     lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
