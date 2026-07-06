@@ -122,7 +122,8 @@ export default function TurmasPage() {
   );
   const classes = result?.data ?? [];
 
-  const { data: catalogResult } = useListTrainingCatalog(orgId ?? 0, undefined, {
+  const { data: catalogResult, isLoading: catalogLoading } =
+    useListTrainingCatalog(orgId ?? 0, undefined, {
     query: {
       enabled: !!orgId,
       queryKey: getListTrainingCatalogQueryKey(orgId ?? 0),
@@ -133,7 +134,9 @@ export default function TurmasPage() {
     () => new Map(catalogItems.map((c) => [c.id, c.title])),
     [catalogItems],
   );
-  const { data: units = [] } = useListUnits(orgId ?? 0);
+  const { data: units = [], isLoading: unitsLoading } = useListUnits(
+    orgId ?? 0,
+  );
   const unitName = useMemo(() => new Map(units.map((u) => [u.id, u.name])), [units]);
 
   const invalidateList = () => {
@@ -330,17 +333,18 @@ export default function TurmasPage() {
             <Label className="text-xs font-semibold text-muted-foreground">
               Treinamento (catálogo) *
             </Label>
-            <Select
+            <SearchableSelect
               value={form.catalogItemId}
-              onChange={(e) => setForm({ ...form, catalogItemId: e.target.value })}
-            >
-              <option value="">Selecione o treinamento...</option>
-              {catalogItems.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title}
-                </option>
-              ))}
-            </Select>
+              onChange={(v) => setForm({ ...form, catalogItemId: v })}
+              options={catalogItems.map((c) => ({
+                value: String(c.id),
+                label: c.title,
+              }))}
+              isLoading={catalogLoading}
+              placeholder="Selecione o treinamento..."
+              searchPlaceholder="Buscar treinamento..."
+              emptyMessage="Nenhum treinamento no catálogo."
+            />
           </div>
         ) : null}
 
@@ -377,17 +381,17 @@ export default function TurmasPage() {
               />
             </Field>
             <Field label="Filial">
-              <Select
+              <SearchableSelect
                 value={form.unitId}
-                onChange={(e) => setForm({ ...form, unitId: e.target.value })}
-              >
-                <option value="">—</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </Select>
+                onChange={(v) => setForm({ ...form, unitId: v })}
+                options={units.map((u) => ({
+                  value: String(u.id),
+                  label: u.name,
+                }))}
+                isLoading={unitsLoading}
+                placeholder="Selecione a filial..."
+                searchPlaceholder="Buscar filial..."
+              />
             </Field>
             <Field label="Local / sala">
               <Input
