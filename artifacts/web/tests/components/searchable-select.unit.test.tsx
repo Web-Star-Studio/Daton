@@ -43,4 +43,20 @@ describe("SearchableSelect — robustez a labels duplicados (#121)", () => {
     expect(screen.queryByText("Motorista Carreteiro")).not.toBeInTheDocument();
     expect(screen.getByText("Ajudante de Obra")).toBeInTheDocument();
   });
+
+  it("opção de value vazio (ex.: “Todos”) continua selecionável (#123)", async () => {
+    const onChange = vi.fn();
+    const options = [
+      { value: "", label: "Todos" },
+      { value: "1", label: "Filial A" },
+    ];
+    render(
+      <SearchableSelect value="1" onChange={onChange} options={options} />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByText("Todos"));
+    expect(onChange).toHaveBeenCalledWith("");
+  });
 });

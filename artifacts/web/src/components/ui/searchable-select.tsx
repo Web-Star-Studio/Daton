@@ -175,15 +175,17 @@ export function SearchableSelect({
                 <X className="h-3.5 w-3.5" /> Limpar seleção
               </CommandPrimitive.Item>
             )}
-            {options.map((opt) => {
+            {options.map((opt, i) => {
               const isSelected = opt.value === value;
+              // Chave interna do cmdk = value ÚNICO e NÃO-VAZIO (não o label):
+              // labels duplicados (homônimos) colidiam e um ficava
+              // inselecionável; e value "" é tratado como não-selecionável pelo
+              // cmdk. `keywords` mantém a busca por nome. Ver #121.
+              const cmdkValue = opt.value || `__opt_${i}`;
               return (
                 <CommandPrimitive.Item
-                  key={opt.value}
-                  // Chave interna do cmdk = value ÚNICO (não o label): labels
-                  // duplicados (homônimos) colidiam e um ficava inselecionável.
-                  // `keywords` mantém a busca por nome. Ver #121.
-                  value={opt.value}
+                  key={cmdkValue}
+                  value={cmdkValue}
                   keywords={[opt.label]}
                   onSelect={() => {
                     onChange(opt.value);
