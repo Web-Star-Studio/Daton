@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import {
   eq,
+  ne,
   and,
   ilike,
   or,
@@ -160,16 +161,31 @@ export const boardPendentes = and(
 )!;
 
 /**
+ * Critério de eficácia "presente" para o status `pending`: evaluationMethod OU
+ * targetCompetencyName não-nulo E não-vazio. Fonte ÚNICA da regra em SQL —
+ * espelha exatamente o truthy do JS `getEffectivenessStatus` (`||`, onde string
+ * vazia conta como ausente), eliminando a divergência SQL×JS. Ver #115.
+ */
+export const boardHasPendingCriteria = or(
+  and(
+    isNotNull(employeeTrainingsTable.evaluationMethod),
+    ne(employeeTrainingsTable.evaluationMethod, ""),
+  ),
+  and(
+    isNotNull(employeeTrainingsTable.targetCompetencyName),
+    ne(employeeTrainingsTable.targetCompetencyName, ""),
+  ),
+)!;
+
+/**
  * Filtro de escopo `needs_evaluation`: inclui apenas treinamentos que têm
  * alguma configuração de avaliação de eficácia ou já possuem uma review.
- * SQL: evaluation_method IS NOT NULL
- *      OR target_competency_name IS NOT NULL
+ * SQL: (critério de pending presente — ver boardHasPendingCriteria)
  *      OR effectiveness_assigned_role IS NOT NULL
  *      OR EXISTS (review)
  */
 export const boardNeedsEvaluationScope = or(
-  isNotNull(employeeTrainingsTable.evaluationMethod),
-  isNotNull(employeeTrainingsTable.targetCompetencyName),
+  boardHasPendingCriteria,
   isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
   boardHasReviewExists,
 )!;
@@ -290,6 +306,9 @@ function getEffectivenessStatus(
     return "in_review";
   }
 
+  // "pending": critério de eficácia presente. O `||` trata string vazia como
+  // ausente (falsy) — a contraparte SQL é `boardHasPendingCriteria` (não-nulo E
+  // não-vazio), mantida idêntica a esta regra. Ver #115.
   if (training.evaluationMethod || training.targetCompetencyName) {
     return "pending";
   }
@@ -1664,16 +1683,8 @@ router.get(
         conditions.push(boardEmAvaliacao);
       } else if (es === "pending") {
         // NOT hasReview AND assignedRole IS NULL AND dueDate IS NULL
-        // AND (evaluationMethod IS NOT NULL OR targetCompetencyName IS NOT NULL)
-        conditions.push(
-          and(
-            boardPendentes,
-            or(
-              isNotNull(employeeTrainingsTable.evaluationMethod),
-              isNotNull(employeeTrainingsTable.targetCompetencyName),
-            )!,
-          )!,
-        );
+        // AND critério presente (não-nulo e não-vazio — espelha o JS, #115)
+        conditions.push(and(boardPendentes, boardHasPendingCriteria)!);
       } else {
         // effective / ineffective: hasReview AND latest review is_effective = ?
         const latestIsEffSq = sql`(
@@ -1812,13 +1823,9 @@ router.get(
         pendenteCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'pendente')::int`,
         concluidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'concluido' and (${employeeTrainingsTable.expirationDate} is null or ${employeeTrainingsTable.expirationDate} >= current_date))::int`,
         vencidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'vencido' or (${employeeTrainingsTable.expirationDate} is not null and ${employeeTrainingsTable.expirationDate} < current_date))::int`,
-        // effectivenessPending: no review, no assignment/dueDate, but has eval config
-        effectivenessPendingCount: sql<number>`count(*) filter (where
-          not exists (select 1 from training_effectiveness_reviews r2 where r2.training_id = ${employeeTrainingsTable.id})
-          and ${employeeTrainingsTable.effectivenessAssignedRole} is null
-          and ${employeeTrainingsTable.effectivenessDueDate} is null
-          and (${employeeTrainingsTable.evaluationMethod} is not null or ${employeeTrainingsTable.targetCompetencyName} is not null)
-        )::int`,
+        // effectivenessPending: boardPendentes (sem review/atribuição) + critério
+        // de eficácia presente (fragmento único, alinhado ao JS — #115)
+        effectivenessPendingCount: sql<number>`count(*) filter (where ${boardPendentes} and ${boardHasPendingCriteria})::int`,
         // eficazes / naoEficazes: última review por treinamento
         eficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = true)::int`,
         naoEficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = false)::int`,

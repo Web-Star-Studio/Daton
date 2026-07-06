@@ -12,7 +12,7 @@
 
 Este SP entrega a **avaliação de eficácia dos treinamentos** (ISO 10015 §4.5, Kirkpatrick L3/L4) como um workflow/kanban, e a **Minha área** (visão pessoal). É, em grande parte, **reaproveitamento** — três peças já existem no código:
 
-- **`training_effectiveness_reviews`** (schema `employees.ts`): review de eficácia por treino (`trainingId`, `evaluatorUserId`, `evaluationDate`, `score`, `isEffective`, `resultLevel`, `comments`, `attachments`). Já há rotas GET/POST de review por treino, e a listagem org (`GET /employees/trainings`) já devolve `effectivenessStatus` (`pending`/`effective`/`ineffective`) + `latestEffectivenessReview` + contagem `effectivenessPending`.
+- **`training_effectiveness_reviews`** (schema `employees.ts`): review de eficácia por treino (`trainingId`, `evaluatorUserId`, `evaluationDate`, `score`, `isEffective`, `resultLevel`, `comments`, `attachments`). Já há rotas GET/POST de review por treino, e a listagem org (`GET /employees/trainings`) já devolve `effectivenessStatus` (`pending`/`in_review`/`effective`/`ineffective` — `in_review` adicionado no SP6/B) + `latestEffectivenessReview` + contagem `effectivenessPending`.
 - **Planos de ação (Gestão de Ações)** já mergeados na main com origem **`training`** (`sourceRef.trainingId`) e resolvedor de origem que mostra o título do treino. Componentes reutilizáveis prontos: **`CriarAcaoButton`** (`source={{ sourceModule: "training", sourceRef: { trainingId } }}`) e **`AcoesVinculadas`** (`sourceModule="training" refId={trainingId}`) — **já usados em `treinamento-detalhe.tsx`**.
 - **`users.employee_id`** (vínculo usuário↔colaborador) já existe no banco.
 
@@ -43,9 +43,9 @@ Todo o resto reaproveita endpoints existentes:
 Kanban/triagem sobre os dados existentes + item novo no menu Aprendizagem.
 - **Indicadores** (cards): pendentes, % eficazes, não eficazes, avaliadas.
 - **Colunas do kanban** (derivadas de `effectivenessStatus` dos treinos concluídos):
-  - **Pendentes:** treino `concluido` com `effectivenessStatus = pending` (sem review) — a avaliar.
-  - **Em avaliação:** treino com review parcial (sem veredito eficaz/não eficaz definido) — quando aplicável.
-  - **Concluídas:** `effectivenessStatus ∈ {effective, ineffective}`.
+  - **Pendentes:** treino `concluido` com `effectivenessStatus = pending` (sem review nem atribuição de avaliação, com critério de eficácia presente — `evaluationMethod`/`targetCompetencyName`) — a avaliar.
+  - **Em avaliação:** `effectivenessStatus = in_review` — avaliação **atribuída** (papel/prazo em `effectivenessAssignedRole`/`effectivenessDueDate`) mas ainda **sem review registrada**. _(Estado `in_review` introduzido no SP6/B; substitui a noção anterior de "review parcial".)_
+  - **Concluídas:** `effectivenessStatus ∈ {effective, ineffective}` (review registrada com veredito).
 - **Modal de avaliação:** ao abrir um card, formulário com critérios **Kirkpatrick L3/L4** (comportamento, resultado, transferência) — o modal compõe `score`, `isEffective` (veredito) e `resultLevel`, e envia via o POST de review existente. Após salvar, o card muda de coluna.
 - **Não eficaz →** `CriarAcaoButton` (reuso, `sourceModule="training"`, `sourceRef.trainingId`) + `AcoesVinculadas` (mostra ações já ligadas ao treino). Sem backend novo.
 
