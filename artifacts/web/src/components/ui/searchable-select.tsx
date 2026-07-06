@@ -21,6 +21,8 @@ export function toNameOptions(
   names: Array<string | null | undefined>,
   current?: string | null,
 ): SearchableOption[] {
+  const cur = current?.trim();
+  const curKey = cur?.toLowerCase();
   const seen = new Set<string>();
   const options: SearchableOption[] = [];
   for (const raw of names) {
@@ -29,10 +31,18 @@ export function toNameOptions(
     const key = name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    options.push({ value: name, label: name });
+    // Se o nome casa (case-insensitive) com o valor atual mas em grafia diferente
+    // (ex.: salvo "joão silva" vs catálogo "João Silva"), usa o valor atual como
+    // `value` para o SearchableSelect casar exatamente (o.value === value) — senão
+    // o trigger mostraria o placeholder. O `label` fica a grafia do catálogo.
+    if (cur && key === curKey) {
+      options.push({ value: cur, label: name });
+    } else {
+      options.push({ value: name, label: name });
+    }
   }
-  const cur = current?.trim();
-  if (cur && !seen.has(cur.toLowerCase())) {
+  // Valor atual ausente do catálogo (externo/legado novo) → injeta no topo.
+  if (cur && curKey && !seen.has(curKey)) {
     options.unshift({ value: cur, label: cur });
   }
   return options;

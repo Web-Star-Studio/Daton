@@ -27,10 +27,20 @@ describe("toNameOptions", () => {
     expect(opts).toHaveLength(3);
   });
 
-  it("não injeta o valor atual se já existir na lista (case-insensitive)", () => {
+  it("casa case-insensitive: usa a grafia atual como value + label canônico (sem duplicar)", () => {
     const opts = toNameOptions(["Ana", "Bruno"], "ana");
     expect(opts).toHaveLength(2);
-    expect(opts.map((o) => o.value)).toEqual(["Ana", "Bruno"]);
+    // value = grafia atual ("ana") p/ o SearchableSelect casar exatamente; label canônico
+    expect(opts[0]).toEqual({ value: "ana", label: "Ana" });
+    expect(opts[1]).toEqual({ value: "Bruno", label: "Bruno" });
+  });
+
+  it("#118: valor legado com grafia diferente do catálogo continua selecionável (não vira placeholder)", () => {
+    const opts = toNameOptions(["João Silva", "Maria"], "joão silva");
+    const match = opts.find((o) => o.value === "joão silva");
+    expect(match).toBeDefined();
+    expect(match?.label).toBe("João Silva");
+    expect(opts).toHaveLength(2); // não duplica
   });
 
   it("ignora valor atual vazio", () => {

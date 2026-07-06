@@ -212,6 +212,7 @@ function TrainingDialog({
   employees,
   catalogItems = [],
   competencyNames = [],
+  competencyLoading = false,
   isEditing = false,
   value,
   onChange,
@@ -224,6 +225,7 @@ function TrainingDialog({
   employees: Employee[];
   catalogItems?: TrainingCatalogItem[];
   competencyNames?: string[];
+  competencyLoading?: boolean;
   isEditing?: boolean;
   value: TrainingAdminForm;
   onChange: (value: TrainingAdminForm) => void;
@@ -376,6 +378,7 @@ function TrainingDialog({
               onCreateOption={(v) =>
                 onChange({ ...value, targetCompetencyName: v })
               }
+              isLoading={competencyLoading}
               placeholder="Selecione uma competência…"
               searchPlaceholder="Buscar ou digitar competência…"
               createOptionLabel={(input) => `Usar “${input}”`}
@@ -820,15 +823,13 @@ export default function ColaboradoresTreinamentosPage() {
     },
   );
   const catalogItems = catalogResult?.data ?? [];
-  const { data: competencyCatalogResult } = useListCompetencyCatalog(
-    orgId ?? 0,
-    {
+  const { data: competencyCatalogResult, isLoading: competencyLoading } =
+    useListCompetencyCatalog(orgId ?? 0, {
       query: {
         enabled: !!orgId,
         queryKey: getListCompetencyCatalogQueryKey(orgId ?? 0),
       },
-    },
-  );
+    });
   const competencyOptions = (competencyCatalogResult?.data ?? []).map((c) => ({
     value: c.name,
     label: c.name,
@@ -1515,6 +1516,7 @@ export default function ColaboradoresTreinamentosPage() {
         employees={employees}
         catalogItems={catalogItems}
         competencyNames={competencyNames}
+        competencyLoading={competencyLoading}
         isEditing={!!editingTraining}
         value={trainingForm}
         onChange={setTrainingForm}
