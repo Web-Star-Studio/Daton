@@ -6,6 +6,10 @@ import {
   useUpdateTrainingCatalogItem,
   useDeleteTrainingCatalogItem,
   getListTrainingCatalogQueryKey,
+  useListOrgUsers,
+  getListOrgUsersQueryKey,
+  useListCompetencyCatalog,
+  getListCompetencyCatalogQueryKey,
 } from "@workspace/api-client-react";
 import type {
   TrainingCatalogItem,
@@ -20,6 +24,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  SearchableSelect,
+  toNameOptions,
+} from "@/components/ui/searchable-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Copy, Pencil, Trash2 } from "lucide-react";
 
@@ -131,6 +139,28 @@ export default function CatalogoPage() {
   usePageTitle("Catálogo de treinamentos");
   const { user } = useAuth();
   const orgId = user?.organizationId;
+
+  // Pickers: usuários (instrutor/responsável padrão) e competências (vinculada).
+  const usersQuery = useListOrgUsers(orgId ?? 0, {
+    query: {
+      enabled: !!orgId,
+      queryKey: getListOrgUsersQueryKey(orgId ?? 0),
+    },
+  });
+  const userNames = useMemo(
+    () => (usersQuery.data?.users ?? []).map((u) => u.name),
+    [usersQuery.data],
+  );
+  const competencyQuery = useListCompetencyCatalog(orgId ?? 0, {
+    query: {
+      enabled: !!orgId,
+      queryKey: getListCompetencyCatalogQueryKey(orgId ?? 0),
+    },
+  });
+  const competencyNames = useMemo(
+    () => (competencyQuery.data?.data ?? []).map((c) => c.name),
+    [competencyQuery.data],
+  );
   const { canWriteModule } = usePermissions();
   const canWrite = canWriteModule("employees");
   const queryClient = useQueryClient();
@@ -503,11 +533,17 @@ export default function CatalogoPage() {
             </Select>
           </Field>
           <Field label="Competência vinculada">
-            <Input
+            <SearchableSelect
               value={form.targetCompetencyName}
-              onChange={(e) =>
-                setForm({ ...form, targetCompetencyName: e.target.value })
+              onChange={(v) => setForm({ ...form, targetCompetencyName: v })}
+              options={toNameOptions(competencyNames, form.targetCompetencyName)}
+              onCreateOption={(v) =>
+                setForm({ ...form, targetCompetencyName: v })
               }
+              isLoading={competencyQuery.isLoading}
+              placeholder="Selecione uma competência…"
+              searchPlaceholder="Buscar ou digitar competência…"
+              createOptionLabel={(input) => `Usar “${input}”`}
             />
           </Field>
           <Field label="Status">
@@ -531,11 +567,15 @@ export default function CatalogoPage() {
             <span className="text-sm font-medium">Treinamento obrigatório</span>
           </label>
           <Field label="Instrutor / responsável padrão" className="md:col-span-2">
-            <Input
+            <SearchableSelect
               value={form.defaultInstructor}
-              onChange={(e) =>
-                setForm({ ...form, defaultInstructor: e.target.value })
-              }
+              onChange={(v) => setForm({ ...form, defaultInstructor: v })}
+              options={toNameOptions(userNames, form.defaultInstructor)}
+              onCreateOption={(v) => setForm({ ...form, defaultInstructor: v })}
+              isLoading={usersQuery.isLoading}
+              placeholder="Selecione um usuário…"
+              searchPlaceholder="Buscar usuário ou digitar…"
+              createOptionLabel={(input) => `Usar “${input}”`}
             />
           </Field>
           <Field label="Objetivo" className="md:col-span-2">

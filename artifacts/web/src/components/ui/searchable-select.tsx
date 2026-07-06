@@ -10,6 +10,34 @@ export type SearchableOption = {
   label: string;
 };
 
+/**
+ * Constrói opções {value,label} a partir de uma lista de nomes (ex.: usuários,
+ * competências), deduplicando case-insensitive. Garante que o valor atual —
+ * possivelmente livre/legado/externo (ex.: instrutor de fora do sistema) —
+ * sempre apareça, já que o SearchableSelect mostra o placeholder quando o
+ * `value` não está entre as opções.
+ */
+export function toNameOptions(
+  names: Array<string | null | undefined>,
+  current?: string | null,
+): SearchableOption[] {
+  const seen = new Set<string>();
+  const options: SearchableOption[] = [];
+  for (const raw of names) {
+    const name = raw?.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    options.push({ value: name, label: name });
+  }
+  const cur = current?.trim();
+  if (cur && !seen.has(cur.toLowerCase())) {
+    options.unshift({ value: cur, label: cur });
+  }
+  return options;
+}
+
 export type SearchableSelectProps = {
   value: string;
   onChange: (value: string) => void;

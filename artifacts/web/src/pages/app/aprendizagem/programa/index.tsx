@@ -11,6 +11,8 @@ import {
   getListTrainingCatalogQueryKey,
   useListUnits,
   useCreateTrainingClass,
+  useListOrgUsers,
+  getListOrgUsersQueryKey,
 } from "@workspace/api-client-react";
 import type { AnnualProgramItem } from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
@@ -22,6 +24,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import {
+  SearchableSelect,
+  toNameOptions,
+} from "@/components/ui/searchable-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Trash2 } from "lucide-react";
 
@@ -81,6 +87,18 @@ export default function ProgramaAnualPage() {
   usePageTitle("Programa anual de treinamento");
   const { user } = useAuth();
   const orgId = user?.organizationId;
+
+  // Responsável: picker de usuários da org (permite digitar externo).
+  const usersQuery = useListOrgUsers(orgId ?? 0, {
+    query: {
+      enabled: !!orgId,
+      queryKey: getListOrgUsersQueryKey(orgId ?? 0),
+    },
+  });
+  const userNames = useMemo(
+    () => (usersQuery.data?.users ?? []).map((u) => u.name),
+    [usersQuery.data],
+  );
   const { canWriteModule } = usePermissions();
   const canWrite = canWriteModule("employees");
   const queryClient = useQueryClient();
@@ -416,9 +434,15 @@ export default function ProgramaAnualPage() {
             />
           </Field>
           <Field label="Responsável">
-            <Input
+            <SearchableSelect
               value={form.responsible}
-              onChange={(e) => setForm({ ...form, responsible: e.target.value })}
+              onChange={(v) => setForm({ ...form, responsible: v })}
+              options={toNameOptions(userNames, form.responsible)}
+              onCreateOption={(v) => setForm({ ...form, responsible: v })}
+              isLoading={usersQuery.isLoading}
+              placeholder="Selecione um usuário…"
+              searchPlaceholder="Buscar usuário ou digitar…"
+              createOptionLabel={(input) => `Usar “${input}”`}
             />
           </Field>
           <Field label="Status">

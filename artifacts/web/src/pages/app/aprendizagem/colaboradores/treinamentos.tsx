@@ -57,7 +57,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  SearchableSelect,
+  toNameOptions,
+} from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -208,6 +211,7 @@ function TrainingDialog({
   onOpenChange,
   employees,
   catalogItems = [],
+  competencyNames = [],
   isEditing = false,
   value,
   onChange,
@@ -219,6 +223,7 @@ function TrainingDialog({
   onOpenChange: (open: boolean) => void;
   employees: Employee[];
   catalogItems?: TrainingCatalogItem[];
+  competencyNames?: string[];
   isEditing?: boolean;
   value: TrainingAdminForm;
   onChange: (value: TrainingAdminForm) => void;
@@ -358,15 +363,24 @@ function TrainingDialog({
         </div>
         <div className="md:col-span-2">
           <Label className="text-xs font-semibold text-muted-foreground">
-            Competencia-alvo
+            Competência-alvo
           </Label>
-          <Input
-            value={value.targetCompetencyName}
-            onChange={(event) =>
-              onChange({ ...value, targetCompetencyName: event.target.value })
-            }
-            className="mt-1"
-          />
+          <div className="mt-1">
+            <SearchableSelect
+              value={value.targetCompetencyName}
+              onChange={(v) => onChange({ ...value, targetCompetencyName: v })}
+              options={toNameOptions(
+                competencyNames,
+                value.targetCompetencyName,
+              )}
+              onCreateOption={(v) =>
+                onChange({ ...value, targetCompetencyName: v })
+              }
+              placeholder="Selecione uma competência…"
+              searchPlaceholder="Buscar ou digitar competência…"
+              createOptionLabel={(input) => `Usar “${input}”`}
+            />
+          </div>
         </div>
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">
@@ -819,6 +833,7 @@ export default function ColaboradoresTreinamentosPage() {
     value: c.name,
     label: c.name,
   }));
+  const competencyNames = competencyOptions.map((o) => o.value);
   const createCompetencyMutation = useCreateCompetencyCatalogItem();
   const handleCreateCompetencyInline = (name: string) => {
     const trimmed = name.trim();
@@ -1499,6 +1514,7 @@ export default function ColaboradoresTreinamentosPage() {
         }}
         employees={employees}
         catalogItems={catalogItems}
+        competencyNames={competencyNames}
         isEditing={!!editingTraining}
         value={trainingForm}
         onChange={setTrainingForm}
