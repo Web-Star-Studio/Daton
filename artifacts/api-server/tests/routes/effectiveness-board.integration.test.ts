@@ -228,6 +228,44 @@ describe("Board de eficácia — T1: scope=needs_evaluation", () => {
     expect(statusById.get(realMethod.id)).toBe("pending");
   });
 
+  it("#115: treino só-com-prazo (effectivenessDueDate) fica no needs_evaluation + status in_review (SQL×JS)", async () => {
+    const ctx = await createTestContext({ seed: "board-t1-duedate" });
+    contexts.push(ctx);
+
+    const unit = await createUnit(ctx, "Filial Board T1 DueDate");
+    const employee = await createEmployee(ctx, {
+      name: "Colaborador Board T1 DueDate",
+      unitId: unit.id,
+    });
+
+    // (h) só effectivenessDueDate (sem assignedRole, sem review, sem critério):
+    //     getEffectivenessStatus → in_review (por prazo). scope=needs_evaluation
+    //     deve INCLUIR o treino — antes o escopo SQL o excluía (divergência #115).
+    const [dueDateOnly] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: "Board T1 - (h) só prazo de eficácia",
+        status: "concluido",
+        completionDate: "2025-01-10",
+        effectivenessDueDate: "2025-06-01",
+      })
+      .returning();
+
+    const base = `/api/organizations/${ctx.organizationId}/employees/trainings`;
+    const res = await request(app)
+      .get(`${base}?status=concluido&scope=needs_evaluation&pageSize=100`)
+      .set(authHeader(ctx));
+    expect(res.status).toBe(200);
+    const item = res.body.data.find(
+      (t: { id: number; effectivenessStatus: string | null }) =>
+        t.id === dueDateOnly.id,
+    );
+    // SQL (scope) inclui o treino; JS (status) o classifica in_review — alinhados.
+    expect(item).toBeDefined();
+    expect(item.effectivenessStatus).toBe("in_review");
+  });
+
   it("rejects invalid scope values with 400", async () => {
     const ctx = await createTestContext({ seed: "board-t1-invalid" });
     contexts.push(ctx);

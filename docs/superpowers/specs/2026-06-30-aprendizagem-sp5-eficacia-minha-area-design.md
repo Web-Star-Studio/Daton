@@ -33,7 +33,7 @@ Este SP entrega a **avaliação de eficácia dos treinamentos** (ISO 10015 §4.5
 - Nenhuma tabela nova. Codegen via **python3**.
 
 Todo o resto reaproveita endpoints existentes:
-- Kanban de eficácia: `GET /organizations/:orgId/employees/trainings` com filtros `status=concluido` + `effectivenessStatus` (pending/effective/ineffective).
+- Kanban de eficácia: `GET /organizations/:orgId/employees/trainings` com filtros `status=concluido` + `effectivenessStatus` (`pending`/`in_review`/`effective`/`ineffective` — `in_review` no SP6/B).
 - Registrar avaliação: `POST /organizations/:orgId/employees/:empId/trainings/:trainId/effectiveness-reviews` (existente).
 - Planos de ação: endpoints/componentes existentes (origem `training`).
 - Minha área: endpoints por-colaborador existentes (`GET /employees/:id`, `.../trainings`, `.../competencies`), usando o `employeeId` do usuário.

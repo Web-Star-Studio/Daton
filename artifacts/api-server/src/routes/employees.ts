@@ -180,13 +180,17 @@ export const boardHasPendingCriteria = or(
 /**
  * Filtro de escopo `needs_evaluation`: inclui apenas treinamentos que têm
  * alguma configuração de avaliação de eficácia ou já possuem uma review.
+ * Espelha o conjunto de estados NÃO-nulos de `getEffectivenessStatus`:
+ * pending (critério presente) + in_review (papel OU **prazo** atribuído) + review.
  * SQL: (critério de pending presente — ver boardHasPendingCriteria)
  *      OR effectiveness_assigned_role IS NOT NULL
+ *      OR effectiveness_due_date IS NOT NULL   -- in_review por prazo (SQL×JS, #115)
  *      OR EXISTS (review)
  */
 export const boardNeedsEvaluationScope = or(
   boardHasPendingCriteria,
   isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
+  isNotNull(employeeTrainingsTable.effectivenessDueDate),
   boardHasReviewExists,
 )!;
 
