@@ -280,31 +280,41 @@ describe("GET /organizations/:orgId/kpi/years/:year — LMS compose-on-read", ()
       },
     ]);
 
-    const janValue = (body: unknown): number | null | undefined =>
+    const janCell = (body: unknown) =>
       (
         body as Array<{
           indicator: { name: string };
-          monthlyValues: Array<{ month: number; value: number | null }>;
+          monthlyValues: Array<{
+            month: number;
+            value: number | null;
+            monthlyValueId: number | null;
+          }>;
         }>
       )
         .find((r) => r.indicator.name === "% Cumprimento do PAT")
-        ?.monthlyValues.find((c) => c.month === 1)?.value;
+        ?.monthlyValues.find((c) => c.month === 1);
 
-    // 1ª leitura: materializa (~50%)
+    // 1ª leitura: materializa (~50%) numa linha real
     const res1 = await request(app)
       .get(`/api/organizations/${ctx.organizationId}/kpi/years/2026`)
       .set(authHeader(ctx));
-    expect(janValue(res1.body)).toBeCloseTo(50, 0);
+    expect(janCell(res1.body)?.value).toBeCloseTo(50, 0);
+    const idBefore = janCell(res1.body)?.monthlyValueId;
+    expect(idBefore).toBeGreaterThan(0);
 
     // Remove os dados PAT → a métrica fica sem denominador (null)
     await db
       .delete(annualTrainingProgramTable)
       .where(eq(annualTrainingProgramTable.organizationId, ctx.organizationId));
 
-    // 2ª leitura: célula LIMPA — não persiste o 50 antigo (#116)
+    // 2ª leitura: value LIMPO (não o 50 antigo), mas a célula continua existindo
+    // com o mesmo monthlyValueId — justificativas/plano de ação preservados. #116
     const res2 = await request(app)
       .get(`/api/organizations/${ctx.organizationId}/kpi/years/2026`)
       .set(authHeader(ctx));
-    expect(janValue(res2.body) ?? null).toBeNull();
+    const jan2 = janCell(res2.body);
+    expect(jan2).toBeDefined();
+    expect(jan2!.value).toBeNull();
+    expect(jan2!.monthlyValueId).toBe(idBefore);
   });
 });
