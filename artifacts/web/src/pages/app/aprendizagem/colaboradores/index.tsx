@@ -919,19 +919,22 @@ export default function ColaboradoresPage() {
                       />
                     </th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
-                      Nome
+                      Colaborador
                     </th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
                       Cargo
-                    </th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
-                      Escolaridade
                     </th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
                       Unidade
                     </th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
                       Vínculo
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Gestor direto
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Escolaridade
                     </th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
                       Competências
@@ -981,14 +984,19 @@ export default function ColaboradoresPage() {
                           {emp.position || "—"}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                          {emp.education || "—"}
-                        </td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
                           {emp.unitName || "—"}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">
                           {CONTRACT_LABELS[emp.contractType] ||
                             emp.contractType}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                          {/* Gestor direto: coluna do mockup; atribuição virá com
+                              o campo managerId (Fase 1b, deferido). */}
+                          —
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                          {emp.education || "—"}
                         </td>
                         <td className="px-4 py-3">
                           {emp.competencyGapStatus &&
