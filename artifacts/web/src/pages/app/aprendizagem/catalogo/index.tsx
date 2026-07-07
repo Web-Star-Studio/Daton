@@ -205,6 +205,9 @@ export default function CatalogoPage() {
     () => items.filter((i) => i.status === "ativo").length,
     [items],
   );
+  // Rótulo honesto: a lista é filtrada no servidor, então o total só é "do
+  // catálogo" quando não há filtro ativo (review #132). Ver params abaixo.
+  const isCatalogFiltered = Boolean(search || norm || category || modality);
 
   const createMutation = useCreateTrainingCatalogItem();
   const updateMutation = useUpdateTrainingCatalogItem();
@@ -288,7 +291,8 @@ export default function CatalogoPage() {
           {activeCount}
         </span>{" "}
         treinamento{activeCount !== 1 ? "s" : ""} ativo
-        {activeCount !== 1 ? "s" : ""} no catálogo
+        {activeCount !== 1 ? "s" : ""}{" "}
+        {isCatalogFiltered ? "no filtro atual" : "no catálogo"}
       </p>
 
       {/* Filtros */}
