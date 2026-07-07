@@ -950,7 +950,27 @@ function SwotView({
               return (
                 <div
                   key={f.id}
-                  className="flex items-start gap-3 rounded-lg border bg-background p-3 transition-colors hover:border-primary/40 hover:shadow-sm"
+                  role={canWrite ? "button" : undefined}
+                  tabIndex={canWrite ? 0 : undefined}
+                  onClick={canWrite ? () => onEdit(f) : undefined}
+                  onKeyDown={
+                    canWrite
+                      ? (e) => {
+                          // Só o card em foco dispara a edição — evita que Enter/Espaço
+                          // num botão interno (ex.: "Criar ação") borbulhe e abra o diálogo.
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onEdit(f);
+                          }
+                        }
+                      : undefined
+                  }
+                  title={canWrite ? "Editar fator" : undefined}
+                  className={cn(
+                    "flex items-start gap-3 rounded-lg border bg-background p-3 transition-colors hover:border-primary/40 hover:shadow-sm",
+                    canWrite && "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  )}
                 >
                   <Badge variant="secondary" className={cn("mt-0.5 shrink-0 text-[10px]", swotTypeBadgeColor(f.type))}>
                     {SWOT_TYPE_LABELS[f.type]}
@@ -969,13 +989,16 @@ function SwotView({
                         : objRef && <span className="italic">· objetivo removido</span>}
                     </div>
                   </div>
-                  <AcoesVinculadas orgId={swotOrgId} sourceModule="swot" refId={f.id} className="shrink-0" />
-                  {canWrite && (
-                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => onCreateAction(f)}>
-                      <Plus className="mr-1 h-3.5 w-3.5" />
-                      Criar ação
-                    </Button>
-                  )}
+                  {/* Cluster de ações: clique não deve abrir a edição do card. */}
+                  <div className="flex shrink-0 items-start gap-3" onClick={(e) => e.stopPropagation()}>
+                    <AcoesVinculadas orgId={swotOrgId} sourceModule="swot" refId={f.id} className="shrink-0" />
+                    {canWrite && (
+                      <Button size="sm" variant="outline" className="shrink-0" onClick={() => onCreateAction(f)}>
+                        <Plus className="mr-1 h-3.5 w-3.5" />
+                        Criar ação
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1111,7 +1134,18 @@ function FactorsTable({
                     )}
                   >
                     <td className="px-3 py-2 max-w-[260px]">
-                      <div className="truncate" title={f.description}>{f.description}</div>
+                      {canWrite ? (
+                        <button
+                          type="button"
+                          onClick={() => onEdit(f)}
+                          title={f.description}
+                          className="block w-full truncate rounded text-left text-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {f.description}
+                        </button>
+                      ) : (
+                        <div className="truncate" title={f.description}>{f.description}</div>
+                      )}
                       {obj
                         ? <div className="truncate text-[11px] text-muted-foreground">{SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]} · {obj.label}</div>
                         : objRef && <div className="truncate text-[11px] italic text-muted-foreground">objetivo removido</div>}
