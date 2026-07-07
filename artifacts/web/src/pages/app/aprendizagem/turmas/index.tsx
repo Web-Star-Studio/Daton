@@ -158,6 +158,11 @@ export default function TurmasPage() {
   }, [open]);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<ClassForm>(EMPTY_FORM);
+  // Preview do treinamento selecionado no passo 1 (fidelidade ao mockup)
+  const selectedCatalogItem = useMemo(
+    () => catalogItems.find((c) => String(c.id) === form.catalogItemId) ?? null,
+    [catalogItems, form.catalogItemId],
+  );
   const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
   const [empSearch, setEmpSearch] = useState("");
 
@@ -351,6 +356,44 @@ export default function TurmasPage() {
               searchPlaceholder="Buscar treinamento..."
               emptyMessage="Nenhum treinamento no catálogo."
             />
+            {selectedCatalogItem ? (
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {(
+                    [
+                      ["Categoria", selectedCatalogItem.category ?? null],
+                      [
+                        "Carga horária",
+                        selectedCatalogItem.workloadHours
+                          ? `${selectedCatalogItem.workloadHours}h`
+                          : null,
+                      ],
+                      [
+                        "Validade",
+                        selectedCatalogItem.validityMonths
+                          ? `${selectedCatalogItem.validityMonths} meses`
+                          : "Sem validade",
+                      ],
+                      ["Instrutor padrão", selectedCatalogItem.defaultInstructor ?? null],
+                    ] as [string, string | null][]
+                  ).map(([label, value]) => (
+                    <div key={label}>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {label}
+                      </div>
+                      <div className="text-xs font-medium text-foreground">
+                        {value || "—"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {selectedCatalogItem.objective ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {selectedCatalogItem.objective}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
