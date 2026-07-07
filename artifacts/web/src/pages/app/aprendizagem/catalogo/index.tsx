@@ -201,6 +201,10 @@ export default function CatalogoPage() {
     },
   );
   const items = result?.data ?? [];
+  const activeCount = useMemo(
+    () => items.filter((i) => i.status === "ativo").length,
+    [items],
+  );
 
   const createMutation = useCreateTrainingCatalogItem();
   const updateMutation = useUpdateTrainingCatalogItem();
@@ -278,6 +282,15 @@ export default function CatalogoPage() {
 
   return (
     <div className="space-y-4">
+      {/* Métrica em destaque (fidelidade ao mockup: treinamentos ativos) */}
+      <p className="text-sm text-muted-foreground">
+        <span className="text-base font-semibold text-foreground">
+          {activeCount}
+        </span>{" "}
+        treinamento{activeCount !== 1 ? "s" : ""} ativo
+        {activeCount !== 1 ? "s" : ""} no catálogo
+      </p>
+
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
         <Input
@@ -440,22 +453,26 @@ export default function CatalogoPage() {
               />
               <Info label="Modalidade" value={fichaItem.modality} />
             </div>
-            {fichaItem.objective ? (
-              <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
-                  Objetivo
-                </h4>
-                <p className="text-muted-foreground">{fichaItem.objective}</p>
-              </div>
-            ) : null}
-            {fichaItem.programContent ? (
-              <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
-                  Conteúdo programático
-                </h4>
-                <p className="whitespace-pre-line text-muted-foreground">
-                  {fichaItem.programContent}
-                </p>
+            {fichaItem.objective || fichaItem.programContent ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {fichaItem.objective ? (
+                  <div>
+                    <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                      Objetivo
+                    </h4>
+                    <p className="text-muted-foreground">{fichaItem.objective}</p>
+                  </div>
+                ) : null}
+                {fichaItem.programContent ? (
+                  <div>
+                    <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                      Conteúdo programático
+                    </h4>
+                    <p className="whitespace-pre-line text-muted-foreground">
+                      {fichaItem.programContent}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
