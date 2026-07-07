@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import React, { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useListTrainingClasses,
@@ -95,7 +95,6 @@ export default function TurmasPage() {
     query: {
       enabled: !!orgId,
       queryKey: getListUserOptionsQueryKey(orgId ?? 0, userParams),
-      placeholderData: keepPreviousData,
     },
   });
   const userNames = useMemo(
@@ -153,6 +152,10 @@ export default function TurmasPage() {
 
   // ─── Nova turma (stepper) ───────────────────────────────────────────────
   const [open, setOpen] = useState(false);
+  // Reseta a busca do picker de instrutor ao fechar (evita reabrir filtrado). #119
+  useEffect(() => {
+    if (!open) setUserSearch("");
+  }, [open]);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<ClassForm>(EMPTY_FORM);
   const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);

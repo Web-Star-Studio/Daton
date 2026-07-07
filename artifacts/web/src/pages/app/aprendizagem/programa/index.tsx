@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useListAnnualProgram,
@@ -103,7 +103,6 @@ export default function ProgramaAnualPage() {
     query: {
       enabled: !!orgId,
       queryKey: getListUserOptionsQueryKey(orgId ?? 0, userParams),
-      placeholderData: keepPreviousData,
     },
   });
   const userNames = useMemo(
@@ -174,6 +173,10 @@ export default function ProgramaAnualPage() {
   };
 
   const [open, setOpen] = useState(false);
+  // Reseta a busca do picker de responsável ao fechar (evita reabrir filtrado). #119
+  useEffect(() => {
+    if (!open) setUserSearch("");
+  }, [open]);
   const [form, setForm] = useState<ItemForm>(emptyForm());
 
   useHeaderActions(

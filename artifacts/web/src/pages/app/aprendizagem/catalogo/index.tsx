@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import React, { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useListTrainingCatalog,
@@ -155,7 +155,6 @@ export default function CatalogoPage() {
     query: {
       enabled: !!orgId,
       queryKey: getListUserOptionsQueryKey(orgId ?? 0, userParams),
-      placeholderData: keepPreviousData,
     },
   });
   const userNames = useMemo(
@@ -216,6 +215,10 @@ export default function CatalogoPage() {
 
   // dialogs
   const [formOpen, setFormOpen] = useState(false);
+  // Reseta a busca do picker de usuário ao fechar (evita reabrir já filtrado). #119
+  useEffect(() => {
+    if (!formOpen) setUserSearch("");
+  }, [formOpen]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<CatalogForm>(EMPTY_FORM);
   const [fichaItem, setFichaItem] = useState<TrainingCatalogItem | null>(null);
