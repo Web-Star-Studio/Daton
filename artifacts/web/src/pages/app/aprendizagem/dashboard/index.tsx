@@ -209,6 +209,7 @@ export default function LearningDashboardPage() {
   const byNorm: LearningSummaryNormRow[] = summary?.byNorm ?? [];
   const expired: LearningSummaryExpiredRow[] = summary?.expired ?? [];
   const pending: LearningSummaryPendingRow[] = summary?.pendingEffectiveness ?? [];
+  const criticalUnits = byUnit.filter((u) => u.status === "critico");
 
   const isEmpty =
     byUnit.length === 0 &&
@@ -227,9 +228,12 @@ export default function LearningDashboardPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header actions */}
-      {canWrite && (
-        <div className="flex justify-end">
+      {/* Header: subtítulo consolidado + ações */}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          Visão consolidada do programa de treinamentos
+        </p>
+        {canWrite && (
           <Button
             variant="outline"
             size="sm"
@@ -241,8 +245,8 @@ export default function LearningDashboardPage() {
           >
             {isActivating ? "Ativando…" : "Ativar indicadores de treinamento"}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -328,6 +332,20 @@ export default function LearningDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Alerta: filiais em estado crítico de cumprimento */}
+      {criticalUnits.length > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span aria-hidden className="mt-0.5 font-semibold">
+            ⚠
+          </span>
+          <span>
+            {criticalUnits.length === 1
+              ? `1 filial em estado crítico de cumprimento (${criticalUnits[0].unitName}) — priorize planos de ação.`
+              : `${criticalUnits.length} filiais em estado crítico de cumprimento — priorize planos de ação.`}
+          </span>
+        </div>
+      )}
 
       {/* Expired + Pending Effectiveness */}
       <div className="grid gap-4 md:grid-cols-2">
