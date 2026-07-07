@@ -105,6 +105,7 @@ import {
   XCircle,
   Building2,
   AlertTriangle,
+  Paperclip,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -1740,6 +1741,18 @@ function CompetenciasTab({
     setPrefillName("");
   };
 
+  // Rola até o cartão da competência (onde ficam os certificados anexados) e
+  // destaca-o brevemente. Usado pelo indicador de anexo na Conformidade do Cargo.
+  const scrollToCompetency = (competencyId: number) => {
+    const el = document.getElementById(`comp-card-${competencyId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-emerald-400");
+    window.setTimeout(() => {
+      el.classList.remove("ring-2", "ring-emerald-400");
+    }, 1600);
+  };
+
   const openCreateFromRequirement = (requirementName: string) => {
     setPrefillName(requirementName);
     setForm({ ...emptyForm, name: requirementName });
@@ -1916,6 +1929,17 @@ function CompetenciasTab({
                           Gap
                         </span>
                       )}
+                      {item.competency.attachments.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => scrollToCompetency(item.competency!.id)}
+                          title="Ver certificado(s) anexado(s)"
+                          className="flex items-center gap-0.5 text-[11px] font-medium text-emerald-700 hover:text-emerald-900 dark:text-emerald-300 transition-colors cursor-pointer"
+                        >
+                          <Paperclip className="h-3 w-3" />
+                          {item.competency.attachments.length}
+                        </button>
+                      )}
                     </div>
                   )}
                   {!item.matched && editable && (
@@ -1959,7 +1983,8 @@ function CompetenciasTab({
           {competencies.map((comp) => (
             <div
               key={comp.id}
-              className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md"
+              id={`comp-card-${comp.id}`}
+              className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md scroll-mt-4 transition-shadow"
             >
               {(() => {
                 const compAttachments = comp.attachments || [];
