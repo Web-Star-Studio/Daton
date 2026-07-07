@@ -251,12 +251,36 @@ export default function ProgramaAnualPage() {
 
   return (
     <div className="space-y-4">
+      {/* Subtítulo consolidado + referência normativa (fidelidade ao mockup) */}
+      <p className="text-sm text-muted-foreground">
+        Plano Anual de Treinamento — {yearFilter} · ISO 10015
+      </p>
+
       {/* Indicadores */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Total planejado" value={metrics.total} />
-        <Metric label="Realizadas" value={metrics.realizada} accent="text-green-700" />
-        <Metric label="Em andamento" value={metrics.em_andamento} accent="text-blue-700" />
-        <Metric label="Planejadas" value={metrics.planejada} accent="text-amber-700" />
+        <Metric label="Total planejado" value={metrics.total} sub={`ano ${yearFilter}`} />
+        <Metric
+          label="Realizadas"
+          value={metrics.realizada}
+          accent="text-green-700"
+          sub={
+            metrics.total > 0
+              ? `${Math.round((metrics.realizada / metrics.total) * 100)}% do programa`
+              : undefined
+          }
+        />
+        <Metric
+          label="Em andamento"
+          value={metrics.em_andamento}
+          accent="text-blue-700"
+          sub="em execução"
+        />
+        <Metric
+          label="Planejadas"
+          value={metrics.planejada}
+          accent="text-amber-700"
+          sub="a realizar"
+        />
       </div>
 
       {/* Filtros */}
@@ -503,15 +527,20 @@ function Metric({
   label,
   value,
   accent,
+  sub,
 }: {
   label: string;
   value: number;
   accent?: string;
+  sub?: string;
 }) {
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`mt-1 text-2xl font-semibold ${accent ?? ""}`}>{value}</div>
+      {sub && (
+        <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>
+      )}
     </div>
   );
 }
