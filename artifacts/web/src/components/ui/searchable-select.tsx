@@ -58,6 +58,14 @@ export type SearchableSelectProps = {
   isLoading?: boolean;
   disabled?: boolean;
   /**
+   * Busca server-side: quando `onSearchChange` é definido, o input vira
+   * controlado (`searchValue`) e o filtro do cmdk é desligado — as `options` já
+   * chegam filtradas pelo servidor. Use para listas grandes (ex.: usuários de
+   * orgs com >100 pessoas). Sem isso, o filtro é client-side. Ver #119.
+   */
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  /**
    * Quando definido, habilita a criação inline: se o texto buscado não casar
    * (case-insensitive) com nenhuma opção, surge um item "Adicionar …" que chama
    * este callback com o texto digitado (já trimado). Use para catálogos que o
@@ -85,11 +93,17 @@ export function SearchableSelect({
   emptyMessage = "Nenhum resultado.",
   isLoading,
   disabled,
+  searchValue,
+  onSearchChange,
   onCreateOption,
   createOptionLabel = (input) => `Adicionar “${input}”`,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const [internalSearch, setInternalSearch] = useState("");
+  // Server-side quando onSearchChange definido: input controlado + filtro cmdk off.
+  const serverFiltered = onSearchChange !== undefined;
+  const search = serverFiltered ? (searchValue ?? "") : internalSearch;
+  const setSearch = serverFiltered ? onSearchChange : setInternalSearch;
   const selected = options.find((o) => o.value === value);
 
   const trimmed = search.trim();
@@ -129,7 +143,11 @@ export function SearchableSelect({
         sideOffset={4}
         className="w-[var(--radix-popover-trigger-width)] min-w-[260px] p-0"
       >
-        <CommandPrimitive loop className="overflow-hidden rounded-md bg-popover">
+        <CommandPrimitive
+          loop
+          filter={serverFiltered ? () => 1 : undefined}
+          className="overflow-hidden rounded-md bg-popover"
+        >
           <div className="flex items-center gap-2 border-b border-border px-3">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground/60" />
             <CommandPrimitive.Input
