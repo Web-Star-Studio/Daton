@@ -105,7 +105,7 @@ const COMPETENCY_BADGE: Record<
     label: "Crítico",
     className:
       "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
-    help: "Lacuna crítica: nível 2+ abaixo do requerido, ou competência de alto nível ausente.",
+    help: "Lacuna crítica: nível 2+ abaixo do requerido, ou qualquer lacuna em competência de nível requerido alto (≥ 4).",
   },
 };
 
@@ -997,8 +997,9 @@ export default function ColaboradoresPage() {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span
+                                    tabIndex={0}
                                     className={cn(
-                                      "inline-flex cursor-help items-center px-2 py-0.5 rounded-full text-[11px] font-medium border",
+                                      "inline-flex cursor-help items-center px-2 py-0.5 rounded-full text-[11px] font-medium border outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                       COMPETENCY_BADGE[emp.competencyGapStatus]
                                         .className,
                                     )}
