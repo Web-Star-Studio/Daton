@@ -231,7 +231,7 @@ export default function LearningDashboardPage() {
       {/* Header: subtítulo consolidado + ações */}
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          Visão consolidada — {currentYear}
+          Visão consolidada do programa de treinamentos
         </p>
         {canWrite && (
           <Button
