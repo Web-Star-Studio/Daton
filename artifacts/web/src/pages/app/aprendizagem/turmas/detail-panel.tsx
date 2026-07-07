@@ -21,15 +21,19 @@ import { resolveApiUrl } from "@/lib/api";
 
 type Tab = "presenca" | "notas" | "evidencias";
 
+// Mantém as mesmas cores da lista de turmas (turmas/index.tsx) — mesmo domínio
+// de status, para não divergir entre a lista e o painel (review #134).
 const CLASS_STATUS_LABEL: Record<string, string> = {
   agendada: "Agendada",
   em_andamento: "Em andamento",
   realizada: "Realizada",
+  cancelada: "Cancelada",
 };
 const CLASS_STATUS_BADGE: Record<string, string> = {
-  agendada: "bg-blue-50 text-blue-700",
-  em_andamento: "bg-amber-50 text-amber-700",
+  agendada: "bg-amber-50 text-amber-700",
+  em_andamento: "bg-blue-50 text-blue-700",
   realizada: "bg-green-50 text-green-700",
+  cancelada: "bg-muted text-muted-foreground",
 };
 
 export function TurmaDetailPanel({
