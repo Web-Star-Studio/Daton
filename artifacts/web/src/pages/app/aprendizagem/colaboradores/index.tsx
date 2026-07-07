@@ -87,22 +87,25 @@ const CONTRACT_LABELS: Record<string, string> = {
 
 const COMPETENCY_BADGE: Record<
   string,
-  { label: string; className: string }
+  { label: string; className: string; help: string }
 > = {
   ok: {
     label: "OK",
     className:
       "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+    help: "Competências exigidas pelo cargo atendidas.",
   },
   gap: {
     label: "Gap",
     className:
       "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+    help: "Alguma competência do cargo está abaixo do nível requerido (lacuna não crítica).",
   },
   critical: {
     label: "Crítico",
     className:
       "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+    help: "Lacuna crítica: nível 2+ abaixo do requerido, ou competência de alto nível ausente.",
   },
 };
 
@@ -922,6 +925,9 @@ export default function ColaboradoresPage() {
                       Cargo
                     </th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Escolaridade
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
                       Unidade
                     </th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
@@ -975,6 +981,9 @@ export default function ColaboradoresPage() {
                           {emp.position || "—"}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                          {emp.education || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
                           {emp.unitName || "—"}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">
@@ -984,18 +993,30 @@ export default function ColaboradoresPage() {
                         <td className="px-4 py-3">
                           {emp.competencyGapStatus &&
                           COMPETENCY_BADGE[emp.competencyGapStatus] ? (
-                            <span
-                              className={cn(
-                                "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border",
-                                COMPETENCY_BADGE[emp.competencyGapStatus]
-                                  .className,
-                              )}
-                            >
-                              {
-                                COMPETENCY_BADGE[emp.competencyGapStatus]
-                                  .label
-                              }
-                            </span>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className={cn(
+                                      "inline-flex cursor-help items-center px-2 py-0.5 rounded-full text-[11px] font-medium border",
+                                      COMPETENCY_BADGE[emp.competencyGapStatus]
+                                        .className,
+                                    )}
+                                  >
+                                    {
+                                      COMPETENCY_BADGE[emp.competencyGapStatus]
+                                        .label
+                                    }
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-[220px]">
+                                  {
+                                    COMPETENCY_BADGE[emp.competencyGapStatus]
+                                      .help
+                                  }
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           ) : (
                             <span className="text-[13px] text-muted-foreground">
                               —
