@@ -129,6 +129,29 @@ export default function ObrigatoriedadesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<RequirementForm>(EMPTY_FORM);
 
+  // Filtros da matriz (fidelidade ao mockup: cargo / escopo / prazo)
+  const [filterCargo, setFilterCargo] = useState("");
+  const [filterEscopo, setFilterEscopo] = useState("");
+  const [filterPrazo, setFilterPrazo] = useState("");
+
+  const cargoOptions = useMemo(() => {
+    const ids = Array.from(new Set(requirements.map((r) => r.positionId)));
+    return ids
+      .map((id) => ({ id, name: positionName.get(id) ?? `#${id}` }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  }, [requirements, positionName]);
+
+  const filtered = useMemo(
+    () =>
+      requirements.filter((r) => {
+        if (filterCargo && String(r.positionId) !== filterCargo) return false;
+        if (filterEscopo && r.scope !== filterEscopo) return false;
+        if (filterPrazo && r.deadlineType !== filterPrazo) return false;
+        return true;
+      }),
+    [requirements, filterCargo, filterEscopo, filterPrazo],
+  );
+
   const openCreate = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
@@ -212,11 +235,49 @@ export default function ObrigatoriedadesPage() {
         fixo conta a partir da admissão; via programa/RH ficam sem data.
       </div>
 
+      {requirements.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={filterCargo}
+            onChange={(e) => setFilterCargo(e.target.value)}
+            className="w-auto"
+          >
+            <option value="">Todos os cargos</option>
+            {cargoOptions.map((c) => (
+              <option key={c.id} value={String(c.id)}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={filterEscopo}
+            onChange={(e) => setFilterEscopo(e.target.value)}
+            className="w-auto"
+          >
+            <option value="">Todos os escopos</option>
+            <option value="geral">Geral</option>
+            <option value="filial">Filial</option>
+          </Select>
+          <Select
+            value={filterPrazo}
+            onChange={(e) => setFilterPrazo(e.target.value)}
+            className="w-auto"
+          >
+            <option value="">Todos os prazos</option>
+            {Object.entries(DEADLINE_LABEL).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </Select>
+        </div>
+      ) : null}
+
       <div className="rounded-xl border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h3 className="text-sm font-semibold">Matriz de obrigatoriedades</h3>
           <Badge className="bg-muted text-muted-foreground">
-            {requirements.length} regra{requirements.length !== 1 ? "s" : ""}
+            {filtered.length} regra{filtered.length !== 1 ? "s" : ""}
           </Badge>
         </div>
         {isLoading ? (
@@ -242,7 +303,17 @@ export default function ObrigatoriedadesPage() {
                 </tr>
               </thead>
               <tbody>
-                {requirements.map((r) => (
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={canWrite ? 8 : 7}
+                      className="px-4 py-8 text-center text-sm text-muted-foreground"
+                    >
+                      Nenhuma regra para os filtros selecionados.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((r) => (
                   <tr key={r.id} className="border-b last:border-0">
                     <td className="px-4 py-2 font-medium">
                       {positionName.get(r.positionId) ?? `#${r.positionId}`}
@@ -301,7 +372,8 @@ export default function ObrigatoriedadesPage() {
                       </td>
                     ) : null}
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
