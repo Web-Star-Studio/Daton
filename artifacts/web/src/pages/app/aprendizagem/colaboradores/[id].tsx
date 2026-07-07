@@ -1748,9 +1748,16 @@ function CompetenciasTab({
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     el.classList.add("ring-2", "ring-emerald-400");
-    window.setTimeout(() => {
-      el.classList.remove("ring-2", "ring-emerald-400");
-    }, 1600);
+    // Cancela um destaque anterior do mesmo cartão para não apagá-lo cedo em
+    // cliques repetidos (o timeout fica guardado no próprio elemento).
+    const prev = Number(el.dataset.highlightTimeout);
+    if (prev) window.clearTimeout(prev);
+    el.dataset.highlightTimeout = String(
+      window.setTimeout(() => {
+        el.classList.remove("ring-2", "ring-emerald-400");
+        delete el.dataset.highlightTimeout;
+      }, 1600),
+    );
   };
 
   const openCreateFromRequirement = (requirementName: string) => {
