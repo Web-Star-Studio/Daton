@@ -2754,15 +2754,24 @@ router.patch(
     // entra neste histórico). Guarda quantos treinamentos o recálculo gerou/
     // aproveitou, para exibição no Cronograma.
     if (positionChanged) {
-      await db.insert(employeePositionChangesTable).values({
-        organizationId: params.data.orgId,
-        employeeId: params.data.empId,
-        previousPosition: before?.position ?? null,
-        newPosition: payload.position ?? null,
-        changedByUserId: req.auth!.userId,
-        trainingsGenerated: autoLinked.generated,
-        trainingsReused: autoLinked.reused,
-      });
+      // Auditoria secundária: uma falha aqui não pode derrubar a troca de cargo
+      // (já aplicada) nem o recálculo. Best-effort com log.
+      try {
+        await db.insert(employeePositionChangesTable).values({
+          organizationId: params.data.orgId,
+          employeeId: params.data.empId,
+          previousPosition: before?.position ?? null,
+          newPosition: payload.position ?? null,
+          changedByUserId: req.auth!.userId,
+          trainingsGenerated: autoLinked.generated,
+          trainingsReused: autoLinked.reused,
+        });
+      } catch (err) {
+        console.error(
+          "Falha ao registrar histórico de mudança de cargo:",
+          err,
+        );
+      }
     }
     res.json({ ...formatEmployee(emp), autoLinkedTrainings: autoLinked });
   },

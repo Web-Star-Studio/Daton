@@ -89,7 +89,11 @@ export const employeePositionChangesTable = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("epc_employee_idx").on(table.employeeId)],
+  (table) => [
+    index("epc_employee_idx").on(table.employeeId),
+    // Consulta do Cronograma: filtra por org e ordena por data desc.
+    index("epc_org_created_idx").on(table.organizationId, table.createdAt),
+  ],
 );
 
 export const employeeProfileItemsTable = pgTable("employee_profile_items", {
