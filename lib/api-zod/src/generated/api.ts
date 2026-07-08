@@ -1843,6 +1843,28 @@ export const ListEmployeeCompetencyGapsResponse = zod.object({
 });
 
 /**
+ * @summary List employee position change history
+ */
+export const ListEmployeePositionChangesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListEmployeePositionChangesResponseItem = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  employeeName: zod.string(),
+  previousPosition: zod.string().nullish(),
+  newPosition: zod.string().nullish(),
+  changedByUserName: zod.string().nullish(),
+  trainingsGenerated: zod.number(),
+  trainingsReused: zod.number(),
+  createdAt: zod.string(),
+});
+export const ListEmployeePositionChangesResponse = zod.array(
+  ListEmployeePositionChangesResponseItem,
+);
+
+/**
  * @summary List competency requirements for a position
  */
 export const ListPositionCompetencyRequirementsParams = zod.object({

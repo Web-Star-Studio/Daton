@@ -138,6 +138,7 @@ import type {
   EmployeeAwareness,
   EmployeeCompetency,
   EmployeeDetail,
+  EmployeePositionChange,
   EmployeeProfileItem,
   EmployeeProfileItemAttachment,
   EmployeeTraining,
@@ -4049,6 +4050,101 @@ export function useListEmployeeCompetencyGaps<
   const queryOptions = getListEmployeeCompetencyGapsQueryOptions(
     orgId,
     params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List employee position change history
+ */
+export const getListEmployeePositionChangesUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/employees/position-changes`;
+};
+
+export const listEmployeePositionChanges = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<EmployeePositionChange[]> => {
+  return customFetch<EmployeePositionChange[]>(
+    getListEmployeePositionChangesUrl(orgId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListEmployeePositionChangesQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/employees/position-changes`] as const;
+};
+
+export const getListEmployeePositionChangesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEmployeePositionChanges>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEmployeePositionChanges>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListEmployeePositionChangesQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEmployeePositionChanges>>
+  > = ({ signal }) =>
+    listEmployeePositionChanges(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEmployeePositionChanges>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEmployeePositionChangesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEmployeePositionChanges>>
+>;
+export type ListEmployeePositionChangesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List employee position change history
+ */
+
+export function useListEmployeePositionChanges<
+  TData = Awaited<ReturnType<typeof listEmployeePositionChanges>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEmployeePositionChanges>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEmployeePositionChangesQueryOptions(
+    orgId,
     options,
   );
 

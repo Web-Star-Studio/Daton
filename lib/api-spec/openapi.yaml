@@ -1159,6 +1159,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/PaginatedEmployeeCompetencyGaps"
 
+  /organizations/{orgId}/employees/position-changes:
+    get:
+      operationId: listEmployeePositionChanges
+      tags: [employees]
+      summary: List employee position change history
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Employee position change history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeePositionChange"
+
   /organizations/{orgId}/employees/positions/{posId}/competency-requirements:
     get:
       operationId: listPositionCompetencyRequirements
@@ -12769,6 +12790,38 @@ components:
         - evaluatorUserId
         - evaluationDate
         - attachments
+
+    EmployeePositionChange:
+      type: object
+      required:
+        - id
+        - employeeId
+        - employeeName
+        - trainingsGenerated
+        - trainingsReused
+        - createdAt
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        employeeName:
+          type: string
+        previousPosition:
+          type: string
+          nullable: true
+        newPosition:
+          type: string
+          nullable: true
+        changedByUserName:
+          type: string
+          nullable: true
+        trainingsGenerated:
+          type: integer
+        trainingsReused:
+          type: integer
+        createdAt:
+          type: string
 
     PositionCompetencyRequirement:
       type: object
