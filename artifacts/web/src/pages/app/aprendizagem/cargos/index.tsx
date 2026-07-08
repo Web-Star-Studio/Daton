@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useListPositions,
   getListPositionsQueryKey,
@@ -43,14 +44,16 @@ export default function AprendizagemCargosPage() {
   usePageTitle("Cargos e competências");
   const { user } = useAuth();
   const orgId = user?.organizationId ?? 0;
-  const { canWriteModule } = usePermissions();
+  const { canWriteModule, hasModuleAccess } = usePermissions();
   const canWrite = canWriteModule("employees");
+  const canAccess = hasModuleAccess("employees");
+  const queryClient = useQueryClient();
 
   const { data: positions, isLoading: positionsLoading } = useListPositions(
     orgId,
     {
       query: {
-        enabled: !!orgId,
+        enabled: !!orgId && canAccess,
         queryKey: getListPositionsQueryKey(orgId),
       },
     },
@@ -67,7 +70,7 @@ export default function AprendizagemCargosPage() {
   const { data: requirements, isLoading: reqsLoading } =
     useListPositionCompetencyRequirements(orgId, effectiveSelectedId ?? 0, {
       query: {
-        enabled: !!orgId && !!effectiveSelectedId,
+        enabled: !!orgId && !!effectiveSelectedId && canAccess,
         queryKey: getListPositionCompetencyRequirementsQueryKey(
           orgId,
           effectiveSelectedId ?? 0,
@@ -79,6 +82,14 @@ export default function AprendizagemCargosPage() {
   ].sort((a, b) => a.sortOrder - b.sortOrder);
 
   if (!orgId) return null;
+
+  if (!canAccess) {
+    return (
+      <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground shadow-sm">
+        Você não tem acesso a este módulo.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -204,7 +215,19 @@ export default function AprendizagemCargosPage() {
       </div>
 
       {/* Banco de competências */}
-      <CompetencyBankPanel orgId={orgId} canWrite={canWrite} />
+      <CompetencyBankPanel
+        orgId={orgId}
+        canWrite={canWrite}
+        onChange={() =>
+          // Renomear/remover uma competência propaga aos requisitos existentes;
+          // invalida a matriz de detalhe de qualquer cargo para não ficar stale.
+          queryClient.invalidateQueries({
+            predicate: (q) =>
+              typeof q.queryKey[0] === "string" &&
+              q.queryKey[0].includes("/competency-requirements"),
+          })
+        }
+      />
     </div>
   );
 }
