@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   useListPositions,
+  getListPositionsQueryKey,
   useListPositionCompetencyRequirements,
   getListPositionCompetencyRequirementsQueryKey,
 } from "@workspace/api-client-react";
@@ -47,7 +48,12 @@ export default function AprendizagemCargosPage() {
 
   const { data: positions, isLoading: positionsLoading } = useListPositions(
     orgId,
-    { query: { enabled: !!orgId } },
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListPositionsQueryKey(orgId),
+      },
+    },
   );
   const positionList = positions ?? [];
 
