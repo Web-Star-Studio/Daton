@@ -81,8 +81,6 @@ const CLASS_STATUS_LABEL: Record<string, string> = {
   cancelada: "Cancelada",
 };
 
-const NORM_OPTIONS = ["ISO 9001", "ISO 14001", "ISO 39001"];
-
 // ─── Filter / tab types ─────────────────────────────────────────────────────
 
 type StatusFilter = "" | "vencido" | "a_vencer" | "pendente" | "concluido";
@@ -112,6 +110,7 @@ export default function AprendizagemGestaoPage() {
   const [norma, setNorma] = useState<string>(""); // norm
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
   const [tab, setTab] = useState<Tab>("colaborador");
+  const [pageSize, setPageSize] = useState(100);
 
   // ── Filter option data ─────────────────────────────────────────────────────
   const { data: units } = useListUnits(orgId, {
@@ -179,7 +178,7 @@ export default function AprendizagemGestaoPage() {
     status: isAVencer ? undefined : statusParam,
     expiringWithinDays: isAVencer ? 30 : undefined,
     page: 1,
-    pageSize: 100,
+    pageSize,
   };
   const {
     data: mainResult,
@@ -192,6 +191,8 @@ export default function AprendizagemGestaoPage() {
     },
   });
   const rows = useMemo(() => mainResult?.data ?? [], [mainResult]);
+  const totalRows = mainResult?.pagination.total ?? 0;
+  const loadMore = () => setPageSize((n) => n + 100);
 
   // "Por prazo": mesmas linhas, ordenadas por vencimento asc (nulos por último).
   const rowsByDeadline = useMemo(() => {
@@ -219,14 +220,27 @@ export default function AprendizagemGestaoPage() {
   });
   const classes = classResult?.data ?? [];
 
+  // Catálogo sempre carregado: fornece os títulos das turmas E os valores reais
+  // de norma para o filtro (rótulos fixos não casariam com o param `norm`).
   const { data: catalogResult } = useListTrainingCatalog(orgId, undefined, {
     query: {
-      enabled: enabled && tab === "turma",
+      enabled,
       queryKey: getListTrainingCatalogQueryKey(orgId),
     },
   });
   const catalogTitle = useMemo(
     () => new Map((catalogResult?.data ?? []).map((c) => [c.id, c.title])),
+    [catalogResult],
+  );
+  const normOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (catalogResult?.data ?? [])
+            .map((c) => c.norm)
+            .filter((n): n is string => !!n),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
     [catalogResult],
   );
 
@@ -282,7 +296,7 @@ export default function AprendizagemGestaoPage() {
           className="w-auto"
         >
           <option value="">Todas as normas</option>
-          {NORM_OPTIONS.map((n) => (
+          {normOptions.map((n) => (
             <option key={n} value={n}>
               {n}
             </option>
@@ -350,6 +364,7 @@ export default function AprendizagemGestaoPage() {
             error={mainError}
             emptyLabel="Nenhum treinamento encontrado para os filtros selecionados."
           />
+          <ResultsFooter shown={rows.length} total={totalRows} onMore={loadMore} />
         </div>
       ) : null}
 
@@ -364,6 +379,11 @@ export default function AprendizagemGestaoPage() {
               loading={mainLoading}
               error={mainError}
               emptyLabel="Nenhum treinamento encontrado para os filtros selecionados."
+            />
+            <ResultsFooter
+              shown={rowsByDeadline.length}
+              total={totalRows}
+              onMore={loadMore}
             />
           </div>
         </div>
@@ -464,6 +484,34 @@ function MetricCard({
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={cn("mt-1 text-2xl font-semibold", accent)}>{value}</div>
     </button>
+  );
+}
+
+function ResultsFooter({
+  shown,
+  total,
+  onMore,
+}: {
+  shown: number;
+  total: number;
+  onMore: () => void;
+}) {
+  // Só aparece quando há mais registros que os carregados (evita truncar em
+  // silêncio em orgs grandes; ver review #139).
+  if (total <= shown) return null;
+  return (
+    <div className="flex items-center justify-between gap-2 border-t px-4 py-2.5 text-xs text-muted-foreground">
+      <span>
+        Mostrando {shown} de {total}
+      </span>
+      <button
+        type="button"
+        onClick={onMore}
+        className="font-medium text-blue-600 hover:underline"
+      >
+        Carregar mais
+      </button>
+    </div>
   );
 }
 
