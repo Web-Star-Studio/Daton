@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  CheckCircle2,
   ChevronRight,
   ClipboardList,
+  Clock,
   Loader2,
   Pencil,
   TriangleAlert,
@@ -39,13 +41,20 @@ import {
   formatKpiNumber,
   formatKpiValue,
   getTrafficLight,
+  kpiTreatmentState,
+  normalizeForSearch,
   restrictedMonths,
   trafficLightColor,
   useKpiYearData,
   useUpsertKpiValuesWithInvalidation,
   type KpiDirection,
+  type KpiTreatment,
   type KpiYearRow,
 } from "@/lib/kpi-client";
+import {
+  useActionPlans,
+  useKpiMonthJustifications,
+} from "@/lib/action-plans-client";
 import { MonthlyTrendChart } from "./monthly-trend-chart";
 import { getIndicatorStatus, type CardStatus } from "./indicator-card";
 
@@ -100,8 +109,22 @@ function statusInfo(
   };
 }
 
-/** Meses vermelhos (fora da tolerância) ainda sem justificativa nem plano de ação. */
-function untreatedRedMonths(row: KpiYearRow): number[] {
+/** Planos de ação vinculados a uma célula, agrupados por status relevante. */
+type PlanCounts = { open: number; completed: number };
+/** Contagem de planos (abertos/concluídos) por `monthlyValueId`. */
+type PlanCountsByMv = Map<number, PlanCounts>;
+
+/**
+ * Estado de tratamento (resolvido / em tratamento / não tratado) de cada mês
+ * **vermelho** do ano. A cor de fundo da célula continua sendo desempenho
+ * (vermelho = fora da tolerância); o tratamento é sinalizado só por um marcador.
+ * Um plano **aberto** deixa o mês "em tratamento"; justificativa ou plano
+ * **concluído** o tornam "resolvido"; plano cancelado não conta.
+ */
+function redMonthStates(
+  row: KpiYearRow,
+  planCounts: PlanCountsByMv,
+): Map<number, KpiTreatment> {
   const goal = row.yearConfig.goal ?? null;
   const direction = (row.indicator.direction ?? "up") as KpiDirection;
   // Indicador não-mensal: meses fora da referência não contam como desvio.
@@ -109,16 +132,37 @@ function untreatedRedMonths(row: KpiYearRow): number[] {
     row.indicator.periodicity,
     row.indicator.referenceMonth,
   );
-  return row.monthlyValues
-    .filter(
-      (mv) =>
-        mv.value != null &&
-        (!restrict || restrict.has(mv.month)) &&
-        getTrafficLight(mv.value, goal, direction, row.yearConfig.tolerance) === "red" &&
-        mv.justificationsCount === 0 &&
-        mv.actionPlansCount === 0,
+  const out = new Map<number, KpiTreatment>();
+  for (const mv of row.monthlyValues) {
+    if (mv.value == null) continue;
+    if (restrict && !restrict.has(mv.month)) continue;
+    if (
+      getTrafficLight(mv.value, goal, direction, row.yearConfig.tolerance) !==
+      "red"
     )
-    .map((mv) => mv.month);
+      continue;
+    const pc =
+      mv.monthlyValueId != null ? planCounts.get(mv.monthlyValueId) : undefined;
+    out.set(
+      mv.month,
+      kpiTreatmentState(
+        mv.justificationsCount,
+        pc?.open ?? 0,
+        pc?.completed ?? 0,
+      ),
+    );
+  }
+  return out;
+}
+
+/** Meses vermelhos ainda sem nenhum tratamento (nem justificativa, nem plano ativo). */
+function untreatedRedMonths(
+  row: KpiYearRow,
+  planCounts: PlanCountsByMv,
+): number[] {
+  return [...redMonthStates(row, planCounts).entries()]
+    .filter(([, s]) => s.kind === "untreated")
+    .map(([month]) => month);
 }
 
 /** Spreadsheet-style year history for the indicator being launched. */
@@ -130,6 +174,7 @@ function HistoryPanel({
   direction,
   selectedMonth,
   measureUnit,
+  planCountsByMv,
   onSelectMonth,
   onClearMonth,
 }: {
@@ -141,6 +186,8 @@ function HistoryPanel({
   direction: KpiDirection;
   selectedMonth: number;
   measureUnit: string;
+  /** Contagem de planos (abertos/concluídos) por célula, p/ o marcador de tratamento. */
+  planCountsByMv: PlanCountsByMv;
   /** Foca o mês no form (cria lançamento se vazio, edita se já tem valor). */
   onSelectMonth: (month: number) => void;
   /** Limpa o valor do mês (deixa em branco) — gatilho do "×" no canto da célula.
@@ -162,7 +209,12 @@ function HistoryPanel({
     row.indicator.referenceMonth,
   );
   const stats = computeMonthlyStats(monthValues, goal, direction, restrict);
-  const untreated = new Set(untreatedRedMonths(row));
+  const redStates = redMonthStates(row, planCountsByMv);
+  const untreated = new Set(
+    [...redStates.entries()]
+      .filter(([, s]) => s.kind === "untreated")
+      .map(([m]) => m),
+  );
   const refMonthsLabel = [...expected]
     .sort((a, b) => a - b)
     .map((m) => MONTH_FULL[m - 1])
@@ -197,7 +249,11 @@ function HistoryPanel({
           // Mês lançável: não é futuro E não está travado pela referência.
           const clickable = month <= maxLaunchableMonth && !locked;
           const isExpectedEmpty = v === null && expected.has(month);
-          const isUntreatedRed = untreated.has(month);
+          const redState = redStates.get(month);
+          const isUntreatedRed = redState?.kind === "untreated";
+          const isInTreatment = redState?.kind === "in_treatment";
+          const treatmentOfMonth =
+            redState?.kind === "resolved" ? redState.label : null;
           const cls = cn(
             "rounded-md border px-1 py-1 text-center",
             month === selectedMonth && !locked && "ring-2 ring-blue-500",
@@ -221,6 +277,14 @@ function HistoryPanel({
                   <TriangleAlert className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
                 ) : isUntreatedRed ? (
                   <TriangleAlert className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />
+                ) : isInTreatment ? (
+                  <span title="Em tratamento — plano de ação em andamento" className="inline-flex">
+                    <Clock className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
+                  </span>
+                ) : treatmentOfMonth ? (
+                  <span title={`Desvio tratado — ${treatmentOfMonth}`} className="inline-flex">
+                    <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+                  </span>
                 ) : null}
               </div>
               <div className="text-[11px] font-medium tabular-nums">
@@ -290,7 +354,7 @@ function HistoryPanel({
         <p className="flex items-center gap-1.5 rounded-md bg-red-50 px-2 py-1.5 text-[11px] font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300">
           <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
           {untreated.size} {untreated.size === 1 ? "mês" : "meses"} fora da tolerância
-          sem plano de ação — use o botão de justificativa abaixo do resultado.
+          sem tratamento (justificativa ou plano) — use o botão abaixo do resultado.
         </p>
       ) : (
         <p className="text-[10px] text-muted-foreground">
@@ -376,6 +440,25 @@ export function LancarScreen({
 
   const { data: rows = [], isLoading } = useKpiYearData(orgId, year);
   const upsertValues = useUpsertKpiValuesWithInvalidation(orgId, year);
+
+  // Planos de ação de origem KPI da organização — usados para distinguir, por
+  // célula, "em tratamento" (plano aberto) de "resolvido" (plano concluído). Uma
+  // consulta só; agrupada por monthlyValueId. (O counter da célula no ano só traz
+  // o total, sem status.)
+  const { data: kpiPlans = [] } = useActionPlans(orgId, { sourceModule: "kpi" });
+  const planCountsByMv = useMemo<PlanCountsByMv>(() => {
+    const m: PlanCountsByMv = new Map();
+    for (const p of kpiPlans) {
+      const mvId = p.sourceRef?.kpiMonthlyValueId;
+      if (typeof mvId !== "number") continue;
+      const e = m.get(mvId) ?? { open: 0, completed: 0 };
+      if (p.status === "completed") e.completed += 1;
+      else if (p.status === "open" || p.status === "in_progress") e.open += 1;
+      // 'cancelled' não conta como tratamento.
+      m.set(mvId, e);
+    }
+    return m;
+  }, [kpiPlans]);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -485,6 +568,33 @@ export function LancarScreen({
   const effectiveStatus = getTrafficLight(effectiveValue, goal, direction, tolerance);
   const outOfTarget = effectiveStatus === "red";
 
+  // Estado do desvio (ISO 9.1.3 · 10.1): justificativa OU plano trata; um plano
+  // apenas aberto deixa "em tratamento", justificativa/plano concluído "resolve".
+  const justificationsCount = savedMonthly?.justificationsCount ?? 0;
+  const selPlanCounts =
+    monthlyValueId != null ? planCountsByMv.get(monthlyValueId) : undefined;
+  const treatment = outOfTarget
+    ? kpiTreatmentState(
+        justificationsCount,
+        selPlanCounts?.open ?? 0,
+        selPlanCounts?.completed ?? 0,
+      )
+    : null;
+  const deviationResolved = treatment?.kind === "resolved";
+  const deviationInTreatment = treatment?.kind === "in_treatment";
+
+  // Última justificativa do mês selecionado — exibida inline no box resolvido para
+  // que o registro fique visível na página (não só atrás do diálogo). Só busca
+  // quando há justificativa a mostrar.
+  const showJustificationInline = deviationResolved && justificationsCount > 0;
+  const { data: monthJustifications = [] } = useKpiMonthJustifications(
+    orgId,
+    showJustificationInline && selectedRow ? selectedRow.indicator.id : null,
+    year,
+    showJustificationInline ? month : null,
+  );
+  const latestJustification = monthJustifications[0] ?? null;
+
   // Meses que o form pode lançar: não-futuros e, p/ indicador não-mensal,
   // só os meses de referência. Fallback p/ todos quando a restrição ainda não
   // tem mês lançável (ex.: referência em dezembro no meio do ano corrente).
@@ -536,10 +646,10 @@ export function LancarScreen({
   }, [rows]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = normalizeForSearch(search.trim());
     return rows
       .filter((r) => {
-        if (q && !r.indicator.name.toLowerCase().includes(q)) return false;
+        if (q && !normalizeForSearch(r.indicator.name).includes(q)) return false;
         if (categoryFilter && (r.indicator.category ?? "") !== categoryFilter)
           return false;
         if (unitFilter && (r.indicator.unit ?? "") !== unitFilter) return false;
@@ -562,7 +672,8 @@ export function LancarScreen({
   const needsConfig = (r: KpiYearRow) =>
     NON_MONTHLY_PERIODICITIES.has(r.indicator.periodicity) &&
     !r.indicator.referenceMonth;
-  const hasUntreatedRed = (r: KpiYearRow) => untreatedRedMonths(r).length > 0;
+  const hasUntreatedRed = (r: KpiYearRow) =>
+    untreatedRedMonths(r, planCountsByMv).length > 0;
   const faltaConfig = filtered.filter(needsConfig);
   const requerAcao = filtered.filter(
     (r) => !needsConfig(r) && hasUntreatedRed(r),
@@ -647,7 +758,7 @@ export function LancarScreen({
         toast({
           title: "Resultado lançado — fora da tolerância",
           description:
-            "Registre a justificativa e, se necessário, um plano de ação.",
+            "Trate o desvio com uma justificativa ou um plano de ação.",
         });
       } else {
         toast({ title: "Resultado lançado" });
@@ -898,7 +1009,72 @@ export function LancarScreen({
 
             {/* Justificativa / plano de ação — abre o diálogo já existente.
                Destacado quando o resultado está fora da tolerância. */}
-            {outOfTarget ? (
+            {deviationResolved ? (
+              <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 dark:border-emerald-500/40 dark:bg-emerald-500/10">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                      Desvio tratado — {treatment?.label}
+                    </p>
+                    {latestJustification ? (
+                      <blockquote className="mt-1.5 border-l-2 border-emerald-300 pl-2 dark:border-emerald-500/40">
+                        <p className="line-clamp-4 text-[11px] italic text-emerald-800/90 dark:text-emerald-200/80">
+                          “{latestJustification.body}”
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-emerald-700/70 dark:text-emerald-300/60">
+                          — {latestJustification.createdByUserName ?? "Usuário removido"}
+                          {" · "}
+                          {new Date(latestJustification.createdAt).toLocaleDateString("pt-BR")}
+                        </p>
+                      </blockquote>
+                    ) : (
+                      <p className="mt-0.5 text-[11px] text-emerald-700/90 dark:text-emerald-300/80">
+                        O desvio já está tratado. Abra para ver ou editar o
+                        registro.
+                      </p>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 border-emerald-300 bg-emerald-100/60 text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-200 dark:hover:bg-emerald-500/25"
+                      onClick={() => setRacMonth(month)}
+                    >
+                      <ClipboardList className="mr-1.5 h-4 w-4" />
+                      Ver / editar tratamento
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : deviationInTreatment ? (
+              <div className="rounded-lg border border-blue-300 bg-blue-50 p-3 dark:border-blue-500/40 dark:bg-blue-500/10">
+                <div className="flex items-start gap-2">
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-blue-800 dark:text-blue-300">
+                      Em tratamento — plano de ação em andamento
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-blue-700/90 dark:text-blue-300/80">
+                      {selPlanCounts?.open ?? 0}{" "}
+                      {(selPlanCounts?.open ?? 0) === 1
+                        ? "plano aberto"
+                        : "planos abertos"}
+                      . Conclua no módulo Gestão de Ações para encerrar o desvio
+                      (ou registre uma justificativa).
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 border-blue-300 bg-blue-100/60 text-blue-900 hover:bg-blue-100 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-200 dark:hover:bg-blue-500/25"
+                      onClick={() => setRacMonth(month)}
+                    >
+                      <ClipboardList className="mr-1.5 h-4 w-4" />
+                      Ver / editar tratamento
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : outOfTarget ? (
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">
                 <div className="flex items-start gap-2">
                   <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -907,8 +1083,8 @@ export function LancarScreen({
                       Resultado fora da tolerância
                     </p>
                     <p className="mt-0.5 text-[11px] text-amber-700/90 dark:text-amber-300/80">
-                      Registre a justificativa do desvio e, se necessário, um
-                      plano de ação corretiva (ISO 9.1.3 · 10.1).
+                      Registre uma justificativa ou um plano de ação corretiva
+                      para tratar o desvio (ISO 9.1.3 · 10.1).
                     </p>
                     <Button
                       variant="outline"
@@ -918,7 +1094,7 @@ export function LancarScreen({
                       onClick={() => setRacMonth(month)}
                     >
                       <ClipboardList className="mr-1.5 h-4 w-4" />
-                      Justificativa e plano de ação
+                      Justificativa ou plano de ação
                     </Button>
                     {monthlyValueId === null ? (
                       <p className="mt-1 text-[10px] text-amber-700/70 dark:text-amber-300/60">
@@ -954,6 +1130,7 @@ export function LancarScreen({
             direction={direction}
             selectedMonth={month}
             measureUnit={measureUnit}
+            planCountsByMv={planCountsByMv}
             onSelectMonth={setMonth}
             onClearMonth={isLmsSourced ? undefined : setClearMonth}
           />
@@ -1196,7 +1373,7 @@ export function LancarScreen({
               </p>
               <ul className="space-y-2">
                 {requerAcao.map((row) => {
-                  const reds = untreatedRedMonths(row);
+                  const reds = untreatedRedMonths(row, planCountsByMv);
                   return (
                     <li key={row.indicator.id} id={`lancar-ind-${row.indicator.id}`} className="scroll-mt-6">
                       <button
