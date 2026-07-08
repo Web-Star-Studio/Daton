@@ -21,6 +21,21 @@ import { resolveApiUrl } from "@/lib/api";
 
 type Tab = "presenca" | "notas" | "evidencias";
 
+// Mantém as mesmas cores da lista de turmas (turmas/index.tsx) — mesmo domínio
+// de status, para não divergir entre a lista e o painel (review #134).
+const CLASS_STATUS_LABEL: Record<string, string> = {
+  agendada: "Agendada",
+  em_andamento: "Em andamento",
+  realizada: "Realizada",
+  cancelada: "Cancelada",
+};
+const CLASS_STATUS_BADGE: Record<string, string> = {
+  agendada: "bg-amber-50 text-amber-700",
+  em_andamento: "bg-blue-50 text-blue-700",
+  realizada: "bg-green-50 text-green-700",
+  cancelada: "bg-muted text-muted-foreground",
+};
+
 export function TurmaDetailPanel({
   orgId,
   classId,
@@ -150,10 +165,15 @@ export function TurmaDetailPanel({
       <div className="border-b px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold">
-              {catalogTitle.get(detail.catalogItemId) ?? "Turma"}
-              {detail.code ? ` — ${detail.code}` : ""}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold">
+                {catalogTitle.get(detail.catalogItemId) ?? "Turma"}
+                {detail.code ? ` — ${detail.code}` : ""}
+              </h3>
+              <Badge className={CLASS_STATUS_BADGE[detail.status] ?? ""}>
+                {CLASS_STATUS_LABEL[detail.status] ?? detail.status}
+              </Badge>
+            </div>
             <p className="text-xs text-muted-foreground">
               {detail.startDate}
               {detail.endDate ? `–${detail.endDate}` : ""} ·{" "}
@@ -168,8 +188,6 @@ export function TurmaDetailPanel({
             >
               Concluir turma
             </Button>
-          ) : isDone ? (
-            <Badge className="bg-green-50 text-green-700">Realizada</Badge>
           ) : null}
         </div>
         <div className="mt-3 flex gap-1 text-xs">
