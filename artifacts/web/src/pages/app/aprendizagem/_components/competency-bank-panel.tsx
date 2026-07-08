@@ -32,9 +32,13 @@ const TYPE_LABEL: Record<string, string> = Object.fromEntries(
 export function CompetencyBankPanel({
   orgId,
   canWrite,
+  onChange,
 }: {
   orgId: number;
   canWrite: boolean;
+  // Chamado após criar/renomear/remover uma competência do catálogo — permite
+  // ao container invalidar dados derivados (ex.: matriz de requisitos por cargo).
+  onChange?: () => void;
 }) {
   const queryClient = useQueryClient();
   const { data: result, isLoading } = useListCompetencyCatalog(orgId, {
@@ -49,10 +53,12 @@ export function CompetencyBankPanel({
   const updateMutation = useUpdateCompetencyCatalogItem();
   const deleteMutation = useDeleteCompetencyCatalogItem();
 
-  const invalidate = () =>
+  const invalidate = () => {
     queryClient.invalidateQueries({
       queryKey: getListCompetencyCatalogQueryKey(orgId),
     });
+    onChange?.();
+  };
 
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState("habilidade");

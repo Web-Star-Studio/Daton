@@ -27,6 +27,7 @@ import OrganizacaoSwotPage from "@/pages/app/organizacao/swot";
 import AprendizagemDashboardPage from "@/pages/app/aprendizagem/dashboard";
 import AprendizagemEmployeesPage from "@/pages/app/aprendizagem/colaboradores";
 import AprendizagemCatalogoPage from "@/pages/app/aprendizagem/catalogo";
+import AprendizagemCargosPage from "@/pages/app/aprendizagem/cargos";
 import AprendizagemObrigatoriedadesPage from "@/pages/app/aprendizagem/obrigatoriedades";
 import AprendizagemTurmasPage from "@/pages/app/aprendizagem/turmas";
 import AprendizagemProgramaPage from "@/pages/app/aprendizagem/programa";
@@ -186,6 +187,7 @@ function AppPages() {
         component={AprendizagemEmployeeDetailPage}
       />
       <Route path="/aprendizagem/catalogo" component={AprendizagemCatalogoPage} />
+      <Route path="/aprendizagem/cargos" component={AprendizagemCargosPage} />
       <Route
         path="/aprendizagem/obrigatoriedades"
         component={AprendizagemObrigatoriedadesPage}
@@ -350,6 +352,10 @@ function AppPages() {
       <Route
         path="/app/aprendizagem/catalogo"
         component={AprendizagemCatalogoPage}
+      />
+      <Route
+        path="/app/aprendizagem/cargos"
+        component={AprendizagemCargosPage}
       />
       <Route
         path="/app/aprendizagem/obrigatoriedades"
