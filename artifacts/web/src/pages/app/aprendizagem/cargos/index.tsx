@@ -49,26 +49,34 @@ export default function AprendizagemCargosPage() {
   const canAccess = hasModuleAccess("employees");
   const queryClient = useQueryClient();
 
-  const { data: positions, isLoading: positionsLoading } = useListPositions(
-    orgId,
-    {
-      query: {
-        enabled: !!orgId && canAccess,
-        queryKey: getListPositionsQueryKey(orgId),
-      },
+  const {
+    data: positions,
+    isLoading: positionsLoading,
+    isError: positionsError,
+  } = useListPositions(orgId, {
+    query: {
+      enabled: !!orgId && canAccess,
+      queryKey: getListPositionsQueryKey(orgId),
     },
-  );
+  });
   const positionList = positions ?? [];
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  // Pré-seleciona o primeiro cargo (o mockup abre já com um cargo em detalhe).
+  // Pré-seleciona o primeiro cargo (o mockup abre já com um cargo em detalhe) e
+  // valida a seleção contra a lista: se o cargo sumiu (removido/refresh), cai
+  // para o primeiro em vez de manter um id inválido.
   const effectiveSelectedId =
-    selectedId ?? (positionList.length > 0 ? positionList[0].id : null);
+    (selectedId != null && positionList.some((p) => p.id === selectedId)
+      ? selectedId
+      : positionList[0]?.id) ?? null;
   const selectedPosition =
     positionList.find((p) => p.id === effectiveSelectedId) ?? null;
 
-  const { data: requirements, isLoading: reqsLoading } =
-    useListPositionCompetencyRequirements(orgId, effectiveSelectedId ?? 0, {
+  const {
+    data: requirements,
+    isLoading: reqsLoading,
+    isError: reqsError,
+  } = useListPositionCompetencyRequirements(orgId, effectiveSelectedId ?? 0, {
       query: {
         enabled: !!orgId && !!effectiveSelectedId && canAccess,
         queryKey: getListPositionCompetencyRequirementsQueryKey(
@@ -106,7 +114,11 @@ export default function AprendizagemCargosPage() {
               {positionList.length} cargo{positionList.length !== 1 ? "s" : ""}
             </Badge>
           </div>
-          {positionsLoading ? (
+          {positionsError ? (
+            <p className="px-4 py-8 text-center text-sm text-red-600">
+              Não foi possível carregar os cargos. Tente novamente.
+            </p>
+          ) : positionsLoading ? (
             <p className="px-4 py-8 text-sm text-muted-foreground">
               Carregando...
             </p>
@@ -166,6 +178,10 @@ export default function AprendizagemCargosPage() {
           {!selectedPosition ? (
             <p className="px-4 py-12 text-center text-sm text-muted-foreground">
               Selecione um cargo para ver a matriz de competências.
+            </p>
+          ) : reqsError ? (
+            <p className="px-4 py-8 text-center text-sm text-red-600">
+              Não foi possível carregar as competências deste cargo.
             </p>
           ) : reqsLoading ? (
             <p className="px-4 py-8 text-sm text-muted-foreground">
