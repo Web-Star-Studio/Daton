@@ -31,6 +31,7 @@ import AprendizagemObrigatoriedadesPage from "@/pages/app/aprendizagem/obrigator
 import AprendizagemTurmasPage from "@/pages/app/aprendizagem/turmas";
 import AprendizagemProgramaPage from "@/pages/app/aprendizagem/programa";
 import AprendizagemEficaciaPage from "@/pages/app/aprendizagem/eficacia";
+import AprendizagemIndicadoresPage from "@/pages/app/aprendizagem/indicadores";
 import AprendizagemMinhaAreaPage from "@/pages/app/aprendizagem/minha-area";
 import AprendizagemEmployeeTrainingsPage from "@/pages/app/aprendizagem/colaboradores/treinamentos";
 import AprendizagemTrainingDetailPage from "@/pages/app/aprendizagem/colaboradores/treinamento-detalhe";
@@ -193,6 +194,10 @@ function AppPages() {
       <Route path="/aprendizagem/programa" component={AprendizagemProgramaPage} />
       <Route path="/aprendizagem/dashboard" component={AprendizagemDashboardPage} />
       <Route path="/aprendizagem/eficacia" component={AprendizagemEficaciaPage} />
+      <Route
+        path="/aprendizagem/indicadores"
+        component={AprendizagemIndicadoresPage}
+      />
       <Route
         path="/aprendizagem/minha-area"
         component={AprendizagemMinhaAreaPage}
@@ -365,6 +370,10 @@ function AppPages() {
       <Route
         path="/app/aprendizagem/eficacia"
         component={AprendizagemEficaciaPage}
+      />
+      <Route
+        path="/app/aprendizagem/indicadores"
+        component={AprendizagemIndicadoresPage}
       />
       <Route
         path="/app/aprendizagem/minha-area"
