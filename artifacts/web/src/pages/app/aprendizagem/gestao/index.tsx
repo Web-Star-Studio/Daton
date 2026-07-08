@@ -128,10 +128,14 @@ export default function AprendizagemGestaoPage() {
   const positionList = positions ?? [];
 
   // ── Shared filter params (sem status) ──────────────────────────────────────
+  // Na aba de turmas, Cargo/Norma ficam ocultos e não se aplicam às turmas; os
+  // cards de status também os ignoram ali, para as contagens baterem com a
+  // lista exibida (review #139).
+  const onClassTab = tab === "turma";
   const baseParams = {
     unitId: filial ? Number(filial) : undefined,
-    position: cargo || undefined,
-    norm: norma || undefined,
+    position: onClassTab ? undefined : cargo || undefined,
+    norm: onClassTab ? undefined : norma || undefined,
   };
 
   // ── Query de contagem (metric cards): stats vencido/pendente/concluido ──────
