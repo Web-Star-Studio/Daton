@@ -42,32 +42,12 @@ function pctBarColor(value: number | null): string {
 
 const UNIT_STATUS: Record<
   LearningSummaryUnitRow["status"],
-  { label: string; bar: string; text: string; badge: string }
+  { label: string; badge: string }
 > = {
-  ok: {
-    label: "OK",
-    bar: "bg-green-500",
-    text: "text-green-700",
-    badge: "bg-green-50 text-green-700",
-  },
-  atencao: {
-    label: "Atenção",
-    bar: "bg-amber-400",
-    text: "text-amber-700",
-    badge: "bg-amber-50 text-amber-700",
-  },
-  critico: {
-    label: "Crítico",
-    bar: "bg-red-500",
-    text: "text-red-700",
-    badge: "bg-red-50 text-red-700",
-  },
-  "sem-dados": {
-    label: "Sem dados",
-    bar: "bg-muted",
-    text: "text-muted-foreground",
-    badge: "bg-muted text-muted-foreground",
-  },
+  ok: { label: "OK", badge: "bg-green-50 text-green-700" },
+  atencao: { label: "Atenção", badge: "bg-amber-50 text-amber-700" },
+  critico: { label: "Crítico", badge: "bg-red-50 text-red-700" },
+  "sem-dados": { label: "Sem dados", badge: "bg-muted text-muted-foreground" },
 };
 
 function IsoCard({
@@ -96,7 +76,7 @@ function IsoCard({
           <span className="text-muted-foreground">—</span>
         ) : (
           <>
-            {value}
+            {Math.round(value)}
             {unit && (
               <span className="text-base font-normal text-muted-foreground">
                 {unit}
@@ -109,13 +89,7 @@ function IsoCard({
   );
 }
 
-function HorizontalBar({
-  label,
-  pct,
-}: {
-  label: string;
-  pct: number | null;
-}) {
+function HorizontalBar({ label, pct }: { label: string; pct: number | null }) {
   const width = pct === null ? 0 : Math.min(100, Math.max(0, pct));
   return (
     <div className="flex items-center gap-2">
@@ -147,6 +121,8 @@ export default function AprendizagemIndicadoresPage() {
   const { canWriteModule, hasModuleAccess } = usePermissions();
   const canWrite = canWriteModule("employees");
   const canAccess = hasModuleAccess("employees");
+  // A lista/ativação de indicadores formais vive no módulo KPI — gateia por ele.
+  const canViewKpi = hasModuleAccess("kpi");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -155,8 +131,8 @@ export default function AprendizagemIndicadoresPage() {
 
   const {
     data: summary,
-    isLoading,
-    isError,
+    isLoading: summaryLoading,
+    isError: summaryError,
   } = useGetLearningDashboardSummary(orgId, summaryParams, {
     query: {
       enabled: !!orgId && canAccess,
@@ -164,12 +140,16 @@ export default function AprendizagemIndicadoresPage() {
     },
   });
 
-  const { data: kpiIndicators } = useListKpiIndicators(
+  const {
+    data: kpiIndicators,
+    isLoading: kpiLoading,
+    isError: kpiError,
+  } = useListKpiIndicators(
     orgId,
     {},
     {
       query: {
-        enabled: !!orgId && canAccess,
+        enabled: !!orgId && canAccess && canViewKpi,
         queryKey: getListKpiIndicatorsQueryKey(orgId, {}),
       },
     },
@@ -222,17 +202,17 @@ export default function AprendizagemIndicadoresPage() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {/* Cumprimento/cobertura + Eficácia/Desempenho — dependem do summary */}
+      {summaryLoading ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
           Carregando indicadores…
         </p>
-      ) : isError ? (
+      ) : summaryError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
           Não foi possível carregar os indicadores. Tente novamente.
         </div>
       ) : (
         <>
-          {/* Cumprimento e cobertura */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <IsoCard
               label="Cumprimento do programa"
@@ -270,83 +250,6 @@ export default function AprendizagemIndicadoresPage() {
             />
           </div>
 
-          {/* Indicadores LMS formais (módulo KPI) */}
-          <div className="rounded-xl border bg-card shadow-sm">
-            <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-              <span className="text-sm font-semibold">
-                Indicadores formais (KPI)
-              </span>
-              <Link
-                href="/kpi/indicadores"
-                className="text-xs font-medium text-blue-600 hover:underline"
-              >
-                Abrir no módulo Indicadores →
-              </Link>
-            </div>
-            {lmsIndicators.length === 0 ? (
-              <div className="space-y-3 px-4 py-8 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Os indicadores de treinamento ainda não foram ativados como KPI
-                  desta organização.
-                </p>
-                {canWrite && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isActivating}
-                    onClick={() =>
-                      activateIndicators({
-                        orgId,
-                        data: { year: currentYear },
-                      })
-                    }
-                  >
-                    {isActivating
-                      ? "Ativando…"
-                      : "Ativar indicadores de treinamento"}
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="divide-y">
-                {lmsIndicators.map((ind) => (
-                  <Link
-                    key={ind.id}
-                    href="/kpi/indicadores"
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/30"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-medium text-foreground">
-                        {ind.name}
-                      </p>
-                      {ind.measurement ? (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {ind.measurement}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      {(ind.norms ?? []).map((n) => (
-                        <span
-                          key={n}
-                          className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
-                        >
-                          {n}
-                        </span>
-                      ))}
-                      {ind.unit ? (
-                        <span className="text-[11px] text-muted-foreground">
-                          {ind.unit}
-                        </span>
-                      ) : null}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Eficácia por norma + Desempenho por filial */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border bg-card shadow-sm">
               <div className="flex items-center justify-between border-b px-4 py-3">
@@ -409,7 +312,10 @@ export default function AprendizagemIndicadoresPage() {
                               {row.unitName}
                             </td>
                             <td
-                              className={cn("px-4 py-2", pctColor(row.completion))}
+                              className={cn(
+                                "px-4 py-2",
+                                pctColor(row.completion),
+                              )}
                             >
                               {formatPct(row.completion)}
                             </td>
@@ -436,6 +342,94 @@ export default function AprendizagemIndicadoresPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Indicadores formais (KPI) — dados independentes do summary; módulo KPI */}
+      {canViewKpi ? (
+        <div className="rounded-xl border bg-card shadow-sm">
+          <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+            <span className="text-sm font-semibold">
+              Indicadores formais (KPI)
+            </span>
+            <Link
+              href="/kpi/indicadores"
+              className="text-xs font-medium text-blue-600 hover:underline"
+            >
+              Abrir no módulo Indicadores →
+            </Link>
+          </div>
+          {kpiLoading ? (
+            <p className="px-4 py-8 text-sm text-muted-foreground">
+              Carregando indicadores…
+            </p>
+          ) : kpiError ? (
+            <p className="px-4 py-8 text-center text-sm text-red-600">
+              Não foi possível carregar os indicadores formais.
+            </p>
+          ) : lmsIndicators.length === 0 ? (
+            <div className="space-y-3 px-4 py-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                Os indicadores de treinamento ainda não foram ativados como KPI
+                desta organização.
+              </p>
+              {canWrite && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isActivating}
+                  onClick={() =>
+                    activateIndicators({ orgId, data: { year: currentYear } })
+                  }
+                >
+                  {isActivating
+                    ? "Ativando…"
+                    : "Ativar indicadores de treinamento"}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="divide-y">
+              {lmsIndicators.map((ind) => (
+                <Link
+                  key={ind.id}
+                  href={`/kpi/indicadores#ind-card-${ind.id}`}
+                  className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/30"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium text-foreground">
+                      {ind.name}
+                    </p>
+                    {ind.measurement ? (
+                      <p className="truncate text-xs text-muted-foreground">
+                        {ind.measurement}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {(ind.norms ?? []).map((n) => (
+                      <span
+                        key={n}
+                        className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
+                      >
+                        {n}
+                      </span>
+                    ))}
+                    {ind.unit ? (
+                      <span className="text-[11px] text-muted-foreground">
+                        {ind.unit}
+                      </span>
+                    ) : null}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-xl border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+          Os indicadores formais de treinamento ficam no módulo Indicadores
+          (KPI), ao qual você não tem acesso.
+        </div>
       )}
     </div>
   );
