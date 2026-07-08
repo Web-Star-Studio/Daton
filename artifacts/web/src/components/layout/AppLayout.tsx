@@ -273,6 +273,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         }
       } else if (normalizedLocation.startsWith("/aprendizagem/catalogo")) {
         crumbs.push({ label: "Catálogo", href: "/aprendizagem/catalogo" });
+      } else if (normalizedLocation.startsWith("/aprendizagem/cargos")) {
+        crumbs.push({
+          label: "Cargos e competências",
+          href: "/aprendizagem/cargos",
+        });
       } else if (
         normalizedLocation.startsWith("/aprendizagem/obrigatoriedades")
       ) {
@@ -449,6 +454,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       ? [
           { href: "/aprendizagem/dashboard", label: "Dashboard" },
           { href: "/aprendizagem/colaboradores", label: "Colaboradores" },
+          { href: "/aprendizagem/cargos", label: "Cargos e competências" },
           { href: "/aprendizagem/catalogo", label: "Catálogo" },
           { href: "/aprendizagem/obrigatoriedades", label: "Obrigatoriedades" },
           { href: "/aprendizagem/turmas", label: "Turmas" },
