@@ -154,7 +154,9 @@ export default function LearningDashboardPage() {
   const { user } = useAuth();
   const orgId = user?.organizationId;
   const { canWriteModule } = usePermissions();
-  const canWrite = canWriteModule("employees");
+  // Ativar indicadores cria indicadores no módulo KPI — o backend exige módulo
+  // "kpi" + write; alinha o gate a isso (mesmo critério da tela Indicadores LMS).
+  const canActivateIndicators = canWriteModule("kpi");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -233,7 +235,7 @@ export default function LearningDashboardPage() {
         <p className="text-sm text-muted-foreground">
           Visão consolidada do programa de treinamentos
         </p>
-        {canWrite && (
+        {canActivateIndicators && (
           <Button
             variant="outline"
             size="sm"
