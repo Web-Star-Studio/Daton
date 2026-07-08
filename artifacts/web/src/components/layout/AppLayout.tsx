@@ -197,10 +197,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/aprendizagem/dashboard", module: "employees" },
       { prefix: "/aprendizagem/colaboradores", module: "employees" },
       { prefix: "/aprendizagem/catalogo", module: "employees" },
+      { prefix: "/aprendizagem/cargos", module: "employees" },
       { prefix: "/aprendizagem/obrigatoriedades", module: "employees" },
       { prefix: "/aprendizagem/turmas", module: "employees" },
       { prefix: "/aprendizagem/programa", module: "employees" },
       { prefix: "/aprendizagem/eficacia", module: "employees" },
+      { prefix: "/aprendizagem/indicadores", module: "employees" },
       { prefix: "/aprendizagem/minha-area", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
@@ -296,6 +298,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         crumbs.push({
           label: "Avaliação de eficácia",
           href: "/aprendizagem/eficacia",
+        });
+      } else if (normalizedLocation.startsWith("/aprendizagem/indicadores")) {
+        crumbs.push({
+          label: "Indicadores LMS",
+          href: "/aprendizagem/indicadores",
         });
       } else if (normalizedLocation.startsWith("/aprendizagem/minha-area")) {
         crumbs.push({ label: "Minha área", href: "/aprendizagem/minha-area" });
@@ -460,6 +467,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           { href: "/aprendizagem/turmas", label: "Turmas" },
           { href: "/aprendizagem/programa", label: "Programa anual" },
           { href: "/aprendizagem/eficacia", label: "Avaliação de eficácia" },
+          { href: "/aprendizagem/indicadores", label: "Indicadores LMS" },
           { href: "/aprendizagem/minha-area", label: "Minha área" },
         ]
       : []),
