@@ -28,7 +28,7 @@ import { Select } from "@/components/ui/select";
 import { SearchableStringSelect } from "@/components/ui/searchable-string-select";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { NON_MONTHLY_PERIODICITIES, PERIODICITY_LABELS, formatKpiValue } from "@/lib/kpi-client";
+import { NON_MONTHLY_PERIODICITIES, PERIODICITY_LABELS, formatKpiValue, normalizeForSearch } from "@/lib/kpi-client";
 import { CORPORATE_UNIT_LABEL, isCorporateUnit } from "@/lib/kpi-constants";
 import { collectBranchTokens, nameSimilarity, scoreCandidate } from "@/lib/kpi-similarity";
 
@@ -117,9 +117,9 @@ export function CorporateCreateDialog({
   // Ordena: selecionados no topo; depois por similaridade ao já selecionado
   // (ou à busca); por fim, alfabético. Filtra por texto da busca.
   const ranked = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = normalizeForSearch(search.trim());
     const filtered = q
-      ? candidates.filter((c) => c.name.toLowerCase().includes(q))
+      ? candidates.filter((c) => normalizeForSearch(c.name).includes(q))
       : candidates;
     return [...filtered].sort((a, b) => {
       const aSel = selectedIds.has(a.id);

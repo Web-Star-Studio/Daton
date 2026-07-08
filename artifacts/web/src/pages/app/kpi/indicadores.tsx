@@ -50,6 +50,7 @@ import {
   formatKpiNumber,
   formatKpiValue,
   isCurrencyUnit,
+  normalizeForSearch,
   type KpiIndicator,
   type KpiObjective,
   type KpiYearRow,
@@ -454,7 +455,9 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
   }, [indicatorsForYear, indicatorStatusMap]);
 
   const filteredIndicators = indicatorsForYear.filter((ind) => {
-    const matchesSearch = ind.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = normalizeForSearch(ind.name).includes(
+      normalizeForSearch(searchQuery),
+    );
     const matchesUnit = !unitFilter || (ind.unit ?? "") === unitFilter;
     const matchesNorma = !normaFilter || (ind.norms ?? []).includes(normaFilter);
     const matchesCategoria = !categoriaFilter || (ind.category ?? "") === categoriaFilter;
