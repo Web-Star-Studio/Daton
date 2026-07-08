@@ -192,7 +192,8 @@ export default function AprendizagemGestaoPage() {
   });
   const rows = useMemo(() => mainResult?.data ?? [], [mainResult]);
   const totalRows = mainResult?.pagination.total ?? 0;
-  const loadMore = () => setPageSize((n) => n + 100);
+  // Máximo aceito pelo endpoint é 500 (ver ListOrganizationTrainingsParams).
+  const loadMore = () => setPageSize((n) => Math.min(n + 100, 500));
 
   // "Por prazo": mesmas linhas, ordenadas por vencimento asc (nulos por último).
   const rowsByDeadline = useMemo(() => {
@@ -222,10 +223,13 @@ export default function AprendizagemGestaoPage() {
 
   // Catálogo sempre carregado: fornece os títulos das turmas E os valores reais
   // de norma para o filtro (rótulos fixos não casariam com o param `norm`).
-  const { data: catalogResult } = useListTrainingCatalog(orgId, undefined, {
+  // pageSize alto para que as opções de norma (derivadas abaixo) cubram todo o
+  // catálogo, não só a primeira página padrão (ver review #139).
+  const catalogParams = { pageSize: 500 };
+  const { data: catalogResult } = useListTrainingCatalog(orgId, catalogParams, {
     query: {
       enabled,
-      queryKey: getListTrainingCatalogQueryKey(orgId),
+      queryKey: getListTrainingCatalogQueryKey(orgId, catalogParams),
     },
   });
   const catalogTitle = useMemo(
@@ -278,30 +282,35 @@ export default function AprendizagemGestaoPage() {
             </option>
           ))}
         </Select>
-        <Select
-          value={cargo}
-          onChange={(e) => setCargo(e.target.value)}
-          className="w-auto"
-        >
-          <option value="">Todos os cargos</option>
-          {positionList.map((p) => (
-            <option key={p.id} value={p.name}>
-              {p.name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={norma}
-          onChange={(e) => setNorma(e.target.value)}
-          className="w-auto"
-        >
-          <option value="">Todas as normas</option>
-          {normOptions.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </Select>
+        {/* Cargo e Norma não se aplicam à lista de turmas — ocultos nessa aba. */}
+        {tab !== "turma" ? (
+          <>
+            <Select
+              value={cargo}
+              onChange={(e) => setCargo(e.target.value)}
+              className="w-auto"
+            >
+              <option value="">Todos os cargos</option>
+              {positionList.map((p) => (
+                <option key={p.id} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={norma}
+              onChange={(e) => setNorma(e.target.value)}
+              className="w-auto"
+            >
+              <option value="">Todas as normas</option>
+              {normOptions.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          </>
+        ) : null}
       </div>
 
       {/* ── Metric cards (clicáveis) ─────────────────────────────────────── */}
@@ -364,14 +373,20 @@ export default function AprendizagemGestaoPage() {
             error={mainError}
             emptyLabel="Nenhum treinamento encontrado para os filtros selecionados."
           />
-          <ResultsFooter shown={rows.length} total={totalRows} onMore={loadMore} />
+          <ResultsFooter
+            shown={rows.length}
+            total={totalRows}
+            atMax={pageSize >= 500}
+            onMore={loadMore}
+          />
         </div>
       ) : null}
 
       {tab === "prazo" ? (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Ordenado por data de vencimento (mais próximos primeiro).
+            Ordena por vencimento (mais próximos primeiro) entre os registros
+            carregados — use “Carregar mais” para incluir o restante.
           </p>
           <div className="rounded-xl border bg-card shadow-sm">
             <TrainingTable
@@ -383,6 +398,7 @@ export default function AprendizagemGestaoPage() {
             <ResultsFooter
               shown={rowsByDeadline.length}
               total={totalRows}
+              atMax={pageSize >= 500}
               onMore={loadMore}
             />
           </div>
@@ -490,10 +506,12 @@ function MetricCard({
 function ResultsFooter({
   shown,
   total,
+  atMax,
   onMore,
 }: {
   shown: number;
   total: number;
+  atMax: boolean;
   onMore: () => void;
 }) {
   // Só aparece quando há mais registros que os carregados (evita truncar em
@@ -504,13 +522,18 @@ function ResultsFooter({
       <span>
         Mostrando {shown} de {total}
       </span>
-      <button
-        type="button"
-        onClick={onMore}
-        className="font-medium text-blue-600 hover:underline"
-      >
-        Carregar mais
-      </button>
+      {atMax ? (
+        // No teto de 500 do endpoint — não dá pra carregar mais aqui.
+        <span>Refine os filtros para ver os demais</span>
+      ) : (
+        <button
+          type="button"
+          onClick={onMore}
+          className="font-medium text-blue-600 hover:underline"
+        >
+          Carregar mais
+        </button>
+      )}
     </div>
   );
 }
