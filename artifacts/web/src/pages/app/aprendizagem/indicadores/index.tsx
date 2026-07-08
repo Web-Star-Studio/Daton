@@ -119,10 +119,10 @@ export default function AprendizagemIndicadoresPage() {
   const { user } = useAuth();
   const orgId = user?.organizationId ?? 0;
   const { canWriteModule, hasModuleAccess } = usePermissions();
-  const canWrite = canWriteModule("employees");
   const canAccess = hasModuleAccess("employees");
   // A lista/ativação de indicadores formais vive no módulo KPI — gateia por ele.
   const canViewKpi = hasModuleAccess("kpi");
+  const canWriteKpi = canWriteModule("kpi");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -163,8 +163,14 @@ export default function AprendizagemIndicadoresPage() {
       mutation: {
         onSuccess: () => {
           toast({ title: "Indicadores de treinamento ativados" });
+          // Ativar cria/computa indicadores KPI + valores do ano — invalida a
+          // lista e a year-data (qualquer variante de params) para refletir sem
+          // refresh manual, inclusive se o módulo KPI já foi visitado antes.
           queryClient.invalidateQueries({
-            queryKey: getListKpiIndicatorsQueryKey(orgId, {}),
+            predicate: (q) =>
+              typeof q.queryKey[0] === "string" &&
+              (q.queryKey[0].includes("/kpi/indicators") ||
+                q.queryKey[0].includes("/kpi/years")),
           });
         },
         onError: () => {
@@ -372,7 +378,7 @@ export default function AprendizagemIndicadoresPage() {
                 Os indicadores de treinamento ainda não foram ativados como KPI
                 desta organização.
               </p>
-              {canWrite && (
+              {canWriteKpi && (
                 <Button
                   variant="outline"
                   size="sm"
