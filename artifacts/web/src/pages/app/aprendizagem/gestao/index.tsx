@@ -259,8 +259,12 @@ export default function AprendizagemGestaoPage() {
     );
   }
 
-  const toggleStatus = (s: StatusFilter) =>
+  const toggleStatus = (s: StatusFilter) => {
     setStatusFilter((prev) => (prev === s ? "" : s));
+    // Os cards são status de treinamento; na aba de turmas o filtro não se
+    // aplica, então leva o usuário à visão por colaborador (review #139).
+    if (tab === "turma") setTab("colaborador");
+  };
 
   return (
     <div className="space-y-4">
