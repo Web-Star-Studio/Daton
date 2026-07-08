@@ -195,6 +195,53 @@ export function racColor(status: RacStatus): string {
   return "bg-muted text-muted-foreground";
 }
 
+export type KpiTreatmentKind = "resolved" | "in_treatment" | "untreated";
+export type KpiTreatment = { kind: KpiTreatmentKind; label: string | null };
+
+/**
+ * Estado de tratamento de um desvio (mês vermelho), pela regra ISO 9.1.3 · 10.1
+ * onde **justificativa OU plano de ação** trata o desvio — porém distinguindo um
+ * plano ainda **em aberto** (em andamento) de um desvio **resolvido**:
+ *
+ * - `resolved`  → há justificativa OU plano **concluído** (verde). `label` diz o quê.
+ * - `in_treatment` → só há plano(s) **aberto/em andamento** (azul), sem justificativa
+ *   nem plano concluído. Desvio sendo tratado, ainda não encerrado.
+ * - `untreated` → nada trata o desvio (vermelho). Plano **cancelado** não conta.
+ *
+ * Os contadores de plano devem excluir cancelados.
+ */
+export function kpiTreatmentState(
+  justificationsCount: number,
+  openActionPlansCount: number,
+  completedActionPlansCount: number,
+): KpiTreatment {
+  const hasJust = justificationsCount > 0;
+  const hasCompleted = completedActionPlansCount > 0;
+  const hasOpen = openActionPlansCount > 0;
+  if (hasJust || hasCompleted) {
+    let label: string;
+    if (hasJust && (hasCompleted || hasOpen))
+      label = "com justificativa e plano de ação";
+    else if (hasJust) label = "com justificativa";
+    else label = "com plano de ação concluído";
+    return { kind: "resolved", label };
+  }
+  if (hasOpen) return { kind: "in_treatment", label: null };
+  return { kind: "untreated", label: null };
+}
+
+/**
+ * Normaliza texto para busca: minúsculas e **sem acento** (NFD + remoção de
+ * diacríticos), para que "oleo" encontre "Óleo Usado". Usar nos dois lados da
+ * comparação (query e alvo).
+ */
+export function normalizeForSearch(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
 // ─── Computed aggregates ───────────────────────────────────────────────────
 
 export function computeMonthlyStats(
