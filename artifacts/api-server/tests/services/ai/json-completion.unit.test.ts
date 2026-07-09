@@ -69,6 +69,23 @@ describe("readJsonCompletion", () => {
     ).toThrow(/cortada pelo limite de tokens/i);
   });
 
+  // `length` means the generation was cut, full stop. A cut that happens to land on
+  // a syntactically valid object (`{}`, or a plan missing half its fields) would
+  // otherwise sail through as a successful-but-blank draft — the very silence this
+  // guard exists to break.
+  it("throws on a truncated answer even when what arrived happens to parse", () => {
+    expect(() =>
+      readJsonCompletion(completion({ content: "{}", finishReason: "length" }), "teste"),
+    ).toThrow(/cortada pelo limite de tokens/i);
+
+    expect(() =>
+      readJsonCompletion(
+        completion({ content: '{"plan5w2h":{"what":"Treinar"}}', finishReason: "length" }),
+        "teste",
+      ),
+    ).toThrow(AiCompletionError);
+  });
+
   it("throws a distinct error for an empty answer that was not truncated", () => {
     expect(() => readJsonCompletion(completion({ content: null }), "teste")).toThrow(
       /resposta vazia/i,

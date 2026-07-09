@@ -41,6 +41,18 @@ export function readJsonCompletion<T>(response: ChatCompletionLike, label: strin
     );
   }
 
+  // `length` means the generation was cut off, period — never trust what arrived,
+  // even when it parses. A cut landing on a valid `{}` (or a plan missing half its
+  // fields) would otherwise pass as a successful-but-blank draft.
+  if (truncated) {
+    console.error(`[${label}] resposta truncada pela IA`, {
+      finishReason,
+      usage: response.usage,
+      contentLength: content.length,
+    });
+    throw new AiCompletionError("A resposta da IA foi cortada pelo limite de tokens. Tente novamente.");
+  }
+
   try {
     return JSON.parse(content) as T;
   } catch {
@@ -49,10 +61,6 @@ export function readJsonCompletion<T>(response: ChatCompletionLike, label: strin
       usage: response.usage,
       contentLength: content.length,
     });
-    throw new AiCompletionError(
-      truncated
-        ? "A resposta da IA foi cortada pelo limite de tokens. Tente novamente."
-        : "A IA devolveu uma resposta em formato inválido. Tente novamente.",
-    );
+    throw new AiCompletionError("A IA devolveu uma resposta em formato inválido. Tente novamente.");
   }
 }
