@@ -100,6 +100,7 @@ const MODULE_LABELS: Record<string, string> = {
   assets: "Infraestrutura",
   regulatoryDocuments: "Documentos Regulatórios",
   swot: "SWOT",
+  actionPlans: "Planos de Ação",
 };
 
 const ALL_MODULES: OrgUserModule[] = [
@@ -117,6 +118,7 @@ const ALL_MODULES: OrgUserModule[] = [
   "assets",
   "regulatoryDocuments",
   "swot",
+  "actionPlans",
 ];
 
 const emptyCreateUserForm: CreateUserFormData = {

@@ -167,6 +167,7 @@ export const GetMeResponse = zod.object({
       "assets",
       "regulatoryDocuments",
       "swot",
+      "actionPlans",
     ]),
   ),
   filial: zod
@@ -295,6 +296,7 @@ export const UpdateMeResponse = zod.object({
       "assets",
       "regulatoryDocuments",
       "swot",
+      "actionPlans",
     ]),
   ),
   filial: zod
@@ -7024,6 +7026,7 @@ export const ListOrgUsersResponse = zod.object({
           "assets",
           "regulatoryDocuments",
           "swot",
+          "actionPlans",
         ]),
       ),
       passwordSet: zod
@@ -7065,6 +7068,7 @@ export const CreateOrgUserBody = zod.object({
       "assets",
       "regulatoryDocuments",
       "swot",
+      "actionPlans",
     ]),
   ),
   unitId: zod.number().nullish(),
@@ -7157,6 +7161,7 @@ export const UpdateUserModulesBody = zod.object({
       "assets",
       "regulatoryDocuments",
       "swot",
+      "actionPlans",
     ]),
   ),
 });
@@ -7180,6 +7185,7 @@ export const UpdateUserModulesResponse = zod.object({
         "assets",
         "regulatoryDocuments",
         "swot",
+        "actionPlans",
       ]),
     )
     .optional(),
@@ -7208,6 +7214,7 @@ export const CreateInvitationBody = zod.object({
         "assets",
         "regulatoryDocuments",
         "swot",
+        "actionPlans",
       ]),
     )
     .optional(),
@@ -7241,6 +7248,7 @@ export const ListInvitationsResponse = zod.object({
           "assets",
           "regulatoryDocuments",
           "swot",
+          "actionPlans",
         ]),
       ),
       expiresAt: zod.string(),

@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { buildResponsibleOptions } from "./_components/responsible-options";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { resolveApiUrl } from "@/lib/api";
@@ -93,7 +94,7 @@ export default function ActionPlanFichaPage() {
   const planId = Number.isInteger(parsedPlanId) && parsedPlanId > 0 ? parsedPlanId : null;
 
   const { organization, user } = useAuth();
-  const { canWrite, isAdmin } = usePermissions();
+  const { canWrite, isAdmin, role, hasModuleAccess } = usePermissions();
   const orgId = organization!.id;
   const [location, setLocation] = useLocation();
 
@@ -101,8 +102,16 @@ export default function ActionPlanFichaPage() {
   usePageSubtitle("");
 
   const { data: plan, isLoading } = useActionPlan(orgId, planId);
+  // GET /organizations/:id/users is restricted to admins and managers. Asking for
+  // it as an operator only buys a 403 in the console — the responsible name comes
+  // from the plan itself (see buildResponsibleOptions).
+  const canListOrgUsers = isAdmin || (role === "manager" && hasModuleAccess("kpi"));
   const { data: orgUsersData } = useListOrgUsers(orgId, {
-    query: { queryKey: getListOrgUsersQueryKey(orgId), staleTime: 60_000 },
+    query: {
+      queryKey: getListOrgUsersQueryKey(orgId),
+      staleTime: 60_000,
+      enabled: canListOrgUsers,
+    },
   });
   const orgUsers = orgUsersData?.users ?? [];
 
@@ -575,7 +584,7 @@ export default function ActionPlanFichaPage() {
                   <SearchableSelect
                     value={form.responsibleUserId}
                     onChange={(v) => patch("responsibleUserId", v)}
-                    options={orgUsers.map((u) => ({ value: String(u.id), label: u.name }))}
+                    options={buildResponsibleOptions(orgUsers, form.responsibleUserId, plan.responsibleUserName)}
                     placeholder="Selecione"
                     searchPlaceholder="Buscar usuário..."
                     emptyMessage="Nenhum usuário encontrado"
