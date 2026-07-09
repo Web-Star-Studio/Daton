@@ -57,6 +57,7 @@ import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
 import { notifyActionPlanAssignment, notifyActionPlanEvaluatorAssignment } from "../services/action-plans/notify-assignment";
 import { draftActionPlanFromProblem } from "../services/action-plans/ai-draft";
+import { AiCompletionError } from "../services/ai/json-completion";
 
 const router: IRouter = Router();
 
@@ -269,7 +270,12 @@ router.post("/organizations/:orgId/action-plans/ai-suggest", requireAuth, requir
     res.json(draft);
   } catch (error) {
     console.error("[action-plans/ai-suggest] failed", error);
-    res.status(502).json({ error: "Não foi possível gerar a sugestão por IA no momento." });
+    // AiCompletionError já traz um motivo que o usuário entende (limite de tokens,
+    // resposta vazia); qualquer outra falha vira a mensagem genérica.
+    const message = error instanceof AiCompletionError
+      ? error.message
+      : "Não foi possível gerar a sugestão por IA no momento.";
+    res.status(502).json({ error: message });
   }
 });
 

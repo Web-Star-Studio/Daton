@@ -25,6 +25,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { buildResponsibleOptions } from "./_components/responsible-options";
+import { mergeDraftIntoForm } from "./_components/merge-draft";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { resolveApiUrl } from "@/lib/api";
@@ -333,34 +335,19 @@ export default function ActionPlanFichaPage() {
         toast({ title: "A IA não retornou sugestões", variant: "destructive" });
         return;
       }
-      // Fill-only merge: only fills fields the user left blank. `changed` tracks
-      // whether anything was actually added, so we don't mark the form dirty (and
-      // trigger a no-op save) when every field was already filled.
-      let changed = false;
-      setForm((f) => {
-        const merged5w2h: ActionPlan5W2H = { ...f.plan5w2h };
-        for (const key of Object.keys(draft.plan5w2h) as (keyof ActionPlan5W2H)[]) {
-          const value = draft.plan5w2h[key];
-          if (value && !merged5w2h[key]?.trim()) {
-            merged5w2h[key] = value;
-            changed = true;
-          }
-        }
-        const rootCause = !f.rootCause.trim() && draft.rootCause ? draft.rootCause : f.rootCause;
-        if (rootCause !== f.rootCause) changed = true;
-        const hasWhys = f.rootCauseWhys.some((w) => w.trim());
-        const rootCauseWhys = !hasWhys && draft.rootCauseWhys.length > 0 ? draft.rootCauseWhys : f.rootCauseWhys;
-        if (rootCauseWhys !== f.rootCauseWhys) changed = true;
-        return { ...f, plan5w2h: merged5w2h, rootCause, rootCauseWhys };
-      });
-      if (changed) {
-        setDirty(true);
-        toast({ title: "Rascunho gerado — revise e salve" });
-      } else {
+      // Fill-only merge: only fills fields the user left blank. Merge off `formRef`
+      // (always current) rather than inside a setForm updater — React runs updaters
+      // during render, so a flag set in there is still false on the next line.
+      const { changed, ...merged } = mergeDraftIntoForm(formRef.current, draft);
+      if (!changed) {
         toast({ title: "Seus campos já estão preenchidos", description: "A IA não tinha o que adicionar." });
+        return;
       }
+      setForm((f) => ({ ...f, ...merged }));
+      setDirty(true);
+      toast({ title: "Rascunho gerado — revise e salve" });
     } catch (err) {
-      toast({ title: "Não foi possível gerar a sugestão", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
+      toast({ title: "Não foi possível gerar a sugestão", description: apiErrorMessage(err), variant: "destructive" });
     }
   }
 
