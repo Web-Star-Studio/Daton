@@ -396,6 +396,10 @@ export default function ActionPlanFichaPage() {
     try {
       await updatePlan.mutateAsync({ orgId, planId, data: { status: "in_progress" } });
       setForm((f) => ({ ...f, status: "in_progress" }));
+      // This PATCH bypasses `persist`, so rebase the baseline by hand. Otherwise
+      // `status` reads as changed forever and every later save re-sends
+      // "in_progress", silently reopening a plan someone else closed meanwhile.
+      baselineRef.current = { ...(baselineRef.current ?? {}), status: "in_progress" };
       toast({ title: "Plano reaberto" });
     } catch (err) {
       toast({ title: "Erro ao reabrir", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
