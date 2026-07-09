@@ -28,8 +28,10 @@ async function main() {
     throw new Error(`--org inválido: ${orgArg}`);
   }
 
+  // Sem e-mail: a prévia costuma acabar em log de CI/terminal, e id + nome + papel
+  // já bastam para conferir o alvo antes do --commit.
   const { rows: targets } = await pool.query(
-    `SELECT u.id, u.name, u.email, u.role, u.organization_id
+    `SELECT u.id, u.name, u.role, u.organization_id
        FROM users u
       WHERE NOT (u.role = ANY($1::text[]))
         AND ($2::int IS NULL OR u.organization_id = $2::int)
@@ -46,7 +48,7 @@ async function main() {
   console.log(`Escopo: ${scope}`);
   console.log(`Usuários não-admin, com ≥1 módulo e sem "${MODULE}": ${targets.length}`);
   for (const u of targets) {
-    console.log(`  org ${u.organization_id} · #${u.id} ${u.name} <${u.email}> [${u.role}]`);
+    console.log(`  org ${u.organization_id} · #${u.id} ${u.name} [${u.role}]`);
   }
 
   if (targets.length === 0) {

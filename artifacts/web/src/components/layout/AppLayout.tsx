@@ -22,6 +22,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { cn, formatFirstAndLastName } from "@/lib/utils";
+import { matchesGuardedPath } from "@/components/layout/module-route-guard";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 import {
@@ -228,9 +229,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
     const deniedRoute = moduleByPath.find(
       (entry) =>
-        (entry.exact
-          ? normalizedLocation === entry.prefix
-          : normalizedLocation.startsWith(entry.prefix)) &&
+        matchesGuardedPath(normalizedLocation, entry.prefix, entry.exact) &&
         !hasModuleAccess(entry.module),
     );
     if (deniedRoute) {
