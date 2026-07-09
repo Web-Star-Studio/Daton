@@ -65,6 +65,37 @@ export const employeesTable = pgTable("employees", {
     .$onUpdate(() => new Date()),
 });
 
+// Histórico de mudança de cargo do colaborador (Fase 6). Cada troca registra
+// cargo anterior/novo, quem alterou e quantos treinamentos foram vinculados/
+// aproveitados pelo recálculo automático de obrigatoriedades.
+export const employeePositionChangesTable = pgTable(
+  "employee_position_changes",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employeesTable.id, { onDelete: "cascade" }),
+    previousPosition: text("previous_position"),
+    newPosition: text("new_position"),
+    changedByUserId: integer("changed_by_user_id").references(
+      () => usersTable.id,
+    ),
+    trainingsGenerated: integer("trainings_generated").notNull().default(0),
+    trainingsReused: integer("trainings_reused").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("epc_employee_idx").on(table.employeeId),
+    // Consulta do Cronograma: filtra por org e ordena por data desc.
+    index("epc_org_created_idx").on(table.organizationId, table.createdAt),
+  ],
+);
+
 export const employeeProfileItemsTable = pgTable("employee_profile_items", {
   id: serial("id").primaryKey(),
   employeeId: integer("employee_id")

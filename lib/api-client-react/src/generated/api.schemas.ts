@@ -1438,6 +1438,18 @@ export interface EmployeeAwareness {
   updatedAt?: string;
 }
 
+export interface EmployeePositionChange {
+  id: number;
+  employeeId: number;
+  employeeName: string;
+  previousPosition?: string | null;
+  newPosition?: string | null;
+  changedByUserName?: string | null;
+  trainingsGenerated: number;
+  trainingsReused: number;
+  createdAt: string;
+}
+
 export type PositionCompetencyRequirementCompetencyType =
   (typeof PositionCompetencyRequirementCompetencyType)[keyof typeof PositionCompetencyRequirementCompetencyType];
 

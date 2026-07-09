@@ -11,8 +11,13 @@ import {
   useListTrainingCatalog,
   getListTrainingCatalogQueryKey,
   useListUnits,
+  useListEmployeePositionChanges,
+  getListEmployeePositionChangesQueryKey,
 } from "@workspace/api-client-react";
-import type { TrainingRequirement } from "@workspace/api-client-react";
+import type {
+  TrainingRequirement,
+  EmployeePositionChange,
+} from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -87,6 +92,15 @@ export default function ObrigatoriedadesPage() {
     },
   });
   const requirements = result?.data ?? [];
+
+  // Fase 6: histórico de mudanças de cargo (recálculo automático).
+  const { data: positionChanges = [], isLoading: changesLoading } =
+    useListEmployeePositionChanges(orgId ?? 0, {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListEmployeePositionChangesQueryKey(orgId ?? 0),
+      },
+    });
 
   const { data: positions = [], isLoading: positionsLoading } =
     useListPositions(orgId ?? 0, {
@@ -374,6 +388,69 @@ export default function ObrigatoriedadesPage() {
                   </tr>
                   ))
                 )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Mudança de cargo — recálculo automático (Fase 6) */}
+      <div className="rounded-xl border bg-card shadow-sm">
+        <div className="border-b px-4 py-3">
+          <h3 className="text-sm font-semibold">
+            Mudança de cargo — recálculo automático
+          </h3>
+        </div>
+        <div className="border-b bg-blue-50/50 px-4 py-3 text-xs text-blue-900">
+          Ao mudar o cargo de um colaborador, o sistema revincula
+          automaticamente os treinamentos obrigatórios do novo cargo —
+          aproveitando os já concluídos e sem remover o histórico.
+        </div>
+        {changesLoading ? (
+          <p className="px-4 py-8 text-sm text-muted-foreground">
+            Carregando...
+          </p>
+        ) : positionChanges.length === 0 ? (
+          <p className="px-4 py-12 text-center text-sm text-muted-foreground">
+            Nenhuma mudança de cargo registrada ainda.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b text-left text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Colaborador</th>
+                  <th className="px-4 py-2 font-medium">Cargo anterior</th>
+                  <th className="px-4 py-2 font-medium">Novo cargo</th>
+                  <th className="px-4 py-2 font-medium">Data</th>
+                  <th className="px-4 py-2 font-medium">
+                    Treinamentos vinculados
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {positionChanges.map((c: EmployeePositionChange) => (
+                  <tr key={c.id} className="border-b last:border-0">
+                    <td className="px-4 py-2 font-medium">{c.employeeName}</td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {c.previousPosition || "—"}
+                    </td>
+                    <td className="px-4 py-2">{c.newPosition || "—"}</td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {new Date(c.createdAt).toLocaleDateString("pt-BR")}
+                    </td>
+                    <td className="px-4 py-2">
+                      <Badge className="bg-blue-50 text-blue-700">
+                        {c.trainingsGenerated} novo(s)
+                      </Badge>
+                      {c.trainingsReused > 0 ? (
+                        <Badge className="ml-1 bg-muted text-muted-foreground">
+                          {c.trainingsReused} aproveitado(s)
+                        </Badge>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

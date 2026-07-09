@@ -212,6 +212,7 @@ export * from "./employeeCompetencyGapStatus";
 export * from "./employeeCompetencyType";
 export * from "./employeeContractType";
 export * from "./employeeDetail";
+export * from "./employeePositionChange";
 export * from "./employeeProfileItem";
 export * from "./employeeProfileItemAttachment";
 export * from "./employeeProfileItemAttachmentInput";

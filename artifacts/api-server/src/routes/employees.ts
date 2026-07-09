@@ -9,6 +9,7 @@ import {
   isNull,
   isNotNull,
   count,
+  desc,
   sql,
   exists,
   inArray,
@@ -23,6 +24,7 @@ import {
   employeeProfileItemAttachmentsTable,
   employeeCompetenciesTable,
   employeeTrainingsTable,
+  employeePositionChangesTable,
   trainingCatalogTable,
   trainingEffectivenessReviewsTable,
   employeeAwarenessTable,
@@ -1370,6 +1372,58 @@ const LookupCpfBody = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Data de nascimento deve estar em ISO 8601 (YYYY-MM-DD)"),
 });
 
+// Fase 6: histórico de mudanças de cargo (exibido no Cronograma). Sob o prefixo
+// /employees para herdar o gate do módulo employees. Registrado ANTES das rotas
+// /employees/:empId para "position-changes" não ser interpretado como empId.
+router.get(
+  "/organizations/:orgId/employees/position-changes",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const params = z
+      .object({ orgId: z.coerce.number().int() })
+      .safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    const rows = await db
+      .select({
+        id: employeePositionChangesTable.id,
+        employeeId: employeePositionChangesTable.employeeId,
+        employeeName: employeesTable.name,
+        previousPosition: employeePositionChangesTable.previousPosition,
+        newPosition: employeePositionChangesTable.newPosition,
+        changedByUserName: usersTable.name,
+        trainingsGenerated: employeePositionChangesTable.trainingsGenerated,
+        trainingsReused: employeePositionChangesTable.trainingsReused,
+        createdAt: employeePositionChangesTable.createdAt,
+      })
+      .from(employeePositionChangesTable)
+      .innerJoin(
+        employeesTable,
+        eq(employeePositionChangesTable.employeeId, employeesTable.id),
+      )
+      .leftJoin(
+        usersTable,
+        eq(employeePositionChangesTable.changedByUserId, usersTable.id),
+      )
+      .where(eq(employeePositionChangesTable.organizationId, params.data.orgId))
+      .orderBy(desc(employeePositionChangesTable.createdAt))
+      .limit(100);
+    res.json(
+      rows.map((r) => ({
+        ...r,
+        createdAt:
+          r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+      })),
+    );
+  },
+);
+
 router.post(
   "/organizations/:orgId/employees/lookup-cpf",
   requireAuth,
@@ -2695,6 +2749,29 @@ router.patch(
         employeeId: params.data.empId,
         database: db,
       });
+    }
+    // Fase 6: registra o histórico da mudança de cargo (troca de filial não
+    // entra neste histórico). Guarda quantos treinamentos o recálculo gerou/
+    // aproveitou, para exibição no Cronograma.
+    if (positionChanged) {
+      // Auditoria secundária: uma falha aqui não pode derrubar a troca de cargo
+      // (já aplicada) nem o recálculo. Best-effort com log.
+      try {
+        await db.insert(employeePositionChangesTable).values({
+          organizationId: params.data.orgId,
+          employeeId: params.data.empId,
+          previousPosition: before?.position ?? null,
+          newPosition: payload.position ?? null,
+          changedByUserId: req.auth!.userId,
+          trainingsGenerated: autoLinked.generated,
+          trainingsReused: autoLinked.reused,
+        });
+      } catch (err) {
+        console.error(
+          "Falha ao registrar histórico de mudança de cargo:",
+          err,
+        );
+      }
     }
     res.json({ ...formatEmployee(emp), autoLinkedTrainings: autoLinked });
   },
