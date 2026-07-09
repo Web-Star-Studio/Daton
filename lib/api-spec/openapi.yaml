@@ -776,6 +776,56 @@ paths:
         "204":
           description: Removed
 
+  /organizations/{orgId}/units/{unitId}/managers:
+    put:
+      operationId: setUnitManagers
+      tags: [units]
+      summary: Set the managers (gestores) of a unit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userIds]
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        "200":
+          description: Updated unit managers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [unitId, managers]
+                properties:
+                  unitId:
+                    type: integer
+                  managers:
+                    type: array
+                    items:
+                      type: object
+                      required: [userId, userName]
+                      properties:
+                        userId:
+                          type: integer
+                        userName:
+                          type: string
+
   /organizations/{orgId}/units/{unitId}/legislations:
     get:
       operationId: listUnitLegislations
@@ -11737,6 +11787,16 @@ components:
           type: ["string", "null"]
         phone:
           type: ["string", "null"]
+        managers:
+          type: array
+          items:
+            type: object
+            required: [userId, userName]
+            properties:
+              userId:
+                type: integer
+              userName:
+                type: string
         createdAt:
           type: string
           format: date-time

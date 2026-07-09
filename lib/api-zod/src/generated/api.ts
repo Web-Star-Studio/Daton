@@ -797,6 +797,14 @@ export const ListUnitsResponseItem = zod.object({
   state: zod.string().nullish(),
   country: zod.string().nullish(),
   phone: zod.string().nullish(),
+  managers: zod
+    .array(
+      zod.object({
+        userId: zod.number(),
+        userName: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -849,6 +857,14 @@ export const GetUnitResponse = zod.object({
   state: zod.string().nullish(),
   country: zod.string().nullish(),
   phone: zod.string().nullish(),
+  managers: zod
+    .array(
+      zod.object({
+        userId: zod.number(),
+        userName: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -893,6 +909,14 @@ export const UpdateUnitResponse = zod.object({
   state: zod.string().nullish(),
   country: zod.string().nullish(),
   phone: zod.string().nullish(),
+  managers: zod
+    .array(
+      zod.object({
+        userId: zod.number(),
+        userName: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -1079,6 +1103,14 @@ export const GetLegislationResponse = zod.object({
         state: zod.string().nullish(),
         country: zod.string().nullish(),
         phone: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              userId: zod.number(),
+              userName: zod.string(),
+            }),
+          )
+          .optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -1188,6 +1220,14 @@ export const ListLegislationUnitsResponseItem = zod.object({
     state: zod.string().nullish(),
     country: zod.string().nullish(),
     phone: zod.string().nullish(),
+    managers: zod
+      .array(
+        zod.object({
+          userId: zod.number(),
+          userName: zod.string(),
+        }),
+      )
+      .optional(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   }),
@@ -1260,6 +1300,14 @@ export const UpdateUnitLegislationResponse = zod.object({
     state: zod.string().nullish(),
     country: zod.string().nullish(),
     phone: zod.string().nullish(),
+    managers: zod
+      .array(
+        zod.object({
+          userId: zod.number(),
+          userName: zod.string(),
+        }),
+      )
+      .optional(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   }),
@@ -1272,6 +1320,28 @@ export const RemoveUnitLegislationParams = zod.object({
   orgId: zod.coerce.number(),
   legId: zod.coerce.number(),
   unitId: zod.coerce.number(),
+});
+
+/**
+ * @summary Set the managers (gestores) of a unit
+ */
+export const SetUnitManagersParams = zod.object({
+  orgId: zod.coerce.number(),
+  unitId: zod.coerce.number(),
+});
+
+export const SetUnitManagersBody = zod.object({
+  userIds: zod.array(zod.number()),
+});
+
+export const SetUnitManagersResponse = zod.object({
+  unitId: zod.number(),
+  managers: zod.array(
+    zod.object({
+      userId: zod.number(),
+      userName: zod.string(),
+    }),
+  ),
 });
 
 /**
