@@ -4,7 +4,6 @@ import {
   serial,
   timestamp,
   integer,
-  boolean,
   unique,
   index,
 } from "drizzle-orm/pg-core";

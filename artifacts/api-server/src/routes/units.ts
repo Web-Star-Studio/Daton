@@ -250,19 +250,22 @@ router.put(
       }
     }
 
-    // Substitui a lista de gestores da unidade.
-    await db
-      .delete(unitManagersTable)
-      .where(eq(unitManagersTable.unitId, params.data.unitId));
-    if (uniqueUserIds.length > 0) {
-      await db.insert(unitManagersTable).values(
-        uniqueUserIds.map((userId) => ({
-          organizationId: params.data.orgId,
-          unitId: params.data.unitId,
-          userId,
-        })),
-      );
-    }
+    // Substitui a lista de gestores da unidade — em transação para não deixar a
+    // filial sem gestores caso o insert falhe após o delete (review #141).
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(unitManagersTable)
+        .where(eq(unitManagersTable.unitId, params.data.unitId));
+      if (uniqueUserIds.length > 0) {
+        await tx.insert(unitManagersTable).values(
+          uniqueUserIds.map((userId) => ({
+            organizationId: params.data.orgId,
+            unitId: params.data.unitId,
+            userId,
+          })),
+        );
+      }
+    });
 
     const rows = await db
       .select({ userId: unitManagersTable.userId, userName: usersTable.name })
