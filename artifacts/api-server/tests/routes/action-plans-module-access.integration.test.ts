@@ -1,5 +1,7 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
+import { actionPlansTable, db } from "@workspace/db";
+import type { ActionPlanSourceModule } from "@workspace/db";
 import app from "../../src/app";
 import {
   authHeader,
@@ -9,6 +11,28 @@ import {
 } from "../../../../tests/support/backend";
 
 const contexts: TestOrgContext[] = [];
+
+async function createPlan(
+  organizationId: number,
+  options: {
+    sourceModule: ActionPlanSourceModule;
+    responsibleUserId?: number | null;
+    effectivenessEvaluatorUserId?: number | null;
+  },
+): Promise<number> {
+  const [plan] = await db
+    .insert(actionPlansTable)
+    .values({
+      organizationId,
+      sourceModule: options.sourceModule,
+      sourceRef: {},
+      title: `Plano ${options.sourceModule}`,
+      responsibleUserId: options.responsibleUserId ?? null,
+      effectivenessEvaluatorUserId: options.effectivenessEvaluatorUserId ?? null,
+    })
+    .returning({ id: actionPlansTable.id });
+  return plan.id;
+}
 
 afterEach(async () => {
   await Promise.all(
@@ -135,5 +159,137 @@ describe("action plans module access", () => {
       .set(authHeader(context));
 
     expect(response.status).toBe(200);
+  });
+});
+
+/**
+ * The hub gate would be trivially bypassable if any authenticated member of the
+ * org could read a plan by guessing its id. A plan is reachable by whoever holds
+ * the hub module, the module that owns its origin, or is personally assigned to
+ * it (responsible / effectiveness evaluator — how "Suas Pendências" links here).
+ */
+describe("action plan detail access", () => {
+  it("denies a plan whose origin module the user does not hold", async () => {
+    const context = await createTestContext({
+      seed: "ap-detail-foreign",
+      role: "operator",
+      modules: ["kpi"],
+    });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId, { sourceModule: "swot" });
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}`)
+      .set(authHeader(context));
+
+    expect(response.status).toBe(403);
+  });
+
+  it("allows a plan spawned from an origin module the user holds", async () => {
+    const context = await createTestContext({
+      seed: "ap-detail-origin",
+      role: "operator",
+      modules: ["kpi"],
+    });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId, { sourceModule: "rac" });
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}`)
+      .set(authHeader(context));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("allows the responsible user even with no module at all", async () => {
+    const context = await createTestContext({
+      seed: "ap-detail-responsible",
+      role: "operator",
+    });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId, {
+      sourceModule: "manual",
+      responsibleUserId: context.userId,
+    });
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}`)
+      .set(authHeader(context));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("allows the effectiveness evaluator even with no module at all", async () => {
+    const context = await createTestContext({
+      seed: "ap-detail-evaluator",
+      role: "operator",
+    });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId, {
+      sourceModule: "manual",
+      effectivenessEvaluatorUserId: context.userId,
+    });
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}`)
+      .set(authHeader(context));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("guards the plan's comments and activity the same way", async () => {
+    const context = await createTestContext({
+      seed: "ap-detail-subresources",
+      role: "operator",
+      modules: ["kpi"],
+    });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId, { sourceModule: "swot" });
+
+    const comments = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}/comments`)
+      .set(authHeader(context));
+    expect(comments.status).toBe(403);
+
+    const activity = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}/activity`)
+      .set(authHeader(context));
+    expect(activity.status).toBe(403);
+  });
+
+  it("blocks editing and deleting a plan the user may not reach", async () => {
+    const context = await createTestContext({
+      seed: "ap-detail-write",
+      role: "operator",
+      modules: ["kpi"],
+    });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId, { sourceModule: "swot" });
+
+    const patch = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/action-plans/${planId}`)
+      .set(authHeader(context))
+      .send({ title: "Invadido" });
+    expect(patch.status).toBe(403);
+
+    const remove = await request(app)
+      .delete(`/api/organizations/${context.organizationId}/action-plans/${planId}`)
+      .set(authHeader(context));
+    expect(remove.status).toBe(403);
+  });
+
+  it("still answers 404 for a plan that does not exist", async () => {
+    const context = await createTestContext({
+      seed: "ap-detail-missing",
+      role: "operator",
+      modules: ["actionPlans"],
+    });
+    contexts.push(context);
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/99999999`)
+      .set(authHeader(context));
+
+    expect(response.status).toBe(404);
   });
 });

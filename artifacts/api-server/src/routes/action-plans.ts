@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import {
   actionPlanActivityLogTable,
@@ -101,6 +101,45 @@ const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
   incident: "roadSafety",
   manual: "actionPlans",
 };
+
+/**
+ * Guards every `/:planId` route. Without it the hub gate would be bypassable by
+ * anyone in the org who guesses a plan id. A plan belongs to whoever holds the
+ * hub module, holds the module that owns its origin, or is personally assigned
+ * to it — the responsible and the effectiveness evaluator reach their own plans
+ * from "Suas Pendências" without ever holding `actionPlans`.
+ *
+ * Registered after `requireAuth`. Unknown ids and malformed params fall through
+ * untouched so the routes keep answering 404/400 exactly as before.
+ */
+function requirePlanAccess() {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    const planId = Number(req.params.planId);
+    if (!Number.isInteger(orgId) || !Number.isInteger(planId)) { next(); return; }
+    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const [plan] = await db
+      .select({
+        sourceModule: actionPlansTable.sourceModule,
+        responsibleUserId: actionPlansTable.responsibleUserId,
+        effectivenessEvaluatorUserId: actionPlansTable.effectivenessEvaluatorUserId,
+      })
+      .from(actionPlansTable)
+      .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
+    if (!plan) { next(); return; }
+
+    const userId = req.auth!.userId;
+    const allowed =
+      plan.responsibleUserId === userId ||
+      plan.effectivenessEvaluatorUserId === userId ||
+      (await userHasModuleAccess(req.auth!, "actionPlans")) ||
+      (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule]));
+    if (!allowed) { res.status(403).json({ error: "Sem acesso a este plano de ação" }); return; }
+
+    next();
+  };
+}
 
 // ─── List ──────────────────────────────────────────────────────────────────
 
@@ -273,7 +312,7 @@ async function loadAndSerializePlan(orgId: number, planId: number) {
   });
 }
 
-router.get("/organizations/:orgId/action-plans/:planId", requireAuth, async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
   const params = GetActionPlanParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -386,7 +425,7 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
 
 // ─── Update ────────────────────────────────────────────────────────────────
 
-router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requirePlanAccess(), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateActionPlanParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -573,7 +612,7 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
 
 // ─── Delete ────────────────────────────────────────────────────────────────
 
-router.delete("/organizations/:orgId/action-plans/:planId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/action-plans/:planId", requireAuth, requirePlanAccess(), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteActionPlanParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -609,7 +648,7 @@ router.delete("/organizations/:orgId/action-plans/:planId", requireAuth, require
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 
-router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
   const params = ListActionPlanCommentsParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -633,7 +672,7 @@ router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, a
   )));
 });
 
-router.post("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requirePlanAccess(), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = AddActionPlanCommentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -659,7 +698,7 @@ router.post("/organizations/:orgId/action-plans/:planId/comments", requireAuth, 
 
 // ─── Activity log ─────────────────────────────────────────────────────────────
 
-router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
   const params = ListActionPlanActivityParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -681,7 +720,7 @@ router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, a
 
 // ─── Evidence: add ─────────────────────────────────────────────────────────
 
-router.post("/organizations/:orgId/action-plans/:planId/evidences", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/action-plans/:planId/evidences", requireAuth, requirePlanAccess(), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = AddActionPlanEvidenceParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -734,7 +773,7 @@ router.post("/organizations/:orgId/action-plans/:planId/evidences", requireAuth,
 
 // ─── Evidence: delete ──────────────────────────────────────────────────────
 
-router.delete("/organizations/:orgId/action-plans/:planId/evidences/:evidenceId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/action-plans/:planId/evidences/:evidenceId", requireAuth, requirePlanAccess(), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteActionPlanEvidenceParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
