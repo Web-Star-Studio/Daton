@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { UnitManagersItem } from "./unitManagersItem";
 import type { UnitStatus } from "./unitStatus";
 import type { UnitType } from "./unitType";
 
@@ -34,6 +35,7 @@ export interface Unit {
   country?: string | null;
   /** @nullable */
   phone?: string | null;
+  managers?: UnitManagersItem[];
   createdAt: string;
   updatedAt: string;
 }

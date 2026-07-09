@@ -249,6 +249,8 @@ import type {
   RoadSafetyFactor,
   RoadSafetyMeasurement,
   SaveQuestionnaireResponsesBody,
+  SetUnitManagers200,
+  SetUnitManagersBody,
   SgqProcessDetail,
   SgqProcessRevision,
   StrategicPlanAction,
@@ -2928,6 +2930,94 @@ export const useRemoveUnitLegislation = <
   TContext
 > => {
   return useMutation(getRemoveUnitLegislationMutationOptions(options));
+};
+
+/**
+ * @summary Set the managers (gestores) of a unit
+ */
+export const getSetUnitManagersUrl = (orgId: number, unitId: number) => {
+  return `/api/organizations/${orgId}/units/${unitId}/managers`;
+};
+
+export const setUnitManagers = async (
+  orgId: number,
+  unitId: number,
+  setUnitManagersBody: SetUnitManagersBody,
+  options?: RequestInit,
+): Promise<SetUnitManagers200> => {
+  return customFetch<SetUnitManagers200>(getSetUnitManagersUrl(orgId, unitId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setUnitManagersBody),
+  });
+};
+
+export const getSetUnitManagersMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setUnitManagers>>,
+    TError,
+    { orgId: number; unitId: number; data: BodyType<SetUnitManagersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setUnitManagers>>,
+  TError,
+  { orgId: number; unitId: number; data: BodyType<SetUnitManagersBody> },
+  TContext
+> => {
+  const mutationKey = ["setUnitManagers"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setUnitManagers>>,
+    { orgId: number; unitId: number; data: BodyType<SetUnitManagersBody> }
+  > = (props) => {
+    const { orgId, unitId, data } = props ?? {};
+
+    return setUnitManagers(orgId, unitId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetUnitManagersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setUnitManagers>>
+>;
+export type SetUnitManagersMutationBody = BodyType<SetUnitManagersBody>;
+export type SetUnitManagersMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set the managers (gestores) of a unit
+ */
+export const useSetUnitManagers = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setUnitManagers>>,
+    TError,
+    { orgId: number; unitId: number; data: BodyType<SetUnitManagersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setUnitManagers>>,
+  TError,
+  { orgId: number; unitId: number; data: BodyType<SetUnitManagersBody> },
+  TContext
+> => {
+  return useMutation(getSetUnitManagersMutationOptions(options));
 };
 
 /**

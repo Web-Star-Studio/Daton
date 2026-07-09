@@ -361,6 +361,14 @@ export default function ColaboradoresPage() {
     result?.pagination;
 
   const { data: units = [] } = useListUnits(orgId!);
+  // Mapa filial → nomes dos gestores, para a coluna "Gestor direto".
+  const managersByUnit = useMemo(
+    () =>
+      new Map(
+        units.map((u) => [u.id, (u.managers ?? []).map((m) => m.userName)]),
+      ),
+    [units],
+  );
   const { data: departments = [] } = useListDepartments(orgId!, {
     query: { queryKey: getListDepartmentsQueryKey(orgId!), enabled: !!orgId },
   });
@@ -991,9 +999,10 @@ export default function ColaboradoresPage() {
                             emp.contractType}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                          {/* Gestor direto: coluna do mockup; atribuição virá com
-                              o campo managerId (Fase 1b, deferido). */}
-                          —
+                          {/* Gestor direto = gestores da filial do colaborador. */}
+                          {emp.unitId && managersByUnit.get(emp.unitId)?.length
+                            ? managersByUnit.get(emp.unitId)!.join(", ")
+                            : "—"}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">
                           {emp.education || "—"}

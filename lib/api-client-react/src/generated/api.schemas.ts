@@ -767,6 +767,11 @@ export const UnitStatus = {
   inativa: "inativa",
 } as const;
 
+export type UnitManagersItem = {
+  userId: number;
+  userName: string;
+};
+
 export interface Unit {
   id: number;
   organizationId: number;
@@ -793,6 +798,7 @@ export interface Unit {
   country?: string | null;
   /** @nullable */
   phone?: string | null;
+  managers?: UnitManagersItem[];
   createdAt: string;
   updatedAt: string;
 }
@@ -6443,6 +6449,20 @@ export const ListLegislationsLevel = {
   municipal: "municipal",
   internacional: "internacional",
 } as const;
+
+export type SetUnitManagersBody = {
+  userIds: number[];
+};
+
+export type SetUnitManagers200ManagersItem = {
+  userId: number;
+  userName: string;
+};
+
+export type SetUnitManagers200 = {
+  unitId: number;
+  managers: SetUnitManagers200ManagersItem[];
+};
 
 export type GetUnitQuestionnaireResponses200 = { [key: string]: unknown };
 

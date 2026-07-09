@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -6,8 +6,11 @@ import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import {
   useGetUnit,
   useUpdateUnit,
+  useListOrgUsers,
+  useSetUnitManagers,
   getGetUnitQueryKey,
   getListUnitsQueryKey,
+  getListOrgUsersQueryKey,
   type UpdateUnitBody,
   type UpdateUnitBodyType,
 } from "@workspace/api-client-react";
@@ -17,10 +20,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import {
+  SearchableMultiSelect,
+  type SearchableMultiSelectOption,
+} from "@/components/ui/searchable-multi-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, ClipboardList, Pencil } from "lucide-react";
+import { ArrowLeft, ClipboardList, Pencil, X } from "lucide-react";
 import { QuestionnaireModal } from "@/components/questionnaire/QuestionnaireModal";
+import { toast } from "@/hooks/use-toast";
 
 type UnitFormData = {
   name: string;
@@ -54,12 +62,19 @@ type UnitLike = Partial<{
   phone: string | null;
 }>;
 
-const editSteps = ["Identidade", "Operação", "Endereço"];
+const editSteps = ["Identidade", "Operação", "Endereço", "Gestores"];
 const editStepDescriptions = [
   "Defina os dados principais que identificam a unidade na organização.",
   "Ajuste o status operacional e os canais de contato da unidade.",
   "Revise o endereço completo antes de salvar as alterações.",
+  "Defina os usuários que supervisionam esta filial.",
 ];
+
+function getManagerIds(
+  unit?: { managers?: Array<{ userId: number }> } | null,
+): number[] {
+  return (unit?.managers ?? []).map((manager) => manager.userId);
+}
 
 function getUnitFormData(unit?: UnitLike | null): UnitFormData {
   return {
@@ -254,15 +269,60 @@ export default function UnitDetailPage() {
     },
   });
   const updateMut = useUpdateUnit();
+  const setManagersMut = useSetUnitManagers();
+
+  const { data: orgUsersData, isLoading: isLoadingOrgUsers } = useListOrgUsers(
+    orgId!,
+    {
+      query: {
+        queryKey: getListOrgUsersQueryKey(orgId!),
+        enabled: !!orgId,
+      },
+    },
+  );
+  const orgUsers = orgUsersData?.users ?? [];
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editStep, setEditStep] = useState(0);
   const [formData, setFormData] = useState<UnitFormData>(getUnitFormData());
+  const [managerIds, setManagerIds] = useState<number[]>([]);
   const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
 
   useEffect(() => {
     setFormData(getUnitFormData(unit));
+    setManagerIds(getManagerIds(unit));
   }, [unit]);
+
+  // Nome dos usuários por id — combina a lista de usuários da org com os
+  // gestores já vinculados (garante rótulo mesmo que a lista ainda esteja
+  // carregando ou o usuário não apareça na org).
+  const userNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const manager of unit?.managers ?? []) {
+      map.set(manager.userId, manager.userName);
+    }
+    for (const user of orgUsers) {
+      map.set(user.id, user.name);
+    }
+    return map;
+  }, [unit?.managers, orgUsers]);
+
+  const managerOptions = useMemo<SearchableMultiSelectOption[]>(
+    () =>
+      orgUsers.map((user) => ({
+        value: user.id,
+        label: user.name,
+        keywords: [user.email],
+      })),
+    [orgUsers],
+  );
+
+  const toggleManager = (userId: number) =>
+    setManagerIds((current) =>
+      current.includes(userId)
+        ? current.filter((id) => id !== userId)
+        : [...current, userId],
+    );
 
   const handleSave = async () => {
     if (!orgId) return;
@@ -281,23 +341,38 @@ export default function UnitDetailPage() {
       country: formData.country || undefined,
       phone: formData.phone || undefined,
     };
-    await updateMut.mutateAsync({ orgId, unitId, data: body });
-    queryClient.invalidateQueries({
-      queryKey: getGetUnitQueryKey(orgId, unitId),
-    });
-    queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId) });
-    setEditModalOpen(false);
-    setEditStep(0);
+    try {
+      await updateMut.mutateAsync({ orgId, unitId, data: body });
+      await setManagersMut.mutateAsync({
+        orgId,
+        unitId,
+        data: { userIds: managerIds },
+      });
+      queryClient.invalidateQueries({
+        queryKey: getGetUnitQueryKey(orgId, unitId),
+      });
+      queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId) });
+      toast({ title: "Unidade atualizada" });
+      setEditModalOpen(false);
+      setEditStep(0);
+    } catch {
+      toast({
+        title: "Não foi possível salvar a unidade",
+        variant: "destructive",
+      });
+    }
   };
 
   const openEditModal = () => {
     setFormData(getUnitFormData(unit));
+    setManagerIds(getManagerIds(unit));
     setEditStep(0);
     setEditModalOpen(true);
   };
 
   const closeEditModal = () => {
     setFormData(getUnitFormData(unit));
+    setManagerIds(getManagerIds(unit));
     setEditStep(0);
     setEditModalOpen(false);
   };
@@ -601,6 +676,61 @@ export default function UnitDetailPage() {
               />
             </div>
           )}
+
+          {editStep === 3 && (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Gestores da filial
+                </Label>
+                <p className="text-[13px] text-muted-foreground">
+                  Usuários que supervisionam esta filial (podem ser vários).
+                </p>
+              </div>
+
+              <SearchableMultiSelect
+                options={managerOptions}
+                selected={managerIds}
+                onToggle={toggleManager}
+                placeholder="Selecione os gestores"
+                searchPlaceholder="Buscar por nome ou e-mail"
+                emptyMessage={
+                  isLoadingOrgUsers
+                    ? "Carregando usuários..."
+                    : "Nenhum usuário encontrado"
+                }
+                disabled={isLoadingOrgUsers}
+              />
+
+              {managerIds.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {managerIds.map((userId) => (
+                    <Badge
+                      key={userId}
+                      variant="secondary"
+                      className="flex items-center gap-1.5 py-1 pl-3 pr-1.5"
+                    >
+                      <span className="text-[12px] font-medium">
+                        {userNameById.get(userId) ?? `Usuário #${userId}`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleManager(userId)}
+                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+                        aria-label={`Remover ${userNameById.get(userId) ?? "gestor"}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[13px] text-muted-foreground">
+                  Nenhum gestor definido para esta filial.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogStepFooter
@@ -610,7 +740,7 @@ export default function UnitDetailPage() {
           onCancel={closeEditModal}
           onNext={() => setEditStep((current) => current + 1)}
           onSubmit={handleSave}
-          isPending={updateMut.isPending}
+          isPending={updateMut.isPending || setManagersMut.isPending}
           disabled={!canAdvance}
         />
       </Dialog>
