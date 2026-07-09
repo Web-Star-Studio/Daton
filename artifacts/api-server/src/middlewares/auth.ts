@@ -32,6 +32,7 @@ export const APP_MODULES = [
   "assets",
   "regulatoryDocuments",
   "swot",
+  "actionPlans",
 ] as const;
 export type AppModule = typeof APP_MODULES[number];
 
@@ -240,20 +241,22 @@ export function requireRole(...allowedRoles: UserRole[]) {
   };
 }
 
+export async function userHasModuleAccess(auth: AuthPayload, moduleName: AppModule): Promise<boolean> {
+  if (auth.role === "platform_admin" || auth.role === "org_admin") {
+    return true;
+  }
+  const perms = await db.select().from(userModulePermissionsTable)
+    .where(eq(userModulePermissionsTable.userId, auth.userId));
+  return perms.some(p => p.module === moduleName);
+}
+
 export function requireModuleAccess(moduleName: AppModule) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (!req.auth) {
       res.status(401).json({ error: "Não autenticado" });
       return;
     }
-    if (req.auth.role === "platform_admin" || req.auth.role === "org_admin") {
-      next();
-      return;
-    }
-    const perms = await db.select().from(userModulePermissionsTable)
-      .where(eq(userModulePermissionsTable.userId, req.auth.userId));
-    const hasAccess = perms.some(p => p.module === moduleName);
-    if (!hasAccess) {
+    if (!(await userHasModuleAccess(req.auth, moduleName))) {
       res.status(403).json({ error: "Sem acesso a este módulo" });
       return;
     }

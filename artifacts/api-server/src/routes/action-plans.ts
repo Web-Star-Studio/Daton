@@ -8,6 +8,7 @@ import {
   db,
   isActionPlanEncerrado,
   type ActionPlanActivityChanges,
+  type ActionPlanSourceModule,
 } from "@workspace/db";
 import {
   AddActionPlanCommentBody,
@@ -30,7 +31,13 @@ import {
   UpdateActionPlanBody,
   UpdateActionPlanParams,
 } from "@workspace/api-zod";
-import { requireAuth, requireWriteAccess } from "../middlewares/auth";
+import {
+  requireAuth,
+  requireModuleAccess,
+  requireWriteAccess,
+  userHasModuleAccess,
+  type AppModule,
+} from "../middlewares/auth";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
 import {
   assertUserBelongsToOrg,
@@ -74,6 +81,27 @@ async function currentUserName(userId: number | null | undefined): Promise<strin
   return map.get(userId) ?? null;
 }
 
+/**
+ * Module that owns each action-plan origin. The hub (`actionPlans`) sees every
+ * plan, but the "Ações vinculadas" widget embedded in the origin screens reads
+ * this same listing scoped by `sourceModule` — so whoever may open the origin
+ * screen may read the actions spawned from it. Without this, granting `kpi`
+ * alone would break the RAC deviation flow with a 403.
+ */
+const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
+  kpi: "kpi",
+  rac: "kpi",
+  swot: "swot",
+  nonconformity: "governance",
+  audit_finding: "governance",
+  risk: "governance",
+  training: "employees",
+  environmental: "environmental",
+  road_safety: "roadSafety",
+  incident: "roadSafety",
+  manual: "actionPlans",
+};
+
 // ─── List ──────────────────────────────────────────────────────────────────
 
 router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): Promise<void> => {
@@ -83,6 +111,12 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
 
   const query = ListActionPlansQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
+
+  const scopedTo = query.data.sourceModule;
+  const canReadListing =
+    (await userHasModuleAccess(req.auth!, "actionPlans")) ||
+    (scopedTo !== undefined && (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[scopedTo])));
+  if (!canReadListing) { res.status(403).json({ error: "Sem acesso a este módulo" }); return; }
 
   const conditions: SQL[] = [eq(actionPlansTable.organizationId, params.data.orgId)];
   if (query.data.status) conditions.push(eq(actionPlansTable.status, query.data.status));
@@ -150,7 +184,7 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
 // ─── Summary (dashboards) ────────────────────────────────────────────────────
 // NOTE: must be registered before "/:planId" so "summary" is not parsed as an id.
 
-router.get("/organizations/:orgId/action-plans/summary", requireAuth, async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/summary", requireAuth, requireModuleAccess("actionPlans"), async (req, res): Promise<void> => {
   const params = GetActionPlansSummaryParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -162,7 +196,7 @@ router.get("/organizations/:orgId/action-plans/summary", requireAuth, async (req
 // ─── External actions (read-only bridge: governance corrective actions) ───────
 // NOTE: must be registered before "/:planId" so the literal path isn't parsed as an id.
 
-router.get("/organizations/:orgId/action-plans/external-actions", requireAuth, async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/external-actions", requireAuth, requireModuleAccess("actionPlans"), async (req, res): Promise<void> => {
   const params = ListExternalActionsParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }

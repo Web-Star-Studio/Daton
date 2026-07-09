@@ -46,7 +46,8 @@ type AppModule =
   | "roadSafety"
   | "assets"
   | "regulatoryDocuments"
-  | "swot";
+  | "swot"
+  | "actionPlans";
 
 type NavLink = {
   href: string;
@@ -190,7 +191,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const moduleByPath: Array<{ prefix: string; module: AppModule }> = [
+    // `exact` guards the hub index only. The plan detail (/planos-acao/:id) stays
+    // reachable without the module: "Suas Pendências" links a responsible user
+    // straight to the plan assigned to them, and the "Ações vinculadas" widget
+    // opens plans from their origin screen.
+    const moduleByPath: Array<{
+      prefix: string;
+      module: AppModule;
+      exact?: boolean;
+    }> = [
+      { prefix: "/planos-acao", module: "actionPlans", exact: true },
       { prefix: "/qualidade/legislacoes", module: "legislations" },
       { prefix: "/qualidade/fornecedores", module: "suppliers" },
       { prefix: "/qualidade/regulatorios", module: "regulatoryDocuments" },
@@ -218,7 +228,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
     const deniedRoute = moduleByPath.find(
       (entry) =>
-        normalizedLocation.startsWith(entry.prefix) &&
+        (entry.exact
+          ? normalizedLocation === entry.prefix
+          : normalizedLocation.startsWith(entry.prefix)) &&
         !hasModuleAccess(entry.module),
     );
     if (deniedRoute) {
@@ -563,6 +575,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const showAmbiental = hasModuleAccess("environmental");
   const showKpi = hasModuleAccess("kpi");
   const showRoadSafety = hasModuleAccess("roadSafety");
+  const showActionPlans = hasModuleAccess("actionPlans");
   const showInfraestrutura = infraestruturaLinks.length > 0;
 
   const openPopover = (
@@ -942,25 +955,27 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           )}
 
-          <Link
-            href="/planos-acao"
-            className={cn(
-              "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
-              isActive("/planos-acao")
-                ? "font-medium text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <div className="flex items-center">
-              <ClipboardList
-                className={cn(
-                  "h-[18px] w-[18px] shrink-0",
-                  isSidebarOpen && "mr-2.5",
-                )}
-              />
-              {isSidebarOpen && <span>Planos de Ação</span>}
-            </div>
-          </Link>
+          {showActionPlans && (
+            <Link
+              href="/planos-acao"
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                isActive("/planos-acao")
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <div className="flex items-center">
+                <ClipboardList
+                  className={cn(
+                    "h-[18px] w-[18px] shrink-0",
+                    isSidebarOpen && "mr-2.5",
+                  )}
+                />
+                {isSidebarOpen && <span>Planos de Ação</span>}
+              </div>
+            </Link>
+          )}
 
           {showInfraestrutura && (
             <div
