@@ -81,7 +81,7 @@ export const kpiIndicatorsTable = pgTable("kpi_indicators", {
   computedSource: varchar("computed_source", { length: 32 }),
   computedMetric: varchar("computed_metric", { length: 64 }),
   norms: jsonb("norms")
-    .$type<string[]>()
+    .$type<number[]>()
     .notNull()
     .default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
