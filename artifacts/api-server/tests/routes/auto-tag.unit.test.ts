@@ -1,6 +1,6 @@
 import express from "express";
 import request from "supertest";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   createCompletionMock,
@@ -76,6 +76,10 @@ vi.mock("drizzle-orm", () => ({
 import router from "../../src/routes/auto-tag";
 
 describe("auto-tag route", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     createCompletionMock.mockReset();
     selectMock.mockReset();
