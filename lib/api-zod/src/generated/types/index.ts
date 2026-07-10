@@ -418,6 +418,7 @@ export * from "./regulatoryDocumentStatus";
 export * from "./rejectDocumentBody";
 export * from "./requestPasswordResetBody";
 export * from "./requirementApplicabilityApprovalStatus";
+export * from "./restoreActionPlanPlanningBody";
 export * from "./roadSafetyFactor";
 export * from "./roadSafetyFactorControlStatus";
 export * from "./roadSafetyFactorType";

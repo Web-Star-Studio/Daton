@@ -20,8 +20,8 @@ import {
   useActionPlanActivity,
   useActionPlanComments,
   useAddActionPlanCommentWithInvalidation,
-  type ActionPlanActivityLogEntry,
 } from "@/lib/action-plans-client";
+import { diffPlanningFields, type PlanningBlock } from "./planning-versions";
 
 const ACTION_META: Record<string, { label: string; icon: typeof Pencil; tone: string }> = {
   created: { label: "Ação criada", icon: Plus, tone: "text-blue-600 dark:text-blue-400" },
@@ -34,19 +34,37 @@ const ACTION_META: Record<string, { label: string; icon: typeof Pencil; tone: st
   reopened: { label: "Reaberta", icon: RotateCcw, tone: "text-amber-600 dark:text-amber-400" },
 };
 
-function describeChanges(entry: ActionPlanActivityLogEntry): string | null {
+export function describeChanges(entry: { changes?: unknown }): string | null {
   const c = entry.changes as
-    | { kind?: string; message?: string; fields?: Record<string, { from: unknown; to: unknown }> }
+    | {
+        kind?: string;
+        message?: string;
+        fields?: Record<string, { from: unknown; to: unknown }>;
+        restoredFrom?: { activityId: number; at: string };
+      }
     | null
     | undefined;
   if (!c) return null;
   if (c.kind === "note" && c.message) return c.message;
-  if (c.kind === "diff" && c.fields) {
-    return Object.entries(c.fields)
-      .map(([field, { from, to }]) => `${field}: ${fmt(from)} → ${fmt(to)}`)
-      .join(" · ");
+  if (c.kind !== "diff" || !c.fields) return null;
+
+  const parts: string[] = [];
+
+  // The planning block is an object; `String(v)` would print "[object Object]".
+  // Summarize it here and leave the before/after to the versions dialog.
+  const planning = c.fields.planning as { from: PlanningBlock; to: PlanningBlock } | undefined;
+  if (planning) {
+    const labels = diffPlanningFields(planning.from, planning.to).map((change) => change.label);
+    const prefix = c.restoredFrom ? "Planejamento restaurado" : "Planejamento";
+    parts.push(labels.length ? `${prefix}: ${labels.join(", ")}` : prefix);
   }
-  return null;
+
+  for (const [field, { from, to }] of Object.entries(c.fields)) {
+    if (field === "planning") continue;
+    parts.push(`${field}: ${fmt(from)} → ${fmt(to)}`);
+  }
+
+  return parts.length ? parts.join(" · ") : null;
 }
 
 function fmt(v: unknown): string {

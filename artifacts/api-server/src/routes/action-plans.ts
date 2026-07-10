@@ -26,6 +26,8 @@ import {
   ListActionPlanCommentsParams,
   ListActionPlansParams,
   ListActionPlansQueryParams,
+  RestoreActionPlanPlanningBody,
+  RestoreActionPlanPlanningParams,
   SuggestActionPlanDraftBody,
   SuggestActionPlanDraftParams,
   UpdateActionPlanBody,
@@ -55,13 +57,16 @@ import { validateSourceRef } from "../services/action-plans/validate-source";
 import { computeActionPlanSummary } from "../services/action-plans/summary";
 import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
+import { extractPlanning, normalizePlanning, planningChanged, type PlanningBlock } from "../services/action-plans/planning";
 import { notifyActionPlanAssignment, notifyActionPlanEvaluatorAssignment } from "../services/action-plans/notify-assignment";
 import { draftActionPlanFromProblem } from "../services/action-plans/ai-draft";
 import { AiCompletionError } from "../services/ai/json-completion";
 
 const router: IRouter = Router();
 
-/** Tracked fields for the update activity diff (display labels handled client-side). */
+/** Tracked fields for the update activity diff (display labels handled client-side).
+ *  The planning block (5W2H + root cause + whys) is logged separately, as one
+ *  logical field — see `planning.ts`. */
 const DIFF_FIELDS = [
   "title",
   "description",
@@ -73,13 +78,18 @@ const DIFF_FIELDS = [
   "responsibleUserId",
   "dueDate",
   "correctiveActionDescription",
-  "rootCause",
 ];
 
 async function currentUserName(userId: number | null | undefined): Promise<string | null> {
   if (userId == null) return null;
   const map = await resolveUserNames([userId]);
   return map.get(userId) ?? null;
+}
+
+/** The block as it goes into the log: normalized, so an empty 5W2H reads as null
+ *  whether the row holds `{}` or `null`. */
+function normalizedPlanning(row: Parameters<typeof extractPlanning>[0]) {
+  return normalizePlanning(extractPlanning(row));
 }
 
 /**
@@ -412,14 +422,38 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     closedAt: status === "completed" || status === "cancelled" ? new Date() : null,
   }).returning();
 
+  const creatorName = await currentUserName(req.auth!.userId);
   await logActionPlanActivity({
     orgId: params.data.orgId,
     actionPlanId: row.id,
     action: "created",
     userId: req.auth!.userId,
-    userName: await currentUserName(req.auth!.userId),
+    userName: creatorName,
     changes: { kind: "snapshot", data: { code, title: row.title, sourceModule: row.sourceModule, status: row.status } },
   });
+
+  // A plan can be BORN with a planning block — the POST accepts plan5w2h /
+  // rootCause / rootCauseWhys, and `deriveCreateDefaults` inherits the rootCause
+  // of an origin nonconformity. The `created` snapshot doesn't carry the block, so
+  // without a dedicated entry the initial state would survive only in the `from`
+  // of the first later edit — and restore reads only `to`, leaving no restorable
+  // version of the initial state. Record it as the first version, right after
+  // `created`, as an edit from the empty block. A plan born empty logs nothing.
+  const emptyPlanning: PlanningBlock = { plan5w2h: null, rootCause: null, rootCauseWhys: null };
+  const initialPlanning = normalizedPlanning(row);
+  if (planningChanged(emptyPlanning, initialPlanning)) {
+    await logActionPlanActivity({
+      orgId: params.data.orgId,
+      actionPlanId: row.id,
+      action: "updated",
+      userId: req.auth!.userId,
+      userName: creatorName,
+      changes: {
+        kind: "diff",
+        fields: { planning: { from: emptyPlanning, to: initialPlanning } },
+      },
+    });
+  }
 
   // Notify the responsible user / evaluator if the action is created already assigned.
   await notifyActionPlanAssignment(row, req.auth!.userId);
@@ -488,9 +522,29 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
   if (body.data.gutGravity !== undefined) update.gutGravity = body.data.gutGravity;
   if (body.data.gutUrgency !== undefined) update.gutUrgency = body.data.gutUrgency;
   if (body.data.gutTendency !== undefined) update.gutTendency = body.data.gutTendency;
-  if (body.data.plan5w2h !== undefined) update.plan5w2h = body.data.plan5w2h;
-  if (body.data.rootCause !== undefined) update.rootCause = body.data.rootCause;
-  if (body.data.rootCauseWhys !== undefined) update.rootCauseWhys = body.data.rootCauseWhys;
+  // Normalize the planning block ON WRITE so the DB holds the canonical form and
+  // the "every persisted change is logged" invariant holds: `planningChanged` and
+  // the activity log both compare NORMALIZED blocks, so persisting a raw value
+  // could store a whitespace-only edit that no entry ever records. Merge the
+  // incoming fields over the current row, normalize, then write back only the
+  // fields the caller actually sent (a PATCH that omits a field must not start
+  // persisting it).
+  if (
+    body.data.plan5w2h !== undefined ||
+    body.data.rootCause !== undefined ||
+    body.data.rootCauseWhys !== undefined
+  ) {
+    const normalized = normalizePlanning(
+      extractPlanning({
+        plan5w2h: body.data.plan5w2h !== undefined ? body.data.plan5w2h : existing.plan5w2h,
+        rootCause: body.data.rootCause !== undefined ? body.data.rootCause : existing.rootCause,
+        rootCauseWhys: body.data.rootCauseWhys !== undefined ? body.data.rootCauseWhys : existing.rootCauseWhys,
+      }),
+    );
+    if (body.data.plan5w2h !== undefined) update.plan5w2h = normalized.plan5w2h;
+    if (body.data.rootCause !== undefined) update.rootCause = normalized.rootCause;
+    if (body.data.rootCauseWhys !== undefined) update.rootCauseWhys = normalized.rootCauseWhys;
+  }
 
   if (body.data.responsibleUserId !== undefined) {
     if (body.data.responsibleUserId !== null) {
@@ -589,6 +643,23 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
   // ─── Activity log (one prioritized entry per update) ───────────────────────
   const userName = await currentUserName(req.auth!.userId);
   const logBase = { orgId: params.data.orgId, actionPlanId: row.id, userId: req.auth!.userId, userName };
+
+  // Logged outside the prioritized chain below: that chain writes ONE entry per save,
+  // so a save that changed both the status and the 5W2H would record only the status
+  // and the block's version would vanish — the exact hole this feature closes.
+  if (planningChanged(existing, row)) {
+    await logActionPlanActivity({
+      ...logBase,
+      action: "updated",
+      changes: {
+        kind: "diff",
+        fields: {
+          planning: { from: normalizedPlanning(existing), to: normalizedPlanning(row) },
+        },
+      },
+    });
+  }
+
   if (reopened) {
     await logActionPlanActivity({ ...logBase, action: "reopened", changes: { kind: "note", message: `Reaberta (${existing.status} → ${row.status})` } });
   } else if (statusChanged) {
@@ -723,6 +794,93 @@ router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, r
 
   res.json(entries.map(serializeActivityEntry));
 });
+
+// ─── Restore a planning version ──────────────────────────────────────────────
+// The chosen entry's `to` IS a complete snapshot of the block, so restoring is
+// applying it. Never destructive: the restore itself becomes a new entry.
+
+router.post(
+  "/organizations/:orgId/action-plans/:planId/planning/restore",
+  requireAuth,
+  requirePlanAccess(),
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    // Validate with Zod like every sibling route, NOT `Number()`: `Number(true) === 1`
+    // and `Number([7]) === 7` would coerce a malformed body into a real id and restore
+    // the wrong version. `requirePlanAccess()` lets non-integer ids fall through on
+    // purpose, so the coerced params also guard NaN from reaching Drizzle (→ 400, not 500).
+    const params = RestoreActionPlanPlanningParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    const body = RestoreActionPlanPlanningBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+    const orgId = params.data.orgId;
+    const planId = params.data.planId;
+    const activityId = body.data.activityId;
+
+    const [existing] = await db
+      .select()
+      .from(actionPlansTable)
+      .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
+    if (!existing) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+    if (isActionPlanEncerrado(existing)) {
+      res.status(409).json({ error: "Plano encerrado não pode ser editado." });
+      return;
+    }
+
+    const [entry] = await db
+      .select()
+      .from(actionPlanActivityLogTable)
+      .where(
+        and(
+          eq(actionPlanActivityLogTable.id, activityId),
+          eq(actionPlanActivityLogTable.actionPlanId, planId),
+          eq(actionPlanActivityLogTable.organizationId, orgId),
+        ),
+      );
+    const changes = entry?.changes as
+      | { kind?: string; fields?: { planning?: { to?: unknown } } }
+      | null
+      | undefined;
+    const target = changes?.fields?.planning?.to as PlanningBlock | undefined;
+    if (!target) {
+      res.status(404).json({ error: "Versão do planejamento não encontrada" });
+      return;
+    }
+
+    const restored = normalizePlanning(target);
+    if (!planningChanged(existing, restored)) {
+      const out = await loadAndSerializePlan(orgId, planId);
+      res.json(out);
+      return;
+    }
+
+    const [row] = await db
+      .update(actionPlansTable)
+      .set({
+        plan5w2h: restored.plan5w2h,
+        rootCause: restored.rootCause,
+        rootCauseWhys: restored.rootCauseWhys,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)))
+      .returning();
+
+    await logActionPlanActivity({
+      orgId,
+      actionPlanId: row.id,
+      action: "updated",
+      userId: req.auth!.userId,
+      userName: await currentUserName(req.auth!.userId),
+      changes: {
+        kind: "diff",
+        fields: { planning: { from: normalizedPlanning(existing), to: normalizedPlanning(row) } },
+        restoredFrom: { activityId, at: entry.createdAt.toISOString() },
+      },
+    });
+
+    res.json(await loadAndSerializePlan(orgId, planId));
+  },
+);
 
 // ─── Evidence: add ─────────────────────────────────────────────────────────
 

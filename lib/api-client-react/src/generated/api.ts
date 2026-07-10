@@ -246,6 +246,7 @@ import type {
   RegulatoryDocumentRenewal,
   RejectDocumentBody,
   RequestPasswordResetBody,
+  RestoreActionPlanPlanningBody,
   RoadSafetyFactor,
   RoadSafetyMeasurement,
   SaveQuestionnaireResponsesBody,
@@ -32978,6 +32979,123 @@ export function useListActionPlanActivity<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Aplica ao plano o conteúdo do bloco Planejamento registrado na entrada de atividade informada. Gera uma nova entrada no histórico; nunca apaga nada. Restaurar uma versão idêntica à atual é no-op.
+
+ * @summary Restaura o bloco Planejamento (5W2H + causa-raiz + porquês) de uma versão anterior
+ */
+export const getRestoreActionPlanPlanningUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/action-plans/${planId}/planning/restore`;
+};
+
+export const restoreActionPlanPlanning = async (
+  orgId: number,
+  planId: number,
+  restoreActionPlanPlanningBody: RestoreActionPlanPlanningBody,
+  options?: RequestInit,
+): Promise<ActionPlan> => {
+  return customFetch<ActionPlan>(
+    getRestoreActionPlanPlanningUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(restoreActionPlanPlanningBody),
+    },
+  );
+};
+
+export const getRestoreActionPlanPlanningMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreActionPlanPlanning>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<RestoreActionPlanPlanningBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restoreActionPlanPlanning>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<RestoreActionPlanPlanningBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["restoreActionPlanPlanning"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restoreActionPlanPlanning>>,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<RestoreActionPlanPlanningBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return restoreActionPlanPlanning(orgId, planId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestoreActionPlanPlanningMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restoreActionPlanPlanning>>
+>;
+export type RestoreActionPlanPlanningMutationBody =
+  BodyType<RestoreActionPlanPlanningBody>;
+export type RestoreActionPlanPlanningMutationError = ErrorType<void>;
+
+/**
+ * @summary Restaura o bloco Planejamento (5W2H + causa-raiz + porquês) de uma versão anterior
+ */
+export const useRestoreActionPlanPlanning = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreActionPlanPlanning>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<RestoreActionPlanPlanningBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restoreActionPlanPlanning>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<RestoreActionPlanPlanningBody>;
+  },
+  TContext
+> => {
+  return useMutation(getRestoreActionPlanPlanningMutationOptions(options));
+};
 
 /**
  * @summary Draft 5W2H and 5-whys for an action plan from a problem statement (opt-in AI; never persisted)

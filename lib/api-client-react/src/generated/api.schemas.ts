@@ -6804,6 +6804,11 @@ export type ListActionPlansParams = {
   sourceKpiMonthlyValueId?: number;
 };
 
+export type RestoreActionPlanPlanningBody = {
+  /** Id da entrada de atividade cuja versão será restaurada. */
+  activityId: number;
+};
+
 export type ListTrainingCatalogParams = {
   search?: string;
   norm?: string;
