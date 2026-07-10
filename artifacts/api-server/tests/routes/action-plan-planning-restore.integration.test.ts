@@ -311,6 +311,53 @@ describe("restore planning version", () => {
       .expect(400);
   });
 
+  /**
+   * The handler must validate the body with Zod, not `Number()`. `Number(true) === 1`
+   * and `Number([7]) === 7`, so a malformed `activityId` used to coerce to a real id
+   * and restore the WRONG version instead of being rejected.
+   */
+  it("400s (not a silent restore) when activityId is a boolean", async () => {
+    const context = await createTestContext({ seed: "restore-body-bool" });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId);
+
+    await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/action-plans/${planId}/planning/restore`,
+      )
+      .set(authHeader(context))
+      .send({ activityId: true })
+      .expect(400);
+  });
+
+  it("400s when activityId is an array", async () => {
+    const context = await createTestContext({ seed: "restore-body-array" });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId);
+
+    await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/action-plans/${planId}/planning/restore`,
+      )
+      .set(authHeader(context))
+      .send({ activityId: [7] })
+      .expect(400);
+  });
+
+  it("400s when activityId is missing", async () => {
+    const context = await createTestContext({ seed: "restore-body-missing" });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId);
+
+    await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/action-plans/${planId}/planning/restore`,
+      )
+      .set(authHeader(context))
+      .send({})
+      .expect(400);
+  });
+
   it("409s on a closed plan and 403s for a read-only analyst", async () => {
     const context = await createTestContext({ seed: "restore-guards" });
     contexts.push(context);

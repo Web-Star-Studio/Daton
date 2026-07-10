@@ -26,6 +26,8 @@ import {
   ListActionPlanCommentsParams,
   ListActionPlansParams,
   ListActionPlansQueryParams,
+  RestoreActionPlanPlanningBody,
+  RestoreActionPlanPlanningParams,
   SuggestActionPlanDraftBody,
   SuggestActionPlanDraftParams,
   UpdateActionPlanBody,
@@ -803,20 +805,17 @@ router.post(
   requirePlanAccess(),
   requireWriteAccess(),
   async (req, res): Promise<void> => {
-    const orgId = Number(req.params.orgId);
-    const planId = Number(req.params.planId);
-    // `requirePlanAccess()` intentionally lets non-integer ids fall through, so
-    // guard them here before the first query — otherwise NaN reaches Drizzle and
-    // Postgres 500s, instead of the 400 the sibling routes return.
-    if (!Number.isInteger(orgId) || orgId <= 0 || !Number.isInteger(planId) || planId <= 0) {
-      res.status(400).json({ error: "Parâmetros inválidos" });
-      return;
-    }
-    const activityId = Number((req.body as { activityId?: unknown })?.activityId);
-    if (!Number.isInteger(activityId) || activityId <= 0) {
-      res.status(400).json({ error: "activityId inválido" });
-      return;
-    }
+    // Validate with Zod like every sibling route, NOT `Number()`: `Number(true) === 1`
+    // and `Number([7]) === 7` would coerce a malformed body into a real id and restore
+    // the wrong version. `requirePlanAccess()` lets non-integer ids fall through on
+    // purpose, so the coerced params also guard NaN from reaching Drizzle (→ 400, not 500).
+    const params = RestoreActionPlanPlanningParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    const body = RestoreActionPlanPlanningBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+    const orgId = params.data.orgId;
+    const planId = params.data.planId;
+    const activityId = body.data.activityId;
 
     const [existing] = await db
       .select()
