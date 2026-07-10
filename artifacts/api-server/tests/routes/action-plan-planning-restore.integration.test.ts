@@ -297,6 +297,20 @@ describe("restore planning version", () => {
     await restore(context, planId, rows[0].id).expect(404);
   });
 
+  it("400s (not 500) when the org/plan ids are not integers", async () => {
+    // requirePlanAccess() lets non-integer ids fall through on purpose, so the
+    // handler itself must reject them before any query — otherwise NaN reaches
+    // Drizzle and Postgres 500s instead of the 400 the sibling routes return.
+    const context = await createTestContext({ seed: "restore-bad-params" });
+    contexts.push(context);
+
+    await request(app)
+      .post("/api/organizations/foo/action-plans/bar/planning/restore")
+      .set(authHeader(context))
+      .send({ activityId: 1 })
+      .expect(400);
+  });
+
   it("409s on a closed plan and 403s for a read-only analyst", async () => {
     const context = await createTestContext({ seed: "restore-guards" });
     contexts.push(context);

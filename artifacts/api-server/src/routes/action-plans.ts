@@ -496,9 +496,29 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
   if (body.data.gutGravity !== undefined) update.gutGravity = body.data.gutGravity;
   if (body.data.gutUrgency !== undefined) update.gutUrgency = body.data.gutUrgency;
   if (body.data.gutTendency !== undefined) update.gutTendency = body.data.gutTendency;
-  if (body.data.plan5w2h !== undefined) update.plan5w2h = body.data.plan5w2h;
-  if (body.data.rootCause !== undefined) update.rootCause = body.data.rootCause;
-  if (body.data.rootCauseWhys !== undefined) update.rootCauseWhys = body.data.rootCauseWhys;
+  // Normalize the planning block ON WRITE so the DB holds the canonical form and
+  // the "every persisted change is logged" invariant holds: `planningChanged` and
+  // the activity log both compare NORMALIZED blocks, so persisting a raw value
+  // could store a whitespace-only edit that no entry ever records. Merge the
+  // incoming fields over the current row, normalize, then write back only the
+  // fields the caller actually sent (a PATCH that omits a field must not start
+  // persisting it).
+  if (
+    body.data.plan5w2h !== undefined ||
+    body.data.rootCause !== undefined ||
+    body.data.rootCauseWhys !== undefined
+  ) {
+    const normalized = normalizePlanning(
+      extractPlanning({
+        plan5w2h: body.data.plan5w2h !== undefined ? body.data.plan5w2h : existing.plan5w2h,
+        rootCause: body.data.rootCause !== undefined ? body.data.rootCause : existing.rootCause,
+        rootCauseWhys: body.data.rootCauseWhys !== undefined ? body.data.rootCauseWhys : existing.rootCauseWhys,
+      }),
+    );
+    if (body.data.plan5w2h !== undefined) update.plan5w2h = normalized.plan5w2h;
+    if (body.data.rootCause !== undefined) update.rootCause = normalized.rootCause;
+    if (body.data.rootCauseWhys !== undefined) update.rootCauseWhys = normalized.rootCauseWhys;
+  }
 
   if (body.data.responsibleUserId !== undefined) {
     if (body.data.responsibleUserId !== null) {
@@ -761,6 +781,13 @@ router.post(
   async (req, res): Promise<void> => {
     const orgId = Number(req.params.orgId);
     const planId = Number(req.params.planId);
+    // `requirePlanAccess()` intentionally lets non-integer ids fall through, so
+    // guard them here before the first query — otherwise NaN reaches Drizzle and
+    // Postgres 500s, instead of the 400 the sibling routes return.
+    if (!Number.isInteger(orgId) || orgId <= 0 || !Number.isInteger(planId) || planId <= 0) {
+      res.status(400).json({ error: "Parâmetros inválidos" });
+      return;
+    }
     const activityId = Number((req.body as { activityId?: unknown })?.activityId);
     if (!Number.isInteger(activityId) || activityId <= 0) {
       res.status(400).json({ error: "activityId inválido" });

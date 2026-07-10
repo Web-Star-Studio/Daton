@@ -134,6 +134,66 @@ describe("planning version log", () => {
     expect(all).toHaveLength(1);
   });
 
+  /**
+   * The PATCH persists the block after normalizing it, and `planningChanged`
+   * compares normalized blocks. So a save that only pads an existing value with
+   * whitespace must (a) store the trimmed, canonical form and (b) record no
+   * planning entry — because, normalized, nothing actually changed. Writing the
+   * raw value here would persist a change that no log entry ever captures.
+   */
+  it("normalizes on write, so a whitespace-only change stores the trimmed value and logs nothing", async () => {
+    const context = await createTestContext({ seed: "plan-log-whitespace" });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId);
+    const patch = (body: object) =>
+      request(app)
+        .patch(
+          `/api/organizations/${context.organizationId}/action-plans/${planId}`,
+        )
+        .set(authHeader(context))
+        .send(body)
+        .expect(200);
+
+    await patch({ rootCause: "Causa raiz" });
+    expect(await planningEntries(planId)).toHaveLength(1);
+
+    await patch({ rootCause: "  Causa raiz  " });
+
+    // (a) The DB holds the canonical, trimmed form.
+    const [row] = await db
+      .select()
+      .from(actionPlansTable)
+      .where(eq(actionPlansTable.id, planId));
+    expect(row.rootCause).toBe("Causa raiz");
+
+    // (b) No new planning entry — normalized, the block is unchanged.
+    expect(await planningEntries(planId)).toHaveLength(1);
+  });
+
+  it("logs exactly one planning entry when the content genuinely changed", async () => {
+    const context = await createTestContext({ seed: "plan-log-realchange" });
+    contexts.push(context);
+    const planId = await createPlan(context.organizationId);
+    const patch = (body: object) =>
+      request(app)
+        .patch(
+          `/api/organizations/${context.organizationId}/action-plans/${planId}`,
+        )
+        .set(authHeader(context))
+        .send(body)
+        .expect(200);
+
+    await patch({ rootCause: "Causa raiz" });
+    await patch({ rootCause: "Causa raiz revisada" });
+
+    const entries = await planningEntries(planId);
+    expect(entries).toHaveLength(2);
+    const planning = (
+      entries[0].changes as { fields: { planning: { to: unknown } } }
+    ).fields.planning;
+    expect(planning.to).toMatchObject({ rootCause: "Causa raiz revisada" });
+  });
+
   it("stops logging rootCause as a loose field", async () => {
     const context = await createTestContext({ seed: "plan-log-rootcause" });
     contexts.push(context);
