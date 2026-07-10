@@ -8,6 +8,7 @@ import {
   createTestUser,
   type TestOrgContext,
 } from "../../../../tests/support/backend";
+import { DEFAULT_NORM_LABELS, ensureDefaultNorms } from "../../src/services/norms/defaults";
 
 const contexts: TestOrgContext[] = [];
 
@@ -96,5 +97,29 @@ describe("regulatory norms API", () => {
       .send({ label: "iso 14001" });
     expect(collision.status).toBe(409);
     expect(a.status).toBe(201);
+  });
+
+  it("seeds the default norm catalog for a new organization, idempotently", async () => {
+    const context = await createTestContext({ seed: "norms-defaults" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/norms`;
+
+    await ensureDefaultNorms(context.organizationId);
+
+    const list = await request(app).get(base).set(authHeader(context));
+    expect(list.status).toBe(200);
+    expect(list.body.map((n: { label: string }) => n.label)).toEqual(DEFAULT_NORM_LABELS);
+    expect(DEFAULT_NORM_LABELS).toEqual([
+      "ISO 9001 · cl. 9.1",
+      "ISO 14001 · cl. 9.1",
+      "ISO 39001 · cl. 9.1",
+      "PR 2030",
+    ]);
+
+    // Idempotent: calling again (e.g. re-running the register wiring) does not duplicate rows.
+    await ensureDefaultNorms(context.organizationId);
+    const listAgain = await request(app).get(base).set(authHeader(context));
+    expect(listAgain.status).toBe(200);
+    expect(listAgain.body.map((n: { label: string }) => n.label)).toEqual(DEFAULT_NORM_LABELS);
   });
 });
