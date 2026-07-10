@@ -55,7 +55,7 @@ import { validateSourceRef } from "../services/action-plans/validate-source";
 import { computeActionPlanSummary } from "../services/action-plans/summary";
 import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
-import { extractPlanning, normalizePlanning, planningChanged } from "../services/action-plans/planning";
+import { extractPlanning, normalizePlanning, planningChanged, type PlanningBlock } from "../services/action-plans/planning";
 import { notifyActionPlanAssignment, notifyActionPlanEvaluatorAssignment } from "../services/action-plans/notify-assignment";
 import { draftActionPlanFromProblem } from "../services/action-plans/ai-draft";
 import { AiCompletionError } from "../services/ai/json-completion";
@@ -748,6 +748,89 @@ router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, r
 
   res.json(entries.map(serializeActivityEntry));
 });
+
+// ─── Restore a planning version ──────────────────────────────────────────────
+// The chosen entry's `to` IS a complete snapshot of the block, so restoring is
+// applying it. Never destructive: the restore itself becomes a new entry.
+
+router.post(
+  "/organizations/:orgId/action-plans/:planId/planning/restore",
+  requireAuth,
+  requirePlanAccess(),
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    const planId = Number(req.params.planId);
+    const activityId = Number((req.body as { activityId?: unknown })?.activityId);
+    if (!Number.isInteger(activityId) || activityId <= 0) {
+      res.status(400).json({ error: "activityId inválido" });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(actionPlansTable)
+      .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
+    if (!existing) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+    if (isActionPlanEncerrado(existing)) {
+      res.status(409).json({ error: "Plano encerrado não pode ser editado." });
+      return;
+    }
+
+    const [entry] = await db
+      .select()
+      .from(actionPlanActivityLogTable)
+      .where(
+        and(
+          eq(actionPlanActivityLogTable.id, activityId),
+          eq(actionPlanActivityLogTable.actionPlanId, planId),
+          eq(actionPlanActivityLogTable.organizationId, orgId),
+        ),
+      );
+    const changes = entry?.changes as
+      | { kind?: string; fields?: { planning?: { to?: unknown } } }
+      | null
+      | undefined;
+    const target = changes?.fields?.planning?.to as PlanningBlock | undefined;
+    if (!target) {
+      res.status(404).json({ error: "Versão do planejamento não encontrada" });
+      return;
+    }
+
+    const restored = normalizePlanning(target);
+    if (!planningChanged(existing, restored)) {
+      const out = await loadAndSerializePlan(orgId, planId);
+      res.json(out);
+      return;
+    }
+
+    const [row] = await db
+      .update(actionPlansTable)
+      .set({
+        plan5w2h: restored.plan5w2h,
+        rootCause: restored.rootCause,
+        rootCauseWhys: restored.rootCauseWhys,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)))
+      .returning();
+
+    await logActionPlanActivity({
+      orgId,
+      actionPlanId: row.id,
+      action: "updated",
+      userId: req.auth!.userId,
+      userName: await currentUserName(req.auth!.userId),
+      changes: {
+        kind: "diff",
+        fields: { planning: { from: normalizedPlanning(existing), to: normalizedPlanning(row) } },
+        restoredFrom: { activityId, at: entry.createdAt.toISOString() },
+      },
+    });
+
+    res.json(await loadAndSerializePlan(orgId, planId));
+  },
+);
 
 // ─── Evidence: add ─────────────────────────────────────────────────────────
 
