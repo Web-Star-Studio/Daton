@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { buildResponsibleOptions } from "./_components/responsible-options";
 import { mergeDraftIntoForm } from "./_components/merge-draft";
+import { diffActionPlanPayload } from "./_components/payload-diff";
 import { apiErrorMessage } from "@/lib/api-error";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -159,6 +160,10 @@ export default function ActionPlanFichaPage() {
   const isSavingRef = useRef(false);
   const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
   const hydratedIdRef = useRef<number | null>(null);
+  // Last server state this tab synced to, in payload shape. `persist` sends only
+  // what differs from it, so an untouched field can never be reverted by a save
+  // from a tab that loaded before someone else changed it.
+  const baselineRef = useRef<UpdateActionPlanBody | null>(null);
 
   // Hydrate the form from the server. NEVER overwrite a DIRTY form on a same-plan
   // refetch — that was silently wiping unsaved edits ("estava completinha, entrei
@@ -170,7 +175,7 @@ export default function ActionPlanFichaPage() {
     const isNewPlan = plan.id !== hydratedIdRef.current;
     if (!isNewPlan && dirtyRef.current) return;
     hydratedIdRef.current = plan.id;
-    setForm({
+    const hydrated: typeof form = {
       title: plan.title,
       description: plan.description ?? "",
       actionType: plan.actionType,
@@ -194,7 +199,9 @@ export default function ActionPlanFichaPage() {
         comment: plan.effectivenessComment ?? "",
       },
       vinc: { odsNumbers: plan.odsNumbers ?? [], normRefs: plan.normRefs ?? [] },
-    });
+    };
+    setForm(hydrated);
+    baselineRef.current = buildPayload(hydrated);
     setDirty(false);
     if (isNewPlan) setSaveStatus("idle");
   }, [plan]);
@@ -249,10 +256,24 @@ export default function ActionPlanFichaPage() {
         if (!opts?.silent) toast({ title: "Informe o título da ação", variant: "destructive" });
         return false;
       }
+      // Send ONLY what this tab changed. A full payload would revert every field
+      // another tab touched since we loaded the plan (see payload-diff).
+      const data = {
+        ...diffActionPlanPayload(baselineRef.current, buildPayload(snapshot)),
+        ...(opts?.extra ?? {}),
+      };
+      if (Object.keys(data).length === 0) {
+        if (formRef.current === snapshot) setDirty(false);
+        setSaveStatus("saved");
+        return true;
+      }
       isSavingRef.current = true;
       setSaveStatus("saving");
       try {
-        await updatePlan.mutateAsync({ orgId, planId, data: { ...buildPayload(snapshot), ...(opts?.extra ?? {}) } });
+        await updatePlan.mutateAsync({ orgId, planId, data });
+        // The saved fields are now the server's truth for this tab; the rest of the
+        // baseline stays as loaded, so we keep not touching what we never edited.
+        baselineRef.current = { ...(baselineRef.current ?? {}), ...data };
         // Clear "dirty" only if nothing changed during the save; otherwise the next
         // chained run (scheduled by the autosave effect) persists the newer edits.
         if (formRef.current === snapshot) setDirty(false);
@@ -375,6 +396,10 @@ export default function ActionPlanFichaPage() {
     try {
       await updatePlan.mutateAsync({ orgId, planId, data: { status: "in_progress" } });
       setForm((f) => ({ ...f, status: "in_progress" }));
+      // This PATCH bypasses `persist`, so rebase the baseline by hand. Otherwise
+      // `status` reads as changed forever and every later save re-sends
+      // "in_progress", silently reopening a plan someone else closed meanwhile.
+      baselineRef.current = { ...(baselineRef.current ?? {}), status: "in_progress" };
       toast({ title: "Plano reaberto" });
     } catch (err) {
       toast({ title: "Erro ao reabrir", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
