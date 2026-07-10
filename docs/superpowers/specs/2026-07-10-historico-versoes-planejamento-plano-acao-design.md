@@ -117,9 +117,26 @@ ficaria impossível. Rejeitada.
   10 campos seguem rastreados como hoje. A partir do deploy, uma alteração da
   causa-raiz aparece no histórico dentro da versão do Planejamento, não mais como um
   campo solto.
-- No `PATCH`, depois do `buildDiff` dos campos comuns, se `planningChanged` então
-  acrescenta `fields.planning = { from, to }` ao mesmo `changes`. **Uma entrada por
-  PATCH**, como hoje.
+- No `PATCH`, o Planejamento ganha **sua própria entrada** `updated` com
+  `fields.planning = { from, to }`, sempre que `planningChanged`.
+
+  **Por que uma entrada separada, e não anexada à existente.** O log de hoje é
+  *priorizado*: um `if/else if/else` grava **uma** entrada por save, e o ramo do
+  `buildDiff` só é alcançado no `else`. Um save que mude o status **e** o 5W2H —
+  "Concluir ação" com o formulário sujo, por exemplo — registra só o status, e a
+  alteração do 5W2H **desapareceria**. Exatamente o buraco que esta feature existe
+  para tapar. Então o Planejamento é logado **fora da cadeia**, antes dela:
+
+  ```ts
+  if (planningChanged(existing, row)) {
+    await logActionPlanActivity({ ...logBase, action: "updated",
+      changes: { kind: "diff", fields: { planning: { from, to } } } });
+  }
+  // cadeia priorizada existente (reopened / status_changed / effectiveness / diff) segue igual
+  ```
+
+  No caso comum (autosave editando só o bloco) continua **uma** entrada por save. No
+  caso raro (status + planejamento no mesmo save) são duas, e nenhuma se perde.
 - Novo: `POST /organizations/:orgId/action-plans/:planId/planning/restore`
   - corpo: `{ activityId: number }`
   - guardas: `requireAuth` + `requirePlanAccess()` + `requireWriteAccess()`; 409 se o
@@ -228,6 +245,8 @@ do deploy. Isso será dito na entrada do diário e vale a pena avisar a cliente.
 **Backend (integration)**
 - `PATCH` que altera o 5W2H grava `fields.planning` com `from` e `to` completos
 - `PATCH` que não toca no bloco **não** grava `planning`
+- `PATCH` que muda **status e Planejamento no mesmo save** grava as duas entradas —
+  a versão do bloco não é engolida pela cadeia priorizada do log
 - `restore` aplica exatamente o `to` da entrada escolhida e grava `restoredFrom`
 - `restore` em plano encerrado → 409; entrada de outro plano → 404; analista → 403
 - restaurar a **mesma** versão duas vezes: a segunda é no-op (200, sem entrada nova)
