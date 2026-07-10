@@ -65,7 +65,12 @@ export type ActionPlanNormRef = {
  * system events (escalation, etc.). Mirrors the regulatory-documents audit log. */
 export type ActionPlanActivityChanges =
   | { kind: "snapshot"; data: Record<string, unknown> }
-  | { kind: "diff"; fields: Record<string, { from: unknown; to: unknown }> }
+  | {
+      kind: "diff";
+      fields: Record<string, { from: unknown; to: unknown }>;
+      /** Set when the entry came from restoring an older planning version. */
+      restoredFrom?: { activityId: number; at: string };
+    }
   | { kind: "note"; message: string };
 
 /**

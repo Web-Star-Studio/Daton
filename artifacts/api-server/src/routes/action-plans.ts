@@ -55,13 +55,16 @@ import { validateSourceRef } from "../services/action-plans/validate-source";
 import { computeActionPlanSummary } from "../services/action-plans/summary";
 import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
+import { extractPlanning, normalizePlanning, planningChanged } from "../services/action-plans/planning";
 import { notifyActionPlanAssignment, notifyActionPlanEvaluatorAssignment } from "../services/action-plans/notify-assignment";
 import { draftActionPlanFromProblem } from "../services/action-plans/ai-draft";
 import { AiCompletionError } from "../services/ai/json-completion";
 
 const router: IRouter = Router();
 
-/** Tracked fields for the update activity diff (display labels handled client-side). */
+/** Tracked fields for the update activity diff (display labels handled client-side).
+ *  The planning block (5W2H + root cause + whys) is logged separately, as one
+ *  logical field — see `planning.ts`. */
 const DIFF_FIELDS = [
   "title",
   "description",
@@ -73,13 +76,18 @@ const DIFF_FIELDS = [
   "responsibleUserId",
   "dueDate",
   "correctiveActionDescription",
-  "rootCause",
 ];
 
 async function currentUserName(userId: number | null | undefined): Promise<string | null> {
   if (userId == null) return null;
   const map = await resolveUserNames([userId]);
   return map.get(userId) ?? null;
+}
+
+/** The block as it goes into the log: normalized, so an empty 5W2H reads as null
+ *  whether the row holds `{}` or `null`. */
+function normalizedPlanning(row: Parameters<typeof extractPlanning>[0]) {
+  return normalizePlanning(extractPlanning(row));
 }
 
 /**
@@ -589,6 +597,23 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
   // ─── Activity log (one prioritized entry per update) ───────────────────────
   const userName = await currentUserName(req.auth!.userId);
   const logBase = { orgId: params.data.orgId, actionPlanId: row.id, userId: req.auth!.userId, userName };
+
+  // Logged outside the prioritized chain below: that chain writes ONE entry per save,
+  // so a save that changed both the status and the 5W2H would record only the status
+  // and the block's version would vanish — the exact hole this feature closes.
+  if (planningChanged(existing, row)) {
+    await logActionPlanActivity({
+      ...logBase,
+      action: "updated",
+      changes: {
+        kind: "diff",
+        fields: {
+          planning: { from: normalizedPlanning(existing), to: normalizedPlanning(row) },
+        },
+      },
+    });
+  }
+
   if (reopened) {
     await logActionPlanActivity({ ...logBase, action: "reopened", changes: { kind: "note", message: `Reaberta (${existing.status} → ${row.status})` } });
   } else if (statusChanged) {
