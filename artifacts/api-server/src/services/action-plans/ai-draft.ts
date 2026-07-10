@@ -1,5 +1,16 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import type { ActionPlan5W2H } from "@workspace/db";
+import { readJsonCompletion } from "../ai/json-completion";
+
+/**
+ * gpt-5-mini reasons before answering and those tokens come out of this same
+ * budget. The visible JSON runs ~400 tokens; the old ceiling of 1500 left barely
+ * a thousand for reasoning, so the call succeeded or came back empty depending on
+ * how long the model happened to think. `low` effort suits a drafting task, and
+ * the headroom means we stop losing the coin flip. We only pay for tokens used.
+ */
+const MAX_COMPLETION_TOKENS = 4000;
+const REASONING_EFFORT = "low" as const;
 
 export interface ActionPlanDraftInput {
   /** Free-text problem statement the draft reasons from (required). */
@@ -91,15 +102,15 @@ Retorne o JSON conforme o formato especificado.`;
       { role: "user", content: userPrompt },
     ],
     response_format: { type: "json_object" },
-    max_completion_tokens: 1500,
+    max_completion_tokens: MAX_COMPLETION_TOKENS,
+    reasoning_effort: REASONING_EFFORT,
   });
 
-  const raw = response.choices[0]?.message?.content || "{}";
-  const parsed = JSON.parse(raw) as {
+  const parsed = readJsonCompletion<{
     plan5w2h?: unknown;
     rootCause?: unknown;
     rootCauseWhys?: unknown;
-  };
+  }>(response, "action-plans/ai-draft");
 
   const plan5w2h: ActionPlan5W2H = {};
   const source = typeof parsed.plan5w2h === "object" && parsed.plan5w2h !== null
