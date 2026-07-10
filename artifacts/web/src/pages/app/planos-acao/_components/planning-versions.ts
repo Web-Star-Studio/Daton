@@ -86,7 +86,15 @@ export function buildPlanningVersions(
   const versions: PlanningVersion[] = [];
   for (const { entry, read } of planning) {
     const previous = versions[versions.length - 1];
-    const sameAuthor = previous && previous.userId === entry.userId;
+    // An unknown author (`null`/`undefined`) never groups: the author FK is
+    // ON DELETE SET NULL, so two DIFFERENT removed users both read as `null` and
+    // `null === null` would wrongly fold them — dropping the intermediate version
+    // from the restore list.
+    const sameAuthor =
+      !!previous &&
+      previous.userId != null &&
+      entry.userId != null &&
+      previous.userId === entry.userId;
     const withinWindow =
       previous &&
       Date.parse(entry.createdAt) - Date.parse(previous.createdAt) <=

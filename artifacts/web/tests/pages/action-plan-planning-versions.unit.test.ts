@@ -65,6 +65,35 @@ describe("buildPlanningVersions", () => {
     expect(versions).toHaveLength(2);
   });
 
+  /**
+   * The author FK is `ON DELETE SET NULL`, so two DIFFERENT removed users read as
+   * `userId: null`. `null === null` would fold them into one version — and the
+   * intermediate version would vanish from the restore list. An unknown author
+   * must never group.
+   */
+  it("never groups entries whose author is unknown, even inside the window", () => {
+    const unknownAuthor = (
+      id: number,
+      minutes: number,
+      from: unknown,
+      to: unknown,
+    ) => ({
+      id,
+      userId: null,
+      userName: null,
+      createdAt: `2026-07-10T12:${String(minutes).padStart(2, "0")}:00.000Z`,
+      changes: { kind: "diff", fields: { planning: { from, to } } },
+    });
+
+    const versions = buildPlanningVersions([
+      unknownAuthor(1, 0, empty, a),
+      unknownAuthor(2, 1, a, b),
+    ]);
+
+    expect(versions).toHaveLength(2);
+    expect(versions.map((v) => v.activityId)).toEqual([2, 1]);
+  });
+
   it("does not group saves further apart than the window", () => {
     const versions = buildPlanningVersions([
       entry(1, 0, 7, empty, a),
