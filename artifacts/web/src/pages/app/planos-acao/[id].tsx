@@ -684,6 +684,7 @@ export default function ActionPlanFichaPage() {
               canEdit={canEdit}
               open={versionsOpen}
               onOpenChange={setVersionsOpen}
+              onBeforeRestore={() => persist({ silent: true })}
             />
           )}
 

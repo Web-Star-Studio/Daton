@@ -34,12 +34,17 @@ export function PlanningVersionsDialog({
   canEdit,
   open,
   onOpenChange,
+  onBeforeRestore,
 }: {
   orgId: number;
   planId: number;
   canEdit: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Flush pending edits before restoring. Resolves `true` when saved (or nothing
+  // to save), `false` on failure — see `handleRestore` for why this matters.
+  // Optional so other callers keep working unchanged.
+  onBeforeRestore?: () => Promise<boolean> | boolean;
 }) {
   const queryClient = useQueryClient();
   const { data: activity = [] } = useActionPlanActivity(orgId, planId);
@@ -49,6 +54,21 @@ export function PlanningVersionsDialog({
 
   async function handleRestore(activityId: number, createdAt: string) {
     if (!window.confirm(`Restaurar o planejamento como estava em ${whenText(createdAt)}?`)) return;
+    // Flush pending edits FIRST. The plan detail refuses to re-hydrate a dirty
+    // form, so restoring with unsaved edits would (1) discard the restored block
+    // when the refetch arrives and (2) let the queued autosave write the stale
+    // draft back over it. Saving first lands the draft as its own version, leaves
+    // the form clean, and lets the post-invalidation hydration apply the restore.
+    const ok = (await onBeforeRestore?.()) ?? true;
+    if (!ok) {
+      toast({
+        title: "Há alterações pendentes não salvas",
+        description:
+          "Salve suas edições (ou preencha os campos obrigatórios) antes de restaurar uma versão.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       await restore.mutateAsync({ orgId, planId, data: { activityId } });
       // Targeted: the plan detail and its activity. A bare invalidateQueries()
