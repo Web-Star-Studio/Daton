@@ -14,6 +14,9 @@
 
 - Prettier: indentação de 2 espaços, aspas duplas, trailing commas.
 - Comentários de código em **inglês**; textos de UI e mensagens de erro em **PT-BR**.
+  Alguns comentários nos trechos deste plano estão em PT-BR para o leitor humano —
+  **traduza-os para inglês** ao escrever o código. Os textos de UI e as mensagens de
+  erro entre aspas ficam como estão.
 - `pnpm typecheck` precisa passar. É o único check obrigatório do CI.
 - **Nunca** editar arquivos em `lib/api-zod/src/generated/` ou `lib/api-client-react/src/generated/` à mão. Regerar com codegen.
 - O codegen do repo chama `ruby`, que **não existe** neste ambiente. Rodar os passos com `python3` (Task 3).
@@ -1241,7 +1244,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
-import { useActionPlanActivity } from "@/lib/action-plans-client";
+import {
+  getActionPlanActivityQueryKey,
+  getActionPlanQueryKey,
+  useActionPlanActivity,
+} from "@/lib/action-plans-client";
 import { buildPlanningVersions, diffPlanningFields } from "./planning-versions";
 
 function whenText(iso: string): string {
@@ -1281,7 +1288,12 @@ export function PlanningVersionsDialog({
     if (!window.confirm(`Restaurar o planejamento como estava em ${whenText(createdAt)}?`)) return;
     try {
       await restore.mutateAsync({ orgId, planId, data: { activityId } });
-      await queryClient.invalidateQueries();
+      // Targeted: the plan detail and its activity. A bare invalidateQueries()
+      // would drop every cached query in the app.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getActionPlanQueryKey(orgId, planId) }),
+        queryClient.invalidateQueries({ queryKey: getActionPlanActivityQueryKey(orgId, planId) }),
+      ]);
       toast({ title: "Planejamento restaurado" });
       onOpenChange(false);
     } catch (error) {
@@ -1385,7 +1397,12 @@ export function PlanningVersionsDialog({
 }
 ```
 
-⚠️ Antes de colar, confirme a assinatura do hook gerado:
+⚠️ Antes de colar, confirme os nomes reais das query keys:
+`grep -n "QueryKey" artifacts/web/src/lib/action-plans-client.ts | head`
+— se o client não reexporta `getActionPlanQueryKey` / `getActionPlanActivityQueryKey`,
+importe-as de `@workspace/api-client-react` ou adicione o reexport.
+
+⚠️ Confirme também a assinatura do hook gerado:
 `grep -n -A6 "export const useRestoreActionPlanPlanning" lib/api-client-react/src/generated/api.ts`
 e ajuste o formato de `mutateAsync` (`{ orgId, planId, data }`) ao que o Orval gerou.
 
@@ -1752,6 +1769,5 @@ TEST_ENV=integration pnpm exec vitest run --project integration artifacts/api-se
 Esperado: tudo verde. (A suíte `web-unit` inteira estoura a heap neste ambiente — é
 pré-existente, ver `.claude/skills/verify/SKILL.md`. Rode os arquivos afetados.)
 
-```bash
-git commit --allow-empty -m "chore(planos-acao): histórico de versões verificado em runtime"
-```
+Não há commit neste passo: a verificação não produz código. Registre o resultado no
+relatório da tarefa (fluxo dirigido, saída do banco, sondagens das bordas).
