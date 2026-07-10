@@ -9453,6 +9453,49 @@ paths:
                 items:
                   $ref: "#/components/schemas/ActionPlanActivityLogEntry"
 
+  /organizations/{orgId}/action-plans/{planId}/planning/restore:
+    post:
+      tags: [action-plans]
+      operationId: restoreActionPlanPlanning
+      summary: Restaura o bloco Planejamento (5W2H + causa-raiz + porquês) de uma versão anterior
+      description: >
+        Aplica ao plano o conteúdo do bloco Planejamento registrado na entrada de
+        atividade informada. Gera uma nova entrada no histórico; nunca apaga nada.
+        Restaurar uma versão idêntica à atual é no-op.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: planId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [activityId]
+              properties:
+                activityId:
+                  type: integer
+                  description: Id da entrada de atividade cuja versão será restaurada.
+      responses:
+        "200":
+          description: Plano atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionPlan"
+        "403":
+          description: Sem permissão de escrita
+        "404":
+          description: Entrada não encontrada, de outro plano, ou sem bloco Planejamento
+        "409":
+          description: Plano encerrado
+
   /organizations/{orgId}/action-plans/ai-suggest:
     post:
       operationId: suggestActionPlanDraft

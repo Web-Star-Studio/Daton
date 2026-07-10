@@ -19208,6 +19208,201 @@ export const ListActionPlanActivityResponse = zod.array(
 );
 
 /**
+ * Aplica ao plano o conteúdo do bloco Planejamento registrado na entrada de atividade informada. Gera uma nova entrada no histórico; nunca apaga nada. Restaurar uma versão idêntica à atual é no-op.
+
+ * @summary Restaura o bloco Planejamento (5W2H + causa-raiz + porquês) de uma versão anterior
+ */
+export const RestoreActionPlanPlanningParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const RestoreActionPlanPlanningBody = zod.object({
+  activityId: zod
+    .number()
+    .describe("Id da entrada de atividade cuja versão será restaurada."),
+});
+
+export const restoreActionPlanPlanningResponseSourceRefKpiMonthMax = 12;
+
+export const restoreActionPlanPlanningResponseGutGravityMax = 5;
+
+export const restoreActionPlanPlanningResponseGutUrgencyMax = 5;
+
+export const restoreActionPlanPlanningResponseGutTendencyMax = 5;
+
+export const RestoreActionPlanPlanningResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  code: zod.string().nullish(),
+  sourceModule: zod.enum([
+    "kpi",
+    "swot",
+    "manual",
+    "nonconformity",
+    "audit_finding",
+    "risk",
+    "training",
+    "environmental",
+    "road_safety",
+    "incident",
+    "rac",
+  ]),
+  sourceRef: zod
+    .object({
+      kpiMonthlyValueId: zod.number().optional(),
+      kpiIndicatorId: zod.number().optional(),
+      kpiYear: zod.number().optional(),
+      kpiMonth: zod
+        .number()
+        .min(1)
+        .max(restoreActionPlanPlanningResponseSourceRefKpiMonthMax)
+        .optional(),
+      swotFactorId: zod.number().optional(),
+      swotFactorDescription: zod.string().optional(),
+      manualContext: zod.string().optional(),
+      nonconformityId: zod.number().optional(),
+      auditFindingId: zod.number().optional(),
+      riskOpportunityItemId: zod.number().optional(),
+      trainingId: zod.number().optional(),
+      laiaAssessmentId: zod.number().optional(),
+      roadSafetyFactorId: zod.number().optional(),
+      incidentDescription: zod.string().optional(),
+      criticalReviewId: zod.number().optional(),
+      racLabel: zod.string().optional(),
+    })
+    .describe(
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+    ),
+  sourceContext: zod
+    .object({
+      label: zod
+        .string()
+        .describe(
+          'Human-readable origin label, e.g. \"KPI · Indicador X · Mai\/2026\"',
+        ),
+      kpi: zod
+        .object({
+          indicatorId: zod.number(),
+          indicatorName: zod.string(),
+          year: zod.number(),
+          month: zod.number(),
+          value: zod.number().nullable(),
+          goal: zod.number().nullable(),
+          direction: zod.enum(["up", "down"]),
+        })
+        .nullish(),
+    })
+    .describe(
+      "Server-resolved context about the source, used for display in lists\/details",
+    ),
+  actionType: zod.enum(["corrective", "preventive", "improvement"]),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
+  priority: zod.enum(["low", "medium", "high"]),
+  gutGravity: zod
+    .number()
+    .min(1)
+    .max(restoreActionPlanPlanningResponseGutGravityMax)
+    .nullish(),
+  gutUrgency: zod
+    .number()
+    .min(1)
+    .max(restoreActionPlanPlanningResponseGutUrgencyMax)
+    .nullish(),
+  gutTendency: zod
+    .number()
+    .min(1)
+    .max(restoreActionPlanPlanningResponseGutTendencyMax)
+    .nullish(),
+  gutScore: zod
+    .number()
+    .nullish()
+    .describe("Server-computed G×U×T (1–125), null when any axis is unset"),
+  plan5w2h: zod
+    .union([
+      zod
+        .object({
+          what: zod.string().optional(),
+          why: zod.string().optional(),
+          where: zod.string().optional(),
+          who: zod.string().optional(),
+          when: zod.string().optional(),
+          how: zod.string().optional(),
+          howMuch: zod.string().optional(),
+        })
+        .describe(
+          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
+        ),
+      zod.null(),
+    ])
+    .optional(),
+  rootCause: zod.string().nullish(),
+  rootCauseWhys: zod.array(zod.string()).nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  correctiveActionDescription: zod.string().nullish(),
+  correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
+  effectivenessMethod: zod
+    .union([
+      zod.enum([
+        "indicator",
+        "internal_audit",
+        "field_inspection",
+        "training",
+        "sampling",
+        "risk_reduction",
+      ]),
+      zod.null(),
+    ])
+    .optional(),
+  effectivenessDueDate: zod.string().datetime({}).nullish(),
+  effectivenessEvaluatorUserId: zod.number().nullish(),
+  effectivenessEvaluatorUserName: zod.string().nullish(),
+  effectivenessResult: zod
+    .union([zod.enum(["effective", "ineffective", "pending"]), zod.null()])
+    .optional(),
+  effectivenessBefore: zod.string().nullish(),
+  effectivenessAfter: zod.string().nullish(),
+  effectivenessComment: zod.string().nullish(),
+  effectivenessCheckedAt: zod.string().datetime({}).nullish(),
+  odsNumbers: zod.array(zod.number()).nullish(),
+  normRefs: zod
+    .array(
+      zod.object({
+        code: zod.string(),
+        clause: zod.string().optional(),
+        description: zod.string().optional(),
+      }),
+    )
+    .nullish(),
+  relatedIndicatorIds: zod.array(zod.number()).nullish(),
+  relatedRiskIds: zod.array(zod.number()).nullish(),
+  createdByUserId: zod.number().nullish(),
+  createdByUserName: zod.string().nullish(),
+  closedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+  evidences: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        actionPlanId: zod.number(),
+        fileName: zod.string(),
+        fileSize: zod.number(),
+        contentType: zod.string(),
+        objectPath: zod.string(),
+        uploadedByUserId: zod.number().nullish(),
+        uploadedByUserName: zod.string().nullish(),
+        uploadedAt: zod.string().datetime({}),
+      }),
+    )
+    .optional(),
+});
+
+/**
  * @summary Draft 5W2H and 5-whys for an action plan from a problem statement (opt-in AI; never persisted)
  */
 export const SuggestActionPlanDraftParams = zod.object({
