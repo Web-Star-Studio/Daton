@@ -8,12 +8,11 @@ import {
   getListTrainingRequirementsQueryKey,
   useListPositions,
   getListPositionsQueryKey,
-  useListTrainingCatalog,
-  getListTrainingCatalogQueryKey,
   useListUnits,
   useListEmployeePositionChanges,
   getListEmployeePositionChangesQueryKey,
 } from "@workspace/api-client-react";
+import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import type {
   TrainingRequirement,
   EmployeePositionChange,
@@ -107,11 +106,8 @@ export default function ObrigatoriedadesPage() {
     query: { enabled: !!orgId, queryKey: getListPositionsQueryKey(orgId ?? 0) },
   });
   const { data: catalogResult, isLoading: catalogLoading } =
-    useListTrainingCatalog(orgId ?? 0, undefined, {
-    query: {
-      enabled: !!orgId,
-      queryKey: getListTrainingCatalogQueryKey(orgId ?? 0),
-    },
+    useAllTrainingCatalog(orgId ?? 0, undefined, {
+    query: { enabled: !!orgId },
   });
   const catalogItems = catalogResult?.data ?? [];
   const { data: units = [] } = useListUnits(orgId ?? 0);

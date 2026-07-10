@@ -5,13 +5,12 @@ import {
   getListOrganizationTrainingsQueryKey,
   useListTrainingClasses,
   getListTrainingClassesQueryKey,
-  useListTrainingCatalog,
-  getListTrainingCatalogQueryKey,
   useListUnits,
   getListUnitsQueryKey,
   useListPositions,
   getListPositionsQueryKey,
 } from "@workspace/api-client-react";
+import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import type {
   OrganizationTraining,
   OrganizationTrainingStatus,
@@ -225,16 +224,12 @@ export default function AprendizagemGestaoPage() {
   });
   const classes = classResult?.data ?? [];
 
-  // Catálogo sempre carregado: fornece os títulos das turmas E os valores reais
-  // de norma para o filtro (rótulos fixos não casariam com o param `norm`).
-  // pageSize alto para que as opções de norma (derivadas abaixo) cubram todo o
-  // catálogo, não só a primeira página padrão (ver review #139).
-  const catalogParams = { pageSize: 500 };
-  const { data: catalogResult } = useListTrainingCatalog(orgId, catalogParams, {
-    query: {
-      enabled,
-      queryKey: getListTrainingCatalogQueryKey(orgId, catalogParams),
-    },
+  // Catálogo sempre carregado por completo: fornece os títulos das turmas E os
+  // valores reais de norma para o filtro (rótulos fixos não casariam com o param
+  // `norm`). Busca todas as páginas — um pageSize fixo cortava a cauda alfabética
+  // conforme o catálogo crescia (ver review #139; a org já passou de 800 itens).
+  const { data: catalogResult } = useAllTrainingCatalog(orgId, undefined, {
+    query: { enabled },
   });
   const catalogTitle = useMemo(
     () => new Map((catalogResult?.data ?? []).map((c) => [c.id, c.title])),

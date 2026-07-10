@@ -5,11 +5,10 @@ import {
   useCreateTrainingEffectivenessReview,
   useAssignTrainingEffectiveness,
   useListUnits,
-  useListTrainingCatalog,
   getListOrganizationTrainingsQueryKey,
   getListUnitsQueryKey,
-  getListTrainingCatalogQueryKey,
 } from "@workspace/api-client-react";
+import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import type {
   OrganizationTraining,
   ListOrganizationTrainingsEvaluatorRole,
@@ -167,12 +166,8 @@ export default function EficaciaPage() {
     query: { enabled: !!orgId, queryKey: getListUnitsQueryKey(orgId ?? 0) },
   });
 
-  const catalogParams = { pageSize: 500 };
-  const { data: catalog } = useListTrainingCatalog(orgId ?? 0, catalogParams, {
-    query: {
-      enabled: !!orgId,
-      queryKey: getListTrainingCatalogQueryKey(orgId ?? 0, catalogParams),
-    },
+  const { data: catalog } = useAllTrainingCatalog(orgId ?? 0, undefined, {
+    query: { enabled: !!orgId },
   });
 
   const unitOptions = useMemo(

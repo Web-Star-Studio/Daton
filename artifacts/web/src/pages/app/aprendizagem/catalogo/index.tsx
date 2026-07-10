@@ -2,16 +2,15 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
-  useListTrainingCatalog,
   useCreateTrainingCatalogItem,
   useUpdateTrainingCatalogItem,
   useDeleteTrainingCatalogItem,
-  getListTrainingCatalogQueryKey,
   useListUserOptions,
   getListUserOptionsQueryKey,
   useListCompetencyCatalog,
   getListCompetencyCatalogQueryKey,
 } from "@workspace/api-client-react";
+import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import type {
   TrainingCatalogItem,
   CreateTrainingCatalogItemBody,
@@ -190,16 +189,9 @@ export default function CatalogoPage() {
     [search, norm, category, modality],
   );
 
-  const { data: result, isLoading } = useListTrainingCatalog(
-    orgId ?? 0,
-    params,
-    {
-      query: {
-        enabled: !!orgId,
-        queryKey: getListTrainingCatalogQueryKey(orgId ?? 0, params),
-      },
-    },
-  );
+  const { data: result, isLoading } = useAllTrainingCatalog(orgId ?? 0, params, {
+    query: { enabled: !!orgId },
+  });
   const items = result?.data ?? [];
   const activeCount = useMemo(
     () => items.filter((i) => i.status === "ativo").length,
@@ -216,7 +208,7 @@ export default function CatalogoPage() {
   const invalidate = () => {
     if (orgId)
       queryClient.invalidateQueries({
-        queryKey: getListTrainingCatalogQueryKey(orgId),
+        queryKey: ["all-training-catalog", orgId],
       });
   };
 
