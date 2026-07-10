@@ -144,6 +144,10 @@ describe("restore planning version", () => {
       .select()
       .from(actionPlanActivityLogTable)
       .where(eq(actionPlanActivityLogTable.actionPlanId, planId));
+    const [planBefore] = await db
+      .select()
+      .from(actionPlansTable)
+      .where(eq(actionPlansTable.id, planId));
 
     await restore(context, planId, version).expect(200);
 
@@ -152,6 +156,16 @@ describe("restore planning version", () => {
       .from(actionPlanActivityLogTable)
       .where(eq(actionPlanActivityLogTable.actionPlanId, planId));
     expect(after.length).toBe(before.length);
+
+    // The no-op branch (routes/action-plans.ts, restore handler) must return
+    // before reaching the `db.update(...)` that stamps `updatedAt: new Date()`.
+    // If that early return were ever removed, this row's timestamp would move
+    // even though nothing about the plan actually changed.
+    const [planAfter] = await db
+      .select()
+      .from(actionPlansTable)
+      .where(eq(actionPlansTable.id, planId));
+    expect(planAfter.updatedAt).toEqual(planBefore.updatedAt);
   });
 
   it("404s for an activity id that belongs to another plan", async () => {
@@ -170,6 +184,95 @@ describe("restore planning version", () => {
     const foreign = await lastPlanningActivityId(otherPlanId);
 
     await restore(context, planId, foreign).expect(404);
+  });
+
+  it("404s for an activityId that belongs to another organization's plan, leaving the caller's plan untouched", async () => {
+    const contextA = await createTestContext({ seed: "restore-cross-org-a" });
+    contexts.push(contextA);
+    const contextB = await createTestContext({ seed: "restore-cross-org-b" });
+    contexts.push(contextB);
+
+    const planA = await createPlan(contextA.organizationId);
+    const planB = await createPlan(contextB.organizationId);
+
+    // Generate a planning entry that lives entirely under organization B.
+    await request(app)
+      .patch(
+        `/api/organizations/${contextB.organizationId}/action-plans/${planB}`,
+      )
+      .set(authHeader(contextB))
+      .send({ plan5w2h: { what: "Plano da organização B" } })
+      .expect(200);
+    const foreignOrgActivityId = await lastPlanningActivityId(planB);
+
+    const [planABefore] = await db
+      .select()
+      .from(actionPlansTable)
+      .where(eq(actionPlansTable.id, planA));
+
+    // Authenticated as organization A, targeting organization A's own plan,
+    // but pointing at an activityId that only exists under organization B.
+    await restore(contextA, planA, foreignOrgActivityId).expect(404);
+
+    const [planAAfter] = await db
+      .select()
+      .from(actionPlansTable)
+      .where(eq(actionPlansTable.id, planA));
+    expect(planAAfter.plan5w2h).toBeNull();
+    expect(planAAfter.rootCause).toBeNull();
+    expect(planAAfter.updatedAt).toEqual(planABefore.updatedAt);
+  });
+
+  it("404s for an activityId whose actionPlanId matches but whose organizationId doesn't (defense in depth)", async () => {
+    // This isolates the `organizationId` clause of the restore query from the
+    // `actionPlanId` clause: it crafts a log row that already points at the
+    // caller's own plan (so the actionPlanId match alone would let it through)
+    // but is stamped with a foreign organizationId — something the write path
+    // never produces today, but the read-side query must still reject on its
+    // own, in case that invariant is ever broken by a future change.
+    const contextA = await createTestContext({ seed: "restore-cross-org-strict-a" });
+    contexts.push(contextA);
+    const contextB = await createTestContext({ seed: "restore-cross-org-strict-b" });
+    contexts.push(contextB);
+
+    const planA = await createPlan(contextA.organizationId);
+
+    const [mismatchedEntry] = await db
+      .insert(actionPlanActivityLogTable)
+      .values({
+        organizationId: contextB.organizationId,
+        actionPlanId: planA,
+        action: "updated",
+        changes: {
+          kind: "diff",
+          fields: {
+            planning: {
+              from: { plan5w2h: null, rootCause: null, rootCauseWhys: null },
+              to: {
+                plan5w2h: { what: "Conteúdo indevido" },
+                rootCause: "Causa indevida",
+                rootCauseWhys: null,
+              },
+            },
+          },
+        },
+      })
+      .returning({ id: actionPlanActivityLogTable.id });
+
+    const [planABefore] = await db
+      .select()
+      .from(actionPlansTable)
+      .where(eq(actionPlansTable.id, planA));
+
+    await restore(contextA, planA, mismatchedEntry.id).expect(404);
+
+    const [planAAfter] = await db
+      .select()
+      .from(actionPlansTable)
+      .where(eq(actionPlansTable.id, planA));
+    expect(planAAfter.plan5w2h).toBeNull();
+    expect(planAAfter.rootCause).toBeNull();
+    expect(planAAfter.updatedAt).toEqual(planABefore.updatedAt);
   });
 
   it("404s for an entry that carries no planning block", async () => {
