@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  History,
   Loader2,
   Lock,
   Paperclip,
@@ -66,6 +67,7 @@ import { CausaRaiz } from "./_components/causa-raiz";
 import { EficaciaPanel, type EficaciaValue } from "./_components/eficacia-panel";
 import { Vinculos } from "./_components/vinculos";
 import { ComentariosHistorico } from "./_components/comentarios-historico";
+import { PlanningVersionsDialog, usePlanningVersionCount } from "./_components/planning-versions-dialog";
 
 const STATUS_OPTIONS: ActionPlanStatus[] = ["open", "in_progress", "completed", "cancelled"];
 const PRIORITY_OPTIONS: ActionPlanPriority[] = ["low", "medium", "high"];
@@ -146,6 +148,8 @@ export default function ActionPlanFichaPage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const planningVersionCount = usePlanningVersionCount(orgId, planId);
 
   // Edit guard: an encerrado plan (or a read-only role) can't be edited/autosaved.
   const isLocked = !!plan && isActionPlanEncerrado(plan);
@@ -619,36 +623,69 @@ export default function ActionPlanFichaPage() {
 
           <Section
             id="etapa-planejamento"
-            title="Plano de ação (5W2H)"
-            action={canEdit ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                isLoading={suggestDraft.isPending}
-                disabled={!form.description.trim() && !form.title.trim()}
-                onClick={() => void handleSuggest()}
-                title="Rascunhar 5W2H e 5 porquês a partir do problema (IA). Você revisa antes de salvar."
-              >
-                {!suggestDraft.isPending && <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
-                Sugerir plano (IA)
-              </Button>
-            ) : undefined}
+            title="Planejamento"
+            action={
+              <div className="flex items-center gap-1.5">
+                {planningVersionCount > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVersionsOpen(true)}
+                  >
+                    <History className="mr-1.5 h-3.5 w-3.5" />
+                    Versões ({planningVersionCount})
+                  </Button>
+                )}
+                {canEdit && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    isLoading={suggestDraft.isPending}
+                    disabled={!form.description.trim() && !form.title.trim()}
+                    onClick={() => void handleSuggest()}
+                  >
+                    {!suggestDraft.isPending && <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+                    Sugerir plano (IA)
+                  </Button>
+                )}
+              </div>
+            }
           >
-            <Plano5W2H value={form.plan5w2h} onChange={(v) => patch("plan5w2h", v)} readOnly={!canEdit} />
+            <div className="space-y-6">
+              <div>
+                <h4 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Plano de ação (5W2H)
+                </h4>
+                <Plano5W2H value={form.plan5w2h} onChange={(v) => patch("plan5w2h", v)} readOnly={!canEdit} />
+              </div>
+              <div>
+                <h4 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Causa raiz (5 porquês)
+                </h4>
+                <CausaRaiz
+                  rootCause={form.rootCause}
+                  whys={form.rootCauseWhys}
+                  onChange={({ rootCause, whys }) => {
+                    setForm((f) => ({ ...f, rootCause, rootCauseWhys: whys }));
+                    setDirty(true);
+                  }}
+                  readOnly={!canEdit}
+                />
+              </div>
+            </div>
           </Section>
 
-          <Section title="Causa raiz (5 porquês)">
-            <CausaRaiz
-              rootCause={form.rootCause}
-              whys={form.rootCauseWhys}
-              onChange={({ rootCause, whys }) => {
-                setForm((f) => ({ ...f, rootCause, rootCauseWhys: whys }));
-                setDirty(true);
-              }}
-              readOnly={!canEdit}
+          {planId && (
+            <PlanningVersionsDialog
+              orgId={orgId}
+              planId={planId}
+              canEdit={canEdit}
+              open={versionsOpen}
+              onOpenChange={setVersionsOpen}
             />
-          </Section>
+          )}
 
           <Section id="etapa-execucao" title="Comentários e histórico">
             <ComentariosHistorico orgId={orgId} planId={plan.id} canWrite={canWrite} />
