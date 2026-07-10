@@ -70,3 +70,27 @@ export function describeBatchResult({
 
   return parts.join(" · ");
 }
+
+/**
+ * Decide how the dialog should react to a batch outcome: toast title, whether it
+ * is an error/warning, and whether to close. Any real failure (não-duplicado)
+ * keeps the dialog open so the user can retry the failed cargos — retry is safe
+ * because the ones already created come back as duplicates (409 → "já existia").
+ */
+export function resolveBatchOutcome({ created, failed }: BatchResult): {
+  title: string;
+  destructive: boolean;
+  close: boolean;
+} {
+  if (failed > 0) {
+    return {
+      title: created > 0 ? "Salvo parcialmente" : "Não foi possível salvar",
+      destructive: true,
+      close: false,
+    };
+  }
+  if (created > 0) {
+    return { title: "Obrigatoriedades salvas", destructive: false, close: true };
+  }
+  return { title: "Nada a criar", destructive: false, close: true };
+}

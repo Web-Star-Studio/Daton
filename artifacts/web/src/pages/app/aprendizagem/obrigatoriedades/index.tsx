@@ -16,6 +16,7 @@ import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import {
   createRequirementsForPositions,
   describeBatchResult,
+  resolveBatchOutcome,
 } from "@/lib/training-requirements-batch";
 import { normalizeForComparison } from "@/lib/position-requirements";
 import { toast } from "@/hooks/use-toast";
@@ -268,21 +269,15 @@ export default function ObrigatoriedadesPage() {
     );
     invalidate();
 
-    const description = describeBatchResult(result);
-    if (result.created > 0) {
-      toast({ title: "Obrigatoriedades salvas", description });
-      setOpen(false);
-    } else if (result.failed > 0) {
-      toast({
-        title: "Não foi possível salvar",
-        description,
-        variant: "destructive",
-      });
-    } else {
-      // Só duplicados: nada a criar, mas nada deu errado.
-      toast({ title: "Nada a criar", description });
-      setOpen(false);
-    }
+    // Qualquer falha real (não-duplicado) mantém o diálogo aberto para retentar
+    // os cargos que falharam — retentar é seguro (os já criados voltam como 409).
+    const outcome = resolveBatchOutcome(result);
+    toast({
+      title: outcome.title,
+      description: describeBatchResult(result),
+      ...(outcome.destructive ? { variant: "destructive" as const } : {}),
+    });
+    if (outcome.close) setOpen(false);
   };
 
   const handleDelete = async (r: TrainingRequirement) => {

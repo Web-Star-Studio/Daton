@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createRequirementsForPositions,
   describeBatchResult,
+  resolveBatchOutcome,
 } from "@/lib/training-requirements-batch";
 
 describe("createRequirementsForPositions", () => {
@@ -84,5 +85,49 @@ describe("describeBatchResult", () => {
     expect(describeBatchResult({ created: 0, skipped: 0, failed: 2 })).toBe(
       "2 falharam",
     );
+  });
+});
+
+describe("resolveBatchOutcome", () => {
+  it("closes with a success toast when everything created", () => {
+    expect(resolveBatchOutcome({ created: 5, skipped: 0, failed: 0 })).toEqual({
+      title: "Obrigatoriedades salvas",
+      destructive: false,
+      close: true,
+    });
+  });
+
+  it("still succeeds and closes when the rest were duplicates", () => {
+    expect(resolveBatchOutcome({ created: 5, skipped: 2, failed: 0 })).toEqual({
+      title: "Obrigatoriedades salvas",
+      destructive: false,
+      close: true,
+    });
+  });
+
+  it("closes quietly when there was nothing new (all duplicates)", () => {
+    expect(resolveBatchOutcome({ created: 0, skipped: 3, failed: 0 })).toEqual({
+      title: "Nada a criar",
+      destructive: false,
+      close: true,
+    });
+  });
+
+  it("keeps the dialog open on a full failure so the user can retry", () => {
+    expect(resolveBatchOutcome({ created: 0, skipped: 0, failed: 2 })).toEqual({
+      title: "Não foi possível salvar",
+      destructive: true,
+      close: false,
+    });
+  });
+
+  it("keeps the dialog open on a partial failure and flags it as partial", () => {
+    // The successful ones persist; retrying re-sends all and the created ones
+    // simply come back as duplicates (409), so keeping it open is safe.
+    expect(resolveBatchOutcome({ created: 3, skipped: 1, failed: 1 })).toEqual({
+      title: "Salvo parcialmente",
+      destructive: true,
+      close: false,
+    });
   });
 });
