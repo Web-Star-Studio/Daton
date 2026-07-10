@@ -162,6 +162,15 @@ async function applyOrg(
     const ids: number[] = [];
     const seen = new Set<number>();
     for (const code of codes) {
+      // Array mista (já parcialmente migrada): preserva ids numéricos que já
+      // apontam pro catálogo em vez de descartá-los.
+      if (typeof code === "number") {
+        if (!seen.has(code)) {
+          seen.add(code);
+          ids.push(code);
+        }
+        continue;
+      }
       const label =
         typeof code === "string" ? KPI_CODE_TO_LABEL[code] : undefined;
       if (!label) continue; // código desconhecido: descarta
