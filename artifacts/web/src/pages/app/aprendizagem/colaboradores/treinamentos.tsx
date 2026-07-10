@@ -16,8 +16,6 @@ import {
   useCreateTraining,
   useUpdateTraining,
   useDeleteTraining,
-  useListTrainingCatalog,
-  getListTrainingCatalogQueryKey,
   useListCompetencyCatalog,
   getListCompetencyCatalogQueryKey,
   useCreateCompetencyCatalogItem,
@@ -32,6 +30,7 @@ import {
   CreateTrainingBodyStatus as CreateTrainingBodyStatusValues,
   CreateTrainingBodyTargetCompetencyType as CreateTrainingBodyTargetCompetencyTypeValues,
 } from "@workspace/api-client-react";
+import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import type {
   CreateTrainingBodyStatus,
   CreateTrainingBodyTargetCompetencyType,
@@ -810,17 +809,10 @@ export default function ColaboradoresTreinamentosPage() {
   });
   const employees = employeesResult?.data ?? [];
   const { data: units = [] } = useListUnits(orgId ?? 0);
-  const { data: catalogResult } = useListTrainingCatalog(
+  const { data: catalogResult } = useAllTrainingCatalog(
     orgId ?? 0,
     { status: "ativo" },
-    {
-      query: {
-        enabled: !!orgId,
-        queryKey: getListTrainingCatalogQueryKey(orgId ?? 0, {
-          status: "ativo",
-        }),
-      },
-    },
+    { query: { enabled: !!orgId } },
   );
   const catalogItems = catalogResult?.data ?? [];
   const { data: competencyCatalogResult, isLoading: competencyLoading } =
