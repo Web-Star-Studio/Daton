@@ -25,6 +25,7 @@ function serialize(row: typeof trainingRequirementsTable.$inferSelect) {
   return {
     ...row,
     filialUnitIds: (row.filialUnitIds as number[]) ?? [],
+    normIds: (row.normIds as number[]) ?? [],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -197,7 +198,7 @@ router.post(
         filialUnitIds: body.data.filialUnitIds ?? [],
         recurrence: body.data.recurrence ?? "nao_repete",
         isCritical: body.data.isCritical ?? false,
-        norm: body.data.norm ?? null,
+        normIds: body.data.normIds ?? [],
         notes: body.data.notes ?? null,
       })
       .returning();
@@ -267,7 +268,7 @@ router.patch(
     if (b.filialUnitIds !== undefined) updates.filialUnitIds = b.filialUnitIds;
     if (b.recurrence !== undefined) updates.recurrence = b.recurrence;
     if (b.isCritical !== undefined) updates.isCritical = b.isCritical;
-    if (b.norm !== undefined) updates.norm = b.norm;
+    if (b.normIds !== undefined) updates.normIds = b.normIds;
     if (b.notes !== undefined) updates.notes = b.notes;
 
     try {

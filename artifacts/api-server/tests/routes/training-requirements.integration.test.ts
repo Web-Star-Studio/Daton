@@ -65,6 +65,42 @@ describe("training-requirements routes", () => {
     expect(removed.status).toBe(204);
   });
 
+  it("normIds faz round-trip (POST grava, GET retorna)", async () => {
+    const context = await createTestContext({ seed: "training-req-normids" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-requirements`;
+    const position = await createPosition(context, { name: `Cargo ${context.prefix}` });
+    const catalogItemId = await createCatalogItem(context, `Treino ${context.prefix}`);
+
+    const created = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({
+        positionId: position.id,
+        catalogItemId,
+        deadlineType: "fixo",
+        deadlineDays: 30,
+        scope: "geral",
+        normIds: [42],
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.normIds).toEqual([42]);
+
+    const listed = await request(app)
+      .get(`${base}?positionId=${position.id}`)
+      .set(authHeader(context));
+    expect(listed.status).toBe(200);
+    const found = listed.body.data.find((r: { id: number }) => r.id === created.body.id);
+    expect(found?.normIds).toEqual([42]);
+
+    const patched = await request(app)
+      .patch(`${base}/${created.body.id}`)
+      .set(authHeader(context))
+      .send({ normIds: [42, 7] });
+    expect(patched.status).toBe(200);
+    expect(patched.body.normIds).toEqual([42, 7]);
+  });
+
   it("rejeita obrigatoriedade duplicada (mesmo cargo+treinamento+escopo)", async () => {
     const context = await createTestContext({ seed: "training-req-dup" });
     contexts.push(context);
