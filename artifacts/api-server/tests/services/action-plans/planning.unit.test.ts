@@ -48,6 +48,26 @@ describe("normalizePlanning", () => {
       rootCauseWhys: ["Porque sim"],
     });
   });
+
+  // jsonb columns only enforce their shape at compile time via `.$type<>()` — at
+  // runtime Postgres (and any code path that skipped validation) happily stores
+  // whatever JSON it was given. A row with non-string elements in `rootCauseWhys`
+  // or a non-string `plan5w2h` value must not crash `normalizePlanning`; those
+  // elements should just be discarded like other unusable values. The cast below
+  // escapes the compile-time type on purpose, since the point is runtime behavior.
+  it("discards non-string elements instead of throwing", () => {
+    expect(
+      normalizePlanning({
+        plan5w2h: { what: "Treinar", why: 123 },
+        rootCause: "Causa",
+        rootCauseWhys: ["Porque sim", null, 42, { note: "not a string" }],
+      } as unknown as Parameters<typeof normalizePlanning>[0]),
+    ).toEqual({
+      plan5w2h: { what: "Treinar" },
+      rootCause: "Causa",
+      rootCauseWhys: ["Porque sim"],
+    });
+  });
 });
 
 describe("planningChanged", () => {

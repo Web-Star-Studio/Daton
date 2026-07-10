@@ -44,6 +44,7 @@ export function normalizePlanning(block: PlanningSource): PlanningBlock {
   const rootCause = block.rootCause?.trim() || null;
 
   const whys = (block.rootCauseWhys ?? [])
+    .filter((why): why is string => typeof why === "string")
     .map((why) => why.trim())
     .filter(Boolean);
 
