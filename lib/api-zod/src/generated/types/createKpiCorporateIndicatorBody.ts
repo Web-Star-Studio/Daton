@@ -36,7 +36,7 @@ export interface CreateKpiCorporateIndicatorBody {
   referenceMonth?: number | null;
   /** @nullable */
   category?: string | null;
-  norms?: string[];
+  norms?: number[];
   /** @nullable */
   responsibleUserId?: number | null;
 }

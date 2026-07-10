@@ -67,6 +67,8 @@ tags:
     description: Turmas — instâncias agendadas de treinamento (presença, notas, evidências)
   - name: annual-program
     description: Programa Anual de Treinamento (PAT) — itens planejados por ano/filial
+  - name: norms
+    description: Catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento)
 
 paths:
   /healthz:
@@ -9143,6 +9145,80 @@ paths:
         "204":
           description: Deleted
 
+  /organizations/{orgId}/norms:
+    get:
+      operationId: listNorms
+      tags: [norms]
+      summary: List the organization's regulatory norm catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Regulatory norms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegulatoryNorm"
+    post:
+      operationId: createNorm
+      tags: [norms]
+      summary: Add a norm to the organization's regulatory norm catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRegulatoryNormBody"
+      responses:
+        "201":
+          description: Norm created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryNorm"
+
+  /organizations/{orgId}/norms/{normId}:
+    patch:
+      operationId: updateNorm
+      tags: [norms]
+      summary: Update a regulatory norm (label, active flag or sort order)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: normId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRegulatoryNormBody"
+      responses:
+        "200":
+          description: Norm updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryNorm"
+
   /organizations/{orgId}/action-plans:
     get:
       operationId: listActionPlans
@@ -10748,6 +10824,12 @@ components:
         norm:
           type: string
           nullable: true
+          deprecated: true
+          description: "Deprecated — use normIds. Kept for backward compatibility."
+        normIds:
+          type: array
+          items:
+            type: integer
         notes:
           type: string
           nullable: true
@@ -10794,6 +10876,12 @@ components:
           type: boolean
         norm:
           type: string
+          deprecated: true
+          description: "Deprecated — use normIds. Kept for backward compatibility."
+        normIds:
+          type: array
+          items:
+            type: integer
         notes:
           type: string
       required:
@@ -10825,6 +10913,12 @@ components:
           type: boolean
         norm:
           type: string
+          deprecated: true
+          description: "Deprecated — use normIds. Kept for backward compatibility."
+        normIds:
+          type: array
+          items:
+            type: integer
         notes:
           type: string
 
@@ -17895,7 +17989,7 @@ components:
         norms:
           type: array
           items:
-            type: string
+            type: integer
         computedSource:
           type: string
           nullable: true
@@ -17965,7 +18059,7 @@ components:
         norms:
           type: array
           items:
-            type: string
+            type: integer
         objectiveId:
           type: integer
           nullable: true
@@ -18027,7 +18121,7 @@ components:
         norms:
           type: array
           items:
-            type: string
+            type: integer
 
     KpiYearConfig:
       type: object
@@ -18242,7 +18336,7 @@ components:
         norms:
           type: array
           items:
-            type: string
+            type: integer
         responsibleUserId:
           type: [integer, "null"]
       required: [name, strategy, childIndicatorIds, direction, periodicity]
@@ -18613,6 +18707,41 @@ components:
           minLength: 1
       required:
         - name
+
+    RegulatoryNorm:
+      type: object
+      description: "Item do catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento)."
+      required: [id, organizationId, label, active, sortOrder]
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        label:
+          type: string
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    CreateRegulatoryNormBody:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+
+    UpdateRegulatoryNormBody:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
 
     ActionPlanSourceModule:
       type: string

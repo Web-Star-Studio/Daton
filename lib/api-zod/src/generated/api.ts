@@ -14582,7 +14582,7 @@ export const ListKpiIndicatorsResponseItem = zod.object({
       "Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.",
     ),
   category: zod.string().nullish(),
-  norms: zod.array(zod.string()),
+  norms: zod.array(zod.number()),
   computedSource: zod
     .string()
     .nullish()
@@ -14647,7 +14647,7 @@ export const CreateKpiIndicatorBody = zod.object({
     .max(createKpiIndicatorBodyReferenceMonthMax)
     .nullish(),
   category: zod.string().nullish(),
-  norms: zod.array(zod.string()).optional(),
+  norms: zod.array(zod.number()).optional(),
   objectiveId: zod.number().nullish(),
   goal: zod.number().nullish(),
   seq: zod.number().nullish(),
@@ -14703,7 +14703,7 @@ export const UpdateKpiIndicatorBody = zod.object({
     .max(updateKpiIndicatorBodyReferenceMonthMax)
     .nullish(),
   category: zod.string().nullish(),
-  norms: zod.array(zod.string()).optional(),
+  norms: zod.array(zod.number()).optional(),
 });
 
 export const updateKpiIndicatorResponseFormulaVariablesItemKeyRegExp =
@@ -14768,7 +14768,7 @@ export const UpdateKpiIndicatorResponse = zod.object({
       "Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.",
     ),
   category: zod.string().nullish(),
-  norms: zod.array(zod.string()),
+  norms: zod.array(zod.number()),
   computedSource: zod
     .string()
     .nullish()
@@ -14874,7 +14874,7 @@ export const ListKpiYearDataResponseItem = zod.object({
         "Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.",
       ),
     category: zod.string().nullish(),
-    norms: zod.array(zod.string()),
+    norms: zod.array(zod.number()),
     computedSource: zod
       .string()
       .nullish()
@@ -17865,7 +17865,7 @@ export const CreateKpiCorporateIndicatorBody = zod
     periodicity: zod.string(),
     referenceMonth: zod.number().nullish(),
     category: zod.string().nullish(),
-    norms: zod.array(zod.string()).optional(),
+    norms: zod.array(zod.number()).optional(),
     responsibleUserId: zod.number().nullish(),
   })
   .describe(
@@ -18282,6 +18282,63 @@ export const DeleteSwotPerspectiveParams = zod.object({
   orgId: zod.coerce.number(),
   perspectiveId: zod.coerce.number(),
 });
+
+/**
+ * @summary List the organization's regulatory norm catalog
+ */
+export const ListNormsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListNormsResponseItem = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento).",
+  );
+export const ListNormsResponse = zod.array(ListNormsResponseItem);
+
+/**
+ * @summary Add a norm to the organization's regulatory norm catalog
+ */
+export const CreateNormParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateNormBody = zod.object({
+  label: zod.string().min(1),
+});
+
+/**
+ * @summary Update a regulatory norm (label, active flag or sort order)
+ */
+export const UpdateNormParams = zod.object({
+  orgId: zod.coerce.number(),
+  normId: zod.coerce.number(),
+});
+
+export const UpdateNormBody = zod.object({
+  label: zod.string().min(1).optional(),
+  active: zod.boolean().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateNormResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento).",
+  );
 
 /**
  * @summary List action plans in the organization with filters
@@ -20041,7 +20098,13 @@ export const ListTrainingRequirementsResponse = zod.object({
         filialUnitIds: zod.array(zod.number()),
         recurrence: zod.string(),
         isCritical: zod.boolean(),
-        norm: zod.string().nullish(),
+        norm: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — use normIds. Kept for backward compatibility.",
+          ),
+        normIds: zod.array(zod.number()).optional(),
         notes: zod.string().nullish(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -20068,7 +20131,11 @@ export const CreateTrainingRequirementBody = zod.object({
   filialUnitIds: zod.array(zod.number()).optional(),
   recurrence: zod.string().optional(),
   isCritical: zod.boolean().optional(),
-  norm: zod.string().optional(),
+  norm: zod
+    .string()
+    .optional()
+    .describe("Deprecated — use normIds. Kept for backward compatibility."),
+  normIds: zod.array(zod.number()).optional(),
   notes: zod.string().optional(),
 });
 
@@ -20098,7 +20165,13 @@ export const PreviewTrainingRequirementsResponse = zod.object({
         filialUnitIds: zod.array(zod.number()),
         recurrence: zod.string(),
         isCritical: zod.boolean(),
-        norm: zod.string().nullish(),
+        norm: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — use normIds. Kept for backward compatibility.",
+          ),
+        normIds: zod.array(zod.number()).optional(),
         notes: zod.string().nullish(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -20126,7 +20199,11 @@ export const UpdateTrainingRequirementBody = zod.object({
   filialUnitIds: zod.array(zod.number()).optional(),
   recurrence: zod.string().optional(),
   isCritical: zod.boolean().optional(),
-  norm: zod.string().optional(),
+  norm: zod
+    .string()
+    .optional()
+    .describe("Deprecated — use normIds. Kept for backward compatibility."),
+  normIds: zod.array(zod.number()).optional(),
   notes: zod.string().optional(),
 });
 
@@ -20142,7 +20219,11 @@ export const UpdateTrainingRequirementResponse = zod
     filialUnitIds: zod.array(zod.number()),
     recurrence: zod.string(),
     isCritical: zod.boolean(),
-    norm: zod.string().nullish(),
+    norm: zod
+      .string()
+      .nullish()
+      .describe("Deprecated — use normIds. Kept for backward compatibility."),
+    normIds: zod.array(zod.number()).optional(),
     notes: zod.string().nullish(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),

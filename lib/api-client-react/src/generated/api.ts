@@ -90,6 +90,7 @@ import type {
   CreatePositionCompetencyRequirementBody,
   CreateRegulatoryDocumentBody,
   CreateRegulatoryDocumentRenewalBody,
+  CreateRegulatoryNormBody,
   CreateRoadSafetyFactorBody,
   CreateRoadSafetyMeasurementBody,
   CreateSgqProcessBody,
@@ -244,6 +245,7 @@ import type {
   RegulatoryDocumentAttachment,
   RegulatoryDocumentAuditEntry,
   RegulatoryDocumentRenewal,
+  RegulatoryNorm,
   RejectDocumentBody,
   RequestPasswordResetBody,
   RestoreActionPlanPlanningBody,
@@ -324,6 +326,7 @@ import type {
   UpdatePositionCompetencyRequirementBody,
   UpdateRegulatoryDocumentBody,
   UpdateRegulatoryDocumentRenewalBody,
+  UpdateRegulatoryNormBody,
   UpdateRoadSafetyFactorBody,
   UpdateSgqProcessBody,
   UpdateStrategicPlanActionBody,
@@ -31842,6 +31845,266 @@ export const useDeleteSwotPerspective = <
   TContext
 > => {
   return useMutation(getDeleteSwotPerspectiveMutationOptions(options));
+};
+
+/**
+ * @summary List the organization's regulatory norm catalog
+ */
+export const getListNormsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/norms`;
+};
+
+export const listNorms = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<RegulatoryNorm[]> => {
+  return customFetch<RegulatoryNorm[]>(getListNormsUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListNormsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/norms`] as const;
+};
+
+export const getListNormsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listNorms>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listNorms>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListNormsQueryKey(orgId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listNorms>>> = ({
+    signal,
+  }) => listNorms(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof listNorms>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type ListNormsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listNorms>>
+>;
+export type ListNormsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the organization's regulatory norm catalog
+ */
+
+export function useListNorms<
+  TData = Awaited<ReturnType<typeof listNorms>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listNorms>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListNormsQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a norm to the organization's regulatory norm catalog
+ */
+export const getCreateNormUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/norms`;
+};
+
+export const createNorm = async (
+  orgId: number,
+  createRegulatoryNormBody: CreateRegulatoryNormBody,
+  options?: RequestInit,
+): Promise<RegulatoryNorm> => {
+  return customFetch<RegulatoryNorm>(getCreateNormUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createRegulatoryNormBody),
+  });
+};
+
+export const getCreateNormMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createNorm>>,
+    TError,
+    { orgId: number; data: BodyType<CreateRegulatoryNormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createNorm>>,
+  TError,
+  { orgId: number; data: BodyType<CreateRegulatoryNormBody> },
+  TContext
+> => {
+  const mutationKey = ["createNorm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createNorm>>,
+    { orgId: number; data: BodyType<CreateRegulatoryNormBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createNorm(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateNormMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createNorm>>
+>;
+export type CreateNormMutationBody = BodyType<CreateRegulatoryNormBody>;
+export type CreateNormMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a norm to the organization's regulatory norm catalog
+ */
+export const useCreateNorm = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createNorm>>,
+    TError,
+    { orgId: number; data: BodyType<CreateRegulatoryNormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createNorm>>,
+  TError,
+  { orgId: number; data: BodyType<CreateRegulatoryNormBody> },
+  TContext
+> => {
+  return useMutation(getCreateNormMutationOptions(options));
+};
+
+/**
+ * @summary Update a regulatory norm (label, active flag or sort order)
+ */
+export const getUpdateNormUrl = (orgId: number, normId: number) => {
+  return `/api/organizations/${orgId}/norms/${normId}`;
+};
+
+export const updateNorm = async (
+  orgId: number,
+  normId: number,
+  updateRegulatoryNormBody: UpdateRegulatoryNormBody,
+  options?: RequestInit,
+): Promise<RegulatoryNorm> => {
+  return customFetch<RegulatoryNorm>(getUpdateNormUrl(orgId, normId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateRegulatoryNormBody),
+  });
+};
+
+export const getUpdateNormMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateNorm>>,
+    TError,
+    { orgId: number; normId: number; data: BodyType<UpdateRegulatoryNormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateNorm>>,
+  TError,
+  { orgId: number; normId: number; data: BodyType<UpdateRegulatoryNormBody> },
+  TContext
+> => {
+  const mutationKey = ["updateNorm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateNorm>>,
+    { orgId: number; normId: number; data: BodyType<UpdateRegulatoryNormBody> }
+  > = (props) => {
+    const { orgId, normId, data } = props ?? {};
+
+    return updateNorm(orgId, normId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateNormMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateNorm>>
+>;
+export type UpdateNormMutationBody = BodyType<UpdateRegulatoryNormBody>;
+export type UpdateNormMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a regulatory norm (label, active flag or sort order)
+ */
+export const useUpdateNorm = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateNorm>>,
+    TError,
+    { orgId: number; normId: number; data: BodyType<UpdateRegulatoryNormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateNorm>>,
+  TError,
+  { orgId: number; normId: number; data: BodyType<UpdateRegulatoryNormBody> },
+  TContext
+> => {
+  return useMutation(getUpdateNormMutationOptions(options));
 };
 
 /**
