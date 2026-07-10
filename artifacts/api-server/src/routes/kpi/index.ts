@@ -9,6 +9,7 @@ import {
   kpiMonthlyValuesTable,
   kpiObjectivesTable,
   kpiYearConfigsTable,
+  regulatoryNormsTable,
   unitsTable,
   usersTable,
   type KpiMonthlyValueJustification as DbKpiMonthlyValueJustification,
@@ -58,6 +59,7 @@ import { normalizeKpiUnit, CORPORATE_UNIT_LABEL } from "../../services/kpi/units
 import { computeRollupValue, computeRollupGoal, type RollupGoalResult } from "../../services/kpi/rollup";
 import { computeFeedStatus, expectedMonthsFor } from "../../services/kpi/feed-status";
 import { computeLmsMetric, LMS_INDICATOR_DEFS, type LmsMetricKey } from "../../services/kpi/lms-metrics";
+import { codesToNormIds, ensureDefaultNorms } from "../../services/norms/defaults";
 
 const router: IRouter = Router();
 
@@ -1412,7 +1414,7 @@ router.post(
       periodicity?: string;
       referenceMonth?: number | null;
       category?: string | null;
-      norms?: string[];
+      norms?: number[];
       responsibleUserId?: number | null;
     };
 
@@ -1562,6 +1564,15 @@ router.post(
     let activated = 0;
     const indicatorIds: number[] = [];
 
+    // LMS_INDICATOR_DEFS.norms carries declarative ISO codes (e.g. "9001"), not
+    // catalog ids — resolve to this org's regulatory_norms ids at creation time.
+    await ensureDefaultNorms(orgId);
+    const orgNorms = await db
+      .select({ id: regulatoryNormsTable.id, label: regulatoryNormsTable.label })
+      .from(regulatoryNormsTable)
+      .where(eq(regulatoryNormsTable.organizationId, orgId));
+    const normLabelToId = new Map(orgNorms.map((n) => [n.label.toLowerCase(), n.id]));
+
     for (const def of LMS_INDICATOR_DEFS) {
       // Check if indicator already exists for this org + metric
       const [existing] = await db
@@ -1606,7 +1617,7 @@ router.post(
           direction: def.direction,
           periodicity: "monthly",
           category: def.category,
-          norms: def.norms,
+          norms: codesToNormIds(def.norms, normLabelToId),
           computedSource: "lms",
           computedMetric: def.metric,
         })
