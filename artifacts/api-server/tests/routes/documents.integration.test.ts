@@ -821,7 +821,8 @@ describe("documents routes", () => {
     expect(createCompletionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "gpt-5-mini-2025-08-07",
-        max_completion_tokens: 400,
+        max_completion_tokens: 4000,
+        reasoning_effort: "low",
       }),
     );
     expect(createCompletionMock).not.toHaveBeenCalledWith(
