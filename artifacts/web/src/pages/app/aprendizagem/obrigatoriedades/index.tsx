@@ -13,6 +13,13 @@ import {
   getListEmployeePositionChangesQueryKey,
 } from "@workspace/api-client-react";
 import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import {
+  createRequirementsForPositions,
+  describeBatchResult,
+  resolveBatchOutcome,
+} from "@/lib/training-requirements-batch";
+import { normalizeForComparison } from "@/lib/position-requirements";
+import { toast } from "@/hooks/use-toast";
 import type {
   TrainingRequirement,
   EmployeePositionChange,
@@ -26,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
@@ -51,7 +59,7 @@ const RECURRENCE_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 type RequirementForm = {
-  positionId: string;
+  positionIds: number[];
   catalogItemId: string;
   deadlineType: string;
   deadlineDays: string;
@@ -64,7 +72,7 @@ type RequirementForm = {
 };
 
 const EMPTY_FORM: RequirementForm = {
-  positionId: "",
+  positionIds: [],
   catalogItemId: "",
   deadlineType: "fixo",
   deadlineDays: "30",
@@ -125,6 +133,11 @@ export default function ObrigatoriedadesPage() {
     [units],
   );
 
+  const positionOptions = useMemo(
+    () => positions.map((p) => ({ value: p.id, label: p.name })),
+    [positions],
+  );
+
   const createMutation = useCreateTrainingRequirement();
   const updateMutation = useUpdateTrainingRequirement();
   const deleteMutation = useDeleteTrainingRequirement();
@@ -138,6 +151,18 @@ export default function ObrigatoriedadesPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<RequirementForm>(EMPTY_FORM);
+  // Parent-controlled search for the multi-cargo picker, so "Selecionar todos os
+  // encontrados" acts on the filtered subset (ex.: digitar "ANALISTA" → todos os
+  // analistas) em vez de todos os 174 cargos.
+  const [cargoSearch, setCargoSearch] = useState("");
+
+  const filteredPositionOptions = useMemo(() => {
+    const term = normalizeForComparison(cargoSearch);
+    if (!term) return positionOptions;
+    return positionOptions.filter((o) =>
+      normalizeForComparison(o.label).includes(term),
+    );
+  }, [positionOptions, cargoSearch]);
 
   // Filtros da matriz (fidelidade ao mockup: cargo / escopo / prazo)
   const [filterCargo, setFilterCargo] = useState("");
@@ -165,12 +190,14 @@ export default function ObrigatoriedadesPage() {
   const openCreate = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setCargoSearch("");
     setOpen(true);
   };
   const openEdit = (r: TrainingRequirement) => {
     setEditingId(r.id);
+    setCargoSearch("");
     setForm({
-      positionId: String(r.positionId),
+      positionIds: [r.positionId],
       catalogItemId: String(r.catalogItemId),
       deadlineType: r.deadlineType,
       deadlineDays: r.deadlineDays != null ? String(r.deadlineDays) : "",
@@ -198,7 +225,7 @@ export default function ObrigatoriedadesPage() {
   );
 
   const handleSave = async () => {
-    if (!orgId || !form.positionId || !form.catalogItemId) return;
+    if (!orgId || form.positionIds.length === 0 || !form.catalogItemId) return;
     if (
       form.deadlineType === "fixo" &&
       (form.deadlineDays === "" ||
@@ -206,8 +233,8 @@ export default function ObrigatoriedadesPage() {
         Number(form.deadlineDays) < 0)
     )
       return;
-    const data = {
-      positionId: Number(form.positionId),
+    // Tudo menos o cargo — o cargo varia por linha (uma obrigatoriedade por cargo).
+    const baseData = {
       catalogItemId: Number(form.catalogItemId),
       deadlineType: form.deadlineType,
       deadlineDays:
@@ -221,13 +248,36 @@ export default function ObrigatoriedadesPage() {
       norm: form.norm || undefined,
       notes: form.notes || undefined,
     };
+
     if (editingId) {
-      await updateMutation.mutateAsync({ orgId, id: editingId, data });
-    } else {
-      await createMutation.mutateAsync({ orgId, data });
+      await updateMutation.mutateAsync({
+        orgId,
+        id: editingId,
+        data: { positionId: form.positionIds[0], ...baseData },
+      });
+      invalidate();
+      setOpen(false);
+      return;
     }
+
+    // Criação: uma obrigatoriedade por cargo selecionado. Duplicados (409) são
+    // contados como "já existiam"; uma falha isolada não aborta o restante.
+    const result = await createRequirementsForPositions(
+      form.positionIds,
+      (positionId) =>
+        createMutation.mutateAsync({ orgId, data: { positionId, ...baseData } }),
+    );
     invalidate();
-    setOpen(false);
+
+    // Qualquer falha real (não-duplicado) mantém o diálogo aberto para retentar
+    // os cargos que falharam — retentar é seguro (os já criados voltam como 409).
+    const outcome = resolveBatchOutcome(result);
+    toast({
+      title: outcome.title,
+      description: describeBatchResult(result),
+      ...(outcome.destructive ? { variant: "destructive" as const } : {}),
+    });
+    if (outcome.close) setOpen(false);
   };
 
   const handleDelete = async (r: TrainingRequirement) => {
@@ -461,19 +511,68 @@ export default function ObrigatoriedadesPage() {
         size="lg"
       >
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Cargo *">
-            <SearchableSelect
-              value={form.positionId}
-              onChange={(v) => setForm({ ...form, positionId: v })}
-              options={positions.map((p) => ({
-                value: String(p.id),
-                label: p.name,
-              }))}
-              isLoading={positionsLoading}
-              placeholder="Selecione o cargo..."
-              searchPlaceholder="Buscar cargo..."
-              emptyMessage="Nenhum cargo cadastrado."
-            />
+          <Field label={editingId ? "Cargo *" : "Cargos *"}>
+            {editingId ? (
+              <SearchableSelect
+                value={
+                  form.positionIds[0] != null ? String(form.positionIds[0]) : ""
+                }
+                onChange={(v) =>
+                  setForm({ ...form, positionIds: v ? [Number(v)] : [] })
+                }
+                options={positions.map((p) => ({
+                  value: String(p.id),
+                  label: p.name,
+                }))}
+                isLoading={positionsLoading}
+                placeholder="Selecione o cargo..."
+                searchPlaceholder="Buscar cargo..."
+                emptyMessage="Nenhum cargo cadastrado."
+              />
+            ) : (
+              <SearchableMultiSelect
+                options={filteredPositionOptions}
+                selected={form.positionIds}
+                onToggle={(id) =>
+                  setForm((f) => ({
+                    ...f,
+                    positionIds: f.positionIds.includes(id)
+                      ? f.positionIds.filter((x) => x !== id)
+                      : [...f.positionIds, id],
+                  }))
+                }
+                onSearchValueChange={setCargoSearch}
+                onToggleAll={
+                  filteredPositionOptions.length > 0
+                    ? () => {
+                        const ids = filteredPositionOptions.map((o) => o.value);
+                        setForm((f) => {
+                          const allSelected = ids.every((id) =>
+                            f.positionIds.includes(id),
+                          );
+                          return {
+                            ...f,
+                            positionIds: allSelected
+                              ? f.positionIds.filter((id) => !ids.includes(id))
+                              : Array.from(
+                                  new Set([...f.positionIds, ...ids]),
+                                ),
+                          };
+                        });
+                      }
+                    : undefined
+                }
+                selectAllLabel={
+                  cargoSearch.trim()
+                    ? `Selecionar todos os ${filteredPositionOptions.length} encontrados`
+                    : "Selecionar todos os cargos"
+                }
+                disabled={positionsLoading}
+                placeholder="Selecione um ou mais cargos..."
+                searchPlaceholder="Buscar cargo..."
+                emptyMessage="Nenhum cargo encontrado."
+              />
+            )}
           </Field>
           <Field label="Treinamento *">
             <SearchableSelect
@@ -596,7 +695,7 @@ export default function ObrigatoriedadesPage() {
           <Button
             onClick={() => void handleSave()}
             disabled={
-              !form.positionId ||
+              form.positionIds.length === 0 ||
               !form.catalogItemId ||
               (form.deadlineType === "fixo" &&
                 (form.deadlineDays === "" ||
@@ -606,7 +705,11 @@ export default function ObrigatoriedadesPage() {
               updateMutation.isPending
             }
           >
-            Salvar obrigatoriedade
+            {editingId
+              ? "Salvar obrigatoriedade"
+              : form.positionIds.length > 1
+                ? `Criar ${form.positionIds.length} obrigatoriedades`
+                : "Salvar obrigatoriedade"}
           </Button>
         </DialogFooter>
       </Dialog>
