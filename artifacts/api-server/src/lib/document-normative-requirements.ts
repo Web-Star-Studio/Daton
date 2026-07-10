@@ -1,6 +1,17 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db, documentsTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { readJsonCompletion } from "../services/ai/json-completion";
+
+/**
+ * gpt-5-mini reasons before answering, and those tokens come out of this same
+ * budget. The visible JSON is tiny (~120 tokens), but reasoning measured 500-600;
+ * the old ceiling of 400 was consumed entirely by reasoning, so the API returned
+ * finish_reason "length" with empty content on every call — this suggestion never
+ * worked in production. `low` effort suits the task, and 4000 leaves ample room.
+ */
+const MAX_COMPLETION_TOKENS = 4000;
+const REASONING_EFFORT = "low" as const;
 
 const DOCUMENT_NORMATIVE_REQUIREMENTS_SYSTEM_PROMPT = `Você é um especialista em SGQ e requisitos normativos.
 
@@ -94,34 +105,32 @@ export async function suggestNormativeRequirements(input: {
       },
     ],
     response_format: { type: "json_object" },
-    max_completion_tokens: 400,
+    max_completion_tokens: MAX_COMPLETION_TOKENS,
+    reasoning_effort: REASONING_EFFORT,
   });
 
-  const raw = response.choices[0]?.message?.content || "{}";
-
-  try {
-    const parsed = JSON.parse(raw) as { suggestions?: unknown };
-    const suggestions = Array.isArray(parsed.suggestions)
-      ? parsed.suggestions.filter(
-          (item): item is string => typeof item === "string",
-        )
-      : [];
-
-    const normalizedSuggestions = normalizeNormativeRequirements(suggestions);
-    const existing = new Set(
-      input.currentRequirements.map((requirement) =>
-        requirement.toLocaleLowerCase("pt-BR"),
-      ),
-    );
-
-    return normalizedSuggestions
-      .filter(
-        (suggestion) => !existing.has(suggestion.toLocaleLowerCase("pt-BR")),
+  const parsed = readJsonCompletion<{ suggestions?: unknown }>(
+    response,
+    "document-normative-requirements",
+  );
+  const suggestions = Array.isArray(parsed.suggestions)
+    ? parsed.suggestions.filter(
+        (item): item is string => typeof item === "string",
       )
-      .slice(0, 8);
-  } catch {
-    return [];
-  }
+    : [];
+
+  const normalizedSuggestions = normalizeNormativeRequirements(suggestions);
+  const existing = new Set(
+    input.currentRequirements.map((requirement) =>
+      requirement.toLocaleLowerCase("pt-BR"),
+    ),
+  );
+
+  return normalizedSuggestions
+    .filter(
+      (suggestion) => !existing.has(suggestion.toLocaleLowerCase("pt-BR")),
+    )
+    .slice(0, 8);
 }
 
 export async function getNormativeRequirementSuggestions(input: {

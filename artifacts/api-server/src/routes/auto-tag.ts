@@ -4,6 +4,13 @@ import { db, legislationsTable, type Legislation } from "@workspace/db";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { notifyLegislationBecameRelevant } from "../lib/legislations";
+import { readJsonCompletion } from "../services/ai/json-completion";
+
+// gpt-5-mini reasons out of the same budget. 2000 works today (reasoning measured
+// ~700), but pinning the effort keeps a headroom margin, and the guard turns a
+// budget/parse failure into a real error instead of silently empty tags.
+const MAX_COMPLETION_TOKENS = 4000;
+const REASONING_EFFORT = "low" as const;
 
 const router = Router();
 
@@ -115,17 +122,16 @@ async function autoTagLegislation(leg: Legislation): Promise<string[]> {
       { role: "user", content: `Analise esta legislação e selecione as tags aplicáveis:\n\n${content}` },
     ],
     response_format: { type: "json_object" },
-    max_completion_tokens: 2000,
+    max_completion_tokens: MAX_COMPLETION_TOKENS,
+    reasoning_effort: REASONING_EFFORT,
   });
 
-  const raw = response.choices[0]?.message?.content || "{}";
-  try {
-    const parsed = JSON.parse(raw);
-    const tags = Array.isArray(parsed.tags) ? parsed.tags : [];
-    return tags.filter((t: string) => TAG_VOCABULARY.includes(t));
-  } catch {
-    return [];
-  }
+  // Throws on an empty/truncated/invalid completion, so the caller records a real
+  // error (per-item in the batch, 500 on the single route) instead of persisting
+  // empty tags over the legislation's existing ones.
+  const parsed = readJsonCompletion<{ tags?: unknown }>(response, "auto-tag");
+  const tags = Array.isArray(parsed.tags) ? parsed.tags : [];
+  return tags.filter((t): t is string => typeof t === "string" && TAG_VOCABULARY.includes(t));
 }
 
 router.post("/organizations/:orgId/legislations/auto-tag/batch", requireAuth, requireWriteAccess(), async (req: Request, res: Response): Promise<void> => {

@@ -91,6 +91,7 @@ describe("auto-tag route", () => {
     createCompletionMock.mockResolvedValue({
       choices: [
         {
+          finish_reason: "stop",
           message: {
             content: JSON.stringify({
               tags: ["saude_trabalhador", "nr17_ergonomia"],
@@ -98,6 +99,7 @@ describe("auto-tag route", () => {
           },
         },
       ],
+      usage: { completion_tokens_details: { reasoning_tokens: 700 } },
     });
 
     whereSelectMock.mockResolvedValue([
@@ -138,7 +140,8 @@ describe("auto-tag route", () => {
     expect(createCompletionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "gpt-5-mini-2025-08-07",
-        max_completion_tokens: 2000,
+        max_completion_tokens: 4000,
+        reasoning_effort: "low",
       }),
     );
     expect(createCompletionMock).not.toHaveBeenCalledWith(
@@ -160,5 +163,27 @@ describe("auto-tag route", () => {
       }),
       undefined,
     );
+  });
+
+  // If reasoning ate the whole budget (finish_reason "length", empty content), the
+  // guard throws; the route must answer 500 and NOT persist empty tags over the
+  // legislation's existing ones.
+  it("fails loudly and does not overwrite tags when the model returns nothing", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    createCompletionMock.mockResolvedValueOnce({
+      choices: [{ finish_reason: "length", message: { content: "" } }],
+      usage: { completion_tokens_details: { reasoning_tokens: 4000 } },
+    });
+
+    const app = express();
+    app.use(express.json());
+    app.use(router);
+
+    const response = await request(app)
+      .post("/organizations/1/legislations/10/auto-tag")
+      .send();
+
+    expect(response.status).toBe(500);
+    expect(updateMock).not.toHaveBeenCalled();
   });
 });

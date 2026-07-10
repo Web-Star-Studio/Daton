@@ -1,4 +1,14 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { readJsonCompletion } from "../ai/json-completion";
+
+/**
+ * gpt-5-mini reasons out of this same budget. Reasoning measured ~830 tokens for
+ * this task; the old ceiling of 1500 was consumed entirely by reasoning, so the
+ * API returned finish_reason "length" with empty content and the surrounding
+ * try/catch swallowed it — this suggestion never worked in production.
+ */
+const MAX_COMPLETION_TOKENS = 4000;
+const REASONING_EFFORT = "low" as const;
 
 export interface LegislationSuggestionInput {
   sectorName?: string | null;
@@ -78,36 +88,33 @@ export async function suggestLegislation(
 
 Retorne o JSON com sugestões pertinentes (1 a 5).`;
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5-mini-2025-08-07",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1500,
-    });
+  const response = await openai.chat.completions.create({
+    model: "gpt-5-mini-2025-08-07",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userPrompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: MAX_COMPLETION_TOKENS,
+    reasoning_effort: REASONING_EFFORT,
+  });
 
-    const raw = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(raw) as { suggestions?: unknown };
-    const list = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+  // Not wrapped in a try/catch: a token-budget or parse failure must surface so the
+  // route answers 502, instead of being swallowed into a "no legislation" result.
+  const parsed = readJsonCompletion<{ suggestions?: unknown }>(response, "laia-legislation-suggester");
+  const list = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
 
-    const cleaned: LegislationSuggestion[] = list
-      .filter((s): s is Record<string, unknown> => typeof s === "object" && s !== null)
-      .map((s) => ({
-        reference: typeof s.reference === "string" ? s.reference.slice(0, 200) : "",
-        url:
-          typeof s.url === "string" && /^https?:\/\//i.test(s.url)
-            ? s.url.slice(0, 500)
-            : null,
-        summary: typeof s.summary === "string" ? s.summary.slice(0, 500) : "",
-      }))
-      .filter((s) => s.reference && s.summary);
+  const cleaned: LegislationSuggestion[] = list
+    .filter((s): s is Record<string, unknown> => typeof s === "object" && s !== null)
+    .map((s) => ({
+      reference: typeof s.reference === "string" ? s.reference.slice(0, 200) : "",
+      url:
+        typeof s.url === "string" && /^https?:\/\//i.test(s.url)
+          ? s.url.slice(0, 500)
+          : null,
+      summary: typeof s.summary === "string" ? s.summary.slice(0, 500) : "",
+    }))
+    .filter((s) => s.reference && s.summary);
 
-    return cleaned.slice(0, 5);
-  } catch (error) {
-    console.error("[laia-legislation-suggester] failed", error);
-    return [];
-  }
+  return cleaned.slice(0, 5);
 }
