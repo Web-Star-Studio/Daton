@@ -5,7 +5,7 @@ import {
   actionPlansTable,
   db,
 } from "@workspace/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import app from "../../src/app";
 import {
   authHeader,
@@ -220,5 +220,119 @@ describe("planning version log", () => {
 
     expect(loose).toHaveLength(0);
     expect(await planningEntries(planId)).toHaveLength(1);
+  });
+});
+
+/**
+ * A plan can be BORN with a planning block (the POST accepts plan5w2h / rootCause /
+ * rootCauseWhys, and a plan derived from a nonconformity inherits its rootCause).
+ * The `created` snapshot does not carry the block, so without a dedicated `updated`
+ * entry the initial state would live only in the `from` of the FIRST later edit —
+ * and restore reads only `to`. The initial state would therefore be irrecoverable.
+ */
+describe("planning version log at creation", () => {
+  function createViaApi(
+    context: TestOrgContext,
+    body: Record<string, unknown>,
+  ) {
+    return request(app)
+      .post(`/api/organizations/${context.organizationId}/action-plans`)
+      .set(authHeader(context))
+      .send({ sourceModule: "manual", sourceRef: {}, title: "Plano", ...body });
+  }
+
+  async function allEntries(planId: number) {
+    return db
+      .select()
+      .from(actionPlanActivityLogTable)
+      .where(eq(actionPlanActivityLogTable.actionPlanId, planId))
+      .orderBy(asc(actionPlanActivityLogTable.id));
+  }
+
+  it("records the initial block as a restorable version when the plan is born with content", async () => {
+    const context = await createTestContext({ seed: "plan-create-content" });
+    contexts.push(context);
+
+    const created = await createViaApi(context, {
+      plan5w2h: { what: "Treinar" },
+      rootCause: "Falta de treinamento.",
+      rootCauseWhys: ["Sem instrutor"],
+    }).expect(201);
+    const planId = created.body.id as number;
+
+    const entries = await allEntries(planId);
+    // The `created` snapshot stays untouched; a second `updated` entry carries the block.
+    expect(entries[0].action).toBe("created");
+    expect((entries[0].changes as { kind?: string }).kind).toBe("snapshot");
+
+    const planning = await planningEntries(planId);
+    expect(planning).toHaveLength(1);
+    const block = (
+      planning[0].changes as {
+        fields: { planning: { from: unknown; to: unknown } };
+      }
+    ).fields.planning;
+
+    expect(block.from).toEqual({
+      plan5w2h: null,
+      rootCause: null,
+      rootCauseWhys: null,
+    });
+    expect(block.to).toEqual({
+      plan5w2h: { what: "Treinar" },
+      rootCause: "Falta de treinamento.",
+      rootCauseWhys: ["Sem instrutor"],
+    });
+  });
+
+  it("does not record a planning version when the plan is born empty", async () => {
+    const context = await createTestContext({ seed: "plan-create-empty" });
+    contexts.push(context);
+
+    const created = await createViaApi(context, { priority: "high" }).expect(
+      201,
+    );
+    const planId = created.body.id as number;
+
+    // Only the `created` snapshot — no phantom planning version.
+    const entries = await allEntries(planId);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].action).toBe("created");
+    expect(await planningEntries(planId)).toHaveLength(0);
+  });
+
+  it("restores the initial version after a later edit, bringing the born content back", async () => {
+    const context = await createTestContext({ seed: "plan-create-restore" });
+    contexts.push(context);
+
+    const created = await createViaApi(context, {
+      plan5w2h: { what: "Inicial" },
+      rootCause: "Causa inicial",
+    }).expect(201);
+    const planId = created.body.id as number;
+
+    // The initial version is the sole planning entry so far.
+    const [initial] = await planningEntries(planId);
+
+    // A later edit moves the block on.
+    await request(app)
+      .patch(
+        `/api/organizations/${context.organizationId}/action-plans/${planId}`,
+      )
+      .set(authHeader(context))
+      .send({ plan5w2h: { what: "Editado" }, rootCause: "Causa editada" })
+      .expect(200);
+
+    // Restoring the initial version brings the born content back.
+    const response = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/action-plans/${planId}/planning/restore`,
+      )
+      .set(authHeader(context))
+      .send({ activityId: initial.id })
+      .expect(200);
+
+    expect(response.body.plan5w2h).toEqual({ what: "Inicial" });
+    expect(response.body.rootCause).toBe("Causa inicial");
   });
 });

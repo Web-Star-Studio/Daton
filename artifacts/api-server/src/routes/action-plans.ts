@@ -420,14 +420,38 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     closedAt: status === "completed" || status === "cancelled" ? new Date() : null,
   }).returning();
 
+  const creatorName = await currentUserName(req.auth!.userId);
   await logActionPlanActivity({
     orgId: params.data.orgId,
     actionPlanId: row.id,
     action: "created",
     userId: req.auth!.userId,
-    userName: await currentUserName(req.auth!.userId),
+    userName: creatorName,
     changes: { kind: "snapshot", data: { code, title: row.title, sourceModule: row.sourceModule, status: row.status } },
   });
+
+  // A plan can be BORN with a planning block — the POST accepts plan5w2h /
+  // rootCause / rootCauseWhys, and `deriveCreateDefaults` inherits the rootCause
+  // of an origin nonconformity. The `created` snapshot doesn't carry the block, so
+  // without a dedicated entry the initial state would survive only in the `from`
+  // of the first later edit — and restore reads only `to`, leaving no restorable
+  // version of the initial state. Record it as the first version, right after
+  // `created`, as an edit from the empty block. A plan born empty logs nothing.
+  const emptyPlanning: PlanningBlock = { plan5w2h: null, rootCause: null, rootCauseWhys: null };
+  const initialPlanning = normalizedPlanning(row);
+  if (planningChanged(emptyPlanning, initialPlanning)) {
+    await logActionPlanActivity({
+      orgId: params.data.orgId,
+      actionPlanId: row.id,
+      action: "updated",
+      userId: req.auth!.userId,
+      userName: creatorName,
+      changes: {
+        kind: "diff",
+        fields: { planning: { from: emptyPlanning, to: initialPlanning } },
+      },
+    });
+  }
 
   // Notify the responsible user / evaluator if the action is created already assigned.
   await notifyActionPlanAssignment(row, req.auth!.userId);
