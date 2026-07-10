@@ -66,9 +66,12 @@ export function useAllTrainingCatalog(
 ) {
   return useQuery<PaginatedTrainingCatalog>({
     queryKey: ["all-training-catalog", orgId, params ?? {}],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
+      // Forward the abort signal to every page request, so a superseded query
+      // (e.g. the filter changed mid-fetch) stops issuing the remaining pages
+      // instead of draining the whole catalog for a search the user moved past.
       const data = await fetchAllPages<TrainingCatalogItem>((page, pageSize) =>
-        listTrainingCatalog(orgId, { ...params, page, pageSize }),
+        listTrainingCatalog(orgId, { ...params, page, pageSize }, { signal }),
       );
       return {
         data,

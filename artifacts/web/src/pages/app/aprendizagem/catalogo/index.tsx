@@ -179,18 +179,23 @@ export default function CatalogoPage() {
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
+  // Debounced before it reaches the query: each keystroke would otherwise refetch
+  // EVERY page of the catalog (useAllTrainingCatalog drains all pages), fanning a
+  // short query into dozens of requests on a large catalog. Same pattern as the
+  // user picker above.
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [norm, setNorm] = useState("");
   const [category, setCategory] = useState("");
   const [modality, setModality] = useState("");
 
   const params = useMemo(
     () => ({
-      search: search || undefined,
+      search: debouncedSearch || undefined,
       norm: norm || undefined,
       category: category || undefined,
       modality: modality || undefined,
     }),
-    [search, norm, category, modality],
+    [debouncedSearch, norm, category, modality],
   );
 
   const { data: result, isLoading } = useAllTrainingCatalog(orgId ?? 0, params, {
