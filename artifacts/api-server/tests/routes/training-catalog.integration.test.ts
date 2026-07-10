@@ -145,8 +145,10 @@ describe("training-catalog routes", () => {
     contexts.push(context);
     const base = `/api/organizations/${context.organizationId}/training-catalog`;
 
-    // 25 items, all sharing 5 repeated titles → lots of ties. Page size 5 forces
-    // boundaries to fall inside runs of equal titles.
+    // 25 items across 5 titles, 5 copies each. A page size of 3 (not a divisor of
+    // the 5-item run) forces page boundaries to land INSIDE a run of equal titles —
+    // e.g. page 1 gets 3 of the "DUP 0" copies and page 2 the other 2 — which is
+    // exactly where an unstable tie order would drop or repeat a row.
     const total = 25;
     for (let i = 0; i < total; i++) {
       await request(app)
@@ -156,7 +158,7 @@ describe("training-catalog routes", () => {
     }
 
     const seen = new Set<number>();
-    const pageSize = 5;
+    const pageSize = 3;
     const totalPages = Math.ceil(total / pageSize);
     for (let page = 1; page <= totalPages; page++) {
       const res = await request(app)
