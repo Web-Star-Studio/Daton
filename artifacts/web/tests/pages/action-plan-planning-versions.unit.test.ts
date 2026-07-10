@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { ActionPlanActivityLogEntry } from "@/lib/action-plans-client";
 import {
   buildPlanningVersions,
   diffPlanningFields,
@@ -90,6 +91,29 @@ describe("buildPlanningVersions", () => {
       }),
     ]);
     expect(versions[0].restoredFrom?.activityId).toBe(1);
+  });
+
+  /**
+   * `useActionPlanActivity` (Task 6) hands `buildPlanningVersions` the raw generated
+   * type straight from the API — `userId`, `userName` and `changes` are optional there,
+   * unlike a hand-picked fixture. This must typecheck without a cast.
+   */
+  it("accepts the generated ActionPlanActivityLogEntry type as-is", () => {
+    const raw: ActionPlanActivityLogEntry[] = [
+      {
+        id: 1,
+        actionPlanId: 10,
+        action: "updated",
+        createdAt: "2026-07-10T12:00:00.000Z",
+        changes: { kind: "diff", fields: { planning: { from: empty, to: a } } },
+      },
+    ];
+
+    const versions = buildPlanningVersions(raw);
+
+    expect(versions).toHaveLength(1);
+    expect(versions[0].userId).toBeNull();
+    expect(versions[0].userName).toBeNull();
   });
 });
 

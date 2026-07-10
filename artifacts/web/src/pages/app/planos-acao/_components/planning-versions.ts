@@ -23,10 +23,12 @@ export interface PlanningVersion {
 
 interface ActivityEntryLike {
   id: number;
-  userId: number | null;
-  userName: string | null;
+  // Optional to match the generated `ActionPlanActivityLogEntry` type, which the
+  // caller (Task 6) feeds in directly from `useActionPlanActivity`.
+  userId?: number | null;
+  userName?: string | null;
   createdAt: string;
-  changes: unknown;
+  changes?: unknown;
 }
 
 /** Consecutive saves by the same author within this window read as one version. */
@@ -105,8 +107,8 @@ export function buildPlanningVersions(
 
     versions.push({
       activityId: entry.id,
-      userId: entry.userId,
-      userName: entry.userName,
+      userId: entry.userId ?? null,
+      userName: entry.userName ?? null,
       createdAt: entry.createdAt,
       saves: 1,
       from: read.planning.from,
