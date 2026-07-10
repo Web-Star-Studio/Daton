@@ -8,13 +8,12 @@ import {
   useUpdateAnnualProgramItem,
   useDeleteAnnualProgramItem,
   getListAnnualProgramQueryKey,
-  useListTrainingCatalog,
-  getListTrainingCatalogQueryKey,
   useListUnits,
   useCreateTrainingClass,
   useListUserOptions,
   getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
+import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import type { AnnualProgramItem } from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
@@ -134,11 +133,8 @@ export default function ProgramaAnualPage() {
   const items = result?.data ?? [];
 
   const { data: catalogResult, isLoading: catalogLoading } =
-    useListTrainingCatalog(orgId ?? 0, undefined, {
-    query: {
-      enabled: !!orgId,
-      queryKey: getListTrainingCatalogQueryKey(orgId ?? 0),
-    },
+    useAllTrainingCatalog(orgId ?? 0, undefined, {
+    query: { enabled: !!orgId },
   });
   const catalogItems = catalogResult?.data ?? [];
   const catalogTitle = useMemo(

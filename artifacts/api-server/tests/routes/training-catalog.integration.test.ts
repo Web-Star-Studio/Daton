@@ -133,4 +133,44 @@ describe("training-catalog routes", () => {
       .set(authHeader(context));
     expect(freeDel.status).toBe(204);
   });
+
+  // Titles are NOT unique (real data has "FICHA DE INSPEÇÃO DE FROTA" twice, etc.).
+  // Paginating with OFFSET over a title-only ORDER BY lets ties shift across page
+  // boundaries between separate requests, so fetching all pages could return a row
+  // twice and skip another — silently hiding trainings again. A stable secondary
+  // order (id) must make paging deterministic: the union of all pages equals the
+  // full set, exactly once.
+  it("paginates deterministically when titles repeat across a page boundary", async () => {
+    const context = await createTestContext({ seed: "training-catalog-dupes" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-catalog`;
+
+    // 25 items across 5 titles, 5 copies each. A page size of 3 (not a divisor of
+    // the 5-item run) forces page boundaries to land INSIDE a run of equal titles —
+    // e.g. page 1 gets 3 of the "DUP 0" copies and page 2 the other 2 — which is
+    // exactly where an unstable tie order would drop or repeat a row.
+    const total = 25;
+    for (let i = 0; i < total; i++) {
+      await request(app)
+        .post(base)
+        .set(authHeader(context))
+        .send({ title: `DUP ${i % 5}` });
+    }
+
+    const seen = new Set<number>();
+    const pageSize = 3;
+    const totalPages = Math.ceil(total / pageSize);
+    for (let page = 1; page <= totalPages; page++) {
+      const res = await request(app)
+        .get(base)
+        .query({ pageSize, page })
+        .set(authHeader(context));
+      expect(res.status).toBe(200);
+      for (const item of res.body.data as Array<{ id: number }>) {
+        expect(seen.has(item.id)).toBe(false); // no duplicate across pages
+        seen.add(item.id);
+      }
+    }
+    expect(seen.size).toBe(total); // nothing skipped
+  });
 });

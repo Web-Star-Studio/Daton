@@ -6,14 +6,13 @@ import {
   useCreateTrainingClass,
   useAddTrainingClassParticipants,
   getListTrainingClassesQueryKey,
-  useListTrainingCatalog,
-  getListTrainingCatalogQueryKey,
   useListUnits,
   useListEmployees,
   getListEmployeesQueryKey,
   useListUserOptions,
   getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
+import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import type { TrainingClass } from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
@@ -125,11 +124,8 @@ export default function TurmasPage() {
   const classes = result?.data ?? [];
 
   const { data: catalogResult, isLoading: catalogLoading } =
-    useListTrainingCatalog(orgId ?? 0, undefined, {
-    query: {
-      enabled: !!orgId,
-      queryKey: getListTrainingCatalogQueryKey(orgId ?? 0),
-    },
+    useAllTrainingCatalog(orgId ?? 0, undefined, {
+    query: { enabled: !!orgId },
   });
   const catalogItems = catalogResult?.data ?? [];
   const catalogTitle = useMemo(

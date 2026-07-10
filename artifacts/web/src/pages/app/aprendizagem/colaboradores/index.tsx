@@ -13,12 +13,11 @@ import {
   useListPositions,
   usePreviewTrainingRequirements,
   getPreviewTrainingRequirementsQueryKey,
-  useListTrainingCatalog,
-  getListTrainingCatalogQueryKey,
   getListEmployeesQueryKey,
   getListDepartmentsQueryKey,
   getListPositionsQueryKey,
 } from "@workspace/api-client-react";
+import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import type {
   CreateEmployeeBody,
   Employee,
@@ -396,16 +395,9 @@ export default function ColaboradoresPage() {
   // Preview de obrigatoriedades que serão auto-vinculadas conforme cargo + filial.
   const watchedPosition = watch("position");
   const watchedUnitId = watch("unitId");
-  const { data: catalogPreviewResult } = useListTrainingCatalog(
-    orgId ?? 0,
-    undefined,
-    {
-      query: {
-        enabled: !!orgId,
-        queryKey: getListTrainingCatalogQueryKey(orgId ?? 0),
-      },
-    },
-  );
+  const { data: catalogPreviewResult } = useAllTrainingCatalog(orgId ?? 0, undefined, {
+    query: { enabled: !!orgId },
+  });
   const catalogTitleById = new Map(
     (catalogPreviewResult?.data ?? []).map((c) => [c.id, c.title]),
   );

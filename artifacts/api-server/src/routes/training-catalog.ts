@@ -72,7 +72,11 @@ router.get(
       .select()
       .from(trainingCatalogTable)
       .where(where)
-      .orderBy(asc(trainingCatalogTable.title))
+      // `id` breaks ties: titles are not unique, and OFFSET paging over a
+      // non-unique ORDER BY can shift ties across page boundaries between separate
+      // requests — duplicating one row and skipping another when a client fetches
+      // every page. A stable secondary key makes paging deterministic.
+      .orderBy(asc(trainingCatalogTable.title), asc(trainingCatalogTable.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize);
 

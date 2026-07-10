@@ -2,16 +2,19 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
-  useListTrainingCatalog,
   useCreateTrainingCatalogItem,
   useUpdateTrainingCatalogItem,
   useDeleteTrainingCatalogItem,
-  getListTrainingCatalogQueryKey,
   useListUserOptions,
   getListUserOptionsQueryKey,
   useListCompetencyCatalog,
   getListCompetencyCatalogQueryKey,
 } from "@workspace/api-client-react";
+import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import { paginateList } from "@/lib/paginate";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+
+const CATALOG_PAGE_SIZE = 24;
 import type {
   TrainingCatalogItem,
   CreateTrainingCatalogItemBody,
@@ -176,30 +179,28 @@ export default function CatalogoPage() {
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
+  // Debounced before it reaches the query: each keystroke would otherwise refetch
+  // EVERY page of the catalog (useAllTrainingCatalog drains all pages), fanning a
+  // short query into dozens of requests on a large catalog. Same pattern as the
+  // user picker above.
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [norm, setNorm] = useState("");
   const [category, setCategory] = useState("");
   const [modality, setModality] = useState("");
 
   const params = useMemo(
     () => ({
-      search: search || undefined,
+      search: debouncedSearch || undefined,
       norm: norm || undefined,
       category: category || undefined,
       modality: modality || undefined,
     }),
-    [search, norm, category, modality],
+    [debouncedSearch, norm, category, modality],
   );
 
-  const { data: result, isLoading } = useListTrainingCatalog(
-    orgId ?? 0,
-    params,
-    {
-      query: {
-        enabled: !!orgId,
-        queryKey: getListTrainingCatalogQueryKey(orgId ?? 0, params),
-      },
-    },
-  );
+  const { data: result, isLoading } = useAllTrainingCatalog(orgId ?? 0, params, {
+    query: { enabled: !!orgId },
+  });
   const items = result?.data ?? [];
   const activeCount = useMemo(
     () => items.filter((i) => i.status === "ativo").length,
@@ -209,6 +210,15 @@ export default function CatalogoPage() {
   // catálogo" quando não há filtro ativo (review #132). Ver params abaixo.
   const isCatalogFiltered = Boolean(search || norm || category || modality);
 
+  // The full (filtered) catalog is already in memory — paginate the DOM so a
+  // large catalog (800+ items) doesn't render every card at once. Back to page 1
+  // whenever the filters change.
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [params]);
+  const paginated = paginateList(items, page, CATALOG_PAGE_SIZE);
+
   const createMutation = useCreateTrainingCatalogItem();
   const updateMutation = useUpdateTrainingCatalogItem();
   const deleteMutation = useDeleteTrainingCatalogItem();
@@ -216,7 +226,7 @@ export default function CatalogoPage() {
   const invalidate = () => {
     if (orgId)
       queryClient.invalidateQueries({
-        queryKey: getListTrainingCatalogQueryKey(orgId),
+        queryKey: ["all-training-catalog", orgId],
       });
   };
 
@@ -349,7 +359,7 @@ export default function CatalogoPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
+          {paginated.pageItems.map((item) => (
             <div
               key={item.id}
               className="flex cursor-pointer flex-col rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-primary/50"
@@ -424,6 +434,18 @@ export default function CatalogoPage() {
           ))}
         </div>
       )}
+
+      {!isLoading && paginated.totalPages > 1 ? (
+        <div className="mt-4">
+          <PaginationControls
+            page={paginated.page}
+            pageSize={CATALOG_PAGE_SIZE}
+            total={paginated.total}
+            totalPages={paginated.totalPages}
+            onPageChange={setPage}
+          />
+        </div>
+      ) : null}
 
       {/* Ficha (view) */}
       <Dialog

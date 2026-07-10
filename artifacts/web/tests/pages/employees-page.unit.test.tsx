@@ -52,13 +52,18 @@ vi.mock("@workspace/api-client-react", () => ({
   useListPositions: () => ({
     data: [{ id: 1, name: "Analista da Qualidade" }],
   }),
-  useListTrainingCatalog: () => ({ data: undefined }),
   usePreviewTrainingRequirements: () => ({ data: undefined }),
   getListEmployeesQueryKey: () => ["employees"],
   getListDepartmentsQueryKey: () => ["departments"],
   getListPositionsQueryKey: () => ["positions"],
-  getListTrainingCatalogQueryKey: () => ["training-catalog"],
   getPreviewTrainingRequirementsQueryKey: () => ["preview-training-requirements"],
+}));
+
+// The page reads the catalog through this hand-written hook (it wraps the generated
+// listTrainingCatalog fetcher to page through the whole catalog). Mock it so the
+// test never drives a real fetch.
+vi.mock("@/lib/training-catalog-client", () => ({
+  useAllTrainingCatalog: () => ({ data: { data: [] } }),
 }));
 
 describe("employees page", () => {
