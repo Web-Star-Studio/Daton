@@ -124,8 +124,13 @@ function text(value: string | null | undefined): string {
   return value?.trim() ? value.trim() : "—";
 }
 
-function whysText(whys: string[] | null): string {
-  return whys?.length ? whys.join(" · ") : "—";
+/** Each why trimmed, order preserved — the chain, compared the way it displays. */
+function trimmedWhys(whys: string[] | null): string[] {
+  return (whys ?? []).map((why) => why.trim());
+}
+
+function whysText(whys: string[]): string {
+  return whys.length ? whys.join(" · ") : "—";
 }
 
 export interface PlanningFieldChange {
@@ -141,15 +146,18 @@ export function diffPlanningFields(
 ): PlanningFieldChange[] {
   const changes: PlanningFieldChange[] = [];
 
+  // Compare the SAME representation that is displayed: `text()` trims, so a legacy
+  // `" causa "` collapsing to `"causa"` must not read as a change (before/after
+  // would render identically).
   for (const [key, label] of W2H_LABELS) {
     const before = from.plan5w2h?.[key] ?? null;
     const after = to.plan5w2h?.[key] ?? null;
-    if ((before ?? "") !== (after ?? "")) {
+    if ((before?.trim() ?? "") !== (after?.trim() ?? "")) {
       changes.push({ label, before: text(before), after: text(after) });
     }
   }
 
-  if ((from.rootCause ?? "") !== (to.rootCause ?? "")) {
+  if ((from.rootCause?.trim() ?? "") !== (to.rootCause?.trim() ?? "")) {
     changes.push({
       label: "Causa raiz",
       before: text(from.rootCause),
@@ -157,10 +165,20 @@ export function diffPlanningFields(
     });
   }
 
-  const beforeWhys = whysText(from.rootCauseWhys);
-  const afterWhys = whysText(to.rootCauseWhys);
-  if (beforeWhys !== afterWhys) {
-    changes.push({ label: "5 porquês", before: beforeWhys, after: afterWhys });
+  // The whys are a chain: compare item by item (trimmed, order-sensitive), so
+  // regrouping `["A · B"]` into `["A", "B"]` still shows up — comparing the joined
+  // text would hide it.
+  const beforeWhys = trimmedWhys(from.rootCauseWhys);
+  const afterWhys = trimmedWhys(to.rootCauseWhys);
+  const whysChanged =
+    beforeWhys.length !== afterWhys.length ||
+    beforeWhys.some((why, index) => why !== afterWhys[index]);
+  if (whysChanged) {
+    changes.push({
+      label: "5 porquês",
+      before: whysText(beforeWhys),
+      after: whysText(afterWhys),
+    });
   }
 
   return changes;

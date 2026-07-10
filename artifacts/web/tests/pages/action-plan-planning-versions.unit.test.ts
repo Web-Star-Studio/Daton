@@ -155,4 +155,47 @@ describe("diffPlanningFields", () => {
     };
     expect(diffPlanningFields(same, { ...same })).toEqual([]);
   });
+
+  /**
+   * The fields are DISPLAYED trimmed (via `text()`), so they must be COMPARED
+   * trimmed too — otherwise a legacy `" causa "` collapsing to `"causa"` would
+   * render a history line whose before and after are identical on screen.
+   */
+  it("does not flag a 5W2H field that only differs by surrounding whitespace", () => {
+    const changes = diffPlanningFields(
+      { plan5w2h: { what: " causa " }, rootCause: null, rootCauseWhys: null },
+      { plan5w2h: { what: "causa" }, rootCause: null, rootCauseWhys: null },
+    );
+    expect(changes).toEqual([]);
+  });
+
+  it("does not flag a root cause that only differs by surrounding whitespace", () => {
+    const changes = diffPlanningFields(
+      { plan5w2h: null, rootCause: " causa ", rootCauseWhys: null },
+      { plan5w2h: null, rootCause: "causa", rootCauseWhys: null },
+    );
+    expect(changes).toEqual([]);
+  });
+
+  /**
+   * The whys are a chain: comparing the JOINED text (`" · "`) makes regrouping
+   * `["A · B"]` into `["A", "B"]` vanish from the history. Compare structurally.
+   */
+  it("flags a whys change that regrouping the chain would otherwise hide", () => {
+    const changes = diffPlanningFields(
+      { plan5w2h: null, rootCause: null, rootCauseWhys: ["A · B"] },
+      { plan5w2h: null, rootCause: null, rootCauseWhys: ["A", "B"] },
+    );
+    expect(changes).toEqual([
+      { label: "5 porquês", before: "A · B", after: "A · B" },
+    ]);
+  });
+
+  it("compares each why trimmed, so padding a single why is not a change", () => {
+    const changes = diffPlanningFields(
+      { plan5w2h: null, rootCause: null, rootCauseWhys: [" p1 "] },
+      { plan5w2h: null, rootCause: null, rootCauseWhys: ["p1"] },
+    );
+    expect(changes).toEqual([]);
+  });
 });
