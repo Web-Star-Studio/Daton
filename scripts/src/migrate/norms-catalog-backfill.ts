@@ -23,22 +23,7 @@
  */
 import { pool } from "@workspace/db";
 import type { PoolClient } from "pg";
-
-// Constantes self-contained: a fonte de verdade é
-// artifacts/api-server/src/services/norms/defaults.ts (não importamos daqui
-// pra não acoplar scripts/ ao build de api-server).
-const DEFAULT_NORM_LABELS = [
-  "ISO 9001 · cl. 9.1",
-  "ISO 14001 · cl. 9.1",
-  "ISO 39001 · cl. 9.1",
-  "PR 2030",
-];
-
-const KPI_CODE_TO_LABEL: Record<string, string> = {
-  "9001": "ISO 9001 · cl. 9.1",
-  "14001": "ISO 14001 · cl. 9.1",
-  "39001": "ISO 39001 · cl. 9.1",
-};
+import { DEFAULT_NORM_LABELS, KPI_CODE_TO_LABEL } from "./norm-catalog";
 
 const COMMIT = process.argv.includes("--commit");
 
@@ -119,8 +104,11 @@ async function planOrg(orgId: number): Promise<OrgPlan> {
 
 interface OrgApplyResult {
   kpiUpdated: number;
+  kpiSkipped: number;
   obligationsUpdated: number;
+  obligationsSkipped: number;
   newLabelsCreated: number;
+  unknownCodes: string[];
 }
 
 /** --commit: aplica de fato, dentro da transação já aberta pelo chamador. */
@@ -156,6 +144,8 @@ async function applyOrg(
     [orgId],
   );
   let kpiUpdated = 0;
+  let kpiSkipped = 0;
+  const unknownCodes: string[] = [];
   for (const row of kpiRows) {
     if (isAlreadyNumeric(row.norms)) continue; // já migrado — idempotente
     const codes = Array.isArray(row.norms) ? row.norms : [];
@@ -173,17 +163,28 @@ async function applyOrg(
       }
       const label =
         typeof code === "string" ? KPI_CODE_TO_LABEL[code] : undefined;
-      if (!label) continue; // código desconhecido: descarta
+      if (!label) {
+        // código desconhecido: descarta, mas registra pro operador revisar.
+        if (typeof code === "string") unknownCodes.push(code);
+        continue;
+      }
       const id = map.get(label.toLowerCase());
       if (id == null || seen.has(id)) continue;
       seen.add(id);
       ids.push(id);
     }
-    await client.query(
-      `UPDATE kpi_indicators SET norms = $1::jsonb WHERE id = $2`,
-      [JSON.stringify(ids), row.id],
+    // Guarda de concorrência otimista: só grava se `norms` ainda é o mesmo
+    // valor lido no início da transação — evita sobrescrever uma escrita
+    // concorrente do app (READ COMMITTED não impede isso sozinho).
+    const result = await client.query(
+      `UPDATE kpi_indicators SET norms = $1::jsonb WHERE id = $2 AND norms = $3::jsonb`,
+      [JSON.stringify(ids), row.id, JSON.stringify(row.norms)],
     );
-    kpiUpdated++;
+    if ((result.rowCount ?? 0) > 0) {
+      kpiUpdated++;
+    } else {
+      kpiSkipped++;
+    }
   }
 
   // 4) Obrigatoriedade: `norm` (texto legado) -> `norm_ids`.
@@ -192,6 +193,7 @@ async function applyOrg(
     [orgId],
   );
   let obligationsUpdated = 0;
+  let obligationsSkipped = 0;
   let newLabelsCreated = 0;
   for (const row of reqRows) {
     const norm = row.norm?.trim();
@@ -228,14 +230,26 @@ async function applyOrg(
       map.set(key, normId);
     }
 
-    await client.query(
-      `UPDATE training_requirements SET norm_ids = $1::jsonb WHERE id = $2`,
-      [JSON.stringify([normId]), row.id],
+    // Mesma guarda de concorrência otimista do bloco KPI acima.
+    const result = await client.query(
+      `UPDATE training_requirements SET norm_ids = $1::jsonb WHERE id = $2 AND norm_ids = $3::jsonb`,
+      [JSON.stringify([normId]), row.id, JSON.stringify(row.norm_ids)],
     );
-    obligationsUpdated++;
+    if ((result.rowCount ?? 0) > 0) {
+      obligationsUpdated++;
+    } else {
+      obligationsSkipped++;
+    }
   }
 
-  return { kpiUpdated, obligationsUpdated, newLabelsCreated };
+  return {
+    kpiUpdated,
+    kpiSkipped,
+    obligationsUpdated,
+    obligationsSkipped,
+    newLabelsCreated,
+    unknownCodes,
+  };
 }
 
 async function main(): Promise<void> {
@@ -252,9 +266,12 @@ async function main(): Promise<void> {
 
   let totalNewDefaultLabels = 0;
   let totalKpi = 0;
+  let totalKpiSkipped = 0;
   let totalObligations = 0;
+  let totalObligationsSkipped = 0;
   let totalNewCustomLabels = 0;
   let failures = 0;
+  const allUnknownCodes = new Set<string>();
 
   for (const { id: orgId } of orgs) {
     if (!COMMIT) {
@@ -284,16 +301,21 @@ async function main(): Promise<void> {
       const result = await applyOrg(client, orgId);
       await client.query("COMMIT");
       totalKpi += result.kpiUpdated;
+      totalKpiSkipped += result.kpiSkipped;
       totalObligations += result.obligationsUpdated;
+      totalObligationsSkipped += result.obligationsSkipped;
       totalNewCustomLabels += result.newLabelsCreated;
+      for (const code of result.unknownCodes) allUnknownCodes.add(code);
       if (
         result.kpiUpdated ||
         result.obligationsUpdated ||
-        result.newLabelsCreated
+        result.newLabelsCreated ||
+        result.kpiSkipped ||
+        result.obligationsSkipped
       ) {
         console.log(
-          `Org ${orgId}: KPI remapeados=${result.kpiUpdated} · ` +
-            `obrigatoriedades preenchidas=${result.obligationsUpdated} · ` +
+          `Org ${orgId}: KPI remapeados=${result.kpiUpdated} (skip=${result.kpiSkipped}) · ` +
+            `obrigatoriedades preenchidas=${result.obligationsUpdated} (skip=${result.obligationsSkipped}) · ` +
             `labels novos criados=${result.newLabelsCreated}`,
         );
       }
@@ -311,10 +333,25 @@ async function main(): Promise<void> {
   console.log(`Organizações processadas: ${orgs.length}`);
   if (COMMIT) {
     console.log(`KPI indicadores remapeados: ${totalKpi}`);
+    if (totalKpiSkipped > 0) {
+      console.log(
+        `KPI indicadores pulados (escrita concorrente detectada): ${totalKpiSkipped}`,
+      );
+    }
     console.log(`Obrigatoriedades preenchidas: ${totalObligations}`);
+    if (totalObligationsSkipped > 0) {
+      console.log(
+        `Obrigatoriedades puladas (escrita concorrente detectada): ${totalObligationsSkipped}`,
+      );
+    }
     console.log(
       `Labels de norma novos (não-padrão) criados: ${totalNewCustomLabels}`,
     );
+    if (allUnknownCodes.size > 0) {
+      console.warn(
+        `Códigos desconhecidos ignorados: ${[...allUnknownCodes].join(", ")}`,
+      );
+    }
   } else {
     console.log(
       `Labels padrão ainda ausentes (seriam seedados): ${totalNewDefaultLabels}`,

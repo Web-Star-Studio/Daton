@@ -18314,6 +18314,18 @@ export const CreateNormBody = zod.object({
   label: zod.string().min(1),
 });
 
+export const CreateNormResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento).",
+  );
+
 /**
  * @summary Update a regulatory norm (label, active flag or sort order)
  */
@@ -20104,7 +20116,7 @@ export const ListTrainingRequirementsResponse = zod.object({
           .describe(
             "Deprecated — use normIds. Kept for backward compatibility.",
           ),
-        normIds: zod.array(zod.number()).optional(),
+        normIds: zod.array(zod.number()),
         notes: zod.string().nullish(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -20171,7 +20183,7 @@ export const PreviewTrainingRequirementsResponse = zod.object({
           .describe(
             "Deprecated — use normIds. Kept for backward compatibility.",
           ),
-        normIds: zod.array(zod.number()).optional(),
+        normIds: zod.array(zod.number()),
         notes: zod.string().nullish(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -20223,7 +20235,7 @@ export const UpdateTrainingRequirementResponse = zod
       .string()
       .nullish()
       .describe("Deprecated — use normIds. Kept for backward compatibility."),
-    normIds: zod.array(zod.number()).optional(),
+    normIds: zod.array(zod.number()),
     notes: zod.string().nullish(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),

@@ -95,6 +95,7 @@ function NormRow({
           <div className="flex items-center gap-2">
             <Input
               autoFocus
+              aria-label="Novo nome da norma"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               onKeyDown={(e) => {

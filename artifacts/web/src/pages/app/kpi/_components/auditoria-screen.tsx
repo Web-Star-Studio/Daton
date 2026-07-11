@@ -20,7 +20,7 @@ import {
   formatCalendarDateBR,
   useActionPlans,
 } from "@/lib/action-plans-client";
-import { useActiveNorms } from "@/lib/norms-client";
+import { useAllNorms } from "@/lib/norms-client";
 import { getIndicatorStatus } from "./indicator-card";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -75,7 +75,7 @@ export function AuditoriaScreen() {
   const { data: indicators = [], isLoading } = useKpiIndicators(orgId);
   const { data: yearRows = [] } = useKpiYearData(orgId, year);
   const { data: plans = [] } = useActionPlans(orgId, { sourceModule: "kpi" });
-  const { data: activeNorms = [] } = useActiveNorms(orgId);
+  const { data: allNorms = [] } = useAllNorms(orgId);
 
   const rowByIndicator = useMemo(() => {
     const map = new Map<number, KpiYearRow>();
@@ -87,9 +87,17 @@ export function AuditoriaScreen() {
   const onTarget = (ind: KpiIndicator) =>
     getIndicatorStatus(ind, rowByIndicator.get(ind.id)) === "green";
 
+  // Um card de norma não pode sumir só porque a norma foi desativada — se ela
+  // ainda está referenciada por algum indicador, continua aparecendo (ISO
+  // exige rastreabilidade mesmo de normas retiradas do catálogo).
+  const coverageNorms = useMemo(() => {
+    const referenced = new Set(indicators.flatMap((i) => i.norms ?? []));
+    return allNorms.filter((n) => n.active || referenced.has(n.id));
+  }, [allNorms, indicators]);
+
   const normCoverage = useMemo(
     () =>
-      activeNorms.map((norm) => {
+      coverageNorms.map((norm) => {
         const tagged = indicators.filter((i) => (i.norms ?? []).includes(norm.id));
         const withResult = tagged.filter(hasResult).length;
         const onTargetCount = tagged.filter(onTarget).length;
@@ -102,7 +110,7 @@ export function AuditoriaScreen() {
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [indicators, rowByIndicator, activeNorms],
+    [indicators, rowByIndicator, coverageNorms],
   );
 
   const recentRacs = useMemo(

@@ -9188,6 +9188,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RegulatoryNorm"
+        "200":
+          description: Existing norm returned (idempotent hit on the same label)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryNorm"
 
   /organizations/{orgId}/norms/{normId}:
     patch:
@@ -10849,6 +10855,7 @@ components:
         - filialUnitIds
         - recurrence
         - isCritical
+        - normIds
         - createdAt
         - updatedAt
 

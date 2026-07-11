@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   db,
   kpiIndicatorsTable,
@@ -40,7 +40,12 @@ export async function deriveCreateDefaults(
       const normRows = await db
         .select({ id: regulatoryNormsTable.id, label: regulatoryNormsTable.label })
         .from(regulatoryNormsTable)
-        .where(eq(regulatoryNormsTable.organizationId, orgId));
+        .where(
+          and(
+            eq(regulatoryNormsTable.organizationId, orgId),
+            inArray(regulatoryNormsTable.id, normIds),
+          ),
+        );
       const labelById = new Map(normRows.map((n) => [n.id, n.label]));
       normRefs = normIds
         .map((id) => {

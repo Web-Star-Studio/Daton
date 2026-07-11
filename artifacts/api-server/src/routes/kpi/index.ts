@@ -60,6 +60,7 @@ import { computeRollupValue, computeRollupGoal, type RollupGoalResult } from "..
 import { computeFeedStatus, expectedMonthsFor } from "../../services/kpi/feed-status";
 import { computeLmsMetric, LMS_INDICATOR_DEFS, type LmsMetricKey } from "../../services/kpi/lms-metrics";
 import { codesToNormIds, ensureDefaultNorms } from "../../services/norms/defaults";
+import { assertNormsBelongToOrg } from "../../services/norms/validate";
 
 const router: IRouter = Router();
 
@@ -437,6 +438,11 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
   );
   if (!canCreate) { res.status(403).json({ error: "Sem permissão para criar indicador nesta filial" }); return; }
 
+  if (!(await assertNormsBelongToOrg(params.data.orgId, body.data.norms ?? []))) {
+    res.status(400).json({ error: "Norma(s) inválida(s) para esta organização" });
+    return;
+  }
+
   const [row] = await db.insert(kpiIndicatorsTable).values({
     organizationId: params.data.orgId,
     name: body.data.name,
@@ -530,7 +536,13 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
         : null;
   }
   if (body.data.category !== undefined) updateData.category = body.data.category;
-  if (body.data.norms !== undefined) updateData.norms = body.data.norms;
+  if (body.data.norms !== undefined) {
+    if (!(await assertNormsBelongToOrg(params.data.orgId, body.data.norms))) {
+      res.status(400).json({ error: "Norma(s) inválida(s) para esta organização" });
+      return;
+    }
+    updateData.norms = body.data.norms;
+  }
 
   if (body.data.formulaExpression !== undefined || body.data.formulaVariables !== undefined) {
     const expr = body.data.formulaExpression ?? "";
@@ -1494,6 +1506,12 @@ router.post(
       : strategy === "sum_values" ? "Soma"
       : strategy === "min" ? "Mínimo" : "Máximo";
 
+    const corporateNorms = Array.isArray(body.norms) ? body.norms : [];
+    if (!(await assertNormsBelongToOrg(orgId, corporateNorms))) {
+      res.status(400).json({ error: "Norma(s) inválida(s) para esta organização" });
+      return;
+    }
+
     const newIndicatorId = await db.transaction(async (tx) => {
       const [created] = await tx
         .insert(kpiIndicatorsTable)
@@ -1510,7 +1528,7 @@ router.post(
           formulaExpression: "",
           formulaVariables: [],
           responsibleUserId: body.responsibleUserId ?? null,
-          norms: Array.isArray(body.norms) ? body.norms : [],
+          norms: corporateNorms,
           rollupStrategy: strategy,
         })
         .returning({ id: kpiIndicatorsTable.id });

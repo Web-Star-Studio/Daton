@@ -159,6 +159,14 @@ export default function ObrigatoriedadesPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<RequirementForm>(EMPTY_FORM);
+  // Editar uma obrigatoriedade cuja norma foi desativada não pode mostrar o
+  // seletor em branco — inclui a norma referenciada (mesmo inativa) nas opções.
+  const normOptions = useMemo(() => {
+    const referencedInactive = allNorms.filter(
+      (n) => !n.active && form.normIds.includes(n.id),
+    );
+    return [...activeNorms, ...referencedInactive];
+  }, [activeNorms, allNorms, form.normIds]);
   // Parent-controlled search for the multi-cargo picker, so "Selecionar todos os
   // encontrados" acts on the filtered subset (ex.: digitar "ANALISTA" → todos os
   // analistas) em vez de todos os 174 cargos.
@@ -681,7 +689,7 @@ export default function ObrigatoriedadesPage() {
               onChange={(v) =>
                 setForm({ ...form, normIds: v ? [Number(v)] : [] })
               }
-              options={activeNorms.map((n) => ({
+              options={normOptions.map((n) => ({
                 value: String(n.id),
                 label: n.label,
               }))}

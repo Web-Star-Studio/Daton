@@ -90,7 +90,21 @@ router.post("/organizations/:orgId/norms", requireAuth, requireRole("org_admin")
   if (inserted) { res.status(201).json(serializeNorm(inserted)); return; }
 
   const raced = await findByLabel();
-  if (raced) { res.status(200).json(serializeNorm(raced)); return; }
+  if (raced) {
+    // Mesma regra do caminho `existing` acima: se a norma criada pela
+    // requisição concorrente estiver inativa, reativa em vez de devolver
+    // uma norma "recriada" que continua fora do catálogo ativo.
+    if (!raced.active) {
+      const [reactivated] = await db.update(regulatoryNormsTable)
+        .set({ active: true })
+        .where(eq(regulatoryNormsTable.id, raced.id))
+        .returning();
+      res.status(200).json(serializeNorm(reactivated));
+      return;
+    }
+    res.status(200).json(serializeNorm(raced));
+    return;
+  }
 
   res.status(409).json({ error: "Não foi possível criar a norma" });
 });
@@ -130,15 +144,29 @@ router.patch("/organizations/:orgId/norms/:normId", requireAuth, requireRole("or
   if (body.data.active !== undefined) updateData.active = body.data.active;
   if (body.data.sortOrder !== undefined) updateData.sortOrder = body.data.sortOrder;
 
-  const [row] = await db.update(regulatoryNormsTable)
-    .set(Object.keys(updateData).length > 0 ? updateData : { updatedAt: new Date() })
-    .where(and(
-      eq(regulatoryNormsTable.id, params.data.normId),
-      eq(regulatoryNormsTable.organizationId, params.data.orgId),
-    ))
-    .returning();
+  try {
+    const [row] = await db.update(regulatoryNormsTable)
+      .set(Object.keys(updateData).length > 0 ? updateData : { updatedAt: new Date() })
+      .where(and(
+        eq(regulatoryNormsTable.id, params.data.normId),
+        eq(regulatoryNormsTable.organizationId, params.data.orgId),
+      ))
+      .returning();
 
-  res.json(serializeNorm(row));
+    res.json(serializeNorm(row));
+  } catch (err: unknown) {
+    // A checagem de colisão acima (SELECT) não é atômica com este UPDATE —
+    // um rename concorrente para o mesmo rótulo pode passar pelo SELECT e só
+    // colidir aqui, no índice único. Sem isto, seria um 500 não tratado.
+    const code =
+      (err as { cause?: { code?: string } } | undefined)?.cause?.code ??
+      (err as { code?: string } | undefined)?.code;
+    if (code === "23505") {
+      res.status(409).json({ error: "Já existe uma norma com esse rótulo" });
+      return;
+    }
+    throw err;
+  }
 });
 
 export default router;

@@ -359,6 +359,14 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
   const { data: activeNorms = [] } = useActiveNorms(orgId);
   const { data: allNorms = [] } = useAllNorms(orgId);
   const normLabelMap = useMemo(() => buildNormLabelMap(allNorms), [allNorms]);
+  // Editar um indicador cuja norma foi desativada não pode esconder o checkbox
+  // já marcado — inclui a norma referenciada (mesmo inativa) nas opções.
+  const checkboxNorms = useMemo(() => {
+    const referencedInactive = allNorms.filter(
+      (n) => !n.active && indicatorForm.norms.includes(n.id),
+    );
+    return [...activeNorms, ...referencedInactive];
+  }, [activeNorms, allNorms, indicatorForm.norms]);
 
   const { data: orgUsersData, isLoading: orgUsersLoading } = useListOrgUsers(orgId, {
     query: {
@@ -1121,7 +1129,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           <div className="col-span-2 space-y-1.5">
             <Label>Norma(s) atendida(s)</Label>
             <div className="flex flex-wrap gap-2">
-              {activeNorms.map((norm) => {
+              {checkboxNorms.map((norm) => {
                 const checked = indicatorForm.norms.includes(norm.id);
                 return (
                   <label

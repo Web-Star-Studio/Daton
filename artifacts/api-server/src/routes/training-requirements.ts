@@ -18,6 +18,7 @@ import {
   UpdateTrainingRequirementParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
+import { assertNormsBelongToOrg } from "../services/norms/validate";
 
 const router: IRouter = Router();
 
@@ -186,6 +187,15 @@ router.post(
       });
       return;
     }
+    if (
+      !(await assertNormsBelongToOrg(
+        params.data.orgId,
+        body.data.normIds ?? [],
+      ))
+    ) {
+      res.status(400).json({ error: "Norma(s) inválida(s) para esta organização" });
+      return;
+    }
     const [row] = await db
       .insert(trainingRequirementsTable)
       .values({
@@ -198,6 +208,7 @@ router.post(
         filialUnitIds: body.data.filialUnitIds ?? [],
         recurrence: body.data.recurrence ?? "nao_repete",
         isCritical: body.data.isCritical ?? false,
+        norm: body.data.norm ?? null,
         normIds: body.data.normIds ?? [],
         notes: body.data.notes ?? null,
       })
@@ -258,6 +269,13 @@ router.patch(
         return;
       }
     }
+    if (
+      b.normIds !== undefined &&
+      !(await assertNormsBelongToOrg(params.data.orgId, b.normIds))
+    ) {
+      res.status(400).json({ error: "Norma(s) inválida(s) para esta organização" });
+      return;
+    }
 
     const updates: Partial<typeof trainingRequirementsTable.$inferInsert> = {};
     if (b.positionId !== undefined) updates.positionId = b.positionId;
@@ -268,6 +286,7 @@ router.patch(
     if (b.filialUnitIds !== undefined) updates.filialUnitIds = b.filialUnitIds;
     if (b.recurrence !== undefined) updates.recurrence = b.recurrence;
     if (b.isCritical !== undefined) updates.isCritical = b.isCritical;
+    if (b.norm !== undefined) updates.norm = b.norm;
     if (b.normIds !== undefined) updates.normIds = b.normIds;
     if (b.notes !== undefined) updates.notes = b.notes;
 
