@@ -32,10 +32,6 @@ export const KPI_CATEGORIES: KpiCategory[] = [
   "Financeiro",
 ];
 
-/** ISO norm codes an indicator can be tagged with (cláusula 9.1 — monitoramento). */
-export type KpiNorm = "9001" | "14001" | "39001";
-export const KPI_NORMS: KpiNorm[] = ["9001", "14001", "39001"];
-
 export type KpiFormulaVariable = { key: string; label: string };
 export type KpiMonthlyValueInputs = Record<string, number | null>;
 
