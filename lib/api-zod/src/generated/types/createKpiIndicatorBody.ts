@@ -29,7 +29,7 @@ export interface CreateKpiIndicatorBody {
    */
   referenceMonth?: number | null;
   category?: string | null;
-  norms?: string[];
+  norms?: number[];
   objectiveId?: number | null;
   goal?: number | null;
   seq?: number | null;

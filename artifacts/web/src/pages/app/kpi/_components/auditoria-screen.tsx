@@ -9,7 +9,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  KPI_NORMS,
   useKpiIndicators,
   useKpiYearData,
   type KpiIndicator,
@@ -21,6 +20,7 @@ import {
   formatCalendarDateBR,
   useActionPlans,
 } from "@/lib/action-plans-client";
+import { useAllNorms } from "@/lib/norms-client";
 import { getIndicatorStatus } from "./indicator-card";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -75,6 +75,7 @@ export function AuditoriaScreen() {
   const { data: indicators = [], isLoading } = useKpiIndicators(orgId);
   const { data: yearRows = [] } = useKpiYearData(orgId, year);
   const { data: plans = [] } = useActionPlans(orgId, { sourceModule: "kpi" });
+  const { data: allNorms = [] } = useAllNorms(orgId);
 
   const rowByIndicator = useMemo(() => {
     const map = new Map<number, KpiYearRow>();
@@ -86,10 +87,18 @@ export function AuditoriaScreen() {
   const onTarget = (ind: KpiIndicator) =>
     getIndicatorStatus(ind, rowByIndicator.get(ind.id)) === "green";
 
+  // Um card de norma não pode sumir só porque a norma foi desativada — se ela
+  // ainda está referenciada por algum indicador, continua aparecendo (ISO
+  // exige rastreabilidade mesmo de normas retiradas do catálogo).
+  const coverageNorms = useMemo(() => {
+    const referenced = new Set(indicators.flatMap((i) => i.norms ?? []));
+    return allNorms.filter((n) => n.active || referenced.has(n.id));
+  }, [allNorms, indicators]);
+
   const normCoverage = useMemo(
     () =>
-      KPI_NORMS.map((norm) => {
-        const tagged = indicators.filter((i) => (i.norms ?? []).includes(norm.code));
+      coverageNorms.map((norm) => {
+        const tagged = indicators.filter((i) => (i.norms ?? []).includes(norm.id));
         const withResult = tagged.filter(hasResult).length;
         const onTargetCount = tagged.filter(onTarget).length;
         return {
@@ -101,7 +110,7 @@ export function AuditoriaScreen() {
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [indicators, rowByIndicator],
+    [indicators, rowByIndicator, coverageNorms],
   );
 
   const recentRacs = useMemo(
@@ -120,7 +129,7 @@ export function AuditoriaScreen() {
           {/* Normative coverage */}
           <div className="grid gap-3 sm:grid-cols-3">
             {normCoverage.map(({ norm, total, withResult, onTarget: ot, coverage }) => (
-              <div key={norm.code} className="rounded-lg border bg-card p-4">
+              <div key={norm.id} className="rounded-lg border bg-card p-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
                     <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" aria-hidden />

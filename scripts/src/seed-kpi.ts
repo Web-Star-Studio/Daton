@@ -14,6 +14,7 @@ import {
   organizationsTable,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { ensureOrgNormsAndMap, codesToNormIds } from "./migrate/norm-catalog";
 
 const YEAR = 2025;
 const CURRENT_YEAR = new Date().getFullYear();
@@ -1138,6 +1139,10 @@ async function main() {
   }
   console.log(`Using org: ${orgName} (id=${orgId})`);
 
+  // Códigos legados (ex. "9001") -> ids do catálogo de normas da org
+  // (kpi_indicators.norms é number[] desde o Catálogo de Normas).
+  const codeToId = await ensureOrgNormsAndMap(orgId);
+
   // 2. Upsert objectives (match by name to avoid duplicates)
   const existingObjectives = await db.select().from(kpiObjectivesTable)
     .where(eq(kpiObjectivesTable.organizationId, orgId));
@@ -1191,7 +1196,7 @@ async function main() {
       await db.update(kpiIndicatorsTable)
         .set({
           category,
-          norms,
+          norms: codesToNormIds(norms, codeToId),
           formulaVariables: formula.variables,
           formulaExpression: formula.expression,
         })
@@ -1208,7 +1213,7 @@ async function main() {
         direction: ind.direction,
         periodicity: ind.periodicity,
         category,
-        norms,
+        norms: codesToNormIds(norms, codeToId),
         formulaVariables: formula.variables,
         formulaExpression: formula.expression,
       }).returning();

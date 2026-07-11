@@ -6,6 +6,7 @@ import { db, usersTable, organizationsTable, userModulePermissionsTable, unitsTa
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { issueAuthToken, requireAuth } from "../middlewares/auth";
 import { serializeOrganization } from "../lib/serialize-organization";
+import { ensureDefaultNorms } from "../services/norms/defaults";
 
 const router: IRouter = Router();
 
@@ -124,6 +125,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     openingDate: null,
     onboardingStatus: "pending",
   }).returning();
+
+  await ensureDefaultNorms(org.id);
 
   const [user] = await db.insert(usersTable).values({
     name: adminFullName.toUpperCase(),

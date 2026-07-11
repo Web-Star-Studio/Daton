@@ -15,6 +15,11 @@ export interface CreateTrainingRequirementBody {
   filialUnitIds?: number[];
   recurrence?: string;
   isCritical?: boolean;
+  /**
+   * Deprecated — use normIds. Kept for backward compatibility.
+   * @deprecated
+   */
   norm?: string;
+  normIds?: number[];
   notes?: string;
 }

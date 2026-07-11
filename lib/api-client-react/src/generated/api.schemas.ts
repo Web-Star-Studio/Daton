@@ -131,7 +131,12 @@ export interface TrainingRequirement {
   filialUnitIds: number[];
   recurrence: string;
   isCritical: boolean;
+  /**
+   * Deprecated — use normIds. Kept for backward compatibility.
+   * @deprecated
+   */
   norm?: string | null;
+  normIds: number[];
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -146,7 +151,12 @@ export interface CreateTrainingRequirementBody {
   filialUnitIds?: number[];
   recurrence?: string;
   isCritical?: boolean;
+  /**
+   * Deprecated — use normIds. Kept for backward compatibility.
+   * @deprecated
+   */
   norm?: string;
+  normIds?: number[];
   notes?: string;
 }
 
@@ -159,7 +169,12 @@ export interface UpdateTrainingRequirementBody {
   filialUnitIds?: number[];
   recurrence?: string;
   isCritical?: boolean;
+  /**
+   * Deprecated — use normIds. Kept for backward compatibility.
+   * @deprecated
+   */
   norm?: string;
+  normIds?: number[];
   notes?: string;
 }
 
@@ -3983,7 +3998,7 @@ export interface KpiIndicator {
    */
   referenceMonth?: number | null;
   category?: string | null;
-  norms: string[];
+  norms: number[];
   /** Source system that auto-populates this indicator (e.g. "lms"). null = manual. */
   computedSource?: string | null;
   /** Specific metric key within the source system (e.g. "completion_rate"). */
@@ -4032,7 +4047,7 @@ export interface CreateKpiIndicatorBody {
    */
   referenceMonth?: number | null;
   category?: string | null;
-  norms?: string[];
+  norms?: number[];
   objectiveId?: number | null;
   goal?: number | null;
   seq?: number | null;
@@ -4078,7 +4093,7 @@ export interface UpdateKpiIndicatorBody {
    */
   referenceMonth?: number | null;
   category?: string | null;
-  norms?: string[];
+  norms?: number[];
 }
 
 export interface KpiYearConfig {
@@ -4236,7 +4251,7 @@ export interface CreateKpiCorporateIndicatorBody {
   referenceMonth?: number | null;
   /** @nullable */
   category?: string | null;
-  norms?: string[];
+  norms?: number[];
   /** @nullable */
   responsibleUserId?: number | null;
 }
@@ -4479,6 +4494,29 @@ export interface CreateSwotPerspectiveBody {
 export interface UpdateSwotPerspectiveBody {
   /** @minLength 1 */
   name: string;
+}
+
+/**
+ * Item do catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento).
+ */
+export interface RegulatoryNorm {
+  id: number;
+  organizationId: number;
+  label: string;
+  active: boolean;
+  sortOrder: number;
+}
+
+export interface CreateRegulatoryNormBody {
+  /** @minLength 1 */
+  label: string;
+}
+
+export interface UpdateRegulatoryNormBody {
+  /** @minLength 1 */
+  label?: string;
+  active?: boolean;
+  sortOrder?: number;
 }
 
 export type ActionPlanSourceModule =

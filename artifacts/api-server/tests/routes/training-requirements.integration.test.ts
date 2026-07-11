@@ -65,6 +65,75 @@ describe("training-requirements routes", () => {
     expect(removed.status).toBe(204);
   });
 
+  it("normIds faz round-trip (POST grava, GET retorna)", async () => {
+    const context = await createTestContext({ seed: "training-req-normids" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-requirements`;
+    const normsBase = `/api/organizations/${context.organizationId}/norms`;
+    const position = await createPosition(context, { name: `Cargo ${context.prefix}` });
+    const catalogItemId = await createCatalogItem(context, `Treino ${context.prefix}`);
+    // normIds precisa apontar para normas reais do catálogo da própria org.
+    const normA = await request(app)
+      .post(normsBase)
+      .set(authHeader(context))
+      .send({ label: `Norma A ${context.prefix}` });
+    const normB = await request(app)
+      .post(normsBase)
+      .set(authHeader(context))
+      .send({ label: `Norma B ${context.prefix}` });
+
+    const created = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({
+        positionId: position.id,
+        catalogItemId,
+        deadlineType: "fixo",
+        deadlineDays: 30,
+        scope: "geral",
+        normIds: [normA.body.id],
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.normIds).toEqual([normA.body.id]);
+
+    const listed = await request(app)
+      .get(`${base}?positionId=${position.id}`)
+      .set(authHeader(context));
+    expect(listed.status).toBe(200);
+    const found = listed.body.data.find((r: { id: number }) => r.id === created.body.id);
+    expect(found?.normIds).toEqual([normA.body.id]);
+
+    const patched = await request(app)
+      .patch(`${base}/${created.body.id}`)
+      .set(authHeader(context))
+      .send({ normIds: [normA.body.id, normB.body.id] });
+    expect(patched.status).toBe(200);
+    expect(patched.body.normIds).toEqual([normA.body.id, normB.body.id]);
+
+    // Norma inexistente → 400 (não deve gravar).
+    const invalid = await request(app)
+      .patch(`${base}/${created.body.id}`)
+      .set(authHeader(context))
+      .send({ normIds: [999999] });
+    expect(invalid.status).toBe(400);
+
+    // Norma REAL de OUTRA organização → 400. Prova que a validação é scoped por
+    // organização (e não apenas existência global do id): o id existe, mas é de
+    // outro inquilino. Um validador só-de-existência passaria; o correto rejeita.
+    const otherOrg = await createTestContext({ seed: "training-req-normids-other" });
+    contexts.push(otherOrg);
+    const foreignNorm = await request(app)
+      .post(`/api/organizations/${otherOrg.organizationId}/norms`)
+      .set(authHeader(otherOrg))
+      .send({ label: `Norma alheia ${otherOrg.prefix}` });
+    expect(foreignNorm.status).toBe(201);
+    const crossTenant = await request(app)
+      .patch(`${base}/${created.body.id}`)
+      .set(authHeader(context))
+      .send({ normIds: [foreignNorm.body.id] });
+    expect(crossTenant.status).toBe(400);
+  });
+
   it("rejeita obrigatoriedade duplicada (mesmo cargo+treinamento+escopo)", async () => {
     const context = await createTestContext({ seed: "training-req-dup" });
     contexts.push(context);

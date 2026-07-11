@@ -114,7 +114,8 @@ export const trainingRequirementsTable = pgTable("training_requirements", {
     .$type<number[]>(),
   recurrence: text("recurrence").notNull().default("nao_repete"),
   isCritical: boolean("is_critical").notNull().default(false),
-  norm: text("norm"),
+  norm: text("norm"), // legado — não usado após a migração; será removido depois
+  normIds: jsonb("norm_ids").notNull().default(sql`'[]'::jsonb`).$type<number[]>(),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

@@ -9,6 +9,7 @@ import {
   kpiMonthlyValuesTable,
   kpiObjectivesTable,
   kpiYearConfigsTable,
+  regulatoryNormsTable,
   unitsTable,
   usersTable,
   type KpiMonthlyValueJustification as DbKpiMonthlyValueJustification,
@@ -58,6 +59,8 @@ import { normalizeKpiUnit, CORPORATE_UNIT_LABEL } from "../../services/kpi/units
 import { computeRollupValue, computeRollupGoal, type RollupGoalResult } from "../../services/kpi/rollup";
 import { computeFeedStatus, expectedMonthsFor } from "../../services/kpi/feed-status";
 import { computeLmsMetric, LMS_INDICATOR_DEFS, type LmsMetricKey } from "../../services/kpi/lms-metrics";
+import { codesToNormIds, ensureDefaultNorms } from "../../services/norms/defaults";
+import { assertNormsBelongToOrg } from "../../services/norms/validate";
 
 const router: IRouter = Router();
 
@@ -435,6 +438,11 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
   );
   if (!canCreate) { res.status(403).json({ error: "Sem permissão para criar indicador nesta filial" }); return; }
 
+  if (!(await assertNormsBelongToOrg(params.data.orgId, body.data.norms ?? []))) {
+    res.status(400).json({ error: "Norma(s) inválida(s) para esta organização" });
+    return;
+  }
+
   const [row] = await db.insert(kpiIndicatorsTable).values({
     organizationId: params.data.orgId,
     name: body.data.name,
@@ -528,7 +536,13 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
         : null;
   }
   if (body.data.category !== undefined) updateData.category = body.data.category;
-  if (body.data.norms !== undefined) updateData.norms = body.data.norms;
+  if (body.data.norms !== undefined) {
+    if (!(await assertNormsBelongToOrg(params.data.orgId, body.data.norms))) {
+      res.status(400).json({ error: "Norma(s) inválida(s) para esta organização" });
+      return;
+    }
+    updateData.norms = body.data.norms;
+  }
 
   if (body.data.formulaExpression !== undefined || body.data.formulaVariables !== undefined) {
     const expr = body.data.formulaExpression ?? "";
@@ -1412,7 +1426,7 @@ router.post(
       periodicity?: string;
       referenceMonth?: number | null;
       category?: string | null;
-      norms?: string[];
+      norms?: number[];
       responsibleUserId?: number | null;
     };
 
@@ -1492,6 +1506,12 @@ router.post(
       : strategy === "sum_values" ? "Soma"
       : strategy === "min" ? "Mínimo" : "Máximo";
 
+    const corporateNorms = Array.isArray(body.norms) ? body.norms : [];
+    if (!(await assertNormsBelongToOrg(orgId, corporateNorms))) {
+      res.status(400).json({ error: "Norma(s) inválida(s) para esta organização" });
+      return;
+    }
+
     const newIndicatorId = await db.transaction(async (tx) => {
       const [created] = await tx
         .insert(kpiIndicatorsTable)
@@ -1508,7 +1528,7 @@ router.post(
           formulaExpression: "",
           formulaVariables: [],
           responsibleUserId: body.responsibleUserId ?? null,
-          norms: Array.isArray(body.norms) ? body.norms : [],
+          norms: corporateNorms,
           rollupStrategy: strategy,
         })
         .returning({ id: kpiIndicatorsTable.id });
@@ -1562,6 +1582,15 @@ router.post(
     let activated = 0;
     const indicatorIds: number[] = [];
 
+    // LMS_INDICATOR_DEFS.norms carries declarative ISO codes (e.g. "9001"), not
+    // catalog ids — resolve to this org's regulatory_norms ids at creation time.
+    await ensureDefaultNorms(orgId);
+    const orgNorms = await db
+      .select({ id: regulatoryNormsTable.id, label: regulatoryNormsTable.label })
+      .from(regulatoryNormsTable)
+      .where(eq(regulatoryNormsTable.organizationId, orgId));
+    const normLabelToId = new Map(orgNorms.map((n) => [n.label.toLowerCase(), n.id]));
+
     for (const def of LMS_INDICATOR_DEFS) {
       // Check if indicator already exists for this org + metric
       const [existing] = await db
@@ -1606,7 +1635,7 @@ router.post(
           direction: def.direction,
           periodicity: "monthly",
           category: def.category,
-          norms: def.norms,
+          norms: codesToNormIds(def.norms, normLabelToId),
           computedSource: "lms",
           computedMetric: def.metric,
         })

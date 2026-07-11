@@ -29,5 +29,5 @@ export interface UpdateKpiIndicatorBody {
    */
   referenceMonth?: number | null;
   category?: string | null;
-  norms?: string[];
+  norms?: number[];
 }

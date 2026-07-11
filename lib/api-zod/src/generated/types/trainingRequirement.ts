@@ -20,7 +20,12 @@ export interface TrainingRequirement {
   filialUnitIds: number[];
   recurrence: string;
   isCritical: boolean;
+  /**
+   * Deprecated — use normIds. Kept for backward compatibility.
+   * @deprecated
+   */
   norm?: string | null;
+  normIds: number[];
   notes?: string | null;
   createdAt: string;
   updatedAt: string;

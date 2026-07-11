@@ -18,6 +18,7 @@ import {
   UpdateTrainingRequirementParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
+import { assertNormsBelongToOrg } from "../services/norms/validate";
 
 const router: IRouter = Router();
 
@@ -25,6 +26,7 @@ function serialize(row: typeof trainingRequirementsTable.$inferSelect) {
   return {
     ...row,
     filialUnitIds: (row.filialUnitIds as number[]) ?? [],
+    normIds: (row.normIds as number[]) ?? [],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -185,6 +187,15 @@ router.post(
       });
       return;
     }
+    if (
+      !(await assertNormsBelongToOrg(
+        params.data.orgId,
+        body.data.normIds ?? [],
+      ))
+    ) {
+      res.status(400).json({ error: "Norma(s) inválida(s) para esta organização" });
+      return;
+    }
     const [row] = await db
       .insert(trainingRequirementsTable)
       .values({
@@ -198,6 +209,7 @@ router.post(
         recurrence: body.data.recurrence ?? "nao_repete",
         isCritical: body.data.isCritical ?? false,
         norm: body.data.norm ?? null,
+        normIds: body.data.normIds ?? [],
         notes: body.data.notes ?? null,
       })
       .returning();
@@ -257,6 +269,13 @@ router.patch(
         return;
       }
     }
+    if (
+      b.normIds !== undefined &&
+      !(await assertNormsBelongToOrg(params.data.orgId, b.normIds))
+    ) {
+      res.status(400).json({ error: "Norma(s) inválida(s) para esta organização" });
+      return;
+    }
 
     const updates: Partial<typeof trainingRequirementsTable.$inferInsert> = {};
     if (b.positionId !== undefined) updates.positionId = b.positionId;
@@ -268,6 +287,7 @@ router.patch(
     if (b.recurrence !== undefined) updates.recurrence = b.recurrence;
     if (b.isCritical !== undefined) updates.isCritical = b.isCritical;
     if (b.norm !== undefined) updates.norm = b.norm;
+    if (b.normIds !== undefined) updates.normIds = b.normIds;
     if (b.notes !== undefined) updates.notes = b.notes;
 
     try {

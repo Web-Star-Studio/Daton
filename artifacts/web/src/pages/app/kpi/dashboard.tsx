@@ -28,6 +28,7 @@ import { CategorySemaphore } from "./_components/category-semaphore";
 import { CriticalIndicators } from "./_components/critical-indicators";
 import { EvolutionPanel } from "./_components/evolution-panel";
 import { CORPORATE_UNIT_LABEL } from "@/lib/kpi-constants";
+import { useAllNorms, buildNormLabelMap } from "@/lib/norms-client";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MONTH_NAMES = [
@@ -74,6 +75,8 @@ export default function KpiDashboardPage({
     year,
     unitFilter || undefined,
   );
+  const { data: allNorms = [] } = useAllNorms(orgId);
+  const normLabelMap = useMemo(() => buildNormLabelMap(allNorms), [allNorms]);
 
   const yearIndicatorIds = useMemo(
     () => new Set(yearRows.map((r) => r.indicator.id)),
@@ -143,20 +146,20 @@ export default function KpiDashboardPage({
 
   /** Caption under the "Total" tile — norm coverage, or no-data fallback. */
   const totalCaption = useMemo(() => {
-    const norms = new Set<string>();
+    const norms = new Set<number>();
     for (const ind of indicatorsForYear) {
       for (const n of ind.norms ?? []) norms.add(n);
     }
     if (norms.size > 0) {
       return [...norms]
+        .map((id) => normLabelMap.get(id) ?? "#" + id)
         .sort()
-        .map((n) => `ISO ${n}`)
         .join(" · ");
     }
     return statusCounts.nodata > 0
       ? `${statusCounts.nodata} sem dados no ano`
       : "Sem normas marcadas";
-  }, [indicatorsForYear, statusCounts.nodata]);
+  }, [indicatorsForYear, statusCounts.nodata, normLabelMap]);
 
   /** Tile selection narrows the widgets below; tile counts stay global. */
   const focusedIndicators = useMemo(() => {

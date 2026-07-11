@@ -38,6 +38,7 @@ import assetMaintenanceRouter from "./asset-maintenance";
 import workEnvironmentRouter from "./work-environment";
 import measurementResourcesRouter from "./measurement-resources";
 import regulatoryDocumentsRouter from "./regulatory-documents";
+import regulatoryNormsRouter from "./regulatory-norms";
 import pendenciasRouter from "./pendencias";
 import learningSummaryRouter from "./learning-summary";
 const router: IRouter = Router();
@@ -241,5 +242,10 @@ router.use(
   ]),
   regulatoryDocumentsRouter,
 );
+// Sem requireModuleAccessForPaths: o catálogo de normas é cross-module (usado
+// por KPI, obrigatoriedade de treinamento etc.) — leitura livre a qualquer
+// usuário autenticado da org; a gate admin na escrita vive na própria rota
+// (requireRole("org_admin")).
+router.use(requireAuth, requireCompletedOnboarding, regulatoryNormsRouter);
 
 export default router;

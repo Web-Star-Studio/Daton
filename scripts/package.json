@@ -31,6 +31,7 @@
     "backfill-kpi-values-from-formula": "tsx --env-file ../.env ./src/migrate/backfill-kpi-values-from-formula.ts",
     "fix-kpi-indicator-rename": "tsx --env-file ../.env ./src/migrate/fix-kpi-indicator-rename.ts",
     "backfill-kpi-unit-id": "tsx --env-file ../.env ./src/migrate/backfill-kpi-unit-id.ts",
+    "backfill-norms-catalog": "tsx --env-file ../.env ./src/migrate/norms-catalog-backfill.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

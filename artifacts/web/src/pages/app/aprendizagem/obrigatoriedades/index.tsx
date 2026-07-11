@@ -14,6 +14,11 @@ import {
 } from "@workspace/api-client-react";
 import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import {
+  useActiveNorms,
+  useAllNorms,
+  buildNormLabelMap,
+} from "@/lib/norms-client";
+import {
   createRequirementsForPositions,
   describeBatchResult,
   resolveBatchOutcome,
@@ -67,7 +72,7 @@ type RequirementForm = {
   filialUnitIds: number[];
   recurrence: string;
   isCritical: boolean;
-  norm: string;
+  normIds: number[];
   notes: string;
 };
 
@@ -80,7 +85,7 @@ const EMPTY_FORM: RequirementForm = {
   filialUnitIds: [],
   recurrence: "nao_repete",
   isCritical: false,
-  norm: "",
+  normIds: [],
   notes: "",
 };
 
@@ -119,6 +124,9 @@ export default function ObrigatoriedadesPage() {
   });
   const catalogItems = catalogResult?.data ?? [];
   const { data: units = [] } = useListUnits(orgId ?? 0);
+  const { data: activeNorms = [] } = useActiveNorms(orgId ?? 0);
+  const { data: allNorms = [] } = useAllNorms(orgId ?? 0);
+  const normLabelMap = useMemo(() => buildNormLabelMap(allNorms), [allNorms]);
 
   const positionName = useMemo(
     () => new Map(positions.map((p) => [p.id, p.name])),
@@ -151,6 +159,14 @@ export default function ObrigatoriedadesPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<RequirementForm>(EMPTY_FORM);
+  // Editar uma obrigatoriedade cuja norma foi desativada não pode mostrar o
+  // seletor em branco — inclui a norma referenciada (mesmo inativa) nas opções.
+  const normOptions = useMemo(() => {
+    const referencedInactive = allNorms.filter(
+      (n) => !n.active && form.normIds.includes(n.id),
+    );
+    return [...activeNorms, ...referencedInactive];
+  }, [activeNorms, allNorms, form.normIds]);
   // Parent-controlled search for the multi-cargo picker, so "Selecionar todos os
   // encontrados" acts on the filtered subset (ex.: digitar "ANALISTA" → todos os
   // analistas) em vez de todos os 174 cargos.
@@ -205,7 +221,7 @@ export default function ObrigatoriedadesPage() {
       filialUnitIds: r.filialUnitIds ?? [],
       recurrence: r.recurrence,
       isCritical: r.isCritical,
-      norm: r.norm ?? "",
+      normIds: r.normIds ?? [],
       notes: r.notes ?? "",
     });
     setOpen(true);
@@ -245,7 +261,7 @@ export default function ObrigatoriedadesPage() {
       filialUnitIds: form.scope === "filial" ? form.filialUnitIds : [],
       recurrence: form.recurrence,
       isCritical: form.isCritical,
-      norm: form.norm || undefined,
+      normIds: form.normIds,
       notes: form.notes || undefined,
     };
 
@@ -381,7 +397,13 @@ export default function ObrigatoriedadesPage() {
                     <td className="px-4 py-2">
                       {catalogTitle.get(r.catalogItemId) ?? `#${r.catalogItemId}`}
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground">{r.norm ?? "—"}</td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {(r.normIds ?? []).length > 0
+                        ? (r.normIds ?? [])
+                            .map((id) => normLabelMap.get(id) ?? `#${id}`)
+                            .join(", ")
+                        : "—"}
+                    </td>
                     <td className="px-4 py-2">
                       <Badge className="bg-blue-50 text-blue-700">
                         {DEADLINE_LABEL[r.deadlineType] ?? r.deadlineType}
@@ -662,10 +684,18 @@ export default function ObrigatoriedadesPage() {
             </Select>
           </Field>
           <Field label="Norma de referência">
-            <Input
-              value={form.norm}
-              onChange={(e) => setForm({ ...form, norm: e.target.value })}
-              placeholder="Ex: ISO 39001 §7.2"
+            <SearchableSelect
+              value={form.normIds[0] != null ? String(form.normIds[0]) : ""}
+              onChange={(v) =>
+                setForm({ ...form, normIds: v ? [Number(v)] : [] })
+              }
+              options={normOptions.map((n) => ({
+                value: String(n.id),
+                label: n.label,
+              }))}
+              placeholder="Selecione a norma..."
+              searchPlaceholder="Buscar norma..."
+              emptyMessage="Nenhuma norma cadastrada."
             />
           </Field>
           <label className="flex items-center gap-2 md:col-span-2">
