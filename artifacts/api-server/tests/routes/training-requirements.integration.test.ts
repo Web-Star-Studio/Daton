@@ -110,12 +110,28 @@ describe("training-requirements routes", () => {
     expect(patched.status).toBe(200);
     expect(patched.body.normIds).toEqual([normA.body.id, normB.body.id]);
 
-    // Norma inexistente/de outra org → 400 (não deve gravar).
+    // Norma inexistente → 400 (não deve gravar).
     const invalid = await request(app)
       .patch(`${base}/${created.body.id}`)
       .set(authHeader(context))
       .send({ normIds: [999999] });
     expect(invalid.status).toBe(400);
+
+    // Norma REAL de OUTRA organização → 400. Prova que a validação é scoped por
+    // organização (e não apenas existência global do id): o id existe, mas é de
+    // outro inquilino. Um validador só-de-existência passaria; o correto rejeita.
+    const otherOrg = await createTestContext({ seed: "training-req-normids-other" });
+    contexts.push(otherOrg);
+    const foreignNorm = await request(app)
+      .post(`/api/organizations/${otherOrg.organizationId}/norms`)
+      .set(authHeader(otherOrg))
+      .send({ label: `Norma alheia ${otherOrg.prefix}` });
+    expect(foreignNorm.status).toBe(201);
+    const crossTenant = await request(app)
+      .patch(`${base}/${created.body.id}`)
+      .set(authHeader(context))
+      .send({ normIds: [foreignNorm.body.id] });
+    expect(crossTenant.status).toBe(400);
   });
 
   it("rejeita obrigatoriedade duplicada (mesmo cargo+treinamento+escopo)", async () => {
