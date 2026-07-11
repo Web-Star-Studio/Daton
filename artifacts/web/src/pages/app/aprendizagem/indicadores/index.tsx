@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useAllNorms, buildNormLabelMap } from "@/lib/norms-client";
 
 function formatPct(value: number | null): string {
   if (value === null) return "—";
@@ -125,6 +127,8 @@ export default function AprendizagemIndicadoresPage() {
   const canWriteKpi = canWriteModule("kpi");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: allNorms = [] } = useAllNorms(orgId);
+  const normLabelMap = useMemo(() => buildNormLabelMap(allNorms), [allNorms]);
 
   const currentYear = new Date().getFullYear();
   const summaryParams = { year: currentYear };
@@ -417,7 +421,7 @@ export default function AprendizagemIndicadoresPage() {
                         key={n}
                         className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
                       >
-                        {n}
+                        {normLabelMap.get(n) ?? "#" + n}
                       </span>
                     ))}
                     {ind.unit ? (

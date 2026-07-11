@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { AlertCircle, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -7,6 +8,8 @@ import {
   type KpiIndicator,
   type KpiYearRow,
 } from "@/lib/kpi-client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAllNorms, buildNormLabelMap } from "@/lib/norms-client";
 import { getIndicatorStatus, type CardStatus } from "./indicator-card";
 
 type CriticalIndicatorsProps = {
@@ -80,6 +83,9 @@ export function CriticalIndicators({
   onSelect,
   limit = 5,
 }: CriticalIndicatorsProps) {
+  const { organization } = useAuth();
+  const { data: allNorms = [] } = useAllNorms(organization?.id ?? 0);
+  const normLabelMap = useMemo(() => buildNormLabelMap(allNorms), [allNorms]);
   const items = pickCritical(indicators, yearRows, limit);
 
   return (
@@ -143,7 +149,7 @@ export function CriticalIndicators({
                             key={n}
                             className="rounded border px-1 text-[9px] font-medium leading-4 text-muted-foreground"
                           >
-                            ISO {n}
+                            {normLabelMap.get(n) ?? "#" + n}
                           </span>
                         ))}
                       </div>

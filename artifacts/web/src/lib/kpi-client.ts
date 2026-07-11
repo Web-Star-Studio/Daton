@@ -63,14 +63,6 @@ export const KPI_CATEGORIES: KpiCategory[] = [
   "Financeiro",
 ];
 
-/** ISO norm codes an indicator can attend (cláusula 9.1 — monitoramento e medição). */
-export type KpiNorm = "9001" | "14001" | "39001";
-export const KPI_NORMS: { code: KpiNorm; label: string }[] = [
-  { code: "9001", label: "ISO 9001 · cl. 9.1" },
-  { code: "14001", label: "ISO 14001 · cl. 9.1" },
-  { code: "39001", label: "ISO 39001 · cl. 9.1" },
-];
-
 /**
  * @deprecated `referenceMonth` agora faz parte do contrato gerado (`KpiIndicator`).
  * Mantido por compatibilidade enquanto callers antigos são migrados.
