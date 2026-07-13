@@ -1,5 +1,6 @@
 import React from "react";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ColaboradoresPage from "@/pages/app/aprendizagem/colaboradores";
 import { renderWithQueryClient } from "../support/render";
@@ -35,7 +36,12 @@ vi.mock("@/hooks/use-toast", () => ({
 vi.mock("@/lib/uploads", () => ({
   uploadFilesToStorage: vi.fn(),
   validateProfileItemUploadSelection: vi.fn(() => null),
+  formatFileSize: (bytes: number) => `${bytes} B`,
+  MAX_PROFILE_ITEM_ATTACHMENTS: 5,
+  PROFILE_ITEM_ATTACHMENT_ACCEPT: ".pdf",
 }));
+
+const createEmployeeMutate = vi.fn(async () => ({ id: 1 }));
 
 vi.mock("@workspace/api-client-react", () => ({
   useListEmployees: () => ({
@@ -45,7 +51,7 @@ vi.mock("@workspace/api-client-react", () => ({
     },
     isLoading: false,
   }),
-  useCreateEmployee: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCreateEmployee: () => ({ mutateAsync: createEmployeeMutate, isPending: false }),
   useDeleteEmployee: () => ({ mutateAsync: vi.fn() }),
   useListUnits: () => ({ data: [{ id: 1, name: "Matriz" }] }),
   useListDepartments: () => ({ data: [{ id: 1, name: "Qualidade" }] }),
@@ -69,6 +75,7 @@ vi.mock("@/lib/training-catalog-client", () => ({
 describe("employees page", () => {
   beforeEach(() => {
     permissionsState.canWriteEmployees = true;
+    createEmployeeMutate.mockClear();
   });
 
   it("shows the empty state and create flow for users with write access", async () => {
@@ -106,6 +113,41 @@ describe("employees page", () => {
         screen.getByText("Experiências profissionais"),
       ).toBeInTheDocument();
     });
+  });
+
+  it("does not submit the create form when Enter is pressed in a text field", async () => {
+    const user = userEvent.setup();
+    renderWithQueryClient(<ColaboradoresPage />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Adicionar Colaborador" }),
+    );
+    await user.type(
+      screen.getByPlaceholderText("Nome completo do funcionário"),
+      "Maria da Silva",
+    );
+    await user.click(screen.getByRole("button", { name: "Próximo" }));
+    await waitFor(() => {
+      expect(screen.getByText("Tipo de contrato")).toBeInTheDocument();
+    });
+    fireEvent.change(
+      document.querySelector('input[type="date"]') as HTMLInputElement,
+      { target: { value: "2024-01-10" } },
+    );
+    await user.click(screen.getByRole("button", { name: "Próximo" }));
+    await waitFor(() => {
+      expect(screen.getByText("Experiências profissionais")).toBeInTheDocument();
+    });
+
+    // Passo "Histórico" é o único com o botão type="submit" na tela, então o
+    // Enter num campo de texto submetia o formulário (implicit submission):
+    // criava o colaborador e fechava o diálogo no meio do preenchimento.
+    await user.click(screen.getAllByRole("button", { name: /Adicionar item/ })[0]);
+    const titleInput = screen.getAllByPlaceholderText(/Ex:/)[0];
+    await user.type(titleInput, "Analista Jr{Enter}");
+
+    expect(createEmployeeMutate).not.toHaveBeenCalled();
+    expect(screen.getByText("Novo colaborador")).toBeInTheDocument();
   });
 
   it("hides the create action for read-only users", () => {

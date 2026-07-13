@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useForm } from "react-hook-form";
 import { cn } from "@/lib/utils";
+import { preventImplicitSubmit } from "@/lib/forms";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -1133,7 +1134,10 @@ export default function ColaboradoresPage() {
         }
         size="lg"
       >
-        <form onSubmit={handleSubmit(onCreateSubmit)}>
+        <form
+          onSubmit={handleSubmit(onCreateSubmit)}
+          onKeyDown={preventImplicitSubmit}
+        >
           <DialogStepTabs
             steps={["Pessoal", "Profissional", "Histórico"]}
             step={createStep}
