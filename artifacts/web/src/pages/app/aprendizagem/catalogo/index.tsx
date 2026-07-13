@@ -13,6 +13,8 @@ import {
 import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import { paginateList } from "@/lib/paginate";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import { formatKpiNumber } from "@/lib/kpi-client";
+import { TrainingWorkloadInput } from "@/pages/app/aprendizagem/_components/carga-horaria";
 
 const CATALOG_PAGE_SIZE = 24;
 import type {
@@ -374,7 +376,7 @@ export default function CatalogoPage() {
                 ) : null}
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {[item.category, item.workloadHours ? `${item.workloadHours}h` : null]
+                {[item.category, item.workloadHours ? `${formatKpiNumber(item.workloadHours)}h` : null]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
@@ -467,7 +469,7 @@ export default function CatalogoPage() {
               <Info label="Categoria" value={fichaItem.category} />
               <Info
                 label="Carga horária"
-                value={fichaItem.workloadHours ? `${fichaItem.workloadHours}h` : null}
+                value={fichaItem.workloadHours ? `${formatKpiNumber(fichaItem.workloadHours)}h` : null}
               />
               <Info
                 label="Validade"
@@ -567,12 +569,9 @@ export default function CatalogoPage() {
             />
           </Field>
           <Field label="Carga horária (h)">
-            <Input
-              type="number"
+            <TrainingWorkloadInput
               value={form.workloadHours}
-              onChange={(e) =>
-                setForm({ ...form, workloadHours: e.target.value })
-              }
+              onChange={(v) => setForm({ ...form, workloadHours: v })}
             />
           </Field>
           <Field label="Validade">
