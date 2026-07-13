@@ -10581,7 +10581,7 @@ components:
           type: string
           nullable: true
         workloadHours:
-          type: integer
+          type: number
           nullable: true
         validityMonths:
           type: integer
@@ -10641,7 +10641,7 @@ components:
         clause:
           type: string
         workloadHours:
-          type: integer
+          type: number
         validityMonths:
           type: integer
           nullable: true
@@ -10681,7 +10681,7 @@ components:
         clause:
           type: string
         workloadHours:
-          type: integer
+          type: number
         validityMonths:
           type: integer
           nullable: true
@@ -10970,7 +10970,7 @@ components:
           type: string
           nullable: true
         workloadHours:
-          type: integer
+          type: number
           nullable: true
         capacity:
           type: integer
@@ -11070,7 +11070,7 @@ components:
         modality:
           type: string
         workloadHours:
-          type: integer
+          type: number
         capacity:
           type: integer
         minScore:
@@ -11107,7 +11107,7 @@ components:
         modality:
           type: string
         workloadHours:
-          type: integer
+          type: number
         capacity:
           type: integer
         minScore:
@@ -12743,7 +12743,7 @@ components:
           type: integer
           nullable: true
         workloadHours:
-          type: integer
+          type: number
           nullable: true
         completionDate:
           type: string
@@ -12838,7 +12838,7 @@ components:
           type: integer
           nullable: true
         workloadHours:
-          type: integer
+          type: number
           nullable: true
         completionDate:
           type: string
@@ -13558,7 +13558,7 @@ components:
           type: integer
           minimum: 1
         workloadHours:
-          type: integer
+          type: number
         completionDate:
           type: string
         expirationDate:
@@ -13658,7 +13658,7 @@ components:
           type: integer
           minimum: 1
         workloadHours:
-          type: integer
+          type: number
         completionDate:
           type: string
         expirationDate:
