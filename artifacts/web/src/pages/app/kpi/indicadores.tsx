@@ -160,6 +160,11 @@ type IndicatorFormData = {
   norms: number[];
   objectiveId: string;
   goal: string;
+  /**
+   * Margem do amarelo no semáforo (default 0.01 em getTrafficLight). Não é
+   * editável no diálogo — só existe aqui para que salvar uma edição preserve
+   * o valor que já estiver no year-config (ex.: vindo do template/seed).
+   */
   tolerance: string;
 };
 
@@ -1333,20 +1338,6 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                   />
                 </div>
               )}
-            </div>
-            <div className="mt-3">
-              <div className="space-y-1.5">
-                <Label>Tolerância do semáforo ({year})</Label>
-                <Input
-                  type="number"
-                  value={indicatorForm.tolerance}
-                  onChange={(e) => setIndicatorForm((f) => ({ ...f, tolerance: e.target.value }))}
-                  placeholder="Ex: 1"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Margem de atenção (amarelo) antes de atingir a meta. Padrão: 0,01.
-                </p>
-              </div>
             </div>
           </div>
         </div>
