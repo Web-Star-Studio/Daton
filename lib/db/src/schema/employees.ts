@@ -11,6 +11,7 @@ import {
   boolean,
   varchar,
   index,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -170,7 +171,11 @@ export const employeeTrainingsTable = pgTable(
     targetCompetencyLevel: integer("target_competency_level"),
     evaluationMethod: text("evaluation_method"),
     renewalMonths: integer("renewal_months"),
-    workloadHours: integer("workload_hours"),
+    workloadHours: numeric("workload_hours", {
+      precision: 6,
+      scale: 2,
+      mode: "number",
+    }),
     completionDate: date("completion_date"),
     expirationDate: date("expiration_date"),
     status: text("status").notNull().default("pendente"),

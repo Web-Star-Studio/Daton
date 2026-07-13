@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { TrainingWorkloadInput } from "@/pages/app/aprendizagem/_components/carga-horaria";
 import {
   Tooltip,
   TooltipContent,
@@ -1047,13 +1048,12 @@ export default function TrainingDetailPage() {
             <Label className="text-xs font-semibold text-muted-foreground">
               Carga horaria (horas)
             </Label>
-            <Input
-              type="number"
+            <TrainingWorkloadInput
               value={form.workloadHours || ""}
-              onChange={(event) =>
+              onChange={(v) =>
                 setForm({
                   ...form,
-                  workloadHours: Number(event.target.value) || 0,
+                  workloadHours: Number(v) || 0,
                 })
               }
               className="mt-1"

@@ -81,6 +81,10 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
+import {
+  TrainingWorkloadCell,
+  TrainingWorkloadInput,
+} from "@/pages/app/aprendizagem/_components/carga-horaria";
 import { useAllActiveSgqProcesses } from "@/lib/governance-system-client";
 import {
   uploadFilesToStorage,
@@ -1305,12 +1309,9 @@ function TrainingFormStep({
           <Label className="text-xs font-semibold text-muted-foreground">
             Carga Horária (h)
           </Label>
-          <Input
-            type="number"
+          <TrainingWorkloadInput
             value={form.workloadHours}
-            onChange={(e) =>
-              setForm({ ...form, workloadHours: Number(e.target.value) })
-            }
+            onChange={(v) => setForm({ ...form, workloadHours: Number(v) })}
             className="mt-1"
           />
         </div>
@@ -2591,7 +2592,7 @@ function TreinamentosTab({
                       )}
                       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                         {t.institution && <span>{t.institution}</span>}
-                        {t.workloadHours && <span>{t.workloadHours}h</span>}
+                        <TrainingWorkloadCell hours={t.workloadHours} />
                         {t.completionDate && (
                           <span>Concluído: {t.completionDate}</span>
                         )}

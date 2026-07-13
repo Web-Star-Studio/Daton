@@ -14,6 +14,8 @@ import {
 } from "@workspace/api-client-react";
 import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import type { TrainingClass } from "@workspace/api-client-react";
+import { formatKpiNumber } from "@/lib/kpi-client";
+import { TrainingWorkloadInput } from "@/pages/app/aprendizagem/_components/carga-horaria";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -361,7 +363,7 @@ export default function TurmasPage() {
                       [
                         "Carga horária",
                         selectedCatalogItem.workloadHours
-                          ? `${selectedCatalogItem.workloadHours}h`
+                          ? `${formatKpiNumber(selectedCatalogItem.workloadHours)}h`
                           : null,
                       ],
                       [
@@ -469,12 +471,9 @@ export default function TurmasPage() {
               </Select>
             </Field>
             <Field label="Carga horária (h)">
-              <Input
-                type="number"
+              <TrainingWorkloadInput
                 value={form.workloadHours}
-                onChange={(e) =>
-                  setForm({ ...form, workloadHours: e.target.value })
-                }
+                onChange={(v) => setForm({ ...form, workloadHours: v })}
               />
             </Field>
             <Field label="Vagas">

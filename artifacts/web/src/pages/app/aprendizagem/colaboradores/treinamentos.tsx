@@ -50,6 +50,7 @@ import type {
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { CompetencyBankPanel } from "@/pages/app/aprendizagem/_components/competency-bank-panel";
+import { TrainingWorkloadInput } from "@/pages/app/aprendizagem/_components/carga-horaria";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -353,12 +354,9 @@ function TrainingDialog({
           <Label className="text-xs font-semibold text-muted-foreground">
             Carga horaria
           </Label>
-          <Input
-            type="number"
+          <TrainingWorkloadInput
             value={value.workloadHours}
-            onChange={(event) =>
-              onChange({ ...value, workloadHours: Number(event.target.value) })
-            }
+            onChange={(v) => onChange({ ...value, workloadHours: Number(v) })}
             className="mt-1"
           />
         </div>

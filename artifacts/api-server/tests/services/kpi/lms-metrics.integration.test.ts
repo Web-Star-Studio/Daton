@@ -255,4 +255,31 @@ describe("computeLmsMetric", () => {
     });
     expect(v).toBe(0);
   });
+
+  it("soma horas fracionadas sem perder os minutos", async () => {
+    const ctx = await createTestContext({ seed: "lms-metric-hrs-frac" });
+    contexts.push(ctx);
+    const org = ctx.organizationId;
+    const emp = await createEmployee(ctx, { name: `Colaborador ${ctx.prefix}` });
+    // 3 treinos de 20 min = ~1 hora, para 1 colaborador ativo
+    for (let i = 0; i < 3; i++) {
+      await db.insert(employeeTrainingsTable).values({
+        employeeId: emp.id,
+        title: `Treino de 20 min ${ctx.prefix} ${i}`,
+        status: "concluido",
+        completionDate: "2026-03-10",
+        workloadHours: 0.33,
+      });
+    }
+
+    const v = await computeLmsMetric({
+      orgId: org,
+      metric: "hours_per_employee",
+      year: 2026,
+      month: 3,
+      database: db,
+    });
+
+    expect(v).toBe(1); // 0.99h / 1 colaborador, arredondado a 1 casa
+  });
 });
