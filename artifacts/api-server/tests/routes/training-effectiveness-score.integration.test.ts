@@ -52,7 +52,11 @@ describe("POST /employees/:empId/trainings/:trainId/effectiveness-reviews — pr
       });
 
     expect(res.status).toBe(201);
-    // Hoje isto falha com 7 — o Postgres arredonda ao inserir em coluna integer.
+    // Antes da migração para numeric(4,2), isto falhava com 500: o node-pg
+    // manda o parâmetro como texto ("7.3") pelo protocolo estendido, e o
+    // Postgres rejeita esse texto como entrada de coluna integer (22P02,
+    // "invalid input syntax for type integer") — não havia arredondamento
+    // silencioso, a requisição inteira quebrava.
     expect(res.body.score).toBe(7.3);
   });
 });

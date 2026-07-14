@@ -176,4 +176,38 @@ describe("training-classes routes", () => {
     expect(scoreOnly.body.result).toBe("aprovado"); // preservado
     expect(scoreOnly.body.score).toBe(3); // score atualizado
   });
+
+  it("PATCH aceita nota decimal (score numeric(4,2))", async () => {
+    const context = await createTestContext({ seed: "classes-score-decimal" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-classes`;
+    const catalogItemId = await createCatalogItem(context, `Treino Decimal ${context.prefix}`);
+    const emp = await createEmployee(context, { name: `E ${context.prefix}` });
+
+    const created = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ catalogItemId, startDate: "2026-07-01", minScore: 7 });
+    const classId = created.body.id as number;
+
+    await request(app)
+      .post(`${base}/${classId}/participants`)
+      .set(authHeader(context))
+      .send({ employeeIds: [emp.id] });
+
+    const detail = await request(app).get(`${base}/${classId}`).set(authHeader(context));
+    const participantId = detail.body.participants[0].id as number;
+
+    // Nota com meio ponto: se a coluna voltasse a ser integer, o node-pg
+    // manda o parâmetro como texto ("8.5") e o Postgres rejeita com 22P02
+    // (500), em vez de arredondar em silêncio — ver
+    // training-effectiveness-score.integration.test.ts para o mesmo caso.
+    const patched = await request(app)
+      .patch(`${base}/${classId}/participants/${participantId}`)
+      .set(authHeader(context))
+      .send({ attendance: "presente", score: 8.5 });
+
+    expect(patched.status).toBe(200);
+    expect(patched.body.score).toBe(8.5);
+  });
 });

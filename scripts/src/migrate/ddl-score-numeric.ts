@@ -17,7 +17,20 @@
  *     pnpm --filter @workspace/scripts exec tsx src/migrate/ddl-score-numeric.ts
  *
  * Para produção (fora do escopo desta tarefa — portão humano separado):
- *   pnpm --filter @workspace/scripts exec tsx --env-file ../.env src/migrate/ddl-score-numeric.ts
+ *   pnpm --filter @workspace/scripts ddl-score-numeric
+ *
+ * NÃO use `pnpm --filter @workspace/scripts exec tsx --env-file ../.env ...`:
+ * sem o `sh -c` que o `pnpm run` interpõe, o Node resolve `--env-file` contra
+ * o `$PWD` herdado do shell que invocou o pnpm (não o cwd real do pacote) e
+ * falha com "../.env: not found" mesmo com o arquivo existindo — verificado
+ * neste ambiente (Node 25). O script `ddl-score-numeric` em
+ * `scripts/package.json` roda via `pnpm run`, que passa por um shell e não
+ * tem esse problema — é o mesmo mecanismo de `seed`/`migrate`/etc.
+ *
+ * As duas ALTER TABLE rodam dentro de uma transação (BEGIN/COMMIT, com
+ * ROLLBACK no catch): se a segunda falhar, a primeira não fica aplicada
+ * sozinha. Mesmo padrão do PR #150 (DDL de `workload_hours`) e de
+ * `norms-catalog-backfill.ts`.
  */
 import pg from "pg";
 
@@ -48,9 +61,16 @@ async function main() {
   console.log("ANTES:");
   console.table(before.rows);
 
-  for (const sql of STATEMENTS) {
-    console.log("\n→", sql.replace(/\s+/g, " ").trim());
-    await client.query(sql);
+  try {
+    await client.query("BEGIN");
+    for (const sql of STATEMENTS) {
+      console.log("\n→", sql.replace(/\s+/g, " ").trim());
+      await client.query(sql);
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
   }
 
   const after = await client.query(`
