@@ -63,16 +63,25 @@ filtro "Atribuídas a mim") entram por ele. A tabela `action_plans` hoje **não 
 **Alternativa descartada:** coluna `integer[]`. Perde FK (ID órfão após deletar usuário), exige
 índice GIN e joins manuais para resolver nomes.
 
-### 2.2 A coluna antiga fica dormente
+### 2.2 A coluna antiga vira espelho de escrita (não some agora)
 
-`action_plans.responsible_user_id` **permanece no schema Drizzle e no banco**, sem leitor nem escritor,
-durante a janela de migração. Duas razões:
+`action_plans.responsible_user_id` **permanece no schema Drizzle e no banco** durante a janela de
+migração, com **nenhum leitor** e **um único escritor**: todo create/update que sincroniza a junção
+também grava ali um responsável *representante* (o de menor id, determinístico), ou `null` quando o
+conjunto está vazio.
 
-1. **Âncora de rollback** — se o deploy voltar atrás, o dado antigo ainda está lá.
+Por que espelhar em vez de simplesmente abandonar a coluna: uma coluna que ninguém escreve fica
+**desatualizada no instante seguinte ao deploy** — e aí ela não serve de âncora de rollback nenhuma,
+porque um `revert` perderia toda atribuição feita no mundo novo. Espelhando, o rollback degrada para
+"cada plano volta a ter um responsável" em vez de "planos novos ficam sem responsável".
+
+As duas razões para não dropar já:
+
+1. **Rollback real** — o `revert` do deploy continua encontrando dado válido.
 2. **Anti-drift do `drizzle-kit`** — remover do schema faria um `push` querer dropar a coluna na PROD.
 
-Drop da coluna é um **follow-up** separado, depois de validado em produção. Enquanto dormente,
-a coluna recebe um comentário `@deprecated` no schema para não induzir ninguém a lê-la.
+Drop da coluna é um **follow-up** separado, depois de validado em produção. Enquanto isso, ela recebe
+um comentário `@deprecated` no schema: **escrita apenas**, ninguém lê.
 
 ## 3. Contrato da API
 
@@ -245,9 +254,10 @@ ON CONFLICT (action_plan_id, user_id) DO NOTHING;
 
 **Ordem de deploy (zero downtime):**
 1. Aplicar a DDL + backfill (o código antigo continua rodando: ignora a tabela nova).
-2. Deploy do código novo (API + web juntos; passa a ler/escrever só a junção).
+2. Deploy do código novo (API + web juntos; passa a **ler** só a junção, e a **escrever** junção +
+   espelho legado — ver §2.2).
 3. Verificar a paridade: `COUNT` de planos com responsável antigo == `COUNT(DISTINCT action_plan_id)` na junção.
-4. **Follow-up:** dropar `action_plans.responsible_user_id`.
+4. **Follow-up:** dropar `action_plans.responsible_user_id` (e remover o espelho de escrita).
 
 Verificação obrigatória antes do passo 4:
 
