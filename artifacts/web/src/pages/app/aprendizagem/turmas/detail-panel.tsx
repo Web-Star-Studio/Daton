@@ -345,7 +345,7 @@ export function TurmaDetailPanel({
 }
 
 // Controlled score input that stays in sync with refetched data.
-function ScoreInput({
+export function ScoreInput({
   score,
   disabled,
   onSave,
@@ -361,12 +361,23 @@ function ScoreInput({
   return (
     <Input
       type="number"
+      inputMode="decimal"
+      min={0}
+      max={10}
+      step={0.5}
       value={val}
       disabled={disabled}
       className="h-8 w-20"
       onChange={(e) => setVal(e.target.value)}
       onBlur={() => {
-        if (val !== "" && val !== String(score ?? "")) onSave(Number(val));
+        if (val === "" || val === String(score ?? "")) return;
+        const parsed = Number(val);
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10) {
+          // Valor inválido: volta ao que estava, em vez de gravar lixo.
+          setVal(score != null ? String(score) : "");
+          return;
+        }
+        onSave(parsed);
       }}
     />
   );

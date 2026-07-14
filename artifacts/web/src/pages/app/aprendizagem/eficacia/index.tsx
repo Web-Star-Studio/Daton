@@ -54,6 +54,15 @@ function fmtDateShort(iso: string): string {
   return `${d}/${m}/${y?.slice(2)}`;
 }
 
+/**
+ * Nota de eficácia (0–10) a partir da média dos 3 critérios Kirkpatrick (1–5).
+ * `avg * 2` leva da escala 1–5 para 0–10; duas casas é o que a coluna
+ * numeric(4,2) guarda e o que a tela exibe (ex.: média 3,67 → 7,33).
+ */
+export function computeEffectivenessScore(avg: number): number {
+  return Math.round(avg * 2 * 100) / 100;
+}
+
 function UrgencyBadge({ dueDate }: { dueDate?: string | null }) {
   if (!dueDate) return null;
   const d = daysUntil(dueDate);
@@ -303,7 +312,9 @@ export default function EficaciaPage() {
         trainId: target.id,
         data: {
           evaluationDate: localDateToday(),
-          score: Math.round(avg * 2 * 10) / 10, // 0–10
+          // avg é a média de 3 critérios Kirkpatrick (1–5); ×2 leva à escala 0–10.
+          // Duas casas: é o que a coluna numeric(4,2) guarda e o que a tela exibe.
+          score: computeEffectivenessScore(avg),
           isEffective,
           resultLevel: Math.round(avg), // 1–5
           comments: comments || undefined,
