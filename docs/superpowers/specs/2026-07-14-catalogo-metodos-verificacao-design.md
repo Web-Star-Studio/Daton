@@ -126,13 +126,16 @@ por Orval (`pnpm --filter @workspace/api-spec codegen`), nunca editados à mão:
 ### 3. Front
 
 **Client** (`artifacts/web/src/lib/effectiveness-methods-client.ts`, espelhando `norms-client.ts` —
-wrapper fino sobre os hooks gerados, uma única query serve os dois usos):
+wrapper fino sobre os hooks gerados):
 
 ```ts
-useAllEffectivenessMethods(orgId)     // catálogo completo (displays)
-useActiveEffectivenessMethods(orgId)  // derivado em memória (pickers)
-buildEffectivenessMethodLabelMap(ms)  // Map<id, label>, inclui inativos de propósito
+useAllEffectivenessMethods(orgId)          // catálogo completo (ficha + tela de gestão)
+pickerMethodOptions(methods, selectedId)   // puro: ativos + o inativo já referenciado
 ```
+
+O catálogo de normas expõe ainda `useActiveNorms` e `buildNormLabelMap`; aqui esses dois **não**
+teriam consumidor (o único seletor precisa do catálogo completo, e nenhuma outra tela exibe o
+método), então não são copiados.
 
 **Painel de eficácia** (`pages/app/planos-acao/_components/eficacia-panel.tsx`):
 
@@ -169,8 +172,8 @@ nunca `drizzle-kit push` puro, que num branch atrasado tenta dropar colunas de o
 
 - **unit** (`api-server/tests/effectiveness-methods/defaults.unit.test.ts`): trava os 6 rótulos, a
   ordem e o mapa código-legado → rótulo
-- **unit web** (`web/tests/lib/effectiveness-methods-client.unit.test.ts`):
-  `buildEffectivenessMethodLabelMap` inclui inativos; id ausente → `undefined`
+- **unit web** (`web/tests/lib/effectiveness-methods-client.unit.test.ts`): `pickerMethodOptions`
+  oferece só os ativos, mas mantém o inativo que o plano já referencia (sem ressuscitar os demais)
 - **integration** (`api-server/tests/effectiveness-methods/effectiveness-methods.integration.test.ts`):
   create + list + idempotência case-insensitive (201 depois 200, mesmo id); reativação de inativo em
   vez de duplicar; gate de permissão (operator: POST → 403, GET → 200); PATCH rename/toggle +
