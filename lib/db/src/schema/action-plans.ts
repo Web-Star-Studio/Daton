@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgEnum, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgEnum, pgTable, serial, text, timestamp, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -183,6 +183,11 @@ export const actionPlansTable = pgTable(
     rootCause: text("root_cause"),
     rootCauseWhys: jsonb("root_cause_whys").$type<string[]>(),
     // ─── Assignment & deadline ─────────────────────────────────────────────────
+    /**
+     * O **ponto focal** do plano: quem responde por ele. Um só, e opcional (um
+     * plano pode nascer sem dono definido). Os demais responsáveis vivem em
+     * `action_plan_responsibles` — esta coluna NÃO os inclui.
+     */
     responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     dueDate: timestamp("due_date", { withTimezone: true }),
     correctiveActionDescription: text("corrective_action_description"),
@@ -213,6 +218,43 @@ export const actionPlansTable = pgTable(
     index("action_plans_org_code_idx").on(table.organizationId, table.code),
   ],
 );
+
+/**
+ * **Co-responsáveis** de um plano de ação (N:N) — os "outros responsáveis", além
+ * do ponto focal. O ponto focal é `action_plans.responsible_user_id` e **não
+ * aparece aqui**: as duas coisas juntas formam o conjunto de responsáveis do
+ * plano. O servidor rejeita o ponto focal nesta lista (não faria sentido ser
+ * responsável duas vezes).
+ *
+ * Um co-responsável tem o mesmo tratamento operacional do ponto focal: recebe a
+ * cobrança automática, vê o plano em "Suas Pendências" e alcança a ficha mesmo
+ * sem o módulo `actionPlans`. O que o distingue é a responsabilidade formal pelo
+ * plano — essa é do ponto focal.
+ *
+ * Estrutura espelha `unit_managers`. O índice em `user_id` não é decoração: as
+ * consultas quentes (pendências, escalonamento, filtro "Atribuídas a mim") entram
+ * por ele.
+ *
+ * Quando as ações-item existirem, é aqui que o vínculo passa a ser
+ * co-responsável↔ação, e não co-responsável↔plano.
+ */
+export const actionPlanResponsiblesTable = pgTable(
+  "action_plan_responsibles",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
+    actionPlanId: integer("action_plan_id").notNull().references(() => actionPlansTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("action_plan_responsibles_plan_user_uq").on(table.actionPlanId, table.userId),
+    index("action_plan_responsibles_user_idx").on(table.userId),
+    index("action_plan_responsibles_org_idx").on(table.organizationId),
+  ],
+);
+
+export type ActionPlanResponsible = typeof actionPlanResponsiblesTable.$inferSelect;
 
 export const actionPlanEvidencesTable = pgTable("action_plan_evidences", {
   id: serial("id").primaryKey(),
