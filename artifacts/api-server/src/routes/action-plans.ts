@@ -54,6 +54,7 @@ import { gutScore } from "../services/action-plans/gut";
 import { generateActionPlanCode } from "../services/action-plans/code";
 import { deriveCreateDefaults } from "../services/action-plans/derivation";
 import { validateSourceRef } from "../services/action-plans/validate-source";
+import { assertEffectivenessMethodBelongsToOrg } from "../services/effectiveness-methods/validate";
 import { computeActionPlanSummary } from "../services/action-plans/summary";
 import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
@@ -366,6 +367,13 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     }
   }
 
+  // O método de verificação vem do catálogo da org — um id de outro tenant (ou
+  // inexistente) não pode entrar no plano.
+  if (body.data.effectivenessMethodId != null) {
+    const ok = await assertEffectivenessMethodBelongsToOrg(params.data.orgId, body.data.effectivenessMethodId);
+    if (!ok) { res.status(400).json({ error: "Método de verificação inválido para esta organização" }); return; }
+  }
+
   // Governance: designating the effectiveness evaluator is an SGI act — only an
   // admin may do it, so an operator can't self-assign and bypass the verdict lock.
   const isSgiAdmin = req.auth!.role === "platform_admin" || req.auth!.role === "org_admin";
@@ -411,7 +419,7 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     responsibleUserId: body.data.responsibleUserId ?? null,
     dueDate: body.data.dueDate ? new Date(body.data.dueDate) : null,
     correctiveActionDescription: body.data.correctiveActionDescription ?? null,
-    effectivenessMethod: body.data.effectivenessMethod ?? null,
+    effectivenessMethodId: body.data.effectivenessMethodId ?? null,
     effectivenessDueDate: body.data.effectivenessDueDate ? new Date(body.data.effectivenessDueDate) : null,
     effectivenessEvaluatorUserId: body.data.effectivenessEvaluatorUserId ?? null,
     odsNumbers: body.data.odsNumbers ?? null,
@@ -567,7 +575,13 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
 
   // ─── Effectiveness ─────────────────────────────────────────────────────────
   let effectivenessEvaluated = false;
-  if (body.data.effectivenessMethod !== undefined) update.effectivenessMethod = body.data.effectivenessMethod;
+  if (body.data.effectivenessMethodId !== undefined) {
+    if (body.data.effectivenessMethodId !== null) {
+      const ok = await assertEffectivenessMethodBelongsToOrg(params.data.orgId, body.data.effectivenessMethodId);
+      if (!ok) { res.status(400).json({ error: "Método de verificação inválido para esta organização" }); return; }
+    }
+    update.effectivenessMethodId = body.data.effectivenessMethodId;
+  }
   if (body.data.effectivenessDueDate !== undefined) {
     update.effectivenessDueDate = body.data.effectivenessDueDate ? new Date(body.data.effectivenessDueDate) : null;
   }
