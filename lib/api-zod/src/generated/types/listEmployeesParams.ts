@@ -12,6 +12,10 @@ export type ListEmployeesParams = {
   position?: string;
   status?: string;
   /**
+   * When true, only employees that have a linked user account (login).
+   */
+  hasUser?: boolean;
+  /**
    * @minimum 1
    */
   page?: number;

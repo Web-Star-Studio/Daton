@@ -10,6 +10,8 @@ export interface KpiIndicatorAccessFields {
   unitId: number | null;
   responsibleUserId: number | null;
   isCorporate: boolean;
+  /** True when this is an LMS-computed indicator (computedSource='lms'). */
+  isLms: boolean;
 }
 
 export type KpiAction =
@@ -37,8 +39,9 @@ export function canActOnKpiIndicator(
   if (scope.role === "manager") {
     switch (action) {
       case "view":
-      case "editDefinition":
       case "operate":
+        return inMyUnit || ind.isCorporate || ind.isLms;
+      case "editDefinition":
         return inMyUnit || ind.isCorporate;
       case "delete":
         return inMyUnit && !ind.isCorporate;
@@ -52,7 +55,7 @@ export function canActOnKpiIndicator(
     return (action === "view" || action === "operate") && isOwner;
   }
   if (scope.role === "analyst") {
-    return action === "view" && isOwner;
+    return action === "view" && (isOwner || ind.isLms);
   }
   return false;
 }

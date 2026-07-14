@@ -14,6 +14,7 @@ export interface KpiYearConfig {
   year: number;
   seq?: number | null;
   goal?: number | null;
+  tolerance?: number | null;
   /** True quando a meta foi calculada das filiais (corporativo). */
   isGoalComputed?: boolean;
   /** Filiais com meta consideradas no cálculo (só quando isGoalComputed). */

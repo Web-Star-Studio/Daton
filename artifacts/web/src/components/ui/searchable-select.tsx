@@ -10,6 +10,44 @@ export type SearchableOption = {
   label: string;
 };
 
+/**
+ * Constrói opções {value,label} a partir de uma lista de nomes (ex.: usuários,
+ * competências), deduplicando case-insensitive. Garante que o valor atual —
+ * possivelmente livre/legado/externo (ex.: instrutor de fora do sistema) —
+ * sempre apareça, já que o SearchableSelect mostra o placeholder quando o
+ * `value` não está entre as opções.
+ */
+export function toNameOptions(
+  names: Array<string | null | undefined>,
+  current?: string | null,
+): SearchableOption[] {
+  const cur = current?.trim();
+  const curKey = cur?.toLowerCase();
+  const seen = new Set<string>();
+  const options: SearchableOption[] = [];
+  for (const raw of names) {
+    const name = raw?.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // Se o nome casa (case-insensitive) com o valor atual mas em grafia diferente
+    // (ex.: salvo "joão silva" vs catálogo "João Silva"), usa o valor atual como
+    // `value` para o SearchableSelect casar exatamente (o.value === value) — senão
+    // o trigger mostraria o placeholder. O `label` fica a grafia do catálogo.
+    if (cur && key === curKey) {
+      options.push({ value: cur, label: name });
+    } else {
+      options.push({ value: name, label: name });
+    }
+  }
+  // Valor atual ausente do catálogo (externo/legado novo) → injeta no topo.
+  if (cur && curKey && !seen.has(curKey)) {
+    options.unshift({ value: cur, label: cur });
+  }
+  return options;
+}
+
 export type SearchableSelectProps = {
   value: string;
   onChange: (value: string) => void;
@@ -19,6 +57,14 @@ export type SearchableSelectProps = {
   emptyMessage?: string;
   isLoading?: boolean;
   disabled?: boolean;
+  /**
+   * Busca server-side: quando `onSearchChange` é definido, o input vira
+   * controlado (`searchValue`) e o filtro do cmdk é desligado — as `options` já
+   * chegam filtradas pelo servidor. Use para listas grandes (ex.: usuários de
+   * orgs com >100 pessoas). Sem isso, o filtro é client-side. Ver #119.
+   */
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
   /**
    * Quando definido, habilita a criação inline: se o texto buscado não casar
    * (case-insensitive) com nenhuma opção, surge um item "Adicionar …" que chama
@@ -47,11 +93,17 @@ export function SearchableSelect({
   emptyMessage = "Nenhum resultado.",
   isLoading,
   disabled,
+  searchValue,
+  onSearchChange,
   onCreateOption,
   createOptionLabel = (input) => `Adicionar “${input}”`,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const [internalSearch, setInternalSearch] = useState("");
+  // Server-side quando onSearchChange definido: input controlado + filtro cmdk off.
+  const serverFiltered = onSearchChange !== undefined;
+  const search = serverFiltered ? (searchValue ?? "") : internalSearch;
+  const setSearch = serverFiltered ? onSearchChange : setInternalSearch;
   const selected = options.find((o) => o.value === value);
 
   const trimmed = search.trim();
@@ -91,7 +143,11 @@ export function SearchableSelect({
         sideOffset={4}
         className="w-[var(--radix-popover-trigger-width)] min-w-[260px] p-0"
       >
-        <CommandPrimitive loop className="overflow-hidden rounded-md bg-popover">
+        <CommandPrimitive
+          loop
+          filter={serverFiltered ? () => 1 : undefined}
+          className="overflow-hidden rounded-md bg-popover"
+        >
           <div className="flex items-center gap-2 border-b border-border px-3">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground/60" />
             <CommandPrimitive.Input
@@ -137,12 +193,18 @@ export function SearchableSelect({
                 <X className="h-3.5 w-3.5" /> Limpar seleção
               </CommandPrimitive.Item>
             )}
-            {options.map((opt) => {
+            {options.map((opt, i) => {
               const isSelected = opt.value === value;
+              // Chave interna do cmdk = value ÚNICO e NÃO-VAZIO (não o label):
+              // labels duplicados (homônimos) colidiam e um ficava
+              // inselecionável; e value "" é tratado como não-selecionável pelo
+              // cmdk. `keywords` mantém a busca por nome. Ver #121.
+              const cmdkValue = opt.value || `__opt_${i}`;
               return (
                 <CommandPrimitive.Item
-                  key={opt.value}
-                  value={opt.label}
+                  key={cmdkValue}
+                  value={cmdkValue}
+                  keywords={[opt.label]}
                   onSelect={() => {
                     onChange(opt.value);
                     setOpen(false);

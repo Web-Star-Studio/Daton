@@ -23,4 +23,5 @@ export const AppModule = {
   assets: "assets",
   regulatoryDocuments: "regulatoryDocuments",
   swot: "swot",
+  actionPlans: "actionPlans",
 } as const;

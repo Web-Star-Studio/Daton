@@ -4,6 +4,7 @@ import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { cn } from "@/lib/utils";
+import { preventImplicitSubmit } from "@/lib/forms";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
@@ -1503,7 +1504,10 @@ export default function OrganizacaoPage({
         }
         size="lg"
       >
-        <form onSubmit={unitForm.handleSubmit(onUnitSubmit)}>
+        <form
+          onSubmit={unitForm.handleSubmit(onUnitSubmit)}
+          onKeyDown={preventImplicitSubmit}
+        >
           <DialogStepTabs
             steps={["Básico", "Contato", "Endereço"]}
             step={unitStep}
@@ -1624,6 +1628,7 @@ export default function OrganizacaoPage({
           <DialogFooter>
             {unitStep > 0 ? (
               <Button
+                key="voltar"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1635,6 +1640,7 @@ export default function OrganizacaoPage({
               </Button>
             ) : (
               <Button
+                key="cancelar"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1650,6 +1656,7 @@ export default function OrganizacaoPage({
             )}
             {unitStep < 2 ? (
               <Button
+                key="proximo"
                 type="button"
                 size="sm"
                 onClick={() => {
@@ -1660,6 +1667,7 @@ export default function OrganizacaoPage({
               </Button>
             ) : (
               <Button
+                key="salvar"
                 type="submit"
                 size="sm"
                 isLoading={createUnitMut.isPending}
@@ -1751,7 +1759,10 @@ export default function OrganizacaoPage({
         }
         size="lg"
       >
-        <form onSubmit={deptForm.handleSubmit(onDeptSubmit)}>
+        <form
+          onSubmit={deptForm.handleSubmit(onDeptSubmit)}
+          onKeyDown={preventImplicitSubmit}
+        >
           <DialogStepTabs
             steps={["Básico", "Unidades"]}
             step={deptStep}
@@ -1847,6 +1858,7 @@ export default function OrganizacaoPage({
           <DialogFooter>
             {deptStep > 0 ? (
               <Button
+                key="voltar"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1858,6 +1870,7 @@ export default function OrganizacaoPage({
               </Button>
             ) : (
               <Button
+                key="cancelar"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1874,6 +1887,7 @@ export default function OrganizacaoPage({
             )}
             {deptStep < 1 ? (
               <Button
+                key="proximo"
                 type="button"
                 size="sm"
                 onClick={() => {
@@ -1884,6 +1898,7 @@ export default function OrganizacaoPage({
               </Button>
             ) : (
               <Button
+                key="salvar"
                 type="submit"
                 size="sm"
                 isLoading={createDeptMut.isPending || updateDeptMut.isPending}
@@ -1911,6 +1926,7 @@ export default function OrganizacaoPage({
         size="lg"
       >
         <form
+          onKeyDown={preventImplicitSubmit}
           onSubmit={posForm.handleSubmit(onPosSubmit, (errors) => {
             const field = Object.keys(errors)[0];
             if (field === "name") setPosStep(0);

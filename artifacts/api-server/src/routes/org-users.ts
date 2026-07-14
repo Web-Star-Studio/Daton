@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { eq, and, inArray, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { db, usersTable, userModulePermissionsTable, unitsTable, passwordResetTokensTable } from "@workspace/db";
+import { db, usersTable, userModulePermissionsTable, unitsTable, passwordResetTokensTable, employeesTable } from "@workspace/db";
 import { requireAuth, requireCompletedOnboarding, requireRole, requireModuleAccess, APP_MODULES } from "../middlewares/auth";
 import type { AppModule } from "../middlewares/auth";
 import { getResendClient } from "../lib/resend";
@@ -30,6 +30,8 @@ const createOrgUserBodySchema = z
     role: z.enum(["org_admin", "manager", "operator", "analyst"]),
     modules: z.array(z.enum(APP_MODULES)).default([]),
     unitId: z.number().int().nullable().optional(),
+    // Colaborador (ficha de RH) a vincular — cria o vínculo persistente users↔employees.
+    employeeId: z.number().int().nullable().optional(),
   })
   .refine((d) => d.role !== "manager" || (d.unitId !== null && d.unitId !== undefined), {
     message: "Gerente requer uma filial (unitId)",
@@ -126,6 +128,7 @@ router.post("/organizations/:orgId/users",
     // Filial é opcional para qualquer papel (obrigatória só p/ manager, via refine
     // no schema) — usada também na identidade/escopo das Pendências.
     const unitId = parsed.data.unitId ?? null;
+    const employeeId = parsed.data.employeeId ?? null;
 
     if (unitId !== null) {
       const [unitRow] = await db
@@ -133,6 +136,19 @@ router.post("/organizations/:orgId/users",
         .from(unitsTable)
         .where(and(eq(unitsTable.id, unitId), eq(unitsTable.organizationId, orgId)));
       if (!unitRow) { res.status(400).json({ error: "Filial (unitId) inválida para esta organização" }); return; }
+    }
+
+    if (employeeId !== null) {
+      const [empRow] = await db
+        .select({ id: employeesTable.id })
+        .from(employeesTable)
+        .where(and(eq(employeesTable.id, employeeId), eq(employeesTable.organizationId, orgId)));
+      if (!empRow) { res.status(400).json({ error: "Colaborador (employeeId) inválido para esta organização" }); return; }
+      const [linked] = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.employeeId, employeeId));
+      if (linked) { res.status(400).json({ error: "Este colaborador já está vinculado a outro usuário" }); return; }
     }
 
     const [existingUser] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email));
@@ -155,6 +171,7 @@ router.post("/organizations/:orgId/users",
           organizationId: orgId,
           role,
           unitId,
+          employeeId,
         }).returning();
 
         if (normalizedModules.length > 0) {

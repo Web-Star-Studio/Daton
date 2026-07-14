@@ -9,6 +9,9 @@ import {
   jsonb,
   unique,
   boolean,
+  varchar,
+  index,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -62,6 +65,37 @@ export const employeesTable = pgTable("employees", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+// Histórico de mudança de cargo do colaborador (Fase 6). Cada troca registra
+// cargo anterior/novo, quem alterou e quantos treinamentos foram vinculados/
+// aproveitados pelo recálculo automático de obrigatoriedades.
+export const employeePositionChangesTable = pgTable(
+  "employee_position_changes",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employeesTable.id, { onDelete: "cascade" }),
+    previousPosition: text("previous_position"),
+    newPosition: text("new_position"),
+    changedByUserId: integer("changed_by_user_id").references(
+      () => usersTable.id,
+    ),
+    trainingsGenerated: integer("trainings_generated").notNull().default(0),
+    trainingsReused: integer("trainings_reused").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("epc_employee_idx").on(table.employeeId),
+    // Consulta do Cronograma: filtra por org e ordena por data desc.
+    index("epc_org_created_idx").on(table.organizationId, table.createdAt),
+  ],
+);
 
 export const employeeProfileItemsTable = pgTable("employee_profile_items", {
   id: serial("id").primaryKey(),
@@ -121,37 +155,63 @@ export const employeeCompetenciesTable = pgTable("employee_competencies", {
     .$onUpdate(() => new Date()),
 });
 
-export const employeeTrainingsTable = pgTable("employee_trainings", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id")
-    .notNull()
-    .references(() => employeesTable.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  description: text("description"),
-  objective: text("objective"),
-  institution: text("institution"),
-  targetCompetencyName: text("target_competency_name"),
-  targetCompetencyType: text("target_competency_type"),
-  targetCompetencyLevel: integer("target_competency_level"),
-  evaluationMethod: text("evaluation_method"),
-  renewalMonths: integer("renewal_months"),
-  workloadHours: integer("workload_hours"),
-  completionDate: date("completion_date"),
-  expirationDate: date("expiration_date"),
-  status: text("status").notNull().default("pendente"),
-  attachments: jsonb("attachments")
-    .$type<EmployeeRecordAttachment[]>()
-    .notNull()
-    .default(sql`'[]'::jsonb`),
-  legacyV1Id: text("legacy_v1_id").unique(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const employeeTrainingsTable = pgTable(
+  "employee_trainings",
+  {
+    id: serial("id").primaryKey(),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employeesTable.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    objective: text("objective"),
+    institution: text("institution"),
+    targetCompetencyName: text("target_competency_name"),
+    targetCompetencyType: text("target_competency_type"),
+    targetCompetencyLevel: integer("target_competency_level"),
+    evaluationMethod: text("evaluation_method"),
+    renewalMonths: integer("renewal_months"),
+    workloadHours: numeric("workload_hours", {
+      precision: 6,
+      scale: 2,
+      mode: "number",
+    }),
+    completionDate: date("completion_date"),
+    expirationDate: date("expiration_date"),
+    status: text("status").notNull().default("pendente"),
+    attachments: jsonb("attachments")
+      .$type<EmployeeRecordAttachment[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    legacyV1Id: text("legacy_v1_id").unique(),
+    // Vínculo leve com o catálogo de treinamentos (training_catalog.id). Integer
+    // simples no schema p/ evitar ciclo de import; a FK real entra por DDL
+    // (employee_trainings_catalog_item_fk, ON DELETE SET NULL).
+    catalogItemId: integer("catalog_item_id"),
+    // SP2: prazo do pendente gerado por obrigatoriedade, e a regra de origem.
+    // requirementId é integer simples no schema (FK real via DDL p/ evitar ciclo).
+    dueDate: date("due_date"),
+    requirementId: integer("requirement_id"),
+    // SP6/B: workflow de eficácia — prazo e papel do avaliador atribuído.
+    effectivenessDueDate: date("effectiveness_due_date"),
+    effectivenessAssignedRole: varchar("effectiveness_assigned_role", {
+      length: 20,
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    // SP6/B board: filtro por papel do avaliador
+    index("et_effectiveness_role_idx").on(table.effectivenessAssignedRole),
+    // SP6/B board: filtro por ano de conclusão
+    index("et_completion_date_idx").on(table.completionDate),
+  ],
+);
 
 export const trainingEffectivenessReviewsTable = pgTable(
   "training_effectiveness_reviews",
@@ -168,6 +228,8 @@ export const trainingEffectivenessReviewsTable = pgTable(
     isEffective: boolean("is_effective"),
     resultLevel: integer("result_level"),
     comments: text("comments"),
+    // SP6/B: papel do avaliador na eficácia (gestor|rh|instrutor|colaborador).
+    evaluatorRole: varchar("evaluator_role", { length: 20 }),
     attachments: jsonb("attachments")
       .$type<EmployeeRecordAttachment[]>()
       .notNull()
@@ -177,6 +239,14 @@ export const trainingEffectivenessReviewsTable = pgTable(
       .notNull()
       .defaultNow(),
   },
+  (table) => [
+    // SP6/B board: cobre EXISTS(training_id=…) + latest-review (ORDER BY evaluation_date DESC, created_at DESC LIMIT 1)
+    index("ter_training_id_date_idx").on(
+      table.trainingId,
+      table.evaluationDate,
+      table.createdAt,
+    ),
+  ],
 );
 
 export const employeeAwarenessTable = pgTable("employee_awareness_records", {

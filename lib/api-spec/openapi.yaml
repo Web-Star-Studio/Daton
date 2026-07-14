@@ -57,6 +57,18 @@ tags:
   - name: assets
   - name: work-environment
     description: Critical asset registry and infrastructure management (ISO 9001:2015 §7.1.3)
+  - name: training-catalog
+    description: Catálogo de treinamentos — definições reutilizáveis (ISO 10015)
+  - name: competency-catalog
+    description: Banco de competências — catálogo gerenciável por organização (ISO 10015 §4.2)
+  - name: training-requirements
+    description: Obrigatoriedades — regras de treinamento por cargo (auto-vínculo)
+  - name: training-classes
+    description: Turmas — instâncias agendadas de treinamento (presença, notas, evidências)
+  - name: annual-program
+    description: Programa Anual de Treinamento (PAT) — itens planejados por ano/filial
+  - name: norms
+    description: Catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento)
 
 paths:
   /healthz:
@@ -766,6 +778,56 @@ paths:
         "204":
           description: Removed
 
+  /organizations/{orgId}/units/{unitId}/managers:
+    put:
+      operationId: setUnitManagers
+      tags: [units]
+      summary: Set the managers (gestores) of a unit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userIds]
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        "200":
+          description: Updated unit managers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [unitId, managers]
+                properties:
+                  unitId:
+                    type: integer
+                  managers:
+                    type: array
+                    items:
+                      type: object
+                      required: [userId, userName]
+                      properties:
+                        userId:
+                          type: integer
+                        userName:
+                          type: string
+
   /organizations/{orgId}/units/{unitId}/legislations:
     get:
       operationId: listUnitLegislations
@@ -959,6 +1021,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: hasUser
+          in: query
+          description: When true, only employees that have a linked user account (login).
+          schema:
+            type: boolean
         - name: page
           in: query
           schema:
@@ -1046,7 +1113,35 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending, effective, ineffective]
+            enum: [pending, in_review, effective, ineffective]
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [needs_evaluation, all]
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: norm
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: evaluatorRole
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gestor, rh, instrutor, colaborador]
+        - name: boardColumn
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pendentes, em_avaliacao, concluidas]
         - name: page
           in: query
           schema:
@@ -1115,6 +1210,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaginatedEmployeeCompetencyGaps"
+
+  /organizations/{orgId}/employees/position-changes:
+    get:
+      operationId: listEmployeePositionChanges
+      tags: [employees]
+      summary: List employee position change history
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Employee position change history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeePositionChange"
 
   /organizations/{orgId}/employees/positions/{posId}/competency-requirements:
     get:
@@ -1547,6 +1663,41 @@ paths:
       responses:
         "204":
           description: Training deleted
+
+  /organizations/{orgId}/employees/{empId}/trainings/{trainId}/effectiveness-assignment:
+    post:
+      operationId: assignTrainingEffectiveness
+      tags: [training-effectiveness]
+      summary: Assign effectiveness evaluator role and due date for an employee training
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: trainId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEffectivenessAssignmentBody"
+      responses:
+        "200":
+          description: Updated organization training with assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationTraining"
 
   /organizations/{orgId}/employees/{empId}/trainings/{trainId}/effectiveness-reviews:
     get:
@@ -8638,6 +8789,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreateKpiCorporateIndicatorResponse"
 
+  /organizations/{orgId}/kpi/lms-indicators/activate:
+    post:
+      operationId: activateLmsIndicators
+      tags: [kpi]
+      summary: Ativa (idempotente) os 6 indicadores corporativos de LMS para a organização
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivateLmsIndicatorsBody"
+      responses:
+        "200":
+          description: Indicadores ativados (ou já existentes)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivateLmsIndicatorsResponse"
+
   /organizations/{orgId}/swot/objectives:
     get:
       operationId: listSwotObjectives
@@ -8970,6 +9145,86 @@ paths:
         "204":
           description: Deleted
 
+  /organizations/{orgId}/norms:
+    get:
+      operationId: listNorms
+      tags: [norms]
+      summary: List the organization's regulatory norm catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Regulatory norms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegulatoryNorm"
+    post:
+      operationId: createNorm
+      tags: [norms]
+      summary: Add a norm to the organization's regulatory norm catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRegulatoryNormBody"
+      responses:
+        "201":
+          description: Norm created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryNorm"
+        "200":
+          description: Existing norm returned (idempotent hit on the same label)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryNorm"
+
+  /organizations/{orgId}/norms/{normId}:
+    patch:
+      operationId: updateNorm
+      tags: [norms]
+      summary: Update a regulatory norm (label, active flag or sort order)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: normId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRegulatoryNormBody"
+      responses:
+        "200":
+          description: Norm updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryNorm"
+
   /organizations/{orgId}/action-plans:
     get:
       operationId: listActionPlans
@@ -9280,6 +9535,49 @@ paths:
                 items:
                   $ref: "#/components/schemas/ActionPlanActivityLogEntry"
 
+  /organizations/{orgId}/action-plans/{planId}/planning/restore:
+    post:
+      tags: [action-plans]
+      operationId: restoreActionPlanPlanning
+      summary: Restaura o bloco Planejamento (5W2H + causa-raiz + porquês) de uma versão anterior
+      description: >
+        Aplica ao plano o conteúdo do bloco Planejamento registrado na entrada de
+        atividade informada. Gera uma nova entrada no histórico; nunca apaga nada.
+        Restaurar uma versão idêntica à atual é no-op.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: planId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [activityId]
+              properties:
+                activityId:
+                  type: integer
+                  description: Id da entrada de atividade cuja versão será restaurada.
+      responses:
+        "200":
+          description: Plano atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionPlan"
+        "403":
+          description: Sem permissão de escrita
+        "404":
+          description: Entrada não encontrada, de outro plano, ou sem bloco Planejamento
+        "409":
+          description: Plano encerrado
+
   /organizations/{orgId}/action-plans/ai-suggest:
     post:
       operationId: suggestActionPlanDraft
@@ -9473,8 +9771,1482 @@ paths:
               schema:
                 $ref: "#/components/schemas/RoadSafetyMeasurement"
 
+  /organizations/{orgId}/training-catalog:
+    get:
+      operationId: listTrainingCatalog
+      tags: [training-catalog]
+      summary: List the organization's training catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: norm
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: modality
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Training catalog items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedTrainingCatalog"
+    post:
+      operationId: createTrainingCatalogItem
+      tags: [training-catalog]
+      summary: Create a training catalog item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrainingCatalogItemBody"
+      responses:
+        "201":
+          description: Catalog item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCatalogItem"
+
+  /organizations/{orgId}/training-catalog/{itemId}:
+    get:
+      operationId: getTrainingCatalogItem
+      tags: [training-catalog]
+      summary: Get a training catalog item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Catalog item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCatalogItem"
+    patch:
+      operationId: updateTrainingCatalogItem
+      tags: [training-catalog]
+      summary: Update a training catalog item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrainingCatalogItemBody"
+      responses:
+        "200":
+          description: Catalog item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCatalogItem"
+    delete:
+      operationId: deleteTrainingCatalogItem
+      tags: [training-catalog]
+      summary: Delete a training catalog item (referencing trainings keep their snapshot; link is nulled)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Catalog item removed
+
+  /organizations/{orgId}/competency-catalog:
+    get:
+      operationId: listCompetencyCatalog
+      tags: [competency-catalog]
+      summary: List the organization's competency catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Competency catalog items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CompetencyCatalogItem"
+                required:
+                  - data
+    post:
+      operationId: createCompetencyCatalogItem
+      tags: [competency-catalog]
+      summary: Create a competency catalog item (idempotent by name, case-insensitive)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCompetencyCatalogItemBody"
+      responses:
+        "200":
+          description: Competency already existed (returned as-is)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetencyCatalogItem"
+        "201":
+          description: Competency created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetencyCatalogItem"
+
+  /organizations/{orgId}/competency-catalog/{itemId}:
+    patch:
+      operationId: updateCompetencyCatalogItem
+      tags: [competency-catalog]
+      summary: Update a competency catalog item (rename propagates to free-text usages)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCompetencyCatalogItemBody"
+      responses:
+        "200":
+          description: Competency updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetencyCatalogItem"
+    delete:
+      operationId: deleteCompetencyCatalogItem
+      tags: [competency-catalog]
+      summary: Remove a competency from the catalog (usages keep their stored text)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Competency removed
+
+  /organizations/{orgId}/training-requirements:
+    get:
+      operationId: listTrainingRequirements
+      tags: [training-requirements]
+      summary: List the organization's training requirements (obrigatoriedades)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: positionId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: deadlineType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Training requirements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TrainingRequirement"
+                required:
+                  - data
+    post:
+      operationId: createTrainingRequirement
+      tags: [training-requirements]
+      summary: Create a training requirement
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrainingRequirementBody"
+      responses:
+        "201":
+          description: Requirement created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingRequirement"
+
+  /organizations/{orgId}/training-requirements/preview:
+    get:
+      operationId: previewTrainingRequirements
+      tags: [training-requirements]
+      summary: Preview requirements that would apply to a position + unit (no generation)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: position
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: unitId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Requirements that would apply
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingRequirementPreview"
+
+  /organizations/{orgId}/training-requirements/{id}:
+    patch:
+      operationId: updateTrainingRequirement
+      tags: [training-requirements]
+      summary: Update a training requirement
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrainingRequirementBody"
+      responses:
+        "200":
+          description: Requirement updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingRequirement"
+    delete:
+      operationId: deleteTrainingRequirement
+      tags: [training-requirements]
+      summary: Delete a training requirement
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Requirement removed
+
+  /organizations/{orgId}/training-classes:
+    get:
+      operationId: listTrainingClasses
+      tags: [training-classes]
+      summary: List training classes
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: unitId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: catalogItemId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Training classes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TrainingClass"
+                required:
+                  - data
+    post:
+      operationId: createTrainingClass
+      tags: [training-classes]
+      summary: Create a training class
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrainingClassBody"
+      responses:
+        "201":
+          description: Class created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingClass"
+
+  /organizations/{orgId}/training-classes/{id}:
+    get:
+      operationId: getTrainingClass
+      tags: [training-classes]
+      summary: Get a training class with participants
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Class detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingClassDetail"
+    patch:
+      operationId: updateTrainingClass
+      tags: [training-classes]
+      summary: Update a training class (including evidence attachments)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrainingClassBody"
+      responses:
+        "200":
+          description: Class updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingClass"
+    delete:
+      operationId: deleteTrainingClass
+      tags: [training-classes]
+      summary: Delete a training class
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Class removed
+
+  /organizations/{orgId}/training-classes/{id}/participants:
+    post:
+      operationId: addTrainingClassParticipants
+      tags: [training-classes]
+      summary: Enroll employees into a class
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddTrainingClassParticipantsBody"
+      responses:
+        "200":
+          description: Class detail with participants
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingClassDetail"
+
+  /organizations/{orgId}/training-classes/{id}/participants/{participantId}:
+    patch:
+      operationId: updateTrainingClassParticipant
+      tags: [training-classes]
+      summary: Update a participant (attendance / score / result)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrainingClassParticipantBody"
+      responses:
+        "200":
+          description: Participant updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingClassParticipant"
+    delete:
+      operationId: deleteTrainingClassParticipant
+      tags: [training-classes]
+      summary: Remove a participant
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Participant removed
+
+  /organizations/{orgId}/training-classes/{id}/complete:
+    post:
+      operationId: completeTrainingClass
+      tags: [training-classes]
+      summary: Complete a class — writes employee_trainings for approved participants
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Completion result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completed:
+                    type: integer
+                required:
+                  - completed
+
+  /organizations/{orgId}/annual-program:
+    get:
+      operationId: listAnnualProgram
+      tags: [annual-program]
+      summary: List annual training program items
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Program items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AnnualProgramItem"
+                required:
+                  - data
+    post:
+      operationId: createAnnualProgramItem
+      tags: [annual-program]
+      summary: Create an annual program item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnnualProgramItemBody"
+      responses:
+        "201":
+          description: Item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualProgramItem"
+
+  /organizations/{orgId}/annual-program/{id}:
+    patch:
+      operationId: updateAnnualProgramItem
+      tags: [annual-program]
+      summary: Update an annual program item (including class link / status)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAnnualProgramItemBody"
+      responses:
+        "200":
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualProgramItem"
+    delete:
+      operationId: deleteAnnualProgramItem
+      tags: [annual-program]
+      summary: Delete an annual program item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Item removed
+
+  /organizations/{orgId}/learning/summary:
+    get:
+      operationId: getLearningDashboardSummary
+      tags: [trainings]
+      summary: Resumo do dashboard operacional de gestão de aprendizagem
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resumo do dashboard de aprendizagem
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningSummary"
+        "403":
+          description: Acesso negado
+
 components:
   schemas:
+    TrainingCatalogItem:
+      type: object
+      description: "Item do catálogo de treinamentos (definição reutilizável)."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+          nullable: true
+        modality:
+          type: string
+          nullable: true
+        norm:
+          type: string
+          nullable: true
+        clause:
+          type: string
+          nullable: true
+        workloadHours:
+          type: number
+          nullable: true
+        validityMonths:
+          type: integer
+          nullable: true
+        isMandatory:
+          type: boolean
+        status:
+          type: string
+        targetCompetencyName:
+          type: string
+          nullable: true
+        targetCompetencyType:
+          type: string
+          nullable: true
+        targetCompetencyLevel:
+          type: integer
+          nullable: true
+        defaultInstructor:
+          type: string
+          nullable: true
+        objective:
+          type: string
+          nullable: true
+        programContent:
+          type: string
+          nullable: true
+        evaluationMethod:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - title
+        - isMandatory
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateTrainingCatalogItemBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        category:
+          type: string
+        modality:
+          type: string
+        norm:
+          type: string
+        clause:
+          type: string
+        workloadHours:
+          type: number
+        validityMonths:
+          type: integer
+          nullable: true
+        isMandatory:
+          type: boolean
+        status:
+          type: string
+        targetCompetencyName:
+          type: string
+        targetCompetencyType:
+          type: string
+        targetCompetencyLevel:
+          type: integer
+        defaultInstructor:
+          type: string
+        objective:
+          type: string
+        programContent:
+          type: string
+        evaluationMethod:
+          type: string
+      required:
+        - title
+
+    UpdateTrainingCatalogItemBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        category:
+          type: string
+        modality:
+          type: string
+        norm:
+          type: string
+        clause:
+          type: string
+        workloadHours:
+          type: number
+        validityMonths:
+          type: integer
+          nullable: true
+        isMandatory:
+          type: boolean
+        status:
+          type: string
+        targetCompetencyName:
+          type: string
+        targetCompetencyType:
+          type: string
+        targetCompetencyLevel:
+          type: integer
+        defaultInstructor:
+          type: string
+        objective:
+          type: string
+        programContent:
+          type: string
+        evaluationMethod:
+          type: string
+
+    PaginatedTrainingCatalog:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrainingCatalogItem"
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+          required:
+            - page
+            - pageSize
+            - total
+            - totalPages
+      required:
+        - data
+        - pagination
+
+    CompetencyCatalogItem:
+      type: object
+      description: "Item do banco de competências (catálogo gerenciável por organização)."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        name:
+          type: string
+        competencyType:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        norm:
+          type: string
+          nullable: true
+        isMandatory:
+          type: boolean
+        usageCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - name
+        - isMandatory
+        - createdAt
+        - updatedAt
+
+    CreateCompetencyCatalogItemBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        competencyType:
+          type: string
+        category:
+          type: string
+        norm:
+          type: string
+        isMandatory:
+          type: boolean
+      required:
+        - name
+
+    UpdateCompetencyCatalogItemBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        competencyType:
+          type: string
+        category:
+          type: string
+        norm:
+          type: string
+        isMandatory:
+          type: boolean
+
+    TrainingRequirement:
+      type: object
+      description: "Obrigatoriedade — regra que torna um item do catálogo obrigatório para um cargo."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        positionId:
+          type: integer
+        catalogItemId:
+          type: integer
+        deadlineType:
+          type: string
+        deadlineDays:
+          type: integer
+          nullable: true
+        scope:
+          type: string
+        filialUnitIds:
+          type: array
+          items:
+            type: integer
+        recurrence:
+          type: string
+        isCritical:
+          type: boolean
+        norm:
+          type: string
+          nullable: true
+          deprecated: true
+          description: "Deprecated — use normIds. Kept for backward compatibility."
+        normIds:
+          type: array
+          items:
+            type: integer
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - positionId
+        - catalogItemId
+        - deadlineType
+        - scope
+        - filialUnitIds
+        - recurrence
+        - isCritical
+        - normIds
+        - createdAt
+        - updatedAt
+
+    CreateTrainingRequirementBody:
+      type: object
+      properties:
+        positionId:
+          type: integer
+        catalogItemId:
+          type: integer
+        deadlineType:
+          type: string
+        deadlineDays:
+          type: integer
+          nullable: true
+        scope:
+          type: string
+        filialUnitIds:
+          type: array
+          items:
+            type: integer
+        recurrence:
+          type: string
+        isCritical:
+          type: boolean
+        norm:
+          type: string
+          deprecated: true
+          description: "Deprecated — use normIds. Kept for backward compatibility."
+        normIds:
+          type: array
+          items:
+            type: integer
+        notes:
+          type: string
+      required:
+        - positionId
+        - catalogItemId
+        - deadlineType
+
+    UpdateTrainingRequirementBody:
+      type: object
+      properties:
+        positionId:
+          type: integer
+        catalogItemId:
+          type: integer
+        deadlineType:
+          type: string
+        deadlineDays:
+          type: integer
+          nullable: true
+        scope:
+          type: string
+        filialUnitIds:
+          type: array
+          items:
+            type: integer
+        recurrence:
+          type: string
+        isCritical:
+          type: boolean
+        norm:
+          type: string
+          deprecated: true
+          description: "Deprecated — use normIds. Kept for backward compatibility."
+        normIds:
+          type: array
+          items:
+            type: integer
+        notes:
+          type: string
+
+    TrainingRequirementPreview:
+      type: object
+      properties:
+        requirements:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrainingRequirement"
+      required:
+        - requirements
+
+    TrainingClass:
+      type: object
+      description: "Turma — instância agendada de um item do catálogo."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        catalogItemId:
+          type: integer
+        code:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+        endDate:
+          type: string
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        instructor:
+          type: string
+          nullable: true
+        modality:
+          type: string
+          nullable: true
+        workloadHours:
+          type: number
+          nullable: true
+        capacity:
+          type: integer
+          nullable: true
+        minScore:
+          type: integer
+          nullable: true
+        status:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
+        participantCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - catalogItemId
+        - startDate
+        - status
+        - attachments
+        - createdAt
+        - updatedAt
+
+    TrainingClassParticipant:
+      type: object
+      properties:
+        id:
+          type: integer
+        classId:
+          type: integer
+        employeeId:
+          type: integer
+        employeeName:
+          type: string
+          nullable: true
+        attendance:
+          type: string
+          nullable: true
+        score:
+          type: integer
+          nullable: true
+        result:
+          type: string
+          nullable: true
+        employeeTrainingId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - classId
+        - employeeId
+        - createdAt
+
+    TrainingClassDetail:
+      allOf:
+        - $ref: "#/components/schemas/TrainingClass"
+        - type: object
+          properties:
+            participants:
+              type: array
+              items:
+                $ref: "#/components/schemas/TrainingClassParticipant"
+          required:
+            - participants
+
+    CreateTrainingClassBody:
+      type: object
+      properties:
+        catalogItemId:
+          type: integer
+        code:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        unitId:
+          type: integer
+        location:
+          type: string
+        instructor:
+          type: string
+        modality:
+          type: string
+        workloadHours:
+          type: number
+        capacity:
+          type: integer
+        minScore:
+          type: integer
+        status:
+          type: string
+        notes:
+          type: string
+        attachments:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
+      required:
+        - catalogItemId
+        - startDate
+
+    UpdateTrainingClassBody:
+      type: object
+      properties:
+        code:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        unitId:
+          type: integer
+          nullable: true
+        location:
+          type: string
+        instructor:
+          type: string
+        modality:
+          type: string
+        workloadHours:
+          type: number
+        capacity:
+          type: integer
+        minScore:
+          type: integer
+        status:
+          type: string
+        notes:
+          type: string
+        attachments:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
+
+    AddTrainingClassParticipantsBody:
+      type: object
+      properties:
+        employeeIds:
+          type: array
+          items:
+            type: integer
+      required:
+        - employeeIds
+
+    UpdateTrainingClassParticipantBody:
+      type: object
+      properties:
+        attendance:
+          type: string
+          nullable: true
+        score:
+          type: integer
+          nullable: true
+        result:
+          type: string
+          nullable: true
+
+    AnnualProgramItem:
+      type: object
+      description: "Item do Programa Anual de Treinamento (PAT)."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        year:
+          type: integer
+        catalogItemId:
+          type: integer
+        unitId:
+          type: integer
+          nullable: true
+        plannedMonth:
+          type: integer
+          nullable: true
+        modality:
+          type: string
+          nullable: true
+        plannedQuantity:
+          type: integer
+          nullable: true
+        responsible:
+          type: string
+          nullable: true
+        status:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        classId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - year
+        - catalogItemId
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateAnnualProgramItemBody:
+      type: object
+      properties:
+        year:
+          type: integer
+        catalogItemId:
+          type: integer
+        unitId:
+          type: integer
+        plannedMonth:
+          type: integer
+        modality:
+          type: string
+        plannedQuantity:
+          type: integer
+        responsible:
+          type: string
+        status:
+          type: string
+        notes:
+          type: string
+      required:
+        - year
+        - catalogItemId
+
+    UpdateAnnualProgramItemBody:
+      type: object
+      properties:
+        year:
+          type: integer
+        catalogItemId:
+          type: integer
+        unitId:
+          type: integer
+          nullable: true
+        plannedMonth:
+          type: integer
+          nullable: true
+        modality:
+          type: string
+        plannedQuantity:
+          type: integer
+        responsible:
+          type: string
+        status:
+          type: string
+        notes:
+          type: string
+        classId:
+          type: integer
+          nullable: true
+
     RoadSafetyFactor:
       type: object
       properties:
@@ -9899,6 +11671,9 @@ components:
         unitId:
           type: integer
           nullable: true
+        employeeId:
+          type: integer
+          nullable: true
         lastLoginAt:
           type: string
           format: date-time
@@ -10168,6 +11943,16 @@ components:
           type: ["string", "null"]
         phone:
           type: ["string", "null"]
+        managers:
+          type: array
+          items:
+            type: object
+            required: [userId, userName]
+            properties:
+              userId:
+                type: integer
+              userName:
+                type: string
         createdAt:
           type: string
           format: date-time
@@ -10725,6 +12510,17 @@ components:
     Employee:
       type: object
       properties:
+        autoLinkedTrainings:
+          type: object
+          description: "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar)."
+          properties:
+            generated:
+              type: integer
+            reused:
+              type: integer
+          required:
+            - generated
+            - reused
         id:
           type: integer
         organizationId:
@@ -10773,6 +12569,12 @@ components:
         unitName:
           type: string
           nullable: true
+        trainingCompletionPercent:
+          type: number
+          nullable: true
+        competencyGapStatus:
+          type: string
+          enum: [ok, gap, critical]
         createdAt:
           type: string
           format: date-time
@@ -10915,6 +12717,12 @@ components:
     EmployeeTraining:
       type: object
       properties:
+        dueDate:
+          type: string
+          nullable: true
+        requirementId:
+          type: integer
+          nullable: true
         id:
           type: integer
         employeeId:
@@ -10947,7 +12755,7 @@ components:
           type: integer
           nullable: true
         workloadHours:
-          type: integer
+          type: number
           nullable: true
         completionDate:
           type: string
@@ -10987,6 +12795,15 @@ components:
     OrganizationTraining:
       type: object
       properties:
+        catalogItemId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        requirementId:
+          type: integer
+          nullable: true
         id:
           type: integer
         employeeId:
@@ -11033,7 +12850,7 @@ components:
           type: integer
           nullable: true
         workloadHours:
-          type: integer
+          type: number
           nullable: true
         completionDate:
           type: string
@@ -11047,7 +12864,7 @@ components:
         effectivenessStatus:
           type: string
           nullable: true
-          enum: [pending, effective, ineffective]
+          enum: [pending, in_review, effective, ineffective]
         attachments:
           type: array
           items:
@@ -11055,6 +12872,19 @@ components:
         latestEffectivenessReview:
           allOf:
             - $ref: "#/components/schemas/TrainingEffectivenessReview"
+          nullable: true
+        effectivenessDueDate:
+          type: string
+          format: date
+          nullable: true
+        effectivenessAssignedRole:
+          type: string
+          enum: [gestor, rh, instrutor, colaborador]
+          nullable: true
+        reviewerCount:
+          type: integer
+        effectivenessScorePercent:
+          type: number
           nullable: true
         createdAt:
           type: string
@@ -11069,6 +12899,7 @@ components:
         - title
         - status
         - attachments
+        - reviewerCount
 
     EmployeeAwareness:
       type: object
@@ -11175,6 +13006,38 @@ components:
         - evaluatorUserId
         - evaluationDate
         - attachments
+
+    EmployeePositionChange:
+      type: object
+      required:
+        - id
+        - employeeId
+        - employeeName
+        - trainingsGenerated
+        - trainingsReused
+        - createdAt
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        employeeName:
+          type: string
+        previousPosition:
+          type: string
+          nullable: true
+        newPosition:
+          type: string
+          nullable: true
+        changedByUserName:
+          type: string
+          nullable: true
+        trainingsGenerated:
+          type: integer
+        trainingsReused:
+          type: integer
+        createdAt:
+          type: string
 
     PositionCompetencyRequirement:
       type: object
@@ -11330,6 +13193,26 @@ components:
               type: integer
             effectivenessPending:
               type: integer
+            onTimePercent:
+              type: number
+              nullable: true
+            boardCounts:
+              type: object
+              required: [pendentes, emAvaliacao, concluidas]
+              properties:
+                pendentes:
+                  type: integer
+                emAvaliacao:
+                  type: integer
+                concluidas:
+                  type: integer
+            eficazes:
+              type: integer
+            naoEficazes:
+              type: integer
+            eficazPercent:
+              type: number
+              nullable: true
           required:
             - total
             - pendente
@@ -11391,9 +13274,31 @@ components:
             - pageSize
             - total
             - totalPages
+        statusCounts:
+          type: object
+          description: Totais por status no escopo atual (ignora o filtro de status), p/ os cards.
+          properties:
+            active:
+              type: integer
+            inactive:
+              type: integer
+            onLeave:
+              type: integer
+          required:
+            - active
+            - inactive
+            - onLeave
+        userCount:
+          type: integer
+          description: Total de usuários (logins) da organização.
+        withUserCount:
+          type: integer
+          description: Colaboradores no escopo (ignora o filtro de status) que têm um usuário/login vinculado.
       required:
         - data
         - pagination
+        - statusCounts
+        - userCount
 
     LinkedUnit:
       type: object
@@ -11639,6 +13544,9 @@ components:
     CreateTrainingBody:
       type: object
       properties:
+        catalogItemId:
+          type: integer
+          description: "Se informado, copia (snapshot) os campos do item do catálogo ausentes no body e vincula o registro."
         title:
           type: string
         description:
@@ -11662,7 +13570,7 @@ components:
           type: integer
           minimum: 1
         workloadHours:
-          type: integer
+          type: number
         completionDate:
           type: string
         expirationDate:
@@ -11675,8 +13583,6 @@ components:
           maxItems: 10
           items:
             $ref: "#/components/schemas/EmployeeRecordAttachment"
-      required:
-        - title
 
     CreateAwarenessBody:
       type: object
@@ -11764,7 +13670,7 @@ components:
           type: integer
           minimum: 1
         workloadHours:
-          type: integer
+          type: number
         completionDate:
           type: string
         expirationDate:
@@ -11827,6 +13733,9 @@ components:
           maximum: 5
         comments:
           type: string
+        evaluatorRole:
+          type: string
+          enum: [gestor, rh, instrutor, colaborador]
         attachments:
           type: array
           maxItems: 10
@@ -11835,6 +13744,19 @@ components:
       required:
         - evaluationDate
         - isEffective
+
+    CreateEffectivenessAssignmentBody:
+      type: object
+      required:
+        - evaluatorRole
+        - dueDate
+      properties:
+        evaluatorRole:
+          type: string
+          enum: [gestor, rh, instrutor, colaborador]
+        dueDate:
+          type: string
+          format: date
 
     CreatePositionCompetencyRequirementBody:
       type: object
@@ -12057,6 +13979,7 @@ components:
           assets,
           regulatoryDocuments,
           swot,
+          actionPlans,
         ]
 
     OrgUser:
@@ -12131,6 +14054,10 @@ components:
         unitId:
           type: integer
           nullable: true
+        employeeId:
+          type: integer
+          nullable: true
+          description: Colaborador (ficha de RH) a vincular a este usuário. Cria o vínculo persistente users↔employees.
       required:
         - name
         - email
@@ -16081,7 +18008,15 @@ components:
         norms:
           type: array
           items:
-            type: string
+            type: integer
+        computedSource:
+          type: string
+          nullable: true
+          description: Source system that auto-populates this indicator (e.g. "lms"). null = manual.
+        computedMetric:
+          type: string
+          nullable: true
+          description: Specific metric key within the source system (e.g. "completion_rate").
         createdAt:
           type: string
         updatedAt:
@@ -16143,7 +18078,7 @@ components:
         norms:
           type: array
           items:
-            type: string
+            type: integer
         objectiveId:
           type: integer
           nullable: true
@@ -16205,7 +18140,7 @@ components:
         norms:
           type: array
           items:
-            type: string
+            type: integer
 
     KpiYearConfig:
       type: object
@@ -16225,6 +18160,9 @@ components:
           type: integer
           nullable: true
         goal:
+          type: number
+          nullable: true
+        tolerance:
           type: number
           nullable: true
         isGoalComputed:
@@ -16260,6 +18198,9 @@ components:
           type: integer
           nullable: true
         goal:
+          type: number
+          nullable: true
+        tolerance:
           type: number
           nullable: true
 
@@ -16414,7 +18355,7 @@ components:
         norms:
           type: array
           items:
-            type: string
+            type: integer
         responsibleUserId:
           type: [integer, "null"]
       required: [name, strategy, childIndicatorIds, direction, periodicity]
@@ -16430,6 +18371,24 @@ components:
           type: string
           enum: [average, sum_values, min, max]
       required: [indicatorId, childrenCount, strategy]
+
+    ActivateLmsIndicatorsBody:
+      type: object
+      properties:
+        year:
+          type: integer
+      required: [year]
+
+    ActivateLmsIndicatorsResponse:
+      type: object
+      properties:
+        activated:
+          type: integer
+        indicatorIds:
+          type: array
+          items:
+            type: integer
+      required: [activated, indicatorIds]
 
     ActionPlanStatus:
       type: string
@@ -16767,6 +18726,41 @@ components:
           minLength: 1
       required:
         - name
+
+    RegulatoryNorm:
+      type: object
+      description: "Item do catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento)."
+      required: [id, organizationId, label, active, sortOrder]
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        label:
+          type: string
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    CreateRegulatoryNormBody:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+
+    UpdateRegulatoryNormBody:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
 
     ActionPlanSourceModule:
       type: string
@@ -19588,3 +21582,118 @@ components:
         - changes
         - createdAt
         - updatedAt
+
+    LearningSummaryCards:
+      type: object
+      properties:
+        patCompletion:
+          type: number
+          nullable: true
+        effectiveness:
+          type: number
+          nullable: true
+        criticalGaps:
+          type: number
+          nullable: true
+        expiredTrainings:
+          type: number
+          nullable: true
+      required:
+        - patCompletion
+        - effectiveness
+        - criticalGaps
+        - expiredTrainings
+
+    LearningSummaryUnitRow:
+      type: object
+      properties:
+        unitId:
+          type: integer
+        unitName:
+          type: string
+        completion:
+          type: number
+          nullable: true
+        effectiveness:
+          type: number
+          nullable: true
+        gaps:
+          type: integer
+        status:
+          type: string
+          enum: [ok, atencao, critico, sem-dados]
+      required:
+        - unitId
+        - unitName
+        - completion
+        - effectiveness
+        - gaps
+        - status
+
+    LearningSummaryNormRow:
+      type: object
+      properties:
+        norm:
+          type: string
+        effectiveness:
+          type: number
+          nullable: true
+      required:
+        - norm
+        - effectiveness
+
+    LearningSummaryExpiredRow:
+      type: object
+      properties:
+        employeeName:
+          type: string
+        unitName:
+          type: string
+          nullable: true
+        title:
+          type: string
+        expirationDate:
+          type: string
+      required:
+        - employeeName
+        - title
+        - expirationDate
+
+    LearningSummaryPendingRow:
+      type: object
+      properties:
+        employeeName:
+          type: string
+        title:
+          type: string
+      required:
+        - employeeName
+        - title
+
+    LearningSummary:
+      type: object
+      properties:
+        cards:
+          $ref: "#/components/schemas/LearningSummaryCards"
+        byUnit:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningSummaryUnitRow"
+        byNorm:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningSummaryNormRow"
+        expired:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningSummaryExpiredRow"
+        pendingEffectiveness:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningSummaryPendingRow"
+      required:
+        - cards
+        - byUnit
+        - byNorm
+        - expired
+        - pendingEffectiveness

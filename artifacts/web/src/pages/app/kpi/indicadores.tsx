@@ -45,11 +45,11 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import {
   KPI_CATEGORIES,
-  KPI_NORMS,
   PERIODICITY_LABELS,
   formatKpiNumber,
   formatKpiValue,
   isCurrencyUnit,
+  normalizeForSearch,
   type KpiIndicator,
   type KpiObjective,
   type KpiYearRow,
@@ -74,6 +74,7 @@ import {
 } from "@/lib/formula-evaluator";
 import { CORPORATE_UNIT_LABEL, isCorporateUnit } from "@/lib/kpi-constants";
 import { canActOnKpiIndicator, type KpiRequesterScope } from "@/lib/kpi-access";
+import { useActiveNorms, useAllNorms, buildNormLabelMap } from "@/lib/norms-client";
 import type { StatusFilter } from "./_components/summary-tiles";
 import { getIndicatorStatus, type CardStatus } from "./_components/indicator-card";
 import { CorporateRollupsTab } from "./_components/corporate-rollups-tab";
@@ -156,9 +157,15 @@ type IndicatorFormData = {
   periodicity: "monthly" | "quarterly" | "semiannual" | "annual" | "monthly_15d" | "monthly_45d";
   referenceMonth: string;
   category: string;
-  norms: string[];
+  norms: number[];
   objectiveId: string;
   goal: string;
+  /**
+   * Margem do amarelo no semáforo (default 0.01 em getTrafficLight). Não é
+   * editável no diálogo — só existe aqui para que salvar uma edição preserve
+   * o valor que já estiver no year-config (ex.: vindo do template/seed).
+   */
+  tolerance: string;
 };
 
 const defaultIndicatorForm = (): IndicatorFormData => ({
@@ -176,6 +183,7 @@ const defaultIndicatorForm = (): IndicatorFormData => ({
   norms: [],
   objectiveId: "",
   goal: "",
+  tolerance: "",
 });
 
 function buildEditFormFromIndicator(
@@ -205,6 +213,7 @@ function buildEditFormFromIndicator(
     objectiveId:
       yearRow?.yearConfig.objectiveId != null ? String(yearRow.yearConfig.objectiveId) : "",
     goal: yearRow?.yearConfig.goal != null ? String(yearRow.yearConfig.goal) : "",
+    tolerance: yearRow?.yearConfig.tolerance != null ? String(yearRow.yearConfig.tolerance) : "",
   };
 }
 
@@ -268,6 +277,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
     // Sinal autoritativo vindo do backend (rollupStrategy != null) — mesma
     // definição usada pela matriz de acesso no servidor. Espelha o contrato.
     isCorporate: ind.isCorporate ?? false,
+    isLms: (ind.computedSource ?? null) != null,
   });
   const canCreate =
     scope.role === "org_admin" ||
@@ -351,6 +361,17 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
   const { data: objectives = [] } = useKpiObjectives(orgId);
   const { data: yearRows = [] } = useKpiYearData(orgId, year);
   const { data: orgUnits = [] } = useListUnits(orgId);
+  const { data: activeNorms = [] } = useActiveNorms(orgId);
+  const { data: allNorms = [] } = useAllNorms(orgId);
+  const normLabelMap = useMemo(() => buildNormLabelMap(allNorms), [allNorms]);
+  // Editar um indicador cuja norma foi desativada não pode esconder o checkbox
+  // já marcado — inclui a norma referenciada (mesmo inativa) nas opções.
+  const checkboxNorms = useMemo(() => {
+    const referencedInactive = allNorms.filter(
+      (n) => !n.active && indicatorForm.norms.includes(n.id),
+    );
+    return [...activeNorms, ...referencedInactive];
+  }, [activeNorms, allNorms, indicatorForm.norms]);
 
   const { data: orgUsersData, isLoading: orgUsersLoading } = useListOrgUsers(orgId, {
     query: {
@@ -450,9 +471,11 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
   }, [indicatorsForYear, indicatorStatusMap]);
 
   const filteredIndicators = indicatorsForYear.filter((ind) => {
-    const matchesSearch = ind.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = normalizeForSearch(ind.name).includes(
+      normalizeForSearch(searchQuery),
+    );
     const matchesUnit = !unitFilter || (ind.unit ?? "") === unitFilter;
-    const matchesNorma = !normaFilter || (ind.norms ?? []).includes(normaFilter);
+    const matchesNorma = !normaFilter || (ind.norms ?? []).includes(Number(normaFilter));
     const matchesCategoria = !categoriaFilter || (ind.category ?? "") === categoriaFilter;
     const row = yearRows.find((r) => r.indicator.id === ind.id);
     const objId = row?.yearConfig?.objectiveId ?? null;
@@ -564,6 +587,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           data: {
             goal: indicatorForm.goal ? parseFloat(indicatorForm.goal) : null,
             objectiveId: indicatorForm.objectiveId ? parseInt(indicatorForm.objectiveId) : null,
+            tolerance: indicatorForm.tolerance ? parseFloat(indicatorForm.tolerance) : null,
           },
         });
         toast({ title: "Indicador atualizado" });
@@ -585,7 +609,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           norms: indicatorForm.norms,
         };
         const created = await createIndicator.mutateAsync({ orgId, data });
-        if (indicatorForm.goal || indicatorForm.objectiveId) {
+        if (indicatorForm.goal || indicatorForm.objectiveId || indicatorForm.tolerance) {
           await upsertYearConfig.mutateAsync({
             orgId,
             indicatorId: created.id,
@@ -593,6 +617,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
             data: {
               goal: indicatorForm.goal ? parseFloat(indicatorForm.goal) : null,
               objectiveId: indicatorForm.objectiveId ? parseInt(indicatorForm.objectiveId) : null,
+              tolerance: indicatorForm.tolerance ? parseFloat(indicatorForm.tolerance) : null,
             },
           });
         }
@@ -799,9 +824,9 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           className="w-44"
         >
           <option value="">Todas as normas</option>
-          {KPI_NORMS.map((n) => (
-            <option key={n.code} value={n.code}>
-              ISO {n.code}
+          {activeNorms.map((n) => (
+            <option key={n.id} value={String(n.id)}>
+              {n.label}
             </option>
           ))}
         </Select>
@@ -968,7 +993,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                               key={n}
                               className="rounded border px-1 text-[9px] font-medium leading-4 text-muted-foreground"
                             >
-                              {n}
+                              {normLabelMap.get(n) ?? "#" + n}
                             </span>
                           ))
                         ) : (
@@ -1109,11 +1134,11 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           <div className="col-span-2 space-y-1.5">
             <Label>Norma(s) atendida(s)</Label>
             <div className="flex flex-wrap gap-2">
-              {KPI_NORMS.map((norm) => {
-                const checked = indicatorForm.norms.includes(norm.code);
+              {checkboxNorms.map((norm) => {
+                const checked = indicatorForm.norms.includes(norm.id);
                 return (
                   <label
-                    key={norm.code}
+                    key={norm.id}
                     className={cn(
                       "flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors",
                       checked
@@ -1129,8 +1154,8 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                         setIndicatorForm((f) => ({
                           ...f,
                           norms: e.target.checked
-                            ? [...f.norms, norm.code]
-                            : f.norms.filter((n) => n !== norm.code),
+                            ? [...f.norms, norm.id]
+                            : f.norms.filter((n) => n !== norm.id),
                         }))
                       }
                     />

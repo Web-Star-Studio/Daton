@@ -5,12 +5,13 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrganizationUsersSettingsSection } from "@/components/settings/OrganizationUsersSettingsSection";
+import { OrganizationNormsSettingsSection } from "@/components/settings/OrganizationNormsSettingsSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUpdateMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type SystemTab = "users" | "appearance";
+type SystemTab = "users" | "norms" | "appearance";
 type ThemePreference = "light" | "dark" | "system";
 
 export default function SystemSettingsPage() {
@@ -64,12 +65,19 @@ export default function SystemSettingsPage() {
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SystemTab)}>
         <TabsList>
           {isOrgAdmin && <TabsTrigger value="users">Usuários</TabsTrigger>}
+          {isOrgAdmin && <TabsTrigger value="norms">Normas</TabsTrigger>}
           <TabsTrigger value="appearance">Aparência</TabsTrigger>
         </TabsList>
 
         {isOrgAdmin && (
           <TabsContent value="users">
             <OrganizationUsersSettingsSection />
+          </TabsContent>
+        )}
+
+        {isOrgAdmin && (
+          <TabsContent value="norms">
+            <OrganizationNormsSettingsSection />
           </TabsContent>
         )}
 

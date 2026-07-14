@@ -46,6 +46,7 @@ export const LoginResponse = zod.object({
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
     unitId: zod.number().nullish(),
+    employeeId: zod.number().nullish(),
     lastLoginAt: zod.string().datetime({}).nullish(),
     createdAt: zod.string().datetime({}),
   }),
@@ -71,6 +72,7 @@ export const GetMeResponse = zod.object({
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
     unitId: zod.number().nullish(),
+    employeeId: zod.number().nullish(),
     lastLoginAt: zod.string().datetime({}).nullish(),
     createdAt: zod.string().datetime({}),
   }),
@@ -165,6 +167,7 @@ export const GetMeResponse = zod.object({
       "assets",
       "regulatoryDocuments",
       "swot",
+      "actionPlans",
     ]),
   ),
   filial: zod
@@ -198,6 +201,7 @@ export const UpdateMeResponse = zod.object({
     role: zod.string(),
     theme: zod.enum(["light", "dark", "system"]),
     unitId: zod.number().nullish(),
+    employeeId: zod.number().nullish(),
     lastLoginAt: zod.string().datetime({}).nullish(),
     createdAt: zod.string().datetime({}),
   }),
@@ -292,6 +296,7 @@ export const UpdateMeResponse = zod.object({
       "assets",
       "regulatoryDocuments",
       "swot",
+      "actionPlans",
     ]),
   ),
   filial: zod
@@ -794,6 +799,14 @@ export const ListUnitsResponseItem = zod.object({
   state: zod.string().nullish(),
   country: zod.string().nullish(),
   phone: zod.string().nullish(),
+  managers: zod
+    .array(
+      zod.object({
+        userId: zod.number(),
+        userName: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -846,6 +859,14 @@ export const GetUnitResponse = zod.object({
   state: zod.string().nullish(),
   country: zod.string().nullish(),
   phone: zod.string().nullish(),
+  managers: zod
+    .array(
+      zod.object({
+        userId: zod.number(),
+        userName: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -890,6 +911,14 @@ export const UpdateUnitResponse = zod.object({
   state: zod.string().nullish(),
   country: zod.string().nullish(),
   phone: zod.string().nullish(),
+  managers: zod
+    .array(
+      zod.object({
+        userId: zod.number(),
+        userName: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -1076,6 +1105,14 @@ export const GetLegislationResponse = zod.object({
         state: zod.string().nullish(),
         country: zod.string().nullish(),
         phone: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              userId: zod.number(),
+              userName: zod.string(),
+            }),
+          )
+          .optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -1185,6 +1222,14 @@ export const ListLegislationUnitsResponseItem = zod.object({
     state: zod.string().nullish(),
     country: zod.string().nullish(),
     phone: zod.string().nullish(),
+    managers: zod
+      .array(
+        zod.object({
+          userId: zod.number(),
+          userName: zod.string(),
+        }),
+      )
+      .optional(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   }),
@@ -1257,6 +1302,14 @@ export const UpdateUnitLegislationResponse = zod.object({
     state: zod.string().nullish(),
     country: zod.string().nullish(),
     phone: zod.string().nullish(),
+    managers: zod
+      .array(
+        zod.object({
+          userId: zod.number(),
+          userName: zod.string(),
+        }),
+      )
+      .optional(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   }),
@@ -1269,6 +1322,28 @@ export const RemoveUnitLegislationParams = zod.object({
   orgId: zod.coerce.number(),
   legId: zod.coerce.number(),
   unitId: zod.coerce.number(),
+});
+
+/**
+ * @summary Set the managers (gestores) of a unit
+ */
+export const SetUnitManagersParams = zod.object({
+  orgId: zod.coerce.number(),
+  unitId: zod.coerce.number(),
+});
+
+export const SetUnitManagersBody = zod.object({
+  userIds: zod.array(zod.number()),
+});
+
+export const SetUnitManagersResponse = zod.object({
+  unitId: zod.number(),
+  managers: zod.array(
+    zod.object({
+      userId: zod.number(),
+      userName: zod.string(),
+    }),
+  ),
 });
 
 /**
@@ -1437,6 +1512,12 @@ export const ListEmployeesQueryParams = zod.object({
   unitId: zod.coerce.number().optional(),
   position: zod.coerce.string().optional(),
   status: zod.coerce.string().optional(),
+  hasUser: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "When true, only employees that have a linked user account (login).",
+    ),
   page: zod.coerce.number().min(1).optional(),
   pageSize: zod.coerce
     .number()
@@ -1448,6 +1529,15 @@ export const ListEmployeesQueryParams = zod.object({
 export const ListEmployeesResponse = zod.object({
   data: zod.array(
     zod.object({
+      autoLinkedTrainings: zod
+        .object({
+          generated: zod.number(),
+          reused: zod.number(),
+        })
+        .optional()
+        .describe(
+          "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+        ),
       id: zod.number(),
       organizationId: zod.number(),
       unitId: zod.number().nullish(),
@@ -1471,6 +1561,8 @@ export const ListEmployeesResponse = zod.object({
       terminationDate: zod.string().nullish(),
       status: zod.enum(["active", "inactive", "on_leave"]),
       unitName: zod.string().nullish(),
+      trainingCompletionPercent: zod.number().nullish(),
+      competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
       createdAt: zod.string().datetime({}),
       updatedAt: zod.string().datetime({}),
     }),
@@ -1481,6 +1573,24 @@ export const ListEmployeesResponse = zod.object({
     total: zod.number(),
     totalPages: zod.number(),
   }),
+  statusCounts: zod
+    .object({
+      active: zod.number(),
+      inactive: zod.number(),
+      onLeave: zod.number(),
+    })
+    .describe(
+      "Totais por status no escopo atual (ignora o filtro de status), p\/ os cards.",
+    ),
+  userCount: zod
+    .number()
+    .describe("Total de usuários (logins) da organização."),
+  withUserCount: zod
+    .number()
+    .optional()
+    .describe(
+      "Colaboradores no escopo (ignora o filtro de status) que têm um usuário\/login vinculado.",
+    ),
 });
 
 /**
@@ -1593,8 +1703,15 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
   status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
   expiringWithinDays: zod.coerce.number().min(1).optional(),
   effectivenessStatus: zod
-    .enum(["pending", "effective", "ineffective"])
+    .enum(["pending", "in_review", "effective", "ineffective"])
     .optional(),
+  scope: zod.enum(["needs_evaluation", "all"]).optional(),
+  year: zod.coerce.number().optional(),
+  norm: zod.coerce.string().optional(),
+  evaluatorRole: zod
+    .enum(["gestor", "rh", "instrutor", "colaborador"])
+    .optional(),
+  boardColumn: zod.enum(["pendentes", "em_avaliacao", "concluidas"]).optional(),
   page: zod.coerce.number().min(1).optional(),
   pageSize: zod.coerce
     .number()
@@ -1621,6 +1738,9 @@ export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewO
 export const ListOrganizationTrainingsResponse = zod.object({
   data: zod.array(
     zod.object({
+      catalogItemId: zod.number().nullish(),
+      dueDate: zod.string().nullish(),
+      requirementId: zod.number().nullish(),
       id: zod.number(),
       employeeId: zod.number(),
       employeeName: zod.string(),
@@ -1644,7 +1764,7 @@ export const ListOrganizationTrainingsResponse = zod.object({
       expirationDate: zod.string().nullish(),
       status: zod.enum(["pendente", "concluido", "vencido"]),
       effectivenessStatus: zod
-        .enum(["pending", "effective", "ineffective"])
+        .enum(["pending", "in_review", "effective", "ineffective"])
         .nullish(),
       attachments: zod.array(
         zod.object({
@@ -1708,6 +1828,12 @@ export const ListOrganizationTrainingsResponse = zod.object({
           createdAt: zod.string().datetime({}).optional(),
         })
         .nullish(),
+      effectivenessDueDate: zod.string().date().nullish(),
+      effectivenessAssignedRole: zod
+        .enum(["gestor", "rh", "instrutor", "colaborador"])
+        .nullish(),
+      reviewerCount: zod.number(),
+      effectivenessScorePercent: zod.number().nullish(),
       createdAt: zod.string().datetime({}).optional(),
       updatedAt: zod.string().datetime({}).optional(),
     }),
@@ -1724,6 +1850,17 @@ export const ListOrganizationTrainingsResponse = zod.object({
     concluido: zod.number(),
     vencido: zod.number(),
     effectivenessPending: zod.number(),
+    onTimePercent: zod.number().nullish(),
+    boardCounts: zod
+      .object({
+        pendentes: zod.number(),
+        emAvaliacao: zod.number(),
+        concluidas: zod.number(),
+      })
+      .optional(),
+    eficazes: zod.number().optional(),
+    naoEficazes: zod.number().optional(),
+    eficazPercent: zod.number().nullish(),
   }),
 });
 
@@ -1776,6 +1913,28 @@ export const ListEmployeeCompetencyGapsResponse = zod.object({
     totalPages: zod.number(),
   }),
 });
+
+/**
+ * @summary List employee position change history
+ */
+export const ListEmployeePositionChangesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListEmployeePositionChangesResponseItem = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  employeeName: zod.string(),
+  previousPosition: zod.string().nullish(),
+  newPosition: zod.string().nullish(),
+  changedByUserName: zod.string().nullish(),
+  trainingsGenerated: zod.number(),
+  trainingsReused: zod.number(),
+  createdAt: zod.string(),
+});
+export const ListEmployeePositionChangesResponse = zod.array(
+  ListEmployeePositionChangesResponseItem,
+);
 
 /**
  * @summary List competency requirements for a position
@@ -2003,6 +2162,15 @@ export const getEmployeeResponseTwoAwarenessItemAttachmentsItemObjectPathRegExp 
 
 export const GetEmployeeResponse = zod
   .object({
+    autoLinkedTrainings: zod
+      .object({
+        generated: zod.number(),
+        reused: zod.number(),
+      })
+      .optional()
+      .describe(
+        "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+      ),
     id: zod.number(),
     organizationId: zod.number(),
     unitId: zod.number().nullish(),
@@ -2026,6 +2194,8 @@ export const GetEmployeeResponse = zod
     terminationDate: zod.string().nullish(),
     status: zod.enum(["active", "inactive", "on_leave"]),
     unitName: zod.string().nullish(),
+    trainingCompletionPercent: zod.number().nullish(),
+    competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -2080,6 +2250,8 @@ export const GetEmployeeResponse = zod
       trainings: zod
         .array(
           zod.object({
+            dueDate: zod.string().nullish(),
+            requirementId: zod.number().nullish(),
             id: zod.number(),
             employeeId: zod.number(),
             title: zod.string(),
@@ -2334,6 +2506,15 @@ export const UpdateEmployeeBody = zod.object({
 });
 
 export const UpdateEmployeeResponse = zod.object({
+  autoLinkedTrainings: zod
+    .object({
+      generated: zod.number(),
+      reused: zod.number(),
+    })
+    .optional()
+    .describe(
+      "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+    ),
   id: zod.number(),
   organizationId: zod.number(),
   unitId: zod.number().nullish(),
@@ -2351,6 +2532,8 @@ export const UpdateEmployeeResponse = zod.object({
   terminationDate: zod.string().nullish(),
   status: zod.enum(["active", "inactive", "on_leave"]),
   unitName: zod.string().nullish(),
+  trainingCompletionPercent: zod.number().nullish(),
+  competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -2607,6 +2790,8 @@ export const listTrainingsResponseEffectivenessReviewsItemAttachmentsItemObjectP
   new RegExp("^\/objects\/uploads\/.+");
 
 export const ListTrainingsResponseItem = zod.object({
+  dueDate: zod.string().nullish(),
+  requirementId: zod.number().nullish(),
   id: zod.number(),
   employeeId: zod.number(),
   title: zod.string(),
@@ -2736,7 +2921,13 @@ export const createTrainingBodyAttachmentsItemObjectPathRegExp = new RegExp(
 export const createTrainingBodyAttachmentsMax = 10;
 
 export const CreateTrainingBody = zod.object({
-  title: zod.string(),
+  catalogItemId: zod
+    .number()
+    .optional()
+    .describe(
+      "Se informado, copia (snapshot) os campos do item do catálogo ausentes no body e vincula o registro.",
+    ),
+  title: zod.string().optional(),
   description: zod.string().optional(),
   objective: zod.string().optional(),
   institution: zod.string().optional(),
@@ -2855,6 +3046,8 @@ export const updateTrainingResponseEffectivenessReviewsItemAttachmentsItemObject
   new RegExp("^\/objects\/uploads\/.+");
 
 export const UpdateTrainingResponse = zod.object({
+  dueDate: zod.string().nullish(),
+  requirementId: zod.number().nullish(),
   id: zod.number(),
   employeeId: zod.number(),
   title: zod.string(),
@@ -2974,6 +3167,134 @@ export const DeleteTrainingParams = zod.object({
 });
 
 /**
+ * @summary Assign effectiveness evaluator role and due date for an employee training
+ */
+export const AssignTrainingEffectivenessParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  trainId: zod.coerce.number(),
+});
+
+export const AssignTrainingEffectivenessBody = zod.object({
+  evaluatorRole: zod.enum(["gestor", "rh", "instrutor", "colaborador"]),
+  dueDate: zod.string().date(),
+});
+
+export const assignTrainingEffectivenessResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const assignTrainingEffectivenessResponseAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneScoreMin = 0;
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneScoreMax = 10;
+
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMin = 0;
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMax = 5;
+
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
+
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const AssignTrainingEffectivenessResponse = zod.object({
+  catalogItemId: zod.number().nullish(),
+  dueDate: zod.string().nullish(),
+  requirementId: zod.number().nullish(),
+  id: zod.number(),
+  employeeId: zod.number(),
+  employeeName: zod.string(),
+  employeePosition: zod.string().nullish(),
+  employeeDepartment: zod.string().nullish(),
+  unitId: zod.number().nullish(),
+  unitName: zod.string().nullish(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  objective: zod.string().nullish(),
+  institution: zod.string().nullish(),
+  targetCompetencyName: zod.string().nullish(),
+  targetCompetencyType: zod
+    .enum(["formacao", "experiencia", "habilidade"])
+    .nullish(),
+  targetCompetencyLevel: zod.number().nullish(),
+  evaluationMethod: zod.string().nullish(),
+  renewalMonths: zod.number().nullish(),
+  workloadHours: zod.number().nullish(),
+  completionDate: zod.string().nullish(),
+  expirationDate: zod.string().nullish(),
+  status: zod.enum(["pendente", "concluido", "vencido"]),
+  effectivenessStatus: zod
+    .enum(["pending", "in_review", "effective", "ineffective"])
+    .nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(assignTrainingEffectivenessResponseAttachmentsItemFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          assignTrainingEffectivenessResponseAttachmentsItemObjectPathRegExp,
+        ),
+    }),
+  ),
+  latestEffectivenessReview: zod
+    .object({
+      id: zod.number(),
+      trainingId: zod.number(),
+      evaluatorUserId: zod.number(),
+      evaluatorName: zod.string().nullish(),
+      evaluationDate: zod.string().date(),
+      score: zod
+        .number()
+        .min(
+          assignTrainingEffectivenessResponseLatestEffectivenessReviewOneScoreMin,
+        )
+        .max(
+          assignTrainingEffectivenessResponseLatestEffectivenessReviewOneScoreMax,
+        )
+        .nullish(),
+      isEffective: zod.boolean().nullish(),
+      resultLevel: zod
+        .number()
+        .min(
+          assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMin,
+        )
+        .max(
+          assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMax,
+        )
+        .nullish(),
+      comments: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp,
+            ),
+        }),
+      ),
+      createdAt: zod.string().datetime({}).optional(),
+    })
+    .nullish(),
+  effectivenessDueDate: zod.string().date().nullish(),
+  effectivenessAssignedRole: zod
+    .enum(["gestor", "rh", "instrutor", "colaborador"])
+    .nullish(),
+  reviewerCount: zod.number(),
+  effectivenessScorePercent: zod.number().nullish(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
  * @summary List effectiveness reviews for an employee training
  */
 export const ListTrainingEffectivenessReviewsParams = zod.object({
@@ -3068,6 +3389,9 @@ export const CreateTrainingEffectivenessReviewBody = zod.object({
     .max(createTrainingEffectivenessReviewBodyResultLevelMax)
     .optional(),
   comments: zod.string().optional(),
+  evaluatorRole: zod
+    .enum(["gestor", "rh", "instrutor", "colaborador"])
+    .optional(),
   attachments: zod
     .array(
       zod.object({
@@ -4115,6 +4439,15 @@ export const GetDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -4138,6 +4471,8 @@ export const GetDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        trainingCompletionPercent: zod.number().nullish(),
+        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -4383,6 +4718,15 @@ export const UpdateDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -4406,6 +4750,8 @@ export const UpdateDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        trainingCompletionPercent: zod.number().nullish(),
+        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -4698,6 +5044,15 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -4721,6 +5076,8 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        trainingCompletionPercent: zod.number().nullish(),
+        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5028,6 +5385,15 @@ export const SubmitDocumentForReviewResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -5051,6 +5417,8 @@ export const SubmitDocumentForReviewResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        trainingCompletionPercent: zod.number().nullish(),
+        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5274,6 +5642,15 @@ export const ApproveDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -5297,6 +5674,8 @@ export const ApproveDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        trainingCompletionPercent: zod.number().nullish(),
+        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5520,6 +5899,15 @@ export const RejectDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -5543,6 +5931,8 @@ export const RejectDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        trainingCompletionPercent: zod.number().nullish(),
+        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5762,6 +6152,15 @@ export const ReviseDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -5785,6 +6184,8 @@ export const ReviseDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        trainingCompletionPercent: zod.number().nullish(),
+        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -6004,6 +6405,15 @@ export const DistributeDocumentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -6027,6 +6437,8 @@ export const DistributeDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        trainingCompletionPercent: zod.number().nullish(),
+        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -6266,6 +6678,15 @@ export const UpdateDocumentContentResponse = zod.object({
   elaborators: zod
     .array(
       zod.object({
+        autoLinkedTrainings: zod
+          .object({
+            generated: zod.number(),
+            reused: zod.number(),
+          })
+          .optional()
+          .describe(
+            "Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar\/editar).",
+          ),
         id: zod.number(),
         organizationId: zod.number(),
         unitId: zod.number().nullish(),
@@ -6289,6 +6710,8 @@ export const UpdateDocumentContentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        trainingCompletionPercent: zod.number().nullish(),
+        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -6603,6 +7026,7 @@ export const ListOrgUsersResponse = zod.object({
           "assets",
           "regulatoryDocuments",
           "swot",
+          "actionPlans",
         ]),
       ),
       passwordSet: zod
@@ -6644,9 +7068,16 @@ export const CreateOrgUserBody = zod.object({
       "assets",
       "regulatoryDocuments",
       "swot",
+      "actionPlans",
     ]),
   ),
   unitId: zod.number().nullish(),
+  employeeId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Colaborador (ficha de RH) a vincular a este usuário. Cria o vínculo persistente users↔employees.",
+    ),
 });
 
 /**
@@ -6730,6 +7161,7 @@ export const UpdateUserModulesBody = zod.object({
       "assets",
       "regulatoryDocuments",
       "swot",
+      "actionPlans",
     ]),
   ),
 });
@@ -6753,6 +7185,7 @@ export const UpdateUserModulesResponse = zod.object({
         "assets",
         "regulatoryDocuments",
         "swot",
+        "actionPlans",
       ]),
     )
     .optional(),
@@ -6781,6 +7214,7 @@ export const CreateInvitationBody = zod.object({
         "assets",
         "regulatoryDocuments",
         "swot",
+        "actionPlans",
       ]),
     )
     .optional(),
@@ -6814,6 +7248,7 @@ export const ListInvitationsResponse = zod.object({
           "assets",
           "regulatoryDocuments",
           "swot",
+          "actionPlans",
         ]),
       ),
       expiresAt: zod.string(),
@@ -14147,7 +14582,19 @@ export const ListKpiIndicatorsResponseItem = zod.object({
       "Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.",
     ),
   category: zod.string().nullish(),
-  norms: zod.array(zod.string()),
+  norms: zod.array(zod.number()),
+  computedSource: zod
+    .string()
+    .nullish()
+    .describe(
+      'Source system that auto-populates this indicator (e.g. \"lms\"). null = manual.',
+    ),
+  computedMetric: zod
+    .string()
+    .nullish()
+    .describe(
+      'Specific metric key within the source system (e.g. \"completion_rate\").',
+    ),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -14200,7 +14647,7 @@ export const CreateKpiIndicatorBody = zod.object({
     .max(createKpiIndicatorBodyReferenceMonthMax)
     .nullish(),
   category: zod.string().nullish(),
-  norms: zod.array(zod.string()).optional(),
+  norms: zod.array(zod.number()).optional(),
   objectiveId: zod.number().nullish(),
   goal: zod.number().nullish(),
   seq: zod.number().nullish(),
@@ -14256,7 +14703,7 @@ export const UpdateKpiIndicatorBody = zod.object({
     .max(updateKpiIndicatorBodyReferenceMonthMax)
     .nullish(),
   category: zod.string().nullish(),
-  norms: zod.array(zod.string()).optional(),
+  norms: zod.array(zod.number()).optional(),
 });
 
 export const updateKpiIndicatorResponseFormulaVariablesItemKeyRegExp =
@@ -14321,7 +14768,19 @@ export const UpdateKpiIndicatorResponse = zod.object({
       "Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.",
     ),
   category: zod.string().nullish(),
-  norms: zod.array(zod.string()),
+  norms: zod.array(zod.number()),
+  computedSource: zod
+    .string()
+    .nullish()
+    .describe(
+      'Source system that auto-populates this indicator (e.g. \"lms\"). null = manual.',
+    ),
+  computedMetric: zod
+    .string()
+    .nullish()
+    .describe(
+      'Specific metric key within the source system (e.g. \"completion_rate\").',
+    ),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -14415,7 +14874,19 @@ export const ListKpiYearDataResponseItem = zod.object({
         "Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.",
       ),
     category: zod.string().nullish(),
-    norms: zod.array(zod.string()),
+    norms: zod.array(zod.number()),
+    computedSource: zod
+      .string()
+      .nullish()
+      .describe(
+        'Source system that auto-populates this indicator (e.g. \"lms\"). null = manual.',
+      ),
+    computedMetric: zod
+      .string()
+      .nullish()
+      .describe(
+        'Specific metric key within the source system (e.g. \"completion_rate\").',
+      ),
     createdAt: zod.string(),
     updatedAt: zod.string(),
   }),
@@ -14427,6 +14898,7 @@ export const ListKpiYearDataResponseItem = zod.object({
     year: zod.number(),
     seq: zod.number().nullish(),
     goal: zod.number().nullish(),
+    tolerance: zod.number().nullish(),
     isGoalComputed: zod
       .boolean()
       .optional()
@@ -14535,6 +15007,7 @@ export const UpsertKpiYearConfigBody = zod.object({
   objectiveId: zod.number().nullish(),
   seq: zod.number().nullish(),
   goal: zod.number().nullish(),
+  tolerance: zod.number().nullish(),
 });
 
 export const UpsertKpiYearConfigResponse = zod.object({
@@ -14545,6 +15018,7 @@ export const UpsertKpiYearConfigResponse = zod.object({
   year: zod.number(),
   seq: zod.number().nullish(),
   goal: zod.number().nullish(),
+  tolerance: zod.number().nullish(),
   isGoalComputed: zod
     .boolean()
     .optional()
@@ -17391,12 +17865,28 @@ export const CreateKpiCorporateIndicatorBody = zod
     periodicity: zod.string(),
     referenceMonth: zod.number().nullish(),
     category: zod.string().nullish(),
-    norms: zod.array(zod.string()).optional(),
+    norms: zod.array(zod.number()).optional(),
     responsibleUserId: zod.number().nullish(),
   })
   .describe(
     "Cria um corporativo que agrega os valores dos filhos selecionados.",
   );
+
+/**
+ * @summary Ativa (idempotente) os 6 indicadores corporativos de LMS para a organização
+ */
+export const ActivateLmsIndicatorsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ActivateLmsIndicatorsBody = zod.object({
+  year: zod.number(),
+});
+
+export const ActivateLmsIndicatorsResponse = zod.object({
+  activated: zod.number(),
+  indicatorIds: zod.array(zod.number()),
+});
 
 /**
  * @summary List SWOT strategic objectives in the organization
@@ -17792,6 +18282,75 @@ export const DeleteSwotPerspectiveParams = zod.object({
   orgId: zod.coerce.number(),
   perspectiveId: zod.coerce.number(),
 });
+
+/**
+ * @summary List the organization's regulatory norm catalog
+ */
+export const ListNormsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListNormsResponseItem = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento).",
+  );
+export const ListNormsResponse = zod.array(ListNormsResponseItem);
+
+/**
+ * @summary Add a norm to the organization's regulatory norm catalog
+ */
+export const CreateNormParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateNormBody = zod.object({
+  label: zod.string().min(1),
+});
+
+export const CreateNormResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento).",
+  );
+
+/**
+ * @summary Update a regulatory norm (label, active flag or sort order)
+ */
+export const UpdateNormParams = zod.object({
+  orgId: zod.coerce.number(),
+  normId: zod.coerce.number(),
+});
+
+export const UpdateNormBody = zod.object({
+  label: zod.string().min(1).optional(),
+  active: zod.boolean().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateNormResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento).",
+  );
 
 /**
  * @summary List action plans in the organization with filters
@@ -18718,6 +19277,201 @@ export const ListActionPlanActivityResponse = zod.array(
 );
 
 /**
+ * Aplica ao plano o conteúdo do bloco Planejamento registrado na entrada de atividade informada. Gera uma nova entrada no histórico; nunca apaga nada. Restaurar uma versão idêntica à atual é no-op.
+
+ * @summary Restaura o bloco Planejamento (5W2H + causa-raiz + porquês) de uma versão anterior
+ */
+export const RestoreActionPlanPlanningParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const RestoreActionPlanPlanningBody = zod.object({
+  activityId: zod
+    .number()
+    .describe("Id da entrada de atividade cuja versão será restaurada."),
+});
+
+export const restoreActionPlanPlanningResponseSourceRefKpiMonthMax = 12;
+
+export const restoreActionPlanPlanningResponseGutGravityMax = 5;
+
+export const restoreActionPlanPlanningResponseGutUrgencyMax = 5;
+
+export const restoreActionPlanPlanningResponseGutTendencyMax = 5;
+
+export const RestoreActionPlanPlanningResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  code: zod.string().nullish(),
+  sourceModule: zod.enum([
+    "kpi",
+    "swot",
+    "manual",
+    "nonconformity",
+    "audit_finding",
+    "risk",
+    "training",
+    "environmental",
+    "road_safety",
+    "incident",
+    "rac",
+  ]),
+  sourceRef: zod
+    .object({
+      kpiMonthlyValueId: zod.number().optional(),
+      kpiIndicatorId: zod.number().optional(),
+      kpiYear: zod.number().optional(),
+      kpiMonth: zod
+        .number()
+        .min(1)
+        .max(restoreActionPlanPlanningResponseSourceRefKpiMonthMax)
+        .optional(),
+      swotFactorId: zod.number().optional(),
+      swotFactorDescription: zod.string().optional(),
+      manualContext: zod.string().optional(),
+      nonconformityId: zod.number().optional(),
+      auditFindingId: zod.number().optional(),
+      riskOpportunityItemId: zod.number().optional(),
+      trainingId: zod.number().optional(),
+      laiaAssessmentId: zod.number().optional(),
+      roadSafetyFactorId: zod.number().optional(),
+      incidentDescription: zod.string().optional(),
+      criticalReviewId: zod.number().optional(),
+      racLabel: zod.string().optional(),
+    })
+    .describe(
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+    ),
+  sourceContext: zod
+    .object({
+      label: zod
+        .string()
+        .describe(
+          'Human-readable origin label, e.g. \"KPI · Indicador X · Mai\/2026\"',
+        ),
+      kpi: zod
+        .object({
+          indicatorId: zod.number(),
+          indicatorName: zod.string(),
+          year: zod.number(),
+          month: zod.number(),
+          value: zod.number().nullable(),
+          goal: zod.number().nullable(),
+          direction: zod.enum(["up", "down"]),
+        })
+        .nullish(),
+    })
+    .describe(
+      "Server-resolved context about the source, used for display in lists\/details",
+    ),
+  actionType: zod.enum(["corrective", "preventive", "improvement"]),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
+  priority: zod.enum(["low", "medium", "high"]),
+  gutGravity: zod
+    .number()
+    .min(1)
+    .max(restoreActionPlanPlanningResponseGutGravityMax)
+    .nullish(),
+  gutUrgency: zod
+    .number()
+    .min(1)
+    .max(restoreActionPlanPlanningResponseGutUrgencyMax)
+    .nullish(),
+  gutTendency: zod
+    .number()
+    .min(1)
+    .max(restoreActionPlanPlanningResponseGutTendencyMax)
+    .nullish(),
+  gutScore: zod
+    .number()
+    .nullish()
+    .describe("Server-computed G×U×T (1–125), null when any axis is unset"),
+  plan5w2h: zod
+    .union([
+      zod
+        .object({
+          what: zod.string().optional(),
+          why: zod.string().optional(),
+          where: zod.string().optional(),
+          who: zod.string().optional(),
+          when: zod.string().optional(),
+          how: zod.string().optional(),
+          howMuch: zod.string().optional(),
+        })
+        .describe(
+          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
+        ),
+      zod.null(),
+    ])
+    .optional(),
+  rootCause: zod.string().nullish(),
+  rootCauseWhys: zod.array(zod.string()).nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  correctiveActionDescription: zod.string().nullish(),
+  correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
+  effectivenessMethod: zod
+    .union([
+      zod.enum([
+        "indicator",
+        "internal_audit",
+        "field_inspection",
+        "training",
+        "sampling",
+        "risk_reduction",
+      ]),
+      zod.null(),
+    ])
+    .optional(),
+  effectivenessDueDate: zod.string().datetime({}).nullish(),
+  effectivenessEvaluatorUserId: zod.number().nullish(),
+  effectivenessEvaluatorUserName: zod.string().nullish(),
+  effectivenessResult: zod
+    .union([zod.enum(["effective", "ineffective", "pending"]), zod.null()])
+    .optional(),
+  effectivenessBefore: zod.string().nullish(),
+  effectivenessAfter: zod.string().nullish(),
+  effectivenessComment: zod.string().nullish(),
+  effectivenessCheckedAt: zod.string().datetime({}).nullish(),
+  odsNumbers: zod.array(zod.number()).nullish(),
+  normRefs: zod
+    .array(
+      zod.object({
+        code: zod.string(),
+        clause: zod.string().optional(),
+        description: zod.string().optional(),
+      }),
+    )
+    .nullish(),
+  relatedIndicatorIds: zod.array(zod.number()).nullish(),
+  relatedRiskIds: zod.array(zod.number()).nullish(),
+  createdByUserId: zod.number().nullish(),
+  createdByUserName: zod.string().nullish(),
+  closedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+  evidences: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        actionPlanId: zod.number(),
+        fileName: zod.string(),
+        fileSize: zod.number(),
+        contentType: zod.string(),
+        objectPath: zod.string(),
+        uploadedByUserId: zod.number().nullish(),
+        uploadedByUserName: zod.string().nullish(),
+        uploadedAt: zod.string().datetime({}),
+      }),
+    )
+    .optional(),
+});
+
+/**
  * @summary Draft 5W2H and 5-whys for an action plan from a problem statement (opt-in AI; never persisted)
  */
 export const SuggestActionPlanDraftParams = zod.object({
@@ -19085,4 +19839,982 @@ export const CreateRoadSafetyMeasurementBody = zod.object({
   value: zod.number(),
   referenceDate: zod.string(),
   note: zod.string().optional(),
+});
+
+/**
+ * @summary List the organization's training catalog
+ */
+export const ListTrainingCatalogParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListTrainingCatalogQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  norm: zod.coerce.string().optional(),
+  category: zod.coerce.string().optional(),
+  modality: zod.coerce.string().optional(),
+  status: zod.coerce.string().optional(),
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+});
+
+export const ListTrainingCatalogResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        title: zod.string(),
+        category: zod.string().nullish(),
+        modality: zod.string().nullish(),
+        norm: zod.string().nullish(),
+        clause: zod.string().nullish(),
+        workloadHours: zod.number().nullish(),
+        validityMonths: zod.number().nullish(),
+        isMandatory: zod.boolean(),
+        status: zod.string(),
+        targetCompetencyName: zod.string().nullish(),
+        targetCompetencyType: zod.string().nullish(),
+        targetCompetencyLevel: zod.number().nullish(),
+        defaultInstructor: zod.string().nullish(),
+        objective: zod.string().nullish(),
+        programContent: zod.string().nullish(),
+        evaluationMethod: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe("Item do catálogo de treinamentos (definição reutilizável)."),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create a training catalog item
+ */
+export const CreateTrainingCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateTrainingCatalogItemBody = zod.object({
+  title: zod.string().min(1),
+  category: zod.string().optional(),
+  modality: zod.string().optional(),
+  norm: zod.string().optional(),
+  clause: zod.string().optional(),
+  workloadHours: zod.number().optional(),
+  validityMonths: zod.number().nullish(),
+  isMandatory: zod.boolean().optional(),
+  status: zod.string().optional(),
+  targetCompetencyName: zod.string().optional(),
+  targetCompetencyType: zod.string().optional(),
+  targetCompetencyLevel: zod.number().optional(),
+  defaultInstructor: zod.string().optional(),
+  objective: zod.string().optional(),
+  programContent: zod.string().optional(),
+  evaluationMethod: zod.string().optional(),
+});
+
+/**
+ * @summary Get a training catalog item
+ */
+export const GetTrainingCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const GetTrainingCatalogItemResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    category: zod.string().nullish(),
+    modality: zod.string().nullish(),
+    norm: zod.string().nullish(),
+    clause: zod.string().nullish(),
+    workloadHours: zod.number().nullish(),
+    validityMonths: zod.number().nullish(),
+    isMandatory: zod.boolean(),
+    status: zod.string(),
+    targetCompetencyName: zod.string().nullish(),
+    targetCompetencyType: zod.string().nullish(),
+    targetCompetencyLevel: zod.number().nullish(),
+    defaultInstructor: zod.string().nullish(),
+    objective: zod.string().nullish(),
+    programContent: zod.string().nullish(),
+    evaluationMethod: zod.string().nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Item do catálogo de treinamentos (definição reutilizável).");
+
+/**
+ * @summary Update a training catalog item
+ */
+export const UpdateTrainingCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const UpdateTrainingCatalogItemBody = zod.object({
+  title: zod.string().min(1).optional(),
+  category: zod.string().optional(),
+  modality: zod.string().optional(),
+  norm: zod.string().optional(),
+  clause: zod.string().optional(),
+  workloadHours: zod.number().optional(),
+  validityMonths: zod.number().nullish(),
+  isMandatory: zod.boolean().optional(),
+  status: zod.string().optional(),
+  targetCompetencyName: zod.string().optional(),
+  targetCompetencyType: zod.string().optional(),
+  targetCompetencyLevel: zod.number().optional(),
+  defaultInstructor: zod.string().optional(),
+  objective: zod.string().optional(),
+  programContent: zod.string().optional(),
+  evaluationMethod: zod.string().optional(),
+});
+
+export const UpdateTrainingCatalogItemResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    category: zod.string().nullish(),
+    modality: zod.string().nullish(),
+    norm: zod.string().nullish(),
+    clause: zod.string().nullish(),
+    workloadHours: zod.number().nullish(),
+    validityMonths: zod.number().nullish(),
+    isMandatory: zod.boolean(),
+    status: zod.string(),
+    targetCompetencyName: zod.string().nullish(),
+    targetCompetencyType: zod.string().nullish(),
+    targetCompetencyLevel: zod.number().nullish(),
+    defaultInstructor: zod.string().nullish(),
+    objective: zod.string().nullish(),
+    programContent: zod.string().nullish(),
+    evaluationMethod: zod.string().nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Item do catálogo de treinamentos (definição reutilizável).");
+
+/**
+ * @summary Delete a training catalog item (referencing trainings keep their snapshot; link is nulled)
+ */
+export const DeleteTrainingCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+/**
+ * @summary List the organization's competency catalog
+ */
+export const ListCompetencyCatalogParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListCompetencyCatalogResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        name: zod.string(),
+        competencyType: zod.string().nullish(),
+        category: zod.string().nullish(),
+        norm: zod.string().nullish(),
+        isMandatory: zod.boolean(),
+        usageCount: zod.number().optional(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe(
+        "Item do banco de competências (catálogo gerenciável por organização).",
+      ),
+  ),
+});
+
+/**
+ * @summary Create a competency catalog item (idempotent by name, case-insensitive)
+ */
+export const CreateCompetencyCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateCompetencyCatalogItemBody = zod.object({
+  name: zod.string().min(1),
+  competencyType: zod.string().optional(),
+  category: zod.string().optional(),
+  norm: zod.string().optional(),
+  isMandatory: zod.boolean().optional(),
+});
+
+export const CreateCompetencyCatalogItemResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    competencyType: zod.string().nullish(),
+    category: zod.string().nullish(),
+    norm: zod.string().nullish(),
+    isMandatory: zod.boolean(),
+    usageCount: zod.number().optional(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe(
+    "Item do banco de competências (catálogo gerenciável por organização).",
+  );
+
+/**
+ * @summary Update a competency catalog item (rename propagates to free-text usages)
+ */
+export const UpdateCompetencyCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const UpdateCompetencyCatalogItemBody = zod.object({
+  name: zod.string().min(1).optional(),
+  competencyType: zod.string().optional(),
+  category: zod.string().optional(),
+  norm: zod.string().optional(),
+  isMandatory: zod.boolean().optional(),
+});
+
+export const UpdateCompetencyCatalogItemResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    competencyType: zod.string().nullish(),
+    category: zod.string().nullish(),
+    norm: zod.string().nullish(),
+    isMandatory: zod.boolean(),
+    usageCount: zod.number().optional(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe(
+    "Item do banco de competências (catálogo gerenciável por organização).",
+  );
+
+/**
+ * @summary Remove a competency from the catalog (usages keep their stored text)
+ */
+export const DeleteCompetencyCatalogItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+/**
+ * @summary List the organization's training requirements (obrigatoriedades)
+ */
+export const ListTrainingRequirementsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListTrainingRequirementsQueryParams = zod.object({
+  positionId: zod.coerce.number().optional(),
+  deadlineType: zod.coerce.string().optional(),
+  scope: zod.coerce.string().optional(),
+});
+
+export const ListTrainingRequirementsResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        positionId: zod.number(),
+        catalogItemId: zod.number(),
+        deadlineType: zod.string(),
+        deadlineDays: zod.number().nullish(),
+        scope: zod.string(),
+        filialUnitIds: zod.array(zod.number()),
+        recurrence: zod.string(),
+        isCritical: zod.boolean(),
+        norm: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — use normIds. Kept for backward compatibility.",
+          ),
+        normIds: zod.array(zod.number()),
+        notes: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe(
+        "Obrigatoriedade — regra que torna um item do catálogo obrigatório para um cargo.",
+      ),
+  ),
+});
+
+/**
+ * @summary Create a training requirement
+ */
+export const CreateTrainingRequirementParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateTrainingRequirementBody = zod.object({
+  positionId: zod.number(),
+  catalogItemId: zod.number(),
+  deadlineType: zod.string(),
+  deadlineDays: zod.number().nullish(),
+  scope: zod.string().optional(),
+  filialUnitIds: zod.array(zod.number()).optional(),
+  recurrence: zod.string().optional(),
+  isCritical: zod.boolean().optional(),
+  norm: zod
+    .string()
+    .optional()
+    .describe("Deprecated — use normIds. Kept for backward compatibility."),
+  normIds: zod.array(zod.number()).optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Preview requirements that would apply to a position + unit (no generation)
+ */
+export const PreviewTrainingRequirementsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const PreviewTrainingRequirementsQueryParams = zod.object({
+  position: zod.coerce.string(),
+  unitId: zod.coerce.number().optional(),
+});
+
+export const PreviewTrainingRequirementsResponse = zod.object({
+  requirements: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        positionId: zod.number(),
+        catalogItemId: zod.number(),
+        deadlineType: zod.string(),
+        deadlineDays: zod.number().nullish(),
+        scope: zod.string(),
+        filialUnitIds: zod.array(zod.number()),
+        recurrence: zod.string(),
+        isCritical: zod.boolean(),
+        norm: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — use normIds. Kept for backward compatibility.",
+          ),
+        normIds: zod.array(zod.number()),
+        notes: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe(
+        "Obrigatoriedade — regra que torna um item do catálogo obrigatório para um cargo.",
+      ),
+  ),
+});
+
+/**
+ * @summary Update a training requirement
+ */
+export const UpdateTrainingRequirementParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const UpdateTrainingRequirementBody = zod.object({
+  positionId: zod.number().optional(),
+  catalogItemId: zod.number().optional(),
+  deadlineType: zod.string().optional(),
+  deadlineDays: zod.number().nullish(),
+  scope: zod.string().optional(),
+  filialUnitIds: zod.array(zod.number()).optional(),
+  recurrence: zod.string().optional(),
+  isCritical: zod.boolean().optional(),
+  norm: zod
+    .string()
+    .optional()
+    .describe("Deprecated — use normIds. Kept for backward compatibility."),
+  normIds: zod.array(zod.number()).optional(),
+  notes: zod.string().optional(),
+});
+
+export const UpdateTrainingRequirementResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    positionId: zod.number(),
+    catalogItemId: zod.number(),
+    deadlineType: zod.string(),
+    deadlineDays: zod.number().nullish(),
+    scope: zod.string(),
+    filialUnitIds: zod.array(zod.number()),
+    recurrence: zod.string(),
+    isCritical: zod.boolean(),
+    norm: zod
+      .string()
+      .nullish()
+      .describe("Deprecated — use normIds. Kept for backward compatibility."),
+    normIds: zod.array(zod.number()),
+    notes: zod.string().nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe(
+    "Obrigatoriedade — regra que torna um item do catálogo obrigatório para um cargo.",
+  );
+
+/**
+ * @summary Delete a training requirement
+ */
+export const DeleteTrainingRequirementParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List training classes
+ */
+export const ListTrainingClassesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListTrainingClassesQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  unitId: zod.coerce.number().optional(),
+  catalogItemId: zod.coerce.number().optional(),
+});
+
+export const listTrainingClassesResponseDataItemAttachmentsItemFileSizeMax = 20971520;
+
+export const listTrainingClassesResponseDataItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ListTrainingClassesResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        catalogItemId: zod.number(),
+        code: zod.string().nullish(),
+        startDate: zod.string(),
+        endDate: zod.string().nullish(),
+        unitId: zod.number().nullish(),
+        location: zod.string().nullish(),
+        instructor: zod.string().nullish(),
+        modality: zod.string().nullish(),
+        workloadHours: zod.number().nullish(),
+        capacity: zod.number().nullish(),
+        minScore: zod.number().nullish(),
+        status: zod.string(),
+        notes: zod.string().nullish(),
+        attachments: zod.array(
+          zod.object({
+            fileName: zod.string(),
+            fileSize: zod
+              .number()
+              .max(
+                listTrainingClassesResponseDataItemAttachmentsItemFileSizeMax,
+              ),
+            contentType: zod.string(),
+            objectPath: zod
+              .string()
+              .regex(
+                listTrainingClassesResponseDataItemAttachmentsItemObjectPathRegExp,
+              ),
+          }),
+        ),
+        participantCount: zod.number().optional(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe("Turma — instância agendada de um item do catálogo."),
+  ),
+});
+
+/**
+ * @summary Create a training class
+ */
+export const CreateTrainingClassParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createTrainingClassBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const createTrainingClassBodyAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const createTrainingClassBodyAttachmentsMax = 20;
+
+export const CreateTrainingClassBody = zod.object({
+  catalogItemId: zod.number(),
+  code: zod.string().optional(),
+  startDate: zod.string(),
+  endDate: zod.string().optional(),
+  unitId: zod.number().optional(),
+  location: zod.string().optional(),
+  instructor: zod.string().optional(),
+  modality: zod.string().optional(),
+  workloadHours: zod.number().optional(),
+  capacity: zod.number().optional(),
+  minScore: zod.number().optional(),
+  status: zod.string().optional(),
+  notes: zod.string().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createTrainingClassBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createTrainingClassBodyAttachmentsItemObjectPathRegExp),
+      }),
+    )
+    .max(createTrainingClassBodyAttachmentsMax)
+    .optional(),
+});
+
+/**
+ * @summary Get a training class with participants
+ */
+export const GetTrainingClassParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const getTrainingClassResponseOneAttachmentsItemFileSizeMax = 20971520;
+
+export const getTrainingClassResponseOneAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const GetTrainingClassResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    catalogItemId: zod.number(),
+    code: zod.string().nullish(),
+    startDate: zod.string(),
+    endDate: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    location: zod.string().nullish(),
+    instructor: zod.string().nullish(),
+    modality: zod.string().nullish(),
+    workloadHours: zod.number().nullish(),
+    capacity: zod.number().nullish(),
+    minScore: zod.number().nullish(),
+    status: zod.string(),
+    notes: zod.string().nullish(),
+    attachments: zod.array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(getTrainingClassResponseOneAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(getTrainingClassResponseOneAttachmentsItemObjectPathRegExp),
+      }),
+    ),
+    participantCount: zod.number().optional(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Turma — instância agendada de um item do catálogo.")
+  .and(
+    zod.object({
+      participants: zod.array(
+        zod.object({
+          id: zod.number(),
+          classId: zod.number(),
+          employeeId: zod.number(),
+          employeeName: zod.string().nullish(),
+          attendance: zod.string().nullish(),
+          score: zod.number().nullish(),
+          result: zod.string().nullish(),
+          employeeTrainingId: zod.number().nullish(),
+          createdAt: zod.string().datetime({}),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update a training class (including evidence attachments)
+ */
+export const UpdateTrainingClassParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const updateTrainingClassBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const updateTrainingClassBodyAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateTrainingClassBodyAttachmentsMax = 20;
+
+export const UpdateTrainingClassBody = zod.object({
+  code: zod.string().optional(),
+  startDate: zod.string().optional(),
+  endDate: zod.string().optional(),
+  unitId: zod.number().nullish(),
+  location: zod.string().optional(),
+  instructor: zod.string().optional(),
+  modality: zod.string().optional(),
+  workloadHours: zod.number().optional(),
+  capacity: zod.number().optional(),
+  minScore: zod.number().optional(),
+  status: zod.string().optional(),
+  notes: zod.string().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateTrainingClassBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateTrainingClassBodyAttachmentsItemObjectPathRegExp),
+      }),
+    )
+    .max(updateTrainingClassBodyAttachmentsMax)
+    .optional(),
+});
+
+export const updateTrainingClassResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const updateTrainingClassResponseAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateTrainingClassResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    catalogItemId: zod.number(),
+    code: zod.string().nullish(),
+    startDate: zod.string(),
+    endDate: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    location: zod.string().nullish(),
+    instructor: zod.string().nullish(),
+    modality: zod.string().nullish(),
+    workloadHours: zod.number().nullish(),
+    capacity: zod.number().nullish(),
+    minScore: zod.number().nullish(),
+    status: zod.string(),
+    notes: zod.string().nullish(),
+    attachments: zod.array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateTrainingClassResponseAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateTrainingClassResponseAttachmentsItemObjectPathRegExp),
+      }),
+    ),
+    participantCount: zod.number().optional(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Turma — instância agendada de um item do catálogo.");
+
+/**
+ * @summary Delete a training class
+ */
+export const DeleteTrainingClassParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Enroll employees into a class
+ */
+export const AddTrainingClassParticipantsParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const AddTrainingClassParticipantsBody = zod.object({
+  employeeIds: zod.array(zod.number()),
+});
+
+export const addTrainingClassParticipantsResponseOneAttachmentsItemFileSizeMax = 20971520;
+
+export const addTrainingClassParticipantsResponseOneAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const AddTrainingClassParticipantsResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    catalogItemId: zod.number(),
+    code: zod.string().nullish(),
+    startDate: zod.string(),
+    endDate: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    location: zod.string().nullish(),
+    instructor: zod.string().nullish(),
+    modality: zod.string().nullish(),
+    workloadHours: zod.number().nullish(),
+    capacity: zod.number().nullish(),
+    minScore: zod.number().nullish(),
+    status: zod.string(),
+    notes: zod.string().nullish(),
+    attachments: zod.array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            addTrainingClassParticipantsResponseOneAttachmentsItemFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            addTrainingClassParticipantsResponseOneAttachmentsItemObjectPathRegExp,
+          ),
+      }),
+    ),
+    participantCount: zod.number().optional(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Turma — instância agendada de um item do catálogo.")
+  .and(
+    zod.object({
+      participants: zod.array(
+        zod.object({
+          id: zod.number(),
+          classId: zod.number(),
+          employeeId: zod.number(),
+          employeeName: zod.string().nullish(),
+          attendance: zod.string().nullish(),
+          score: zod.number().nullish(),
+          result: zod.string().nullish(),
+          employeeTrainingId: zod.number().nullish(),
+          createdAt: zod.string().datetime({}),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update a participant (attendance / score / result)
+ */
+export const UpdateTrainingClassParticipantParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+  participantId: zod.coerce.number(),
+});
+
+export const UpdateTrainingClassParticipantBody = zod.object({
+  attendance: zod.string().nullish(),
+  score: zod.number().nullish(),
+  result: zod.string().nullish(),
+});
+
+export const UpdateTrainingClassParticipantResponse = zod.object({
+  id: zod.number(),
+  classId: zod.number(),
+  employeeId: zod.number(),
+  employeeName: zod.string().nullish(),
+  attendance: zod.string().nullish(),
+  score: zod.number().nullish(),
+  result: zod.string().nullish(),
+  employeeTrainingId: zod.number().nullish(),
+  createdAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Remove a participant
+ */
+export const DeleteTrainingClassParticipantParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+  participantId: zod.coerce.number(),
+});
+
+/**
+ * @summary Complete a class — writes employee_trainings for approved participants
+ */
+export const CompleteTrainingClassParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const CompleteTrainingClassResponse = zod.object({
+  completed: zod.number(),
+});
+
+/**
+ * @summary List annual training program items
+ */
+export const ListAnnualProgramParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListAnnualProgramQueryParams = zod.object({
+  year: zod.coerce.number().optional(),
+  unitId: zod.coerce.number().optional(),
+  status: zod.coerce.string().optional(),
+});
+
+export const ListAnnualProgramResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        year: zod.number(),
+        catalogItemId: zod.number(),
+        unitId: zod.number().nullish(),
+        plannedMonth: zod.number().nullish(),
+        modality: zod.string().nullish(),
+        plannedQuantity: zod.number().nullish(),
+        responsible: zod.string().nullish(),
+        status: zod.string(),
+        notes: zod.string().nullish(),
+        classId: zod.number().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe("Item do Programa Anual de Treinamento (PAT)."),
+  ),
+});
+
+/**
+ * @summary Create an annual program item
+ */
+export const CreateAnnualProgramItemParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateAnnualProgramItemBody = zod.object({
+  year: zod.number(),
+  catalogItemId: zod.number(),
+  unitId: zod.number().optional(),
+  plannedMonth: zod.number().optional(),
+  modality: zod.string().optional(),
+  plannedQuantity: zod.number().optional(),
+  responsible: zod.string().optional(),
+  status: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Update an annual program item (including class link / status)
+ */
+export const UpdateAnnualProgramItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const UpdateAnnualProgramItemBody = zod.object({
+  year: zod.number().optional(),
+  catalogItemId: zod.number().optional(),
+  unitId: zod.number().nullish(),
+  plannedMonth: zod.number().nullish(),
+  modality: zod.string().optional(),
+  plannedQuantity: zod.number().optional(),
+  responsible: zod.string().optional(),
+  status: zod.string().optional(),
+  notes: zod.string().optional(),
+  classId: zod.number().nullish(),
+});
+
+export const UpdateAnnualProgramItemResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    year: zod.number(),
+    catalogItemId: zod.number(),
+    unitId: zod.number().nullish(),
+    plannedMonth: zod.number().nullish(),
+    modality: zod.string().nullish(),
+    plannedQuantity: zod.number().nullish(),
+    responsible: zod.string().nullish(),
+    status: zod.string(),
+    notes: zod.string().nullish(),
+    classId: zod.number().nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Item do Programa Anual de Treinamento (PAT).");
+
+/**
+ * @summary Delete an annual program item
+ */
+export const DeleteAnnualProgramItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Resumo do dashboard operacional de gestão de aprendizagem
+ */
+export const GetLearningDashboardSummaryParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const GetLearningDashboardSummaryQueryParams = zod.object({
+  year: zod.coerce.number(),
+  unitId: zod.coerce.number().optional(),
+});
+
+export const GetLearningDashboardSummaryResponse = zod.object({
+  cards: zod.object({
+    patCompletion: zod.number().nullable(),
+    effectiveness: zod.number().nullable(),
+    criticalGaps: zod.number().nullable(),
+    expiredTrainings: zod.number().nullable(),
+  }),
+  byUnit: zod.array(
+    zod.object({
+      unitId: zod.number(),
+      unitName: zod.string(),
+      completion: zod.number().nullable(),
+      effectiveness: zod.number().nullable(),
+      gaps: zod.number(),
+      status: zod.enum(["ok", "atencao", "critico", "sem-dados"]),
+    }),
+  ),
+  byNorm: zod.array(
+    zod.object({
+      norm: zod.string(),
+      effectiveness: zod.number().nullable(),
+    }),
+  ),
+  expired: zod.array(
+    zod.object({
+      employeeName: zod.string(),
+      unitName: zod.string().nullish(),
+      title: zod.string(),
+      expirationDate: zod.string(),
+    }),
+  ),
+  pendingEffectiveness: zod.array(
+    zod.object({
+      employeeName: zod.string(),
+      title: zod.string(),
+    }),
+  ),
 });

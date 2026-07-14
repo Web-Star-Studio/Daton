@@ -14,6 +14,7 @@
  */
 import { db, kpiIndicatorsTable, organizationsTable } from "@workspace/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { ensureOrgNormsAndMap, codesToNormIds } from "./norm-catalog";
 
 type Category =
   | "Qualidade"
@@ -188,11 +189,15 @@ async function main() {
     process.exit(0);
   }
 
+  // Códigos legados (ex. "9001") -> ids do catálogo de normas da org
+  // (kpi_indicators.norms é number[] desde o Catálogo de Normas).
+  const codeToId = await ensureOrgNormsAndMap(orgId);
+
   let updated = 0;
   for (const p of plan) {
     await db
       .update(kpiIndicatorsTable)
-      .set({ category: p.category, norms: p.norms })
+      .set({ category: p.category, norms: codesToNormIds(p.norms, codeToId) })
       .where(
         and(
           eq(kpiIndicatorsTable.id, p.ind.id),

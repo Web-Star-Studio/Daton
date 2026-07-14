@@ -16,4 +16,6 @@ export interface CreateOrgUserBody {
   role: CreateOrgUserBodyRole;
   modules: AppModule[];
   unitId?: number | null;
+  /** Colaborador (ficha de RH) a vincular a este usuário. Cria o vínculo persistente users↔employees. */
+  employeeId?: number | null;
 }

@@ -17,7 +17,8 @@ type AppModule =
   | "roadSafety"
   | "assets"
   | "regulatoryDocuments"
-  | "swot";
+  | "swot"
+  | "actionPlans";
 
 interface AuthContextType {
   user: User | null;

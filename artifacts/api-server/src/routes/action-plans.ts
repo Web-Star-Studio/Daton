@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import {
   actionPlanActivityLogTable,
@@ -8,6 +8,7 @@ import {
   db,
   isActionPlanEncerrado,
   type ActionPlanActivityChanges,
+  type ActionPlanSourceModule,
 } from "@workspace/db";
 import {
   AddActionPlanCommentBody,
@@ -25,12 +26,20 @@ import {
   ListActionPlanCommentsParams,
   ListActionPlansParams,
   ListActionPlansQueryParams,
+  RestoreActionPlanPlanningBody,
+  RestoreActionPlanPlanningParams,
   SuggestActionPlanDraftBody,
   SuggestActionPlanDraftParams,
   UpdateActionPlanBody,
   UpdateActionPlanParams,
 } from "@workspace/api-zod";
-import { requireAuth, requireWriteAccess } from "../middlewares/auth";
+import {
+  requireAuth,
+  requireModuleAccess,
+  requireWriteAccess,
+  userHasModuleAccess,
+  type AppModule,
+} from "../middlewares/auth";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
 import {
   assertUserBelongsToOrg,
@@ -48,12 +57,16 @@ import { validateSourceRef } from "../services/action-plans/validate-source";
 import { computeActionPlanSummary } from "../services/action-plans/summary";
 import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
+import { extractPlanning, normalizePlanning, planningChanged, type PlanningBlock } from "../services/action-plans/planning";
 import { notifyActionPlanAssignment, notifyActionPlanEvaluatorAssignment } from "../services/action-plans/notify-assignment";
 import { draftActionPlanFromProblem } from "../services/action-plans/ai-draft";
+import { AiCompletionError } from "../services/ai/json-completion";
 
 const router: IRouter = Router();
 
-/** Tracked fields for the update activity diff (display labels handled client-side). */
+/** Tracked fields for the update activity diff (display labels handled client-side).
+ *  The planning block (5W2H + root cause + whys) is logged separately, as one
+ *  logical field — see `planning.ts`. */
 const DIFF_FIELDS = [
   "title",
   "description",
@@ -65,13 +78,78 @@ const DIFF_FIELDS = [
   "responsibleUserId",
   "dueDate",
   "correctiveActionDescription",
-  "rootCause",
 ];
 
 async function currentUserName(userId: number | null | undefined): Promise<string | null> {
   if (userId == null) return null;
   const map = await resolveUserNames([userId]);
   return map.get(userId) ?? null;
+}
+
+/** The block as it goes into the log: normalized, so an empty 5W2H reads as null
+ *  whether the row holds `{}` or `null`. */
+function normalizedPlanning(row: Parameters<typeof extractPlanning>[0]) {
+  return normalizePlanning(extractPlanning(row));
+}
+
+/**
+ * Module that owns each action-plan origin. The hub (`actionPlans`) sees every
+ * plan, but the "Ações vinculadas" widget embedded in the origin screens reads
+ * this same listing scoped by `sourceModule` — so whoever may open the origin
+ * screen may read the actions spawned from it. Without this, granting `kpi`
+ * alone would break the RAC deviation flow with a 403.
+ */
+const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
+  kpi: "kpi",
+  rac: "kpi",
+  swot: "swot",
+  nonconformity: "governance",
+  audit_finding: "governance",
+  risk: "governance",
+  training: "employees",
+  environmental: "environmental",
+  road_safety: "roadSafety",
+  incident: "roadSafety",
+  manual: "actionPlans",
+};
+
+/**
+ * Guards every `/:planId` route. Without it the hub gate would be bypassable by
+ * anyone in the org who guesses a plan id. A plan belongs to whoever holds the
+ * hub module, holds the module that owns its origin, or is personally assigned
+ * to it — the responsible and the effectiveness evaluator reach their own plans
+ * from "Suas Pendências" without ever holding `actionPlans`.
+ *
+ * Registered after `requireAuth`. Unknown ids and malformed params fall through
+ * untouched so the routes keep answering 404/400 exactly as before.
+ */
+function requirePlanAccess() {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    const planId = Number(req.params.planId);
+    if (!Number.isInteger(orgId) || !Number.isInteger(planId)) { next(); return; }
+    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const [plan] = await db
+      .select({
+        sourceModule: actionPlansTable.sourceModule,
+        responsibleUserId: actionPlansTable.responsibleUserId,
+        effectivenessEvaluatorUserId: actionPlansTable.effectivenessEvaluatorUserId,
+      })
+      .from(actionPlansTable)
+      .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
+    if (!plan) { next(); return; }
+
+    const userId = req.auth!.userId;
+    const allowed =
+      plan.responsibleUserId === userId ||
+      plan.effectivenessEvaluatorUserId === userId ||
+      (await userHasModuleAccess(req.auth!, "actionPlans")) ||
+      (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule]));
+    if (!allowed) { res.status(403).json({ error: "Sem acesso a este plano de ação" }); return; }
+
+    next();
+  };
 }
 
 // ─── List ──────────────────────────────────────────────────────────────────
@@ -83,6 +161,12 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
 
   const query = ListActionPlansQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
+
+  const scopedTo = query.data.sourceModule;
+  const canReadListing =
+    (await userHasModuleAccess(req.auth!, "actionPlans")) ||
+    (scopedTo !== undefined && (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[scopedTo])));
+  if (!canReadListing) { res.status(403).json({ error: "Sem acesso a este módulo" }); return; }
 
   const conditions: SQL[] = [eq(actionPlansTable.organizationId, params.data.orgId)];
   if (query.data.status) conditions.push(eq(actionPlansTable.status, query.data.status));
@@ -150,7 +234,7 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
 // ─── Summary (dashboards) ────────────────────────────────────────────────────
 // NOTE: must be registered before "/:planId" so "summary" is not parsed as an id.
 
-router.get("/organizations/:orgId/action-plans/summary", requireAuth, async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/summary", requireAuth, requireModuleAccess("actionPlans"), async (req, res): Promise<void> => {
   const params = GetActionPlansSummaryParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -162,7 +246,7 @@ router.get("/organizations/:orgId/action-plans/summary", requireAuth, async (req
 // ─── External actions (read-only bridge: governance corrective actions) ───────
 // NOTE: must be registered before "/:planId" so the literal path isn't parsed as an id.
 
-router.get("/organizations/:orgId/action-plans/external-actions", requireAuth, async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/external-actions", requireAuth, requireModuleAccess("actionPlans"), async (req, res): Promise<void> => {
   const params = ListExternalActionsParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -196,7 +280,12 @@ router.post("/organizations/:orgId/action-plans/ai-suggest", requireAuth, requir
     res.json(draft);
   } catch (error) {
     console.error("[action-plans/ai-suggest] failed", error);
-    res.status(502).json({ error: "Não foi possível gerar a sugestão por IA no momento." });
+    // AiCompletionError já traz um motivo que o usuário entende (limite de tokens,
+    // resposta vazia); qualquer outra falha vira a mensagem genérica.
+    const message = error instanceof AiCompletionError
+      ? error.message
+      : "Não foi possível gerar a sugestão por IA no momento.";
+    res.status(502).json({ error: message });
   }
 });
 
@@ -239,7 +328,7 @@ async function loadAndSerializePlan(orgId: number, planId: number) {
   });
 }
 
-router.get("/organizations/:orgId/action-plans/:planId", requireAuth, async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
   const params = GetActionPlanParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -333,14 +422,38 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     closedAt: status === "completed" || status === "cancelled" ? new Date() : null,
   }).returning();
 
+  const creatorName = await currentUserName(req.auth!.userId);
   await logActionPlanActivity({
     orgId: params.data.orgId,
     actionPlanId: row.id,
     action: "created",
     userId: req.auth!.userId,
-    userName: await currentUserName(req.auth!.userId),
+    userName: creatorName,
     changes: { kind: "snapshot", data: { code, title: row.title, sourceModule: row.sourceModule, status: row.status } },
   });
+
+  // A plan can be BORN with a planning block — the POST accepts plan5w2h /
+  // rootCause / rootCauseWhys, and `deriveCreateDefaults` inherits the rootCause
+  // of an origin nonconformity. The `created` snapshot doesn't carry the block, so
+  // without a dedicated entry the initial state would survive only in the `from`
+  // of the first later edit — and restore reads only `to`, leaving no restorable
+  // version of the initial state. Record it as the first version, right after
+  // `created`, as an edit from the empty block. A plan born empty logs nothing.
+  const emptyPlanning: PlanningBlock = { plan5w2h: null, rootCause: null, rootCauseWhys: null };
+  const initialPlanning = normalizedPlanning(row);
+  if (planningChanged(emptyPlanning, initialPlanning)) {
+    await logActionPlanActivity({
+      orgId: params.data.orgId,
+      actionPlanId: row.id,
+      action: "updated",
+      userId: req.auth!.userId,
+      userName: creatorName,
+      changes: {
+        kind: "diff",
+        fields: { planning: { from: emptyPlanning, to: initialPlanning } },
+      },
+    });
+  }
 
   // Notify the responsible user / evaluator if the action is created already assigned.
   await notifyActionPlanAssignment(row, req.auth!.userId);
@@ -352,7 +465,7 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
 
 // ─── Update ────────────────────────────────────────────────────────────────
 
-router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requirePlanAccess(), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateActionPlanParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -409,9 +522,29 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
   if (body.data.gutGravity !== undefined) update.gutGravity = body.data.gutGravity;
   if (body.data.gutUrgency !== undefined) update.gutUrgency = body.data.gutUrgency;
   if (body.data.gutTendency !== undefined) update.gutTendency = body.data.gutTendency;
-  if (body.data.plan5w2h !== undefined) update.plan5w2h = body.data.plan5w2h;
-  if (body.data.rootCause !== undefined) update.rootCause = body.data.rootCause;
-  if (body.data.rootCauseWhys !== undefined) update.rootCauseWhys = body.data.rootCauseWhys;
+  // Normalize the planning block ON WRITE so the DB holds the canonical form and
+  // the "every persisted change is logged" invariant holds: `planningChanged` and
+  // the activity log both compare NORMALIZED blocks, so persisting a raw value
+  // could store a whitespace-only edit that no entry ever records. Merge the
+  // incoming fields over the current row, normalize, then write back only the
+  // fields the caller actually sent (a PATCH that omits a field must not start
+  // persisting it).
+  if (
+    body.data.plan5w2h !== undefined ||
+    body.data.rootCause !== undefined ||
+    body.data.rootCauseWhys !== undefined
+  ) {
+    const normalized = normalizePlanning(
+      extractPlanning({
+        plan5w2h: body.data.plan5w2h !== undefined ? body.data.plan5w2h : existing.plan5w2h,
+        rootCause: body.data.rootCause !== undefined ? body.data.rootCause : existing.rootCause,
+        rootCauseWhys: body.data.rootCauseWhys !== undefined ? body.data.rootCauseWhys : existing.rootCauseWhys,
+      }),
+    );
+    if (body.data.plan5w2h !== undefined) update.plan5w2h = normalized.plan5w2h;
+    if (body.data.rootCause !== undefined) update.rootCause = normalized.rootCause;
+    if (body.data.rootCauseWhys !== undefined) update.rootCauseWhys = normalized.rootCauseWhys;
+  }
 
   if (body.data.responsibleUserId !== undefined) {
     if (body.data.responsibleUserId !== null) {
@@ -510,6 +643,23 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
   // ─── Activity log (one prioritized entry per update) ───────────────────────
   const userName = await currentUserName(req.auth!.userId);
   const logBase = { orgId: params.data.orgId, actionPlanId: row.id, userId: req.auth!.userId, userName };
+
+  // Logged outside the prioritized chain below: that chain writes ONE entry per save,
+  // so a save that changed both the status and the 5W2H would record only the status
+  // and the block's version would vanish — the exact hole this feature closes.
+  if (planningChanged(existing, row)) {
+    await logActionPlanActivity({
+      ...logBase,
+      action: "updated",
+      changes: {
+        kind: "diff",
+        fields: {
+          planning: { from: normalizedPlanning(existing), to: normalizedPlanning(row) },
+        },
+      },
+    });
+  }
+
   if (reopened) {
     await logActionPlanActivity({ ...logBase, action: "reopened", changes: { kind: "note", message: `Reaberta (${existing.status} → ${row.status})` } });
   } else if (statusChanged) {
@@ -539,7 +689,7 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
 
 // ─── Delete ────────────────────────────────────────────────────────────────
 
-router.delete("/organizations/:orgId/action-plans/:planId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/action-plans/:planId", requireAuth, requirePlanAccess(), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteActionPlanParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -575,7 +725,7 @@ router.delete("/organizations/:orgId/action-plans/:planId", requireAuth, require
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 
-router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
   const params = ListActionPlanCommentsParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -599,7 +749,7 @@ router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, a
   )));
 });
 
-router.post("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requirePlanAccess(), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = AddActionPlanCommentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -625,7 +775,7 @@ router.post("/organizations/:orgId/action-plans/:planId/comments", requireAuth, 
 
 // ─── Activity log ─────────────────────────────────────────────────────────────
 
-router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
   const params = ListActionPlanActivityParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -645,9 +795,96 @@ router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, a
   res.json(entries.map(serializeActivityEntry));
 });
 
+// ─── Restore a planning version ──────────────────────────────────────────────
+// The chosen entry's `to` IS a complete snapshot of the block, so restoring is
+// applying it. Never destructive: the restore itself becomes a new entry.
+
+router.post(
+  "/organizations/:orgId/action-plans/:planId/planning/restore",
+  requireAuth,
+  requirePlanAccess(),
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    // Validate with Zod like every sibling route, NOT `Number()`: `Number(true) === 1`
+    // and `Number([7]) === 7` would coerce a malformed body into a real id and restore
+    // the wrong version. `requirePlanAccess()` lets non-integer ids fall through on
+    // purpose, so the coerced params also guard NaN from reaching Drizzle (→ 400, not 500).
+    const params = RestoreActionPlanPlanningParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    const body = RestoreActionPlanPlanningBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+    const orgId = params.data.orgId;
+    const planId = params.data.planId;
+    const activityId = body.data.activityId;
+
+    const [existing] = await db
+      .select()
+      .from(actionPlansTable)
+      .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
+    if (!existing) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+    if (isActionPlanEncerrado(existing)) {
+      res.status(409).json({ error: "Plano encerrado não pode ser editado." });
+      return;
+    }
+
+    const [entry] = await db
+      .select()
+      .from(actionPlanActivityLogTable)
+      .where(
+        and(
+          eq(actionPlanActivityLogTable.id, activityId),
+          eq(actionPlanActivityLogTable.actionPlanId, planId),
+          eq(actionPlanActivityLogTable.organizationId, orgId),
+        ),
+      );
+    const changes = entry?.changes as
+      | { kind?: string; fields?: { planning?: { to?: unknown } } }
+      | null
+      | undefined;
+    const target = changes?.fields?.planning?.to as PlanningBlock | undefined;
+    if (!target) {
+      res.status(404).json({ error: "Versão do planejamento não encontrada" });
+      return;
+    }
+
+    const restored = normalizePlanning(target);
+    if (!planningChanged(existing, restored)) {
+      const out = await loadAndSerializePlan(orgId, planId);
+      res.json(out);
+      return;
+    }
+
+    const [row] = await db
+      .update(actionPlansTable)
+      .set({
+        plan5w2h: restored.plan5w2h,
+        rootCause: restored.rootCause,
+        rootCauseWhys: restored.rootCauseWhys,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)))
+      .returning();
+
+    await logActionPlanActivity({
+      orgId,
+      actionPlanId: row.id,
+      action: "updated",
+      userId: req.auth!.userId,
+      userName: await currentUserName(req.auth!.userId),
+      changes: {
+        kind: "diff",
+        fields: { planning: { from: normalizedPlanning(existing), to: normalizedPlanning(row) } },
+        restoredFrom: { activityId, at: entry.createdAt.toISOString() },
+      },
+    });
+
+    res.json(await loadAndSerializePlan(orgId, planId));
+  },
+);
+
 // ─── Evidence: add ─────────────────────────────────────────────────────────
 
-router.post("/organizations/:orgId/action-plans/:planId/evidences", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/action-plans/:planId/evidences", requireAuth, requirePlanAccess(), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = AddActionPlanEvidenceParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -700,7 +937,7 @@ router.post("/organizations/:orgId/action-plans/:planId/evidences", requireAuth,
 
 // ─── Evidence: delete ──────────────────────────────────────────────────────
 
-router.delete("/organizations/:orgId/action-plans/:planId/evidences/:evidenceId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/action-plans/:planId/evidences/:evidenceId", requireAuth, requirePlanAccess(), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteActionPlanEvidenceParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }

@@ -8,6 +8,7 @@ import {
   Building2,
   ChevronRight,
   ClipboardList,
+  GraduationCap,
   Leaf,
   Landmark,
   ListChecks,
@@ -21,6 +22,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { cn, formatFirstAndLastName } from "@/lib/utils";
+import { matchesGuardedPath } from "@/components/layout/module-route-guard";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 import {
@@ -45,7 +47,8 @@ type AppModule =
   | "roadSafety"
   | "assets"
   | "regulatoryDocuments"
-  | "swot";
+  | "swot"
+  | "actionPlans";
 
 type NavLink = {
   href: string;
@@ -76,10 +79,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [ambientalPopover, setAmbientalPopover] = useState(false);
   const [infraestruturaPopover, setInfraestruturaPopover] = useState(false);
   const [configuracoesPopover, setConfiguracoesPopover] = useState(false);
+  const [aprendizagemPopover, setAprendizagemPopover] = useState(false);
   const [orgPopoverPos, setOrgPopoverPos] = useState<PopoverPosition>({
     top: 0,
     left: 0,
   });
+  const [aprendizagemPopoverPos, setAprendizagemPopoverPos] =
+    useState<PopoverPosition>({
+      top: 0,
+      left: 0,
+    });
   const [qualidadePopoverPos, setQualidadePopoverPos] =
     useState<PopoverPosition>({
       top: 0,
@@ -106,12 +115,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       bottom: 0,
     });
   const organizacaoRef = useRef<HTMLDivElement>(null);
+  const aprendizagemRef = useRef<HTMLDivElement>(null);
   const qualidadeRef = useRef<HTMLDivElement>(null);
   const governancaRef = useRef<HTMLDivElement>(null);
   const ambientalRef = useRef<HTMLDivElement>(null);
   const infraestruturaRef = useRef<HTMLDivElement>(null);
   const configuracoesRef = useRef<HTMLDivElement>(null);
   const organizacaoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const aprendizagemTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const qualidadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -151,6 +164,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         clearTimeout(organizacaoTimeoutRef.current);
         organizacaoTimeoutRef.current = null;
       }
+      if (aprendizagemTimeoutRef.current) {
+        clearTimeout(aprendizagemTimeoutRef.current);
+        aprendizagemTimeoutRef.current = null;
+      }
       if (qualidadeTimeoutRef.current) {
         clearTimeout(qualidadeTimeoutRef.current);
         qualidadeTimeoutRef.current = null;
@@ -175,11 +192,30 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const moduleByPath: Array<{ prefix: string; module: AppModule }> = [
+    // `exact` guards the hub index only. The plan detail (/planos-acao/:id) stays
+    // reachable without the module: "Suas Pendências" links a responsible user
+    // straight to the plan assigned to them, and the "Ações vinculadas" widget
+    // opens plans from their origin screen.
+    const moduleByPath: Array<{
+      prefix: string;
+      module: AppModule;
+      exact?: boolean;
+    }> = [
+      { prefix: "/planos-acao", module: "actionPlans", exact: true },
       { prefix: "/qualidade/legislacoes", module: "legislations" },
       { prefix: "/qualidade/fornecedores", module: "suppliers" },
       { prefix: "/qualidade/regulatorios", module: "regulatoryDocuments" },
-      { prefix: "/organizacao/colaboradores", module: "employees" },
+      { prefix: "/aprendizagem/gestao-treinamentos", module: "employees" },
+      { prefix: "/aprendizagem/dashboard", module: "employees" },
+      { prefix: "/aprendizagem/colaboradores", module: "employees" },
+      { prefix: "/aprendizagem/catalogo", module: "employees" },
+      { prefix: "/aprendizagem/cargos", module: "employees" },
+      { prefix: "/aprendizagem/obrigatoriedades", module: "employees" },
+      { prefix: "/aprendizagem/turmas", module: "employees" },
+      { prefix: "/aprendizagem/programa", module: "employees" },
+      { prefix: "/aprendizagem/eficacia", module: "employees" },
+      { prefix: "/aprendizagem/indicadores", module: "employees" },
+      { prefix: "/aprendizagem/minha-area", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
       { prefix: "/organizacao/cargos", module: "positions" },
@@ -193,7 +229,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
     const deniedRoute = moduleByPath.find(
       (entry) =>
-        normalizedLocation.startsWith(entry.prefix) &&
+        matchesGuardedPath(normalizedLocation, entry.prefix, entry.exact) &&
         !hasModuleAccess(entry.module),
     );
     if (deniedRoute) {
@@ -233,18 +269,65 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           crumbs.push({ label: pageTitle });
         }
       }
+    } else if (normalizedLocation.startsWith("/aprendizagem")) {
+      crumbs.push({ label: "Aprendizagem" });
+
+      if (normalizedLocation.startsWith("/aprendizagem/gestao-treinamentos")) {
+        crumbs.push({
+          label: "Gestão de treinamentos",
+          href: "/aprendizagem/gestao-treinamentos",
+        });
+      } else if (normalizedLocation.startsWith("/aprendizagem/dashboard")) {
+        crumbs.push({ label: "Dashboard", href: "/aprendizagem/dashboard" });
+      } else if (normalizedLocation.startsWith("/aprendizagem/colaboradores")) {
+        crumbs.push({
+          label: "Colaboradores",
+          href: "/aprendizagem/colaboradores",
+        });
+        if (
+          pageTitle &&
+          normalizedLocation !== "/aprendizagem/colaboradores"
+        ) {
+          crumbs.push({ label: pageTitle });
+        }
+      } else if (normalizedLocation.startsWith("/aprendizagem/catalogo")) {
+        crumbs.push({ label: "Catálogo", href: "/aprendizagem/catalogo" });
+      } else if (normalizedLocation.startsWith("/aprendizagem/cargos")) {
+        crumbs.push({
+          label: "Cargos e competências",
+          href: "/aprendizagem/cargos",
+        });
+      } else if (
+        normalizedLocation.startsWith("/aprendizagem/obrigatoriedades")
+      ) {
+        crumbs.push({
+          label: "Obrigatoriedades",
+          href: "/aprendizagem/obrigatoriedades",
+        });
+      } else if (normalizedLocation.startsWith("/aprendizagem/turmas")) {
+        crumbs.push({ label: "Turmas", href: "/aprendizagem/turmas" });
+      } else if (normalizedLocation.startsWith("/aprendizagem/programa")) {
+        crumbs.push({
+          label: "Programa anual",
+          href: "/aprendizagem/programa",
+        });
+      } else if (normalizedLocation.startsWith("/aprendizagem/eficacia")) {
+        crumbs.push({
+          label: "Avaliação de eficácia",
+          href: "/aprendizagem/eficacia",
+        });
+      } else if (normalizedLocation.startsWith("/aprendizagem/indicadores")) {
+        crumbs.push({
+          label: "Indicadores LMS",
+          href: "/aprendizagem/indicadores",
+        });
+      } else if (normalizedLocation.startsWith("/aprendizagem/minha-area")) {
+        crumbs.push({ label: "Minha área", href: "/aprendizagem/minha-area" });
+      }
     } else if (normalizedLocation.startsWith("/organizacao")) {
       crumbs.push({ label: "Organização", href: "/organizacao" });
 
-      if (normalizedLocation.startsWith("/organizacao/colaboradores")) {
-        crumbs.push({
-          label: "Colaboradores",
-          href: "/organizacao/colaboradores",
-        });
-        if (pageTitle && normalizedLocation !== "/organizacao/colaboradores") {
-          crumbs.push({ label: pageTitle });
-        }
-      } else if (normalizedLocation.startsWith("/organizacao/unidades")) {
+      if (normalizedLocation.startsWith("/organizacao/unidades")) {
         crumbs.push({ label: "Unidades", href: "/organizacao/unidades" });
         if (pageTitle && normalizedLocation !== "/organizacao/unidades") {
           crumbs.push({ label: pageTitle });
@@ -376,9 +459,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const organizacaoLinks: NavLink[] = [
     { href: "/organizacao", label: "Visão Geral" },
-    ...(hasModuleAccess("employees")
-      ? [{ href: "/organizacao/colaboradores", label: "Colaboradores" }]
-      : []),
     ...(hasModuleAccess("units")
       ? [{ href: "/organizacao/unidades", label: "Unidades" }]
       : []),
@@ -390,6 +470,27 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       : []),
     ...(hasModuleAccess("swot")
       ? [{ href: "/organizacao/swot", label: "SWOT" }]
+      : []),
+  ];
+
+  const aprendizagemLinks: NavLink[] = [
+    ...(hasModuleAccess("employees")
+      ? [
+          {
+            href: "/aprendizagem/gestao-treinamentos",
+            label: "Gestão de treinamentos",
+          },
+          { href: "/aprendizagem/dashboard", label: "Dashboard" },
+          { href: "/aprendizagem/colaboradores", label: "Colaboradores" },
+          { href: "/aprendizagem/cargos", label: "Cargos e competências" },
+          { href: "/aprendizagem/catalogo", label: "Catálogo" },
+          { href: "/aprendizagem/obrigatoriedades", label: "Obrigatoriedades" },
+          { href: "/aprendizagem/turmas", label: "Turmas" },
+          { href: "/aprendizagem/programa", label: "Programa anual" },
+          { href: "/aprendizagem/eficacia", label: "Avaliação de eficácia" },
+          { href: "/aprendizagem/indicadores", label: "Indicadores LMS" },
+          { href: "/aprendizagem/minha-area", label: "Minha área" },
+        ]
       : []),
   ];
 
@@ -468,10 +569,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   ];
 
   const showQualidade = qualidadeLinks.length > 0;
+  const showAprendizagem = aprendizagemLinks.length > 0;
   const showGovernanca = hasModuleAccess("governance");
   const showAmbiental = hasModuleAccess("environmental");
   const showKpi = hasModuleAccess("kpi");
   const showRoadSafety = hasModuleAccess("roadSafety");
+  const showActionPlans = hasModuleAccess("actionPlans");
   const showInfraestrutura = infraestruturaLinks.length > 0;
 
   const openPopover = (
@@ -687,6 +790,46 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
 
+          {showAprendizagem && (
+            <div
+              ref={aprendizagemRef}
+              onMouseEnter={() =>
+                openPopover(
+                  aprendizagemRef,
+                  setAprendizagemPopoverPos,
+                  setAprendizagemPopover,
+                  aprendizagemTimeoutRef,
+                )
+              }
+              onMouseLeave={() =>
+                closePopover(setAprendizagemPopover, aprendizagemTimeoutRef)
+              }
+            >
+              <Link
+                href={aprendizagemLinks[0].href}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                  isActive("/aprendizagem")
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <div className="flex items-center">
+                  <GraduationCap
+                    className={cn(
+                      "h-[18px] w-[18px] shrink-0",
+                      isSidebarOpen && "mr-2.5",
+                    )}
+                  />
+                  {isSidebarOpen && <span>Aprendizagem</span>}
+                </div>
+                {isSidebarOpen && (
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                )}
+              </Link>
+            </div>
+          )}
+
           {showGovernanca && (
             <div
               ref={governancaRef}
@@ -811,25 +954,27 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           )}
 
-          <Link
-            href="/planos-acao"
-            className={cn(
-              "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
-              isActive("/planos-acao")
-                ? "font-medium text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <div className="flex items-center">
-              <ClipboardList
-                className={cn(
-                  "h-[18px] w-[18px] shrink-0",
-                  isSidebarOpen && "mr-2.5",
-                )}
-              />
-              {isSidebarOpen && <span>Planos de Ação</span>}
-            </div>
-          </Link>
+          {showActionPlans && (
+            <Link
+              href="/planos-acao"
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                isActive("/planos-acao")
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <div className="flex items-center">
+                <ClipboardList
+                  className={cn(
+                    "h-[18px] w-[18px] shrink-0",
+                    isSidebarOpen && "mr-2.5",
+                  )}
+                />
+                {isSidebarOpen && <span>Planos de Ação</span>}
+              </div>
+            </Link>
+          )}
 
           {showInfraestrutura && (
             <div
@@ -918,6 +1063,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             setOrganizacaoPopover,
             orgPopoverPos,
             organizacaoTimeoutRef,
+          )}
+          {renderPopover(
+            "Aprendizagem",
+            aprendizagemLinks,
+            aprendizagemPopover,
+            setAprendizagemPopover,
+            aprendizagemPopoverPos,
+            aprendizagemTimeoutRef,
           )}
           {renderPopover(
             "Qualidade",

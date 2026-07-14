@@ -11,6 +11,11 @@ import aiRouter from "./ai";
 import questionnaireRouter from "./questionnaire";
 import autoTagRouter from "./auto-tag";
 import employeesRouter from "./employees";
+import trainingCatalogRouter from "./training-catalog";
+import competencyCatalogRouter from "./competency-catalog";
+import trainingRequirementsRouter from "./training-requirements";
+import trainingClassesRouter from "./training-classes";
+import annualProgramRouter from "./annual-program";
 import departmentsRouter from "./departments";
 import positionsRouter from "./positions";
 import documentsRouter from "./documents";
@@ -33,7 +38,9 @@ import assetMaintenanceRouter from "./asset-maintenance";
 import workEnvironmentRouter from "./work-environment";
 import measurementResourcesRouter from "./measurement-resources";
 import regulatoryDocumentsRouter from "./regulatory-documents";
+import regulatoryNormsRouter from "./regulatory-norms";
 import pendenciasRouter from "./pendencias";
+import learningSummaryRouter from "./learning-summary";
 const router: IRouter = Router();
 
 function requireModuleAccessForPaths(
@@ -98,6 +105,54 @@ router.use(
     /^\/organizations\/[^/]+\/employees(?:\/|$)/,
   ]),
   employeesRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/training-catalog(?:\/|$)/,
+  ]),
+  trainingCatalogRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/competency-catalog(?:\/|$)/,
+  ]),
+  competencyCatalogRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/training-requirements(?:\/|$)/,
+  ]),
+  trainingRequirementsRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/training-classes(?:\/|$)/,
+  ]),
+  trainingClassesRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/annual-program(?:\/|$)/,
+  ]),
+  annualProgramRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/learning\/summary(?:\/|$)/,
+  ]),
+  learningSummaryRouter,
 );
 router.use(
   requireAuth,
@@ -187,5 +242,10 @@ router.use(
   ]),
   regulatoryDocumentsRouter,
 );
+// Sem requireModuleAccessForPaths: o catálogo de normas é cross-module (usado
+// por KPI, obrigatoriedade de treinamento etc.) — leitura livre a qualquer
+// usuário autenticado da org; a gate admin na escrita vive na própria rota
+// (requireRole("org_admin")).
+router.use(requireAuth, requireCompletedOnboarding, regulatoryNormsRouter);
 
 export default router;

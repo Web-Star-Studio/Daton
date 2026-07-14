@@ -66,6 +66,7 @@ describe("document normative requirements service", () => {
     createCompletionMock.mockResolvedValue({
       choices: [
         {
+          finish_reason: "stop",
           message: {
             content: JSON.stringify({
               suggestions: [
@@ -77,6 +78,7 @@ describe("document normative requirements service", () => {
           },
         },
       ],
+      usage: { completion_tokens_details: { reasoning_tokens: 500 } },
     });
   });
 
@@ -108,7 +110,8 @@ describe("document normative requirements service", () => {
     expect(createCompletionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "gpt-5-mini-2025-08-07",
-        max_completion_tokens: 400,
+        max_completion_tokens: 4000,
+        reasoning_effort: "low",
       }),
     );
     expect(createCompletionMock).not.toHaveBeenCalledWith(
@@ -121,5 +124,27 @@ describe("document normative requirements service", () => {
         max_tokens: expect.anything(),
       }),
     );
+  });
+
+  // With gpt-5-mini this was the real production behavior: reasoning tokens ate the
+  // whole 400-token budget, the API returned finish_reason "length" with empty
+  // content, and `content || "{}"` turned that into a silent empty list. The guard
+  // must fail loudly instead.
+  it("throws when the model spent the whole budget reasoning", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    createCompletionMock.mockResolvedValueOnce({
+      choices: [{ finish_reason: "length", message: { content: "" } }],
+      usage: { completion_tokens_details: { reasoning_tokens: 4000 } },
+    });
+
+    await expect(
+      getNormativeRequirementSuggestions({
+        orgId: 42,
+        title: "Procedimento",
+        type: "procedimento",
+        referenceIds: [10],
+        currentRequirements: [],
+      }),
+    ).rejects.toThrow(/limite de tokens/i);
   });
 });

@@ -7,9 +7,10 @@ const mgrU: KpiRequesterScope = { role: "manager", userId: 2, unitId: 10 };
 const op: KpiRequesterScope = { role: "operator", userId: 3, unitId: null };
 const an: KpiRequesterScope = { role: "analyst", userId: 4, unitId: null };
 
-const indU10Resp3: KpiIndicatorAccessFields = { unitId: 10, responsibleUserId: 3, isCorporate: false };
-const indU20Resp5: KpiIndicatorAccessFields = { unitId: 20, responsibleUserId: 5, isCorporate: false };
-const corp: KpiIndicatorAccessFields = { unitId: null, responsibleUserId: 5, isCorporate: true };
+const indU10Resp3: KpiIndicatorAccessFields = { unitId: 10, responsibleUserId: 3, isCorporate: false, isLms: false };
+const indU20Resp5: KpiIndicatorAccessFields = { unitId: 20, responsibleUserId: 5, isCorporate: false, isLms: false };
+const corp: KpiIndicatorAccessFields = { unitId: null, responsibleUserId: 5, isCorporate: true, isLms: false };
+const lmsInd: KpiIndicatorAccessFields = { unitId: null, responsibleUserId: null, isCorporate: false, isLms: true };
 
 describe("isCorporateIndicator", () => {
   it("rollup parent é corporativo", () => {
@@ -45,7 +46,7 @@ describe("canActOnKpiIndicator — view", () => {
     expect(canActOnKpiIndicator(op, indU10Resp3, "view")).toBe(true);
     expect(canActOnKpiIndicator(op, indU20Resp5, "view")).toBe(false);
     expect(canActOnKpiIndicator(an, indU10Resp3, "view")).toBe(false); // resp=3, an=4
-    expect(canActOnKpiIndicator(an, { unitId: null, responsibleUserId: 4, isCorporate: false }, "view")).toBe(true); // analyst owns it
+    expect(canActOnKpiIndicator(an, { unitId: null, responsibleUserId: 4, isCorporate: false, isLms: false }, "view")).toBe(true); // analyst owns it
   });
 });
 
@@ -55,7 +56,7 @@ describe("canActOnKpiIndicator — operate", () => {
     expect(canActOnKpiIndicator(op, indU20Resp5, "operate")).toBe(false);
   });
   it("analyst nunca opera", () => {
-    expect(canActOnKpiIndicator(an, { unitId: null, responsibleUserId: 4, isCorporate: false }, "operate")).toBe(false);
+    expect(canActOnKpiIndicator(an, { unitId: null, responsibleUserId: 4, isCorporate: false, isLms: false }, "operate")).toBe(false);
   });
   it("manager opera filial + corp", () => {
     expect(canActOnKpiIndicator(mgrU, indU10Resp3, "operate")).toBe(true);
@@ -79,13 +80,28 @@ describe("canActOnKpiIndicator — editDefinition / delete / create", () => {
     expect(canActOnKpiIndicator(mgrU, indU20Resp5, "delete")).toBe(false);
   });
   it("manager cria na própria filial e cria corporativo", () => {
-    expect(canActOnKpiIndicator(mgrU, { unitId: 10, responsibleUserId: null, isCorporate: false }, "createUnit")).toBe(true);
-    expect(canActOnKpiIndicator(mgrU, { unitId: 20, responsibleUserId: null, isCorporate: false }, "createUnit")).toBe(false);
-    expect(canActOnKpiIndicator(mgrU, { unitId: null, responsibleUserId: null, isCorporate: true }, "createCorporate")).toBe(true);
+    expect(canActOnKpiIndicator(mgrU, { unitId: 10, responsibleUserId: null, isCorporate: false, isLms: false }, "createUnit")).toBe(true);
+    expect(canActOnKpiIndicator(mgrU, { unitId: 20, responsibleUserId: null, isCorporate: false, isLms: false }, "createUnit")).toBe(false);
+    expect(canActOnKpiIndicator(mgrU, { unitId: null, responsibleUserId: null, isCorporate: true, isLms: false }, "createCorporate")).toBe(true);
   });
   it("admin pode tudo", () => {
     for (const a of ["view", "operate", "editDefinition", "delete", "createUnit", "createCorporate"] as const) {
       expect(canActOnKpiIndicator(admin, corp, a)).toBe(true);
     }
+  });
+});
+
+describe("canActOnKpiIndicator — LMS indicator (isLms=true)", () => {
+  it("manager pode view e operate em LMS, mas não editDefinition nem delete", () => {
+    expect(canActOnKpiIndicator(mgrU, lmsInd, "view")).toBe(true);
+    expect(canActOnKpiIndicator(mgrU, lmsInd, "operate")).toBe(true);
+    expect(canActOnKpiIndicator(mgrU, lmsInd, "editDefinition")).toBe(false);
+    expect(canActOnKpiIndicator(mgrU, lmsInd, "delete")).toBe(false);
+  });
+  it("analyst pode view em LMS", () => {
+    expect(canActOnKpiIndicator(an, lmsInd, "view")).toBe(true);
+  });
+  it("operator não vê indicador LMS", () => {
+    expect(canActOnKpiIndicator(op, lmsInd, "view")).toBe(false);
   });
 });

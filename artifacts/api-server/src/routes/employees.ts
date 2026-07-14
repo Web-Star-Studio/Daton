@@ -1,5 +1,19 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, or, count, sql, exists, inArray } from "drizzle-orm";
+import {
+  eq,
+  ne,
+  and,
+  ilike,
+  or,
+  not,
+  isNull,
+  isNotNull,
+  count,
+  desc,
+  sql,
+  exists,
+  inArray,
+} from "drizzle-orm";
 import { z } from "zod";
 import {
   db,
@@ -10,6 +24,8 @@ import {
   employeeProfileItemAttachmentsTable,
   employeeCompetenciesTable,
   employeeTrainingsTable,
+  employeePositionChangesTable,
+  trainingCatalogTable,
   trainingEffectivenessReviewsTable,
   employeeAwarenessTable,
   employeeUnitsTable,
@@ -80,6 +96,12 @@ import {
   requireModuleAccess,
   requireWriteAccess,
 } from "../middlewares/auth";
+import { applyTrainingRequirements } from "../services/aprendizagem/requirements-engine";
+import { addMonthsClamped } from "../services/aprendizagem/date-helpers";
+import {
+  computeCompetencyGapStatusByEmployee,
+  computeTrainingCompletionByEmployee,
+} from "../services/aprendizagem/employee-learning-aggregates";
 import {
   ObjectNotFoundError,
   ObjectStorageService,
@@ -88,6 +110,93 @@ import {
   lookupCpfReceitaFederal,
   InfosimplesError,
 } from "../lib/infosimples";
+
+// ─── Board de Eficácia — fragmentos SQL reutilizáveis (T1) ──────────────────
+// Usados nas tasks T2 (filtro por coluna) e T3 (contagens das colunas do board).
+
+/**
+ * EXISTS: o treinamento tem pelo menos uma avaliação de eficácia registrada.
+ * SQL: EXISTS (SELECT 1 FROM training_effectiveness_reviews r
+ *              WHERE r.training_id = employee_trainings.id)
+ */
+export const boardHasReviewExists = exists(
+  db
+    .select({ one: sql<number>`1` })
+    .from(trainingEffectivenessReviewsTable)
+    .where(
+      eq(
+        trainingEffectivenessReviewsTable.trainingId,
+        employeeTrainingsTable.id,
+      ),
+    ),
+);
+
+/**
+ * Coluna "Concluídas": treinamentos com review registrado.
+ * SQL: hasReview
+ */
+export const boardConcluidas = boardHasReviewExists;
+
+/**
+ * Coluna "Em Avaliação": sem review, mas com papel ou prazo de avaliação atribuídos.
+ * SQL: NOT hasReview
+ *      AND (effectiveness_assigned_role IS NOT NULL OR effectiveness_due_date IS NOT NULL)
+ */
+export const boardEmAvaliacao = and(
+  not(boardHasReviewExists),
+  or(
+    isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
+    isNotNull(employeeTrainingsTable.effectivenessDueDate),
+  )!,
+)!;
+
+/**
+ * Coluna "Pendentes": sem review e sem qualquer configuração de avaliação atribuída.
+ * SQL: NOT hasReview
+ *      AND effectiveness_assigned_role IS NULL
+ *      AND effectiveness_due_date IS NULL
+ */
+export const boardPendentes = and(
+  not(boardHasReviewExists),
+  isNull(employeeTrainingsTable.effectivenessAssignedRole),
+  isNull(employeeTrainingsTable.effectivenessDueDate),
+)!;
+
+/**
+ * Critério de eficácia "presente" para o status `pending`: evaluationMethod OU
+ * targetCompetencyName não-nulo E não-vazio. Fonte ÚNICA da regra em SQL —
+ * espelha exatamente o truthy do JS `getEffectivenessStatus` (`||`, onde string
+ * vazia conta como ausente), eliminando a divergência SQL×JS. Ver #115.
+ */
+export const boardHasPendingCriteria = or(
+  and(
+    isNotNull(employeeTrainingsTable.evaluationMethod),
+    ne(employeeTrainingsTable.evaluationMethod, ""),
+  ),
+  and(
+    isNotNull(employeeTrainingsTable.targetCompetencyName),
+    ne(employeeTrainingsTable.targetCompetencyName, ""),
+  ),
+)!;
+
+/**
+ * Filtro de escopo `needs_evaluation`: inclui apenas treinamentos que têm
+ * alguma configuração de avaliação de eficácia ou já possuem uma review.
+ * Espelha o conjunto de estados NÃO-nulos de `getEffectivenessStatus`:
+ * pending (critério presente) + in_review (papel OU **prazo** atribuído) + review.
+ * SQL: (critério de pending presente — ver boardHasPendingCriteria)
+ *      OR effectiveness_assigned_role IS NOT NULL
+ *      OR effectiveness_due_date IS NOT NULL   -- in_review por prazo (SQL×JS, #115)
+ *      OR EXISTS (review)
+ */
+export const boardNeedsEvaluationScope = or(
+  boardHasPendingCriteria,
+  isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
+  isNotNull(employeeTrainingsTable.effectivenessDueDate),
+  boardHasReviewExists,
+)!;
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -191,11 +300,21 @@ function toIsoDateTime(
 function getEffectivenessStatus(
   reviews: TrainingReviewRow[],
   training: typeof employeeTrainingsTable.$inferSelect,
-): "pending" | "effective" | "ineffective" | null {
+): "pending" | "in_review" | "effective" | "ineffective" | null {
   if (reviews.length > 0) {
     return reviews[0]?.isEffective ? "effective" : "ineffective";
   }
 
+  if (
+    training.effectivenessAssignedRole != null ||
+    training.effectivenessDueDate != null
+  ) {
+    return "in_review";
+  }
+
+  // "pending": critério de eficácia presente. O `||` trata string vazia como
+  // ausente (falsy) — a contraparte SQL é `boardHasPendingCriteria` (não-nulo E
+  // não-vazio), mantida idêntica a esta regra. Ver #115.
   if (training.evaluationMethod || training.targetCompetencyName) {
     return "pending";
   }
@@ -209,6 +328,7 @@ function formatTrainingEffectivenessReview(review: TrainingReviewRow) {
     trainingId: review.trainingId,
     evaluatorUserId: review.evaluatorUserId,
     evaluatorName: review.evaluatorName || null,
+    evaluatorRole: review.evaluatorRole || null,
     evaluationDate: review.evaluationDate,
     score: review.score,
     isEffective: review.isEffective,
@@ -713,6 +833,7 @@ async function loadTrainingReviewRows(
       comments: trainingEffectivenessReviewsTable.comments,
       attachments: trainingEffectivenessReviewsTable.attachments,
       legacyV1Id: trainingEffectivenessReviewsTable.legacyV1Id,
+      evaluatorRole: trainingEffectivenessReviewsTable.evaluatorRole,
       createdAt: trainingEffectivenessReviewsTable.createdAt,
       evaluatorName: usersTable.name,
     })
@@ -1114,6 +1235,13 @@ router.get(
     if (query.data.position) {
       conditions.push(eq(employeesTable.position, query.data.position));
     }
+    const baseConditions = [...conditions];
+    // colaboradores que têm um usuário (login) vinculado (FK users.employee_id)
+    const hasLinkedUser = sql`EXISTS (SELECT 1 FROM users u WHERE u.employee_id = ${employeesTable.id})`;
+    const onlyWithUser = req.query.hasUser === "true";
+    if (onlyWithUser) {
+      conditions.push(hasLinkedUser);
+    }
     if (query.data.status) {
       conditions.push(eq(employeesTable.status, query.data.status));
     }
@@ -1158,14 +1286,74 @@ router.get(
       .limit(pageSize)
       .offset(offset);
 
+    const statusRows = await db
+      .select({ status: employeesTable.status, n: count() })
+      .from(employeesTable)
+      .where(and(...baseConditions))
+      .groupBy(employeesTable.status);
+    const statusCounts = { active: 0, inactive: 0, onLeave: 0 };
+    for (const r of statusRows) {
+      if (r.status === "active") statusCounts.active = r.n;
+      else if (r.status === "inactive") statusCounts.inactive = r.n;
+      else if (r.status === "on_leave") statusCounts.onLeave = r.n;
+    }
+
+    const [userCountRow] = await db
+      .select({ n: count() })
+      .from(usersTable)
+      .where(eq(usersTable.organizationId, params.data.orgId));
+    const userCount = userCountRow?.n ?? 0;
+
+    // colaboradores (no escopo, sem filtro de status) que têm usuário vinculado
+    const [withUserRow] = await db
+      .select({ n: count() })
+      .from(employeesTable)
+      .where(and(...baseConditions, hasLinkedUser));
+    const withUserCount = withUserRow?.n ?? 0;
+
+    // ── Agregados de aprendizagem por colaborador (página corrente) ───────────
+    const pageEmployeeIds = rows.map((r) => r.id);
+    const pageEmployeesForGap = rows.map((r) => ({
+      id: r.id,
+      position: r.position,
+    }));
+    // Último dia do mês corrente (UTC), mesma lógica de learning-summary.ts:94–97
+    const _now = new Date();
+    const _endOfMonth = new Date(
+      Date.UTC(_now.getUTCFullYear(), _now.getUTCMonth() + 1, 0),
+    )
+      .toISOString()
+      .slice(0, 10);
+
+    const [gapStatusMap, trainingCompletionMap] = await Promise.all([
+      computeCompetencyGapStatusByEmployee(
+        db,
+        params.data.orgId,
+        pageEmployeesForGap,
+      ),
+      computeTrainingCompletionByEmployee(
+        db,
+        params.data.orgId,
+        pageEmployeeIds,
+        _endOfMonth,
+      ),
+    ]);
+
     res.json({
-      data: rows.map(formatEmployee),
+      data: rows.map((row) => ({
+        ...formatEmployee(row),
+        trainingCompletionPercent: trainingCompletionMap.get(row.id) ?? null,
+        competencyGapStatus: gapStatusMap.get(row.id) ?? "ok",
+      })),
       pagination: {
         page,
         pageSize,
         total: totalResult.total,
         totalPages: Math.ceil(totalResult.total / pageSize),
       },
+      statusCounts,
+      userCount,
+      withUserCount,
     });
   },
 );
@@ -1183,6 +1371,58 @@ const LookupCpfBody = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Data de nascimento deve estar em ISO 8601 (YYYY-MM-DD)"),
 });
+
+// Fase 6: histórico de mudanças de cargo (exibido no Cronograma). Sob o prefixo
+// /employees para herdar o gate do módulo employees. Registrado ANTES das rotas
+// /employees/:empId para "position-changes" não ser interpretado como empId.
+router.get(
+  "/organizations/:orgId/employees/position-changes",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const params = z
+      .object({ orgId: z.coerce.number().int() })
+      .safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    const rows = await db
+      .select({
+        id: employeePositionChangesTable.id,
+        employeeId: employeePositionChangesTable.employeeId,
+        employeeName: employeesTable.name,
+        previousPosition: employeePositionChangesTable.previousPosition,
+        newPosition: employeePositionChangesTable.newPosition,
+        changedByUserName: usersTable.name,
+        trainingsGenerated: employeePositionChangesTable.trainingsGenerated,
+        trainingsReused: employeePositionChangesTable.trainingsReused,
+        createdAt: employeePositionChangesTable.createdAt,
+      })
+      .from(employeePositionChangesTable)
+      .innerJoin(
+        employeesTable,
+        eq(employeePositionChangesTable.employeeId, employeesTable.id),
+      )
+      .leftJoin(
+        usersTable,
+        eq(employeePositionChangesTable.changedByUserId, usersTable.id),
+      )
+      .where(eq(employeePositionChangesTable.organizationId, params.data.orgId))
+      .orderBy(desc(employeePositionChangesTable.createdAt))
+      .limit(100);
+    res.json(
+      rows.map((r) => ({
+        ...r,
+        createdAt:
+          r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+      })),
+    );
+  },
+);
 
 router.post(
   "/organizations/:orgId/employees/lookup-cpf",
@@ -1303,7 +1543,7 @@ router.post(
       return;
     }
 
-    const emp = await db.transaction(async (tx) => {
+    const { emp, autoLinked } = await db.transaction(async (tx) => {
       const [createdEmployee] = await tx
         .insert(employeesTable)
         .values({
@@ -1325,10 +1565,18 @@ router.post(
         "education_certification",
       );
 
-      return createdEmployee;
+      const autoLinked = await applyTrainingRequirements({
+        orgId: params.data.orgId,
+        employeeId: createdEmployee.id,
+        database: tx,
+      });
+
+      return { emp: createdEmployee, autoLinked };
     });
 
-    res.status(201).json(formatEmployee(emp));
+    res
+      .status(201)
+      .json({ ...formatEmployee(emp), autoLinkedTrainings: autoLinked });
   },
 );
 
@@ -1346,13 +1594,42 @@ router.get(
       return;
     }
 
-    const query = ListOrganizationTrainingsQueryParams.safeParse(req.query);
+    const query = ListOrganizationTrainingsQueryParams.extend({
+      effectivenessStatus: z
+        .enum(["pending", "in_review", "effective", "ineffective"])
+        .optional(),
+      /** Escopo do board de eficácia.
+       *  - `needs_evaluation`: apenas treinamentos com avaliação configurada ou review registrado.
+       *  - `all` (padrão): todos os treinamentos — mantém compatibilidade com os callers existentes. */
+      scope: z.enum(["needs_evaluation", "all"]).optional().default("all"),
+      /** Filtro por ano de conclusão (completionDate). */
+      year: z.coerce.number().int().min(2000).max(2100).optional(),
+      /** Filtro por papel atribuído para avaliação de eficácia. */
+      evaluatorRole: z
+        .enum(["gestor", "rh", "instrutor", "colaborador"])
+        .optional(),
+      /** Filtro por norma do item do catálogo vinculado ao treinamento. */
+      norm: z.string().optional(),
+      /** Coluna do board: aplica condição de coluna à query de dados e ao COUNT
+       *  de paginação. As stats (boardCounts, eficazes…) sempre cobrem o
+       *  conjunto filtrado inteiro, independente desta coluna. */
+      boardColumn: z
+        .enum(["pendentes", "em_avaliacao", "concluidas"])
+        .optional(),
+    }).safeParse(req.query);
     if (!query.success) {
       res.status(400).json({ error: query.error.message });
       return;
     }
 
-    const conditions = [eq(employeesTable.organizationId, params.data.orgId)];
+    const page = query.data.page ?? 1;
+    const pageSize = query.data.pageSize ?? 25;
+    const offset = (page - 1) * pageSize;
+
+    // ── Condições compartilhadas (sem boardColumn) ────────────────────────────
+    const conditions: ReturnType<typeof and>[] = [
+      eq(employeesTable.organizationId, params.data.orgId),
+    ];
     const normalizedSearch = query.data.search?.trim();
     if (normalizedSearch) {
       const pattern = `%${normalizedSearch}%`;
@@ -1394,7 +1671,129 @@ router.get(
         )!,
       );
     }
+    if (query.data.scope === "needs_evaluation") {
+      conditions.push(boardNeedsEvaluationScope);
+    }
+    // ── Filtros novos (T2) ────────────────────────────────────────────────────
+    if (query.data.status) {
+      const st = query.data.status;
+      if (st === "concluido") {
+        conditions.push(
+          and(
+            eq(employeeTrainingsTable.status, "concluido"),
+            or(
+              isNull(employeeTrainingsTable.expirationDate),
+              sql`${employeeTrainingsTable.expirationDate} >= current_date`,
+            )!,
+          )!,
+        );
+      } else if (st === "vencido") {
+        conditions.push(
+          or(
+            eq(employeeTrainingsTable.status, "vencido"),
+            and(
+              isNotNull(employeeTrainingsTable.expirationDate),
+              sql`${employeeTrainingsTable.expirationDate} < current_date`,
+            )!,
+          )!,
+        );
+      } else {
+        conditions.push(eq(employeeTrainingsTable.status, st));
+      }
+    }
+    if (query.data.year) {
+      conditions.push(
+        sql`extract(year from ${employeeTrainingsTable.completionDate}) = ${query.data.year}`,
+      );
+    }
+    if (query.data.evaluatorRole) {
+      conditions.push(
+        eq(
+          employeeTrainingsTable.effectivenessAssignedRole,
+          query.data.evaluatorRole,
+        ),
+      );
+    }
+    if (query.data.norm) {
+      const normValue = query.data.norm;
+      conditions.push(
+        exists(
+          db
+            .select({ one: sql<number>`1` })
+            .from(trainingCatalogTable)
+            .where(
+              and(
+                eq(
+                  trainingCatalogTable.id,
+                  sql`${employeeTrainingsTable.catalogItemId}`,
+                ),
+                eq(trainingCatalogTable.norm, normValue),
+              ),
+            ),
+        ),
+      );
+    }
+    // ── effectivenessStatus → SQL (paginação-safe; antes do LIMIT) ───────────
+    if (query.data.effectivenessStatus) {
+      const es = query.data.effectivenessStatus;
+      if (es === "in_review") {
+        // NOT hasReview AND (assignedRole IS NOT NULL OR dueDate IS NOT NULL)
+        conditions.push(boardEmAvaliacao);
+      } else if (es === "pending") {
+        // NOT hasReview AND assignedRole IS NULL AND dueDate IS NULL
+        // AND critério presente (não-nulo e não-vazio — espelha o JS, #115)
+        conditions.push(and(boardPendentes, boardHasPendingCriteria)!);
+      } else {
+        // effective / ineffective: hasReview AND latest review is_effective = ?
+        const latestIsEffSq = sql`(
+          select r.is_effective
+          from training_effectiveness_reviews r
+          where r.training_id = ${employeeTrainingsTable.id}
+          order by r.evaluation_date desc, r.created_at desc
+          limit 1
+        )`;
+        conditions.push(
+          and(
+            boardHasReviewExists,
+            es === "effective"
+              ? sql`${latestIsEffSq} = true`
+              : sql`${latestIsEffSq} = false`,
+          )!,
+        );
+      }
+    }
+    // ── expiringWithinDays → SQL (paginação-safe; antes do LIMIT) ────────────
+    if (query.data.expiringWithinDays) {
+      const days = query.data.expiringWithinDays;
+      // Calcular o horizonte em JS para passar como string DATE — evita ambiguidade
+      // de tipo na binding `current_date + $N` em alguns drivers.
+      const horizonDate = new Date(Date.now() + days * 86400000)
+        .toISOString()
+        .split("T")[0];
+      conditions.push(
+        and(
+          isNotNull(employeeTrainingsTable.expirationDate),
+          sql`${employeeTrainingsTable.expirationDate} >= current_date`,
+          sql`${employeeTrainingsTable.expirationDate} <= ${horizonDate}::date`,
+        )!,
+      );
+    }
 
+    // ── Condição de coluna do board (só para query de dados + COUNT) ──────────
+    const boardColumnCondition =
+      query.data.boardColumn === "pendentes"
+        ? boardPendentes
+        : query.data.boardColumn === "em_avaliacao"
+          ? boardEmAvaliacao
+          : query.data.boardColumn === "concluidas"
+            ? boardConcluidas
+            : null;
+
+    const dataConditions = boardColumnCondition
+      ? [...conditions, boardColumnCondition]
+      : conditions;
+
+    // ── Query de DADOS — paginação SQL real ───────────────────────────────────
     const rows = await db
       .select({
         id: employeeTrainingsTable.id,
@@ -1414,6 +1813,12 @@ router.get(
         status: employeeTrainingsTable.status,
         attachments: employeeTrainingsTable.attachments,
         legacyV1Id: employeeTrainingsTable.legacyV1Id,
+        catalogItemId: employeeTrainingsTable.catalogItemId,
+        dueDate: employeeTrainingsTable.dueDate,
+        requirementId: employeeTrainingsTable.requirementId,
+        effectivenessDueDate: employeeTrainingsTable.effectivenessDueDate,
+        effectivenessAssignedRole:
+          employeeTrainingsTable.effectivenessAssignedRole,
         createdAt: employeeTrainingsTable.createdAt,
         updatedAt: employeeTrainingsTable.updatedAt,
         employeeName: employeesTable.name,
@@ -1428,23 +1833,114 @@ router.get(
         eq(employeeTrainingsTable.employeeId, employeesTable.id),
       )
       .leftJoin(unitsTable, eq(employeesTable.unitId, unitsTable.id))
-      .where(and(...conditions))
+      .where(and(...dataConditions))
       .orderBy(
         sql`${employeesTable.name} asc`,
         sql`${employeeTrainingsTable.createdAt} desc`,
-      );
+        sql`${employeeTrainingsTable.id} asc`,
+      )
+      .limit(pageSize)
+      .offset(offset);
 
+    // ── COUNT para pagination.total (mesmas condições + boardColumn) ──────────
+    const [countRow] = await db
+      .select({ paginationTotal: count() })
+      .from(employeeTrainingsTable)
+      .innerJoin(
+        employeesTable,
+        eq(employeeTrainingsTable.employeeId, employeesTable.id),
+      )
+      .where(and(...dataConditions));
+    const paginationTotal = countRow?.paginationTotal ?? 0;
+
+    // ── Stats por query agregada (conjunto filtrado, SEM boardColumn) ─────────
+    // Subqueries correlacionadas para a última review por treinamento
+    const latestIsEffective = sql`(
+      select r.is_effective
+      from training_effectiveness_reviews r
+      where r.training_id = ${employeeTrainingsTable.id}
+      order by r.evaluation_date desc, r.created_at desc
+      limit 1
+    )`;
+    const latestEvalDate = sql`(
+      select r.evaluation_date
+      from training_effectiveness_reviews r
+      where r.training_id = ${employeeTrainingsTable.id}
+      order by r.evaluation_date desc, r.created_at desc
+      limit 1
+    )`;
+
+    const [statsRow] = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        // Board column counts
+        boardPendentesCount: sql<number>`count(*) filter (where ${boardPendentes})::int`,
+        boardEmAvaliacaoCount: sql<number>`count(*) filter (where ${boardEmAvaliacao})::int`,
+        boardConcluidasCount: sql<number>`count(*) filter (where ${boardConcluidas})::int`,
+        // Legacy training-status stats (replicating deriveTrainingStatus logic)
+        pendenteCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'pendente')::int`,
+        concluidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'concluido' and (${employeeTrainingsTable.expirationDate} is null or ${employeeTrainingsTable.expirationDate} >= current_date))::int`,
+        vencidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'vencido' or (${employeeTrainingsTable.expirationDate} is not null and ${employeeTrainingsTable.expirationDate} < current_date))::int`,
+        // effectivenessPending: boardPendentes (sem review/atribuição) + critério
+        // de eficácia presente (fragmento único, alinhado ao JS — #115)
+        effectivenessPendingCount: sql<number>`count(*) filter (where ${boardPendentes} and ${boardHasPendingCriteria})::int`,
+        // eficazes / naoEficazes: última review por treinamento
+        eficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = true)::int`,
+        naoEficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = false)::int`,
+        // onTime: concluídas com dueDate onde latestEvalDate <= dueDate
+        onTimeCount: sql<number>`count(*) filter (where
+          ${boardConcluidas}
+          and ${employeeTrainingsTable.effectivenessDueDate} is not null
+          and ${latestEvalDate} <= ${employeeTrainingsTable.effectivenessDueDate}
+        )::int`,
+        withDueDateCount: sql<number>`count(*) filter (where ${boardConcluidas} and ${employeeTrainingsTable.effectivenessDueDate} is not null)::int`,
+      })
+      .from(employeeTrainingsTable)
+      .innerJoin(
+        employeesTable,
+        eq(employeeTrainingsTable.employeeId, employeesTable.id),
+      )
+      .where(and(...conditions)); // SEM boardColumn — stats cobrem o conjunto inteiro
+
+    // Compute derived stats
+    const eficazes = statsRow?.eficazesCount ?? 0;
+    const naoEficazes = statsRow?.naoEficazesCount ?? 0;
+    const eficazDenom = eficazes + naoEficazes;
+    const eficazPercent =
+      eficazDenom > 0 ? Math.round((eficazes / eficazDenom) * 100) : null;
+
+    const withDueDateCount = statsRow?.withDueDateCount ?? 0;
+    const onTimePercent =
+      withDueDateCount > 0
+        ? Math.round(((statsRow?.onTimeCount ?? 0) / withDueDateCount) * 100)
+        : null;
+
+    const stats = {
+      // Campos legados (mantidos para compatibilidade com callers existentes)
+      total: statsRow?.total ?? 0,
+      pendente: statsRow?.pendenteCount ?? 0,
+      concluido: statsRow?.concluidoCount ?? 0,
+      vencido: statsRow?.vencidoCount ?? 0,
+      effectivenessPending: statsRow?.effectivenessPendingCount ?? 0,
+      onTimePercent,
+      // Novos campos de board (T2)
+      boardCounts: {
+        pendentes: statsRow?.boardPendentesCount ?? 0,
+        emAvaliacao: statsRow?.boardEmAvaliacaoCount ?? 0,
+        concluidas: statsRow?.boardConcluidasCount ?? 0,
+      },
+      eficazes,
+      naoEficazes,
+      eficazPercent,
+    };
+
+    // ── Reviews — apenas para os IDs da página ────────────────────────────────
     const reviewsByTrainingId = await loadTrainingReviewRows(
       rows.map((row) => row.id),
     );
-    const today = new Date(getTodayIsoDate());
-    const expirationHorizon = query.data.expiringWithinDays
-      ? new Date(
-          today.getTime() + query.data.expiringWithinDays * 24 * 60 * 60 * 1000,
-        )
-      : null;
 
-    const response = rows
+    // ── Formatar linha (efectivenessStatus e expiringWithinDays já estão no SQL) ─
+    const pageData = rows
       .map((row) => {
         const reviews = reviewsByTrainingId.get(row.id) || [];
         const derivedStatus = deriveTrainingStatus(
@@ -1475,6 +1971,19 @@ router.get(
           expirationDate: row.expirationDate,
           status: derivedStatus,
           effectivenessStatus,
+          effectivenessDueDate: row.effectivenessDueDate || null,
+          effectivenessAssignedRole:
+            (row.effectivenessAssignedRole as
+              | "gestor"
+              | "rh"
+              | "instrutor"
+              | "colaborador"
+              | null) || null,
+          reviewerCount: new Set(reviews.map((r) => r.evaluatorUserId)).size,
+          effectivenessScorePercent:
+            reviews[0] != null && reviews[0].score != null
+              ? reviews[0].score * 10
+              : null,
           attachments: formatEmployeeRecordAttachments(row.attachments),
           latestEffectivenessReview: reviews[0]
             ? formatTrainingEffectivenessReview(reviews[0])
@@ -1482,46 +1991,15 @@ router.get(
           createdAt: toIsoDateTime(row.createdAt),
           updatedAt: toIsoDateTime(row.updatedAt),
         };
-      })
-      .filter((row) => {
-        if (query.data.status && row.status !== query.data.status) return false;
-        if (
-          query.data.effectivenessStatus &&
-          row.effectivenessStatus !== query.data.effectivenessStatus
-        )
-          return false;
-        if (expirationHorizon) {
-          if (!row.expirationDate) return false;
-          const expirationDate = new Date(row.expirationDate);
-          if (Number.isNaN(expirationDate.getTime())) return false;
-          if (expirationDate < today || expirationDate > expirationHorizon)
-            return false;
-        }
-        return true;
       });
 
-    const stats = {
-      total: response.length,
-      pendente: response.filter((r) => r.status === "pendente").length,
-      concluido: response.filter((r) => r.status === "concluido").length,
-      vencido: response.filter((r) => r.status === "vencido").length,
-      effectivenessPending: response.filter(
-        (r) => r.effectivenessStatus === "pending",
-      ).length,
-    };
-
-    const page = query.data.page || 1;
-    const pageSize = query.data.pageSize || 25;
-    const total = response.length;
-    const offset = (page - 1) * pageSize;
-
     res.json({
-      data: response.slice(offset, offset + pageSize),
+      data: pageData,
       pagination: {
         page,
         pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
+        total: paginationTotal,
+        totalPages: Math.ceil(paginationTotal / pageSize),
       },
       stats,
     });
@@ -2229,6 +2707,16 @@ router.patch(
       return;
     }
 
+    const [before] = await db
+      .select({ position: employeesTable.position, unitId: employeesTable.unitId })
+      .from(employeesTable)
+      .where(
+        and(
+          eq(employeesTable.id, params.data.empId),
+          eq(employeesTable.organizationId, params.data.orgId),
+        ),
+      );
+
     const [emp] = await db
       .update(employeesTable)
       .set(payload)
@@ -2244,7 +2732,48 @@ router.patch(
       res.status(404).json({ error: "Colaborador não encontrado" });
       return;
     }
-    res.json(formatEmployee(emp));
+
+    // Mudança de cargo OU de filial → recomputa obrigatoriedades (adiciona/aproveita; nunca remove).
+    const positionChanged =
+      payload.position !== undefined &&
+      before &&
+      payload.position !== before.position;
+    const unitChanged =
+      payload.unitId !== undefined &&
+      before &&
+      payload.unitId !== before.unitId;
+    let autoLinked = { generated: 0, reused: 0 };
+    if (positionChanged || unitChanged) {
+      autoLinked = await applyTrainingRequirements({
+        orgId: params.data.orgId,
+        employeeId: params.data.empId,
+        database: db,
+      });
+    }
+    // Fase 6: registra o histórico da mudança de cargo (troca de filial não
+    // entra neste histórico). Guarda quantos treinamentos o recálculo gerou/
+    // aproveitou, para exibição no Cronograma.
+    if (positionChanged) {
+      // Auditoria secundária: uma falha aqui não pode derrubar a troca de cargo
+      // (já aplicada) nem o recálculo. Best-effort com log.
+      try {
+        await db.insert(employeePositionChangesTable).values({
+          organizationId: params.data.orgId,
+          employeeId: params.data.empId,
+          previousPosition: before?.position ?? null,
+          newPosition: payload.position ?? null,
+          changedByUserId: req.auth!.userId,
+          trainingsGenerated: autoLinked.generated,
+          trainingsReused: autoLinked.reused,
+        });
+      } catch (err) {
+        console.error(
+          "Falha ao registrar histórico de mudança de cargo:",
+          err,
+        );
+      }
+    }
+    res.json({ ...formatEmployee(emp), autoLinkedTrainings: autoLinked });
   },
 );
 
@@ -2566,12 +3095,77 @@ router.post(
       return;
     }
 
+    // Snapshot do catálogo: se veio catalogItemId, copia os campos template do
+    // item (ausentes no body) e calcula a validade. O body tem precedência.
+    const { catalogItemId, attachments: _bodyAttachments, ...bodyFields } =
+      body.data;
+    const values: Partial<typeof employeeTrainingsTable.$inferInsert> = {};
+    let resolvedCatalogItemId: number | null = null;
+
+    if (catalogItemId != null) {
+      const [item] = await db
+        .select()
+        .from(trainingCatalogTable)
+        .where(
+          and(
+            eq(trainingCatalogTable.id, catalogItemId),
+            eq(trainingCatalogTable.organizationId, params.data.orgId),
+          ),
+        );
+      if (!item) {
+        res.status(400).json({ error: "Item do catálogo não encontrado" });
+        return;
+      }
+      resolvedCatalogItemId = item.id;
+      const defaults: Partial<typeof employeeTrainingsTable.$inferInsert> = {
+        title: item.title,
+        description: item.programContent ?? undefined,
+        objective: item.objective ?? undefined,
+        institution: item.defaultInstructor ?? undefined,
+        targetCompetencyName: item.targetCompetencyName ?? undefined,
+        targetCompetencyType: item.targetCompetencyType ?? undefined,
+        targetCompetencyLevel: item.targetCompetencyLevel ?? undefined,
+        evaluationMethod: item.evaluationMethod ?? undefined,
+        workloadHours: item.workloadHours ?? undefined,
+        renewalMonths: item.validityMonths ?? undefined,
+      };
+      for (const [k, v] of Object.entries(defaults)) {
+        if (v !== undefined) (values as Record<string, unknown>)[k] = v;
+      }
+    }
+
+    // Campos do body sobrescrevem os defaults do catálogo (só os definidos).
+    for (const [k, v] of Object.entries(bodyFields)) {
+      if (v !== undefined) (values as Record<string, unknown>)[k] = v;
+    }
+
+    // Validade: se houver conclusão + renovação e nenhuma data de vencimento
+    // explícita, calcula expirationDate = completionDate + renewalMonths.
+    if (
+      !values.expirationDate &&
+      values.completionDate &&
+      values.renewalMonths
+    ) {
+      const expDate = addMonthsClamped(values.completionDate, values.renewalMonths);
+      if (expDate) values.expirationDate = expDate;
+    }
+
+    const finalTitle = values.title?.trim();
+    if (!finalTitle) {
+      res.status(400).json({
+        error: "Informe o título do treinamento ou selecione um item do catálogo",
+      });
+      return;
+    }
+
     const [training] = await db
       .insert(employeeTrainingsTable)
       .values({
-        ...body.data,
+        ...values,
+        title: finalTitle,
         attachments: attachments || [],
         employeeId: params.data.empId,
+        catalogItemId: resolvedCatalogItemId,
       })
       .returning();
 
@@ -2683,6 +3277,172 @@ router.delete(
   },
 );
 
+const EffectivenessAssignmentParams = z.object({
+  orgId: z.coerce.number(),
+  empId: z.coerce.number(),
+  trainId: z.coerce.number(),
+});
+
+const EVALUATOR_ROLE_VALUES = [
+  "gestor",
+  "rh",
+  "instrutor",
+  "colaborador",
+] as const;
+
+const EffectivenessAssignmentBody = z.object({
+  evaluatorRole: z.enum(EVALUATOR_ROLE_VALUES),
+  dueDate: z.string().date(),
+});
+
+router.post(
+  "/organizations/:orgId/employees/:empId/trainings/:trainId/effectiveness-assignment",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = EffectivenessAssignmentParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    if (
+      !(await verifyEmployeeOwnership(params.data.empId, params.data.orgId))
+    ) {
+      res.status(404).json({ error: "Colaborador não encontrado" });
+      return;
+    }
+
+    const [training] = await db
+      .select()
+      .from(employeeTrainingsTable)
+      .where(
+        and(
+          eq(employeeTrainingsTable.id, params.data.trainId),
+          eq(employeeTrainingsTable.employeeId, params.data.empId),
+        ),
+      );
+    if (!training) {
+      res.status(404).json({ error: "Treinamento não encontrado" });
+      return;
+    }
+
+    const body = EffectivenessAssignmentBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+
+    await db
+      .update(employeeTrainingsTable)
+      .set({
+        effectivenessAssignedRole: body.data.evaluatorRole,
+        effectivenessDueDate: body.data.dueDate,
+      })
+      .where(eq(employeeTrainingsTable.id, training.id));
+
+    // Re-load with employee + unit join to return full listagem shape
+    const [updatedRow] = await db
+      .select({
+        id: employeeTrainingsTable.id,
+        employeeId: employeeTrainingsTable.employeeId,
+        title: employeeTrainingsTable.title,
+        description: employeeTrainingsTable.description,
+        objective: employeeTrainingsTable.objective,
+        institution: employeeTrainingsTable.institution,
+        targetCompetencyName: employeeTrainingsTable.targetCompetencyName,
+        targetCompetencyType: employeeTrainingsTable.targetCompetencyType,
+        targetCompetencyLevel: employeeTrainingsTable.targetCompetencyLevel,
+        evaluationMethod: employeeTrainingsTable.evaluationMethod,
+        renewalMonths: employeeTrainingsTable.renewalMonths,
+        workloadHours: employeeTrainingsTable.workloadHours,
+        completionDate: employeeTrainingsTable.completionDate,
+        expirationDate: employeeTrainingsTable.expirationDate,
+        status: employeeTrainingsTable.status,
+        attachments: employeeTrainingsTable.attachments,
+        legacyV1Id: employeeTrainingsTable.legacyV1Id,
+        catalogItemId: employeeTrainingsTable.catalogItemId,
+        dueDate: employeeTrainingsTable.dueDate,
+        requirementId: employeeTrainingsTable.requirementId,
+        effectivenessDueDate: employeeTrainingsTable.effectivenessDueDate,
+        effectivenessAssignedRole:
+          employeeTrainingsTable.effectivenessAssignedRole,
+        createdAt: employeeTrainingsTable.createdAt,
+        updatedAt: employeeTrainingsTable.updatedAt,
+        employeeName: employeesTable.name,
+        employeePosition: employeesTable.position,
+        employeeDepartment: employeesTable.department,
+        unitId: employeesTable.unitId,
+        unitName: unitsTable.name,
+      })
+      .from(employeeTrainingsTable)
+      .innerJoin(
+        employeesTable,
+        eq(employeeTrainingsTable.employeeId, employeesTable.id),
+      )
+      .leftJoin(unitsTable, eq(employeesTable.unitId, unitsTable.id))
+      .where(eq(employeeTrainingsTable.id, training.id));
+
+    const reviews = await loadTrainingReviewRows([updatedRow.id]);
+    const trainingReviews = reviews.get(updatedRow.id) || [];
+    const derivedStatus = deriveTrainingStatus(
+      updatedRow.status,
+      updatedRow.expirationDate,
+    );
+    const effectivenessStatus = getEffectivenessStatus(
+      trainingReviews,
+      updatedRow,
+    );
+
+    res.json({
+      id: updatedRow.id,
+      employeeId: updatedRow.employeeId,
+      employeeName: updatedRow.employeeName,
+      employeePosition: updatedRow.employeePosition,
+      employeeDepartment: updatedRow.employeeDepartment,
+      unitId: updatedRow.unitId,
+      unitName: updatedRow.unitName,
+      title: updatedRow.title,
+      description: updatedRow.description,
+      objective: updatedRow.objective,
+      institution: updatedRow.institution,
+      targetCompetencyName: updatedRow.targetCompetencyName,
+      targetCompetencyType: updatedRow.targetCompetencyType,
+      targetCompetencyLevel: updatedRow.targetCompetencyLevel,
+      evaluationMethod: updatedRow.evaluationMethod,
+      renewalMonths: updatedRow.renewalMonths,
+      workloadHours: updatedRow.workloadHours,
+      completionDate: updatedRow.completionDate,
+      expirationDate: updatedRow.expirationDate,
+      status: derivedStatus,
+      effectivenessStatus,
+      effectivenessDueDate: updatedRow.effectivenessDueDate || null,
+      effectivenessAssignedRole:
+        (updatedRow.effectivenessAssignedRole as
+          | "gestor"
+          | "rh"
+          | "instrutor"
+          | "colaborador"
+          | null) || null,
+      reviewerCount: new Set(trainingReviews.map((r) => r.evaluatorUserId))
+        .size,
+      effectivenessScorePercent:
+        trainingReviews[0] != null && trainingReviews[0].score != null
+          ? trainingReviews[0].score * 10
+          : null,
+      attachments: formatEmployeeRecordAttachments(updatedRow.attachments),
+      latestEffectivenessReview: trainingReviews[0]
+        ? formatTrainingEffectivenessReview(trainingReviews[0])
+        : null,
+      createdAt: toIsoDateTime(updatedRow.createdAt),
+      updatedAt: toIsoDateTime(updatedRow.updatedAt),
+    });
+  },
+);
+
 router.get(
   "/organizations/:orgId/employees/:empId/trainings/:trainId/effectiveness-reviews",
   requireAuth,
@@ -2761,7 +3521,9 @@ router.post(
       return;
     }
 
-    const body = CreateTrainingEffectivenessReviewBody.safeParse(req.body);
+    const body = CreateTrainingEffectivenessReviewBody.extend({
+      evaluatorRole: z.enum(EVALUATOR_ROLE_VALUES).optional(),
+    }).safeParse(req.body);
     if (!body.success) {
       res.status(400).json({ error: body.error.message });
       return;
@@ -2777,6 +3539,18 @@ router.post(
       return;
     }
 
+    // evaluatorRole: use body value if provided; otherwise inherit from training
+    const evaluatorRole =
+      (body.data.evaluatorRole ??
+        (training.effectivenessAssignedRole as
+          | "gestor"
+          | "rh"
+          | "instrutor"
+          | "colaborador"
+          | null
+          | undefined)) ??
+      null;
+
     const review = await db.transaction(async (tx) => {
       const [createdReview] = await tx
         .insert(trainingEffectivenessReviewsTable)
@@ -2789,6 +3563,7 @@ router.post(
           resultLevel: body.data.resultLevel,
           comments: body.data.comments?.trim() || null,
           attachments: attachments || [],
+          evaluatorRole: evaluatorRole ?? undefined,
         })
         .returning();
 

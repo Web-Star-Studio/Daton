@@ -29,6 +29,7 @@ import { SearchableStringSelect } from "@/components/ui/searchable-string-select
 import { NORMA_OPTIONS, TYPE_COLORS, summarizeDocuments } from "@/lib/document-list";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
+import { preventImplicitSubmit } from "@/lib/forms";
 import { Plus, FileText, Upload, X, Trash2 } from "lucide-react";
 import { resolveApiUrl } from "@/lib/api";
 import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
@@ -891,7 +892,11 @@ function CreateDocumentModal({
       }
       size="xl"
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        onKeyDown={preventImplicitSubmit}
+        className="space-y-5"
+      >
         <DialogStepTabs
           steps={steps}
           step={step}
@@ -1327,6 +1332,7 @@ function CreateDocumentModal({
         <DialogFooter>
           {step > 0 ? (
             <Button
+              key="voltar"
               type="button"
               variant="outline"
               size="sm"
@@ -1338,6 +1344,7 @@ function CreateDocumentModal({
             </Button>
           ) : (
             <Button
+              key="cancelar"
               type="button"
               variant="outline"
               size="sm"
@@ -1348,6 +1355,7 @@ function CreateDocumentModal({
           )}
           {step < steps.length - 1 ? (
             <Button
+              key="proximo"
               type="button"
               size="sm"
               onClick={() => void changeStep(step + 1)}
@@ -1355,7 +1363,7 @@ function CreateDocumentModal({
               Próximo
             </Button>
           ) : (
-            <Button type="submit" size="sm" isLoading={isSubmitting}>
+            <Button key="salvar" type="submit" size="sm" isLoading={isSubmitting}>
               Salvar Documento
             </Button>
           )}

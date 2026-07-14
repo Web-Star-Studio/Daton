@@ -463,7 +463,7 @@ export default function KpiAlimentacaoPage({
                       const isAnomaly = locked && val !== null;
                       const status = locked
                         ? null
-                        : getTrafficLight(val, row.yearConfig.goal, direction);
+                        : getTrafficLight(val, row.yearConfig.goal, direction, row.yearConfig.tolerance);
                       const monthlyValueId = monthCell?.monthlyValueId ?? null;
                       const justification = monthCell?.justification ?? null;
                       const plansCount = monthCell?.actionPlansCount ?? 0;
@@ -723,7 +723,7 @@ export default function KpiAlimentacaoPage({
                           const outOfRef = !!pasteRestrict && !pasteRestrict.has(i + 1);
                           const status =
                             !outOfRef && pasteDialog.yearConfig.goal != null && v != null
-                              ? getTrafficLight(v, pasteDialog.yearConfig.goal, pasteDialog.indicator.direction as "up" | "down")
+                              ? getTrafficLight(v, pasteDialog.yearConfig.goal, pasteDialog.indicator.direction as "up" | "down", pasteDialog.yearConfig.tolerance)
                               : null;
                           return (
                             <div

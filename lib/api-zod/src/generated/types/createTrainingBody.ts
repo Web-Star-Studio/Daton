@@ -10,7 +10,9 @@ import type { CreateTrainingBodyTargetCompetencyType } from "./createTrainingBod
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 
 export interface CreateTrainingBody {
-  title: string;
+  /** Se informado, copia (snapshot) os campos do item do catálogo ausentes no body e vincula o registro. */
+  catalogItemId?: number;
+  title?: string;
   description?: string;
   objective?: string;
   institution?: string;

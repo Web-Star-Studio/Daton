@@ -6,6 +6,7 @@ import { db, usersTable, organizationsTable, userModulePermissionsTable, unitsTa
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { issueAuthToken, requireAuth } from "../middlewares/auth";
 import { serializeOrganization } from "../lib/serialize-organization";
+import { ensureDefaultNorms } from "../services/norms/defaults";
 
 const router: IRouter = Router();
 
@@ -33,6 +34,7 @@ function serializeAuthUser(user: {
   organizationId: number;
   role: string;
   unitId: number | null;
+  employeeId?: number | null;
   theme: string;
   createdAt: Date;
   lastLoginAt: Date | null;
@@ -44,6 +46,7 @@ function serializeAuthUser(user: {
     organizationId: user.organizationId,
     role: user.role,
     unitId: user.unitId ?? null,
+    employeeId: user.employeeId ?? null,
     theme: user.theme,
     createdAt: user.createdAt.toISOString(),
     lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
@@ -122,6 +125,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     openingDate: null,
     onboardingStatus: "pending",
   }).returning();
+
+  await ensureDefaultNorms(org.id);
 
   const [user] = await db.insert(usersTable).values({
     name: adminFullName.toUpperCase(),

@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  History,
   Loader2,
   Lock,
   Paperclip,
@@ -24,6 +25,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { buildResponsibleOptions } from "./_components/responsible-options";
+import { mergeDraftIntoForm } from "./_components/merge-draft";
+import { diffActionPlanPayload } from "./_components/payload-diff";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { resolveApiUrl } from "@/lib/api";
@@ -62,6 +67,7 @@ import { CausaRaiz } from "./_components/causa-raiz";
 import { EficaciaPanel, type EficaciaValue } from "./_components/eficacia-panel";
 import { Vinculos } from "./_components/vinculos";
 import { ComentariosHistorico } from "./_components/comentarios-historico";
+import { PlanningVersionsDialog, usePlanningVersionCount } from "./_components/planning-versions-dialog";
 
 const STATUS_OPTIONS: ActionPlanStatus[] = ["open", "in_progress", "completed", "cancelled"];
 const PRIORITY_OPTIONS: ActionPlanPriority[] = ["low", "medium", "high"];
@@ -93,7 +99,7 @@ export default function ActionPlanFichaPage() {
   const planId = Number.isInteger(parsedPlanId) && parsedPlanId > 0 ? parsedPlanId : null;
 
   const { organization, user } = useAuth();
-  const { canWrite, isAdmin } = usePermissions();
+  const { canWrite, isAdmin, role, hasModuleAccess } = usePermissions();
   const orgId = organization!.id;
   const [location, setLocation] = useLocation();
 
@@ -101,8 +107,16 @@ export default function ActionPlanFichaPage() {
   usePageSubtitle("");
 
   const { data: plan, isLoading } = useActionPlan(orgId, planId);
+  // GET /organizations/:id/users is restricted to admins and managers. Asking for
+  // it as an operator only buys a 403 in the console — the responsible name comes
+  // from the plan itself (see buildResponsibleOptions).
+  const canListOrgUsers = isAdmin || (role === "manager" && hasModuleAccess("kpi"));
   const { data: orgUsersData } = useListOrgUsers(orgId, {
-    query: { queryKey: getListOrgUsersQueryKey(orgId), staleTime: 60_000 },
+    query: {
+      queryKey: getListOrgUsersQueryKey(orgId),
+      staleTime: 60_000,
+      enabled: canListOrgUsers,
+    },
   });
   const orgUsers = orgUsersData?.users ?? [];
 
@@ -134,6 +148,8 @@ export default function ActionPlanFichaPage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const planningVersionCount = usePlanningVersionCount(orgId, planId);
 
   // Edit guard: an encerrado plan (or a read-only role) can't be edited/autosaved.
   const isLocked = !!plan && isActionPlanEncerrado(plan);
@@ -148,6 +164,10 @@ export default function ActionPlanFichaPage() {
   const isSavingRef = useRef(false);
   const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
   const hydratedIdRef = useRef<number | null>(null);
+  // Last server state this tab synced to, in payload shape. `persist` sends only
+  // what differs from it, so an untouched field can never be reverted by a save
+  // from a tab that loaded before someone else changed it.
+  const baselineRef = useRef<UpdateActionPlanBody | null>(null);
 
   // Hydrate the form from the server. NEVER overwrite a DIRTY form on a same-plan
   // refetch — that was silently wiping unsaved edits ("estava completinha, entrei
@@ -159,7 +179,7 @@ export default function ActionPlanFichaPage() {
     const isNewPlan = plan.id !== hydratedIdRef.current;
     if (!isNewPlan && dirtyRef.current) return;
     hydratedIdRef.current = plan.id;
-    setForm({
+    const hydrated: typeof form = {
       title: plan.title,
       description: plan.description ?? "",
       actionType: plan.actionType,
@@ -183,7 +203,9 @@ export default function ActionPlanFichaPage() {
         comment: plan.effectivenessComment ?? "",
       },
       vinc: { odsNumbers: plan.odsNumbers ?? [], normRefs: plan.normRefs ?? [] },
-    });
+    };
+    setForm(hydrated);
+    baselineRef.current = buildPayload(hydrated);
     setDirty(false);
     if (isNewPlan) setSaveStatus("idle");
   }, [plan]);
@@ -238,10 +260,24 @@ export default function ActionPlanFichaPage() {
         if (!opts?.silent) toast({ title: "Informe o título da ação", variant: "destructive" });
         return false;
       }
+      // Send ONLY what this tab changed. A full payload would revert every field
+      // another tab touched since we loaded the plan (see payload-diff).
+      const data = {
+        ...diffActionPlanPayload(baselineRef.current, buildPayload(snapshot)),
+        ...(opts?.extra ?? {}),
+      };
+      if (Object.keys(data).length === 0) {
+        if (formRef.current === snapshot) setDirty(false);
+        setSaveStatus("saved");
+        return true;
+      }
       isSavingRef.current = true;
       setSaveStatus("saving");
       try {
-        await updatePlan.mutateAsync({ orgId, planId, data: { ...buildPayload(snapshot), ...(opts?.extra ?? {}) } });
+        await updatePlan.mutateAsync({ orgId, planId, data });
+        // The saved fields are now the server's truth for this tab; the rest of the
+        // baseline stays as loaded, so we keep not touching what we never edited.
+        baselineRef.current = { ...(baselineRef.current ?? {}), ...data };
         // Clear "dirty" only if nothing changed during the save; otherwise the next
         // chained run (scheduled by the autosave effect) persists the newer edits.
         if (formRef.current === snapshot) setDirty(false);
@@ -324,34 +360,19 @@ export default function ActionPlanFichaPage() {
         toast({ title: "A IA não retornou sugestões", variant: "destructive" });
         return;
       }
-      // Fill-only merge: only fills fields the user left blank. `changed` tracks
-      // whether anything was actually added, so we don't mark the form dirty (and
-      // trigger a no-op save) when every field was already filled.
-      let changed = false;
-      setForm((f) => {
-        const merged5w2h: ActionPlan5W2H = { ...f.plan5w2h };
-        for (const key of Object.keys(draft.plan5w2h) as (keyof ActionPlan5W2H)[]) {
-          const value = draft.plan5w2h[key];
-          if (value && !merged5w2h[key]?.trim()) {
-            merged5w2h[key] = value;
-            changed = true;
-          }
-        }
-        const rootCause = !f.rootCause.trim() && draft.rootCause ? draft.rootCause : f.rootCause;
-        if (rootCause !== f.rootCause) changed = true;
-        const hasWhys = f.rootCauseWhys.some((w) => w.trim());
-        const rootCauseWhys = !hasWhys && draft.rootCauseWhys.length > 0 ? draft.rootCauseWhys : f.rootCauseWhys;
-        if (rootCauseWhys !== f.rootCauseWhys) changed = true;
-        return { ...f, plan5w2h: merged5w2h, rootCause, rootCauseWhys };
-      });
-      if (changed) {
-        setDirty(true);
-        toast({ title: "Rascunho gerado — revise e salve" });
-      } else {
+      // Fill-only merge: only fills fields the user left blank. Merge off `formRef`
+      // (always current) rather than inside a setForm updater — React runs updaters
+      // during render, so a flag set in there is still false on the next line.
+      const { changed, ...merged } = mergeDraftIntoForm(formRef.current, draft);
+      if (!changed) {
         toast({ title: "Seus campos já estão preenchidos", description: "A IA não tinha o que adicionar." });
+        return;
       }
+      setForm((f) => ({ ...f, ...merged }));
+      setDirty(true);
+      toast({ title: "Rascunho gerado — revise e salve" });
     } catch (err) {
-      toast({ title: "Não foi possível gerar a sugestão", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
+      toast({ title: "Não foi possível gerar a sugestão", description: apiErrorMessage(err), variant: "destructive" });
     }
   }
 
@@ -379,6 +400,10 @@ export default function ActionPlanFichaPage() {
     try {
       await updatePlan.mutateAsync({ orgId, planId, data: { status: "in_progress" } });
       setForm((f) => ({ ...f, status: "in_progress" }));
+      // This PATCH bypasses `persist`, so rebase the baseline by hand. Otherwise
+      // `status` reads as changed forever and every later save re-sends
+      // "in_progress", silently reopening a plan someone else closed meanwhile.
+      baselineRef.current = { ...(baselineRef.current ?? {}), status: "in_progress" };
       toast({ title: "Plano reaberto" });
     } catch (err) {
       toast({ title: "Erro ao reabrir", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
@@ -575,7 +600,7 @@ export default function ActionPlanFichaPage() {
                   <SearchableSelect
                     value={form.responsibleUserId}
                     onChange={(v) => patch("responsibleUserId", v)}
-                    options={orgUsers.map((u) => ({ value: String(u.id), label: u.name }))}
+                    options={buildResponsibleOptions(orgUsers, form.responsibleUserId, plan.responsibleUserName)}
                     placeholder="Selecione"
                     searchPlaceholder="Buscar usuário..."
                     emptyMessage="Nenhum usuário encontrado"
@@ -598,36 +623,70 @@ export default function ActionPlanFichaPage() {
 
           <Section
             id="etapa-planejamento"
-            title="Plano de ação (5W2H)"
-            action={canEdit ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                isLoading={suggestDraft.isPending}
-                disabled={!form.description.trim() && !form.title.trim()}
-                onClick={() => void handleSuggest()}
-                title="Rascunhar 5W2H e 5 porquês a partir do problema (IA). Você revisa antes de salvar."
-              >
-                {!suggestDraft.isPending && <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
-                Sugerir plano (IA)
-              </Button>
-            ) : undefined}
+            title="Planejamento"
+            action={
+              <div className="flex items-center gap-1.5">
+                {planningVersionCount > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVersionsOpen(true)}
+                  >
+                    <History className="mr-1.5 h-3.5 w-3.5" />
+                    Versões ({planningVersionCount})
+                  </Button>
+                )}
+                {canEdit && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    isLoading={suggestDraft.isPending}
+                    disabled={!form.description.trim() && !form.title.trim()}
+                    onClick={() => void handleSuggest()}
+                  >
+                    {!suggestDraft.isPending && <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+                    Sugerir plano (IA)
+                  </Button>
+                )}
+              </div>
+            }
           >
-            <Plano5W2H value={form.plan5w2h} onChange={(v) => patch("plan5w2h", v)} readOnly={!canEdit} />
+            <div className="space-y-6">
+              <div>
+                <h4 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Plano de ação (5W2H)
+                </h4>
+                <Plano5W2H value={form.plan5w2h} onChange={(v) => patch("plan5w2h", v)} readOnly={!canEdit} />
+              </div>
+              <div>
+                <h4 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Causa raiz (5 porquês)
+                </h4>
+                <CausaRaiz
+                  rootCause={form.rootCause}
+                  whys={form.rootCauseWhys}
+                  onChange={({ rootCause, whys }) => {
+                    setForm((f) => ({ ...f, rootCause, rootCauseWhys: whys }));
+                    setDirty(true);
+                  }}
+                  readOnly={!canEdit}
+                />
+              </div>
+            </div>
           </Section>
 
-          <Section title="Causa raiz (5 porquês)">
-            <CausaRaiz
-              rootCause={form.rootCause}
-              whys={form.rootCauseWhys}
-              onChange={({ rootCause, whys }) => {
-                setForm((f) => ({ ...f, rootCause, rootCauseWhys: whys }));
-                setDirty(true);
-              }}
-              readOnly={!canEdit}
+          {planId && (
+            <PlanningVersionsDialog
+              orgId={orgId}
+              planId={planId}
+              canEdit={canEdit}
+              open={versionsOpen}
+              onOpenChange={setVersionsOpen}
+              onBeforeRestore={() => persist({ silent: true })}
             />
-          </Section>
+          )}
 
           <Section id="etapa-execucao" title="Comentários e histórico">
             <ComentariosHistorico orgId={orgId} planId={plan.id} canWrite={canWrite} />

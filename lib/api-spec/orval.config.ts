@@ -4,7 +4,7 @@ import path from "path";
 const root = path.resolve(__dirname, "..", "..");
 const apiClientReactSrc = path.resolve(root, "lib", "api-client-react", "src");
 const apiZodSrc = path.resolve(root, "lib", "api-zod", "src");
-const openApiSpecPath = path.resolve(__dirname, ".openapi.codegen.json");
+const openApiSpecPath = path.resolve(__dirname, "openapi.yaml");
 
 export default defineConfig({
   "api-client-react": {

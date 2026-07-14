@@ -36,7 +36,11 @@ export interface KpiIndicator {
    */
   referenceMonth?: number | null;
   category?: string | null;
-  norms: string[];
+  norms: number[];
+  /** Source system that auto-populates this indicator (e.g. "lms"). null = manual. */
+  computedSource?: string | null;
+  /** Specific metric key within the source system (e.g. "completion_rate"). */
+  computedMetric?: string | null;
   createdAt: string;
   updatedAt: string;
 }
