@@ -42,7 +42,10 @@ export type ActionPlanActivityAction =
   | "evidence_removed"
   | "effectiveness_evaluated"
   | "escalated"
-  | "reopened";
+  | "reopened"
+  | "action_added"
+  | "action_updated"
+  | "action_removed";
 
 /** Structured 5W2H plan. "howMuch" carries estimated cost (free text). */
 export type ActionPlan5W2H = {
