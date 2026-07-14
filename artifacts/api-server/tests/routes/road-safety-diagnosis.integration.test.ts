@@ -70,6 +70,69 @@ describe("Road safety: diagnóstico do fator", () => {
     expect(res.status).toBe(400);
   });
 
+  it("referenceDate no futuro devolve 400 e não insere nada", async () => {
+    const context = await createTestContext({ seed: "rs-diag-future-date" });
+    contexts.push(context);
+    const factorId = await createFactor(context);
+
+    const futureYear = new Date().getFullYear() + 5;
+    const res = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/road-safety/factors/${factorId}/diagnoses`,
+      )
+      .set(authHeader(context))
+      .send({
+        content: "Data digitada errada",
+        referenceDate: `${futureYear}-07-14`,
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/futuro/i);
+
+    const rows = await db
+      .select()
+      .from(roadSafetyFactorDiagnosesTable)
+      .where(eq(roadSafetyFactorDiagnosesTable.factorId, factorId));
+    expect(rows).toHaveLength(0);
+  });
+
+  it("referenceDate de hoje é aceita (201)", async () => {
+    const context = await createTestContext({ seed: "rs-diag-today-date" });
+    contexts.push(context);
+    const factorId = await createFactor(context);
+
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const res = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/road-safety/factors/${factorId}/diagnoses`,
+      )
+      .set(authHeader(context))
+      .send({ content: "Diagnóstico de hoje", referenceDate: today });
+
+    expect(res.status).toBe(201);
+    expect(res.body.referenceDate).toBe(today);
+  });
+
+  it("referenceDate no passado é aceita — backdating continua legítimo (201)", async () => {
+    const context = await createTestContext({ seed: "rs-diag-past-date" });
+    contexts.push(context);
+    const factorId = await createFactor(context);
+
+    const res = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/road-safety/factors/${factorId}/diagnoses`,
+      )
+      .set(authHeader(context))
+      .send({
+        content: "Diagnóstico registrado com atraso",
+        referenceDate: "2020-01-15",
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.referenceDate).toBe("2020-01-15");
+  });
+
   it("devolve o histórico do mais recente para o mais antigo, com o nome do autor", async () => {
     const context = await createTestContext({ seed: "rs-diag-hist" });
     contexts.push(context);

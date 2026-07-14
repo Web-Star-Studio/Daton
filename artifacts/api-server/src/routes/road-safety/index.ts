@@ -658,6 +658,15 @@ router.post(
     const content = body.data.content.trim();
     if (!content) { res.status(400).json({ error: "O diagnóstico não pode ser vazio" }); return; }
 
+    // Comparação de strings date-only (YYYY-MM-DD): sem `new Date()`, que
+    // interpretaria a data como UTC e deslocaria o dia. Backdating continua
+    // permitido — só data no futuro é barrada, para não travar o histórico
+    // append-only com um vencimento que nunca mais é superado.
+    if (body.data.referenceDate > todayDateOnly()) {
+      res.status(400).json({ error: "A data de referência não pode ser no futuro" });
+      return;
+    }
+
     const [factor] = await db
       .select({ id: roadSafetyFactorsTable.id })
       .from(roadSafetyFactorsTable)
