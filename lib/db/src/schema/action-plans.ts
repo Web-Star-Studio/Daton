@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
 import { usersTable } from "./users";
+import type { ActionPlanAnalysis } from "./action-plan-analysis-methods";
 
 export type ActionPlanStatus = "open" | "in_progress" | "completed" | "cancelled";
 export type ActionPlanPriority = "low" | "medium" | "high";
@@ -71,7 +72,14 @@ export type ActionPlanActivityChanges =
       /** Set when the entry came from restoring an older planning version. */
       restoredFrom?: { activityId: number; at: string };
     }
-  | { kind: "note"; message: string };
+  | { kind: "note"; message: string }
+  | {
+      kind: "action";
+      actionId: number;
+      /** Snapshotado: o log precisa sobreviver à remoção da linha (mesma razão do `userName`). */
+      what: string;
+      fields?: Record<string, { from: unknown; to: unknown }>;
+    };
 
 /**
  * Polymorphic source reference. The relevant fields depend on `sourceModule`
@@ -158,6 +166,9 @@ export const actionPlanActivityActionEnum = pgEnum("action_plan_activity_action"
   "effectiveness_evaluated",
   "escalated",
   "reopened",
+  "action_added",
+  "action_updated",
+  "action_removed",
 ]);
 
 export const actionPlansTable = pgTable(
@@ -178,9 +189,14 @@ export const actionPlansTable = pgTable(
     gutGravity: integer("gut_gravity"),
     gutUrgency: integer("gut_urgency"),
     gutTendency: integer("gut_tendency"),
-    // ─── Structured planning (5W2H) + root cause (5 whys) ──────────────────────
-    plan5w2h: jsonb("plan_5w2h").$type<ActionPlan5W2H>(),
+    // ─── Análise de causa ──────────────────────────────────────────────────────
+    /** A conclusão da análise — uma só, qualquer que seja a tratativa usada. */
     rootCause: text("root_cause"),
+    /** As tratativas aplicadas a este plano (união discriminada por `key`). */
+    analyses: jsonb("analyses").$type<ActionPlanAnalysis[]>(),
+    /** @deprecated Migradas para `analyses` / `action_plan_actions` em 2026-07.
+     *  Mantidas sem leitura nem escrita como rede de rollback; derrubar em follow-up. */
+    plan5w2h: jsonb("plan_5w2h").$type<ActionPlan5W2H>(),
     rootCauseWhys: jsonb("root_cause_whys").$type<string[]>(),
     // ─── Assignment & deadline ─────────────────────────────────────────────────
     responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
@@ -213,6 +229,72 @@ export const actionPlansTable = pgTable(
     index("action_plans_org_code_idx").on(table.organizationId, table.code),
   ],
 );
+
+/**
+ * As ações do plano — o que antes era o bloco `plan5w2h` único.
+ *
+ * Cada linha é um 5W2H rastreável: "Quem" é um usuário do sistema (não texto), "Quando"
+ * é uma data (não texto) e há status por ação. É isso que permite cobrar: a ação entra
+ * em "Suas Pendências" do responsável dela e vence sozinha.
+ *
+ * Tabela, e não um jsonb no plano, justamente porque precisa ser CONSULTÁVEL por
+ * responsável e por prazo — um array jsonb não indexa.
+ */
+export const actionPlanActionsTable = pgTable(
+  "action_plan_actions",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
+    actionPlanId: integer("action_plan_id").notNull().references(() => actionPlansTable.id, { onDelete: "cascade" }),
+    // ─── 5W2H da ação ──────────────────────────────────────────────────────────
+    // Todos anuláveis: a ficha salva parcial o tempo todo. "+ Incluir ação" cria a
+    // linha vazia na hora, e o usuário volta para preencher.
+    what: text("what"),
+    why: text("why"),
+    /** Onde. `where` é palavra reservada em SQL — não usar como nome de coluna. */
+    whereAt: text("where_at"),
+    how: text("how"),
+    howMuch: text("how_much"),
+    responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    // ─── Execução ──────────────────────────────────────────────────────────────
+    status: actionPlanStatusEnum("status").notNull().default("open"),
+    /** Gravado pelo servidor quando o status vira `completed`; limpo ao reabrir. */
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    notes: text("notes"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdByUserId: integer("created_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("action_plan_actions_plan_idx").on(table.actionPlanId, table.sortOrder),
+    // Serve "Suas Pendências" e o cálculo de atraso.
+    index("action_plan_actions_org_responsible_idx").on(
+      table.organizationId,
+      table.responsibleUserId,
+      table.status,
+    ),
+  ],
+);
+
+export const insertActionPlanActionSchema = createInsertSchema(actionPlanActionsTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertActionPlanAction = z.infer<typeof insertActionPlanActionSchema>;
+export type ActionPlanAction = typeof actionPlanActionsTable.$inferSelect;
+
+/** Ação atrasada = venceu e não foi concluída nem cancelada. Derivado, nunca persistido. */
+export function isActionPlanActionOverdue(
+  action: Pick<ActionPlanAction, "status" | "dueDate">,
+  now: Date,
+): boolean {
+  if (action.status === "completed" || action.status === "cancelled") return false;
+  if (!action.dueDate) return false;
+  return action.dueDate.getTime() < now.getTime();
+}
 
 export const actionPlanEvidencesTable = pgTable("action_plan_evidences", {
   id: serial("id").primaryKey(),
