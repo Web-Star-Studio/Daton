@@ -3,23 +3,28 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import {
   db,
   kpiIndicatorsTable,
+  roadSafetyFactorDiagnosesTable,
   roadSafetyFactorMeasurementsTable,
   roadSafetyFactorsTable,
   usersTable,
 } from "@workspace/db";
 import {
+  CreateRoadSafetyDiagnosisBody,
+  CreateRoadSafetyDiagnosisParams,
   CreateRoadSafetyFactorBody,
   CreateRoadSafetyFactorParams,
   CreateRoadSafetyMeasurementBody,
   CreateRoadSafetyMeasurementParams,
   DeleteRoadSafetyFactorParams,
   GetRoadSafetyFactorParams,
+  ListRoadSafetyDiagnosesParams,
   ListRoadSafetyFactorsParams,
   ListRoadSafetyMeasurementsParams,
   UpdateRoadSafetyFactorBody,
   UpdateRoadSafetyFactorParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
+import { diagnosisStatus, nextDiagnosisDate } from "../../services/road-safety/diagnosis";
 
 const router: IRouter = Router();
 
@@ -65,11 +70,38 @@ function aggregateMeasurements(rows: MeasurementRow[]): MeasurementAggregate {
   };
 }
 
+type DiagnosisRow = typeof roadSafetyFactorDiagnosesTable.$inferSelect;
+
+/** Último diagnóstico do fator + nome do autor, quando houver. */
+type LastDiagnosis = { row: DiagnosisRow; authorName: string | null } | null;
+
+function serializeDiagnosis(r: DiagnosisRow, diagnosedByUserName: string | null) {
+  return {
+    id: r.id,
+    organizationId: r.organizationId,
+    factorId: r.factorId,
+    content: r.content,
+    referenceDate: r.referenceDate,
+    diagnosedByUserId: r.diagnosedByUserId ?? null,
+    diagnosedByUserName,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
 function serializeFactor(
   r: FactorRow,
   responsibleUserName: string | null,
   agg: MeasurementAggregate,
+  lastDiagnosis: LastDiagnosis = null,
+  now: Date = new Date(),
 ) {
+  const last = lastDiagnosis?.row ?? null;
+  const nextDate = nextDiagnosisDate({
+    periodicity: r.diagnosisPeriodicity ?? null,
+    factorCreatedAt: r.createdAt,
+    lastReferenceDate: last?.referenceDate ?? null,
+  });
   return {
     id: r.id,
     organizationId: r.organizationId,
@@ -80,7 +112,14 @@ function serializeFactor(
     isAdditional: r.isAdditional,
     name: r.name,
     analysis: r.analysis ?? null,
-    currentDiagnosis: r.currentDiagnosis ?? null,
+    // `currentDiagnosis` agora é DERIVADO do histórico — a coluna vira legado.
+    currentDiagnosis: last?.content ?? null,
+    diagnosisPeriodicity: r.diagnosisPeriodicity ?? null,
+    lastDiagnosis: last
+      ? serializeDiagnosis(last, lastDiagnosis?.authorName ?? null)
+      : null,
+    nextDiagnosisDate: nextDate,
+    diagnosisStatus: diagnosisStatus(nextDate, now),
     monitoringForm: r.monitoringForm ?? null,
     periodicity: r.periodicity,
     measureUnit: r.measureUnit ?? null,
@@ -119,6 +158,54 @@ function serializeMeasurement(r: MeasurementRow, createdByUserName: string | nul
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
+}
+
+/**
+ * Último diagnóstico de cada fator. Uma query só: ordena por (factor, data, id)
+ * e fica com o primeiro de cada fator — sem N+1 na listagem do painel.
+ */
+async function lastDiagnosisByFactor(
+  factorIds: number[],
+): Promise<Map<number, { row: DiagnosisRow; authorName: string | null }>> {
+  const byFactor = new Map<number, { row: DiagnosisRow; authorName: string | null }>();
+  if (factorIds.length === 0) return byFactor;
+
+  const rows = await db
+    .select({
+      diagnosis: roadSafetyFactorDiagnosesTable,
+      authorName: usersTable.name,
+    })
+    .from(roadSafetyFactorDiagnosesTable)
+    .leftJoin(
+      usersTable,
+      eq(usersTable.id, roadSafetyFactorDiagnosesTable.diagnosedByUserId),
+    )
+    .where(inArray(roadSafetyFactorDiagnosesTable.factorId, factorIds))
+    .orderBy(
+      asc(roadSafetyFactorDiagnosesTable.factorId),
+      desc(roadSafetyFactorDiagnosesTable.referenceDate),
+      desc(roadSafetyFactorDiagnosesTable.id),
+    );
+
+  for (const r of rows) {
+    // A ordenação garante que o primeiro de cada fator é o mais recente;
+    // empate de data desempata por id (o último inserido vale).
+    if (!byFactor.has(r.diagnosis.factorId)) {
+      byFactor.set(r.diagnosis.factorId, {
+        row: r.diagnosis,
+        authorName: r.authorName ?? null,
+      });
+    }
+  }
+  return byFactor;
+}
+
+/** Hoje em date-only local — a data de referência padrão do diagnóstico inicial. */
+function todayDateOnly(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 /** Next sequential factor code (FD01, FD02, …) scoped to the organization. */
@@ -172,12 +259,15 @@ router.get(
       byFactor.set(m.factorId, list);
     }
 
+    const lastByFactor = await lastDiagnosisByFactor(factorIds);
+
     res.json(
       rows.map((r) =>
         serializeFactor(
           r.factor,
           r.responsibleUserName ?? null,
           aggregateMeasurements(byFactor.get(r.factor.id) ?? []),
+          lastByFactor.get(r.factor.id) ?? null,
         ),
       ),
     );
@@ -223,12 +313,7 @@ router.post(
         isAdditional: body.data.isAdditional ?? false,
         name: body.data.name.trim().toUpperCase(),
         analysis: body.data.analysis ?? null,
-        // currentDiagnosis ainda não está no contrato gerado (api-zod) —
-        // lido direto do corpo até a próxima rodada de codegen.
-        currentDiagnosis:
-          typeof req.body?.currentDiagnosis === "string"
-            ? req.body.currentDiagnosis
-            : null,
+        diagnosisPeriodicity: body.data.diagnosisPeriodicity ?? null,
         monitoringForm:
           kpiIndicatorId != null ? "indicator" : (body.data.monitoringForm ?? null),
         kpiIndicatorId,
@@ -247,7 +332,27 @@ router.post(
       })
       .returning();
 
-    res.status(201).json(serializeFactor(row, null, EMPTY_AGGREGATE));
+    const initial = body.data.initialDiagnosis?.trim();
+    let lastDiagnosis: LastDiagnosis = null;
+    if (initial) {
+      const [diagRow] = await db
+        .insert(roadSafetyFactorDiagnosesTable)
+        .values({
+          organizationId: params.data.orgId,
+          factorId: row.id,
+          content: initial,
+          referenceDate: todayDateOnly(),
+          diagnosedByUserId: req.auth!.userId,
+        })
+        .returning();
+      const [u] = await db
+        .select({ name: usersTable.name })
+        .from(usersTable)
+        .where(eq(usersTable.id, req.auth!.userId));
+      lastDiagnosis = { row: diagRow, authorName: u?.name ?? null };
+    }
+
+    res.status(201).json(serializeFactor(row, null, EMPTY_AGGREGATE, lastDiagnosis));
   },
 );
 
@@ -276,11 +381,14 @@ router.get(
       .from(roadSafetyFactorMeasurementsTable)
       .where(eq(roadSafetyFactorMeasurementsTable.factorId, params.data.factorId));
 
+    const lastByFactor = await lastDiagnosisByFactor([row.factor.id]);
+
     res.json(
       serializeFactor(
         row.factor,
         row.responsibleUserName ?? null,
         aggregateMeasurements(measurements),
+        lastByFactor.get(row.factor.id) ?? null,
       ),
     );
   },
@@ -306,12 +414,8 @@ router.patch(
     if (d.isAdditional !== undefined) updateData.isAdditional = d.isAdditional;
     if (d.name !== undefined) updateData.name = d.name.trim().toUpperCase();
     if (d.analysis !== undefined) updateData.analysis = d.analysis;
-    if (req.body && "currentDiagnosis" in req.body) {
-      updateData.currentDiagnosis =
-        typeof req.body.currentDiagnosis === "string"
-          ? req.body.currentDiagnosis
-          : null;
-    }
+    if (d.diagnosisPeriodicity !== undefined)
+      updateData.diagnosisPeriodicity = d.diagnosisPeriodicity;
     if (d.monitoringForm !== undefined) updateData.monitoringForm = d.monitoringForm;
     if (d.periodicity !== undefined) updateData.periodicity = d.periodicity;
     if (d.measureUnit !== undefined) updateData.measureUnit = d.measureUnit;
@@ -361,7 +465,16 @@ router.patch(
       .from(roadSafetyFactorMeasurementsTable)
       .where(eq(roadSafetyFactorMeasurementsTable.factorId, row.id));
 
-    res.json(serializeFactor(row, responsibleUserName, aggregateMeasurements(measurements)));
+    const lastByFactor = await lastDiagnosisByFactor([row.id]);
+
+    res.json(
+      serializeFactor(
+        row,
+        responsibleUserName,
+        aggregateMeasurements(measurements),
+        lastByFactor.get(row.id) ?? null,
+      ),
+    );
   },
 );
 
@@ -468,6 +581,101 @@ router.post(
       .where(eq(usersTable.id, req.auth!.userId));
 
     res.status(201).json(serializeMeasurement(row, u?.name ?? null));
+  },
+);
+
+// ─── Diagnoses (append-only history) ─────────────────────────────────────────
+
+router.get(
+  "/organizations/:orgId/road-safety/factors/:factorId/diagnoses",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const params = ListRoadSafetyDiagnosesParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const [factor] = await db
+      .select({ id: roadSafetyFactorsTable.id })
+      .from(roadSafetyFactorsTable)
+      .where(
+        and(
+          eq(roadSafetyFactorsTable.id, params.data.factorId),
+          eq(roadSafetyFactorsTable.organizationId, params.data.orgId),
+        ),
+      );
+    if (!factor) { res.status(404).json({ error: "Fator não encontrado" }); return; }
+
+    const rows = await db
+      .select({
+        diagnosis: roadSafetyFactorDiagnosesTable,
+        diagnosedByUserName: usersTable.name,
+      })
+      .from(roadSafetyFactorDiagnosesTable)
+      .leftJoin(
+        usersTable,
+        eq(usersTable.id, roadSafetyFactorDiagnosesTable.diagnosedByUserId),
+      )
+      .where(
+        and(
+          eq(roadSafetyFactorDiagnosesTable.factorId, params.data.factorId),
+          eq(roadSafetyFactorDiagnosesTable.organizationId, params.data.orgId),
+        ),
+      )
+      .orderBy(
+        desc(roadSafetyFactorDiagnosesTable.referenceDate),
+        desc(roadSafetyFactorDiagnosesTable.id),
+      );
+
+    res.json(
+      rows.map((r) => serializeDiagnosis(r.diagnosis, r.diagnosedByUserName ?? null)),
+    );
+  },
+);
+
+router.post(
+  "/organizations/:orgId/road-safety/factors/:factorId/diagnoses",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = CreateRoadSafetyDiagnosisParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const body = CreateRoadSafetyDiagnosisBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+    const content = body.data.content.trim();
+    if (!content) { res.status(400).json({ error: "O diagnóstico não pode ser vazio" }); return; }
+
+    const [factor] = await db
+      .select({ id: roadSafetyFactorsTable.id })
+      .from(roadSafetyFactorsTable)
+      .where(
+        and(
+          eq(roadSafetyFactorsTable.id, params.data.factorId),
+          eq(roadSafetyFactorsTable.organizationId, params.data.orgId),
+        ),
+      );
+    if (!factor) { res.status(404).json({ error: "Fator não encontrado" }); return; }
+
+    // O autor é sempre o usuário logado: nada que venha no corpo é considerado.
+    const [row] = await db
+      .insert(roadSafetyFactorDiagnosesTable)
+      .values({
+        organizationId: params.data.orgId,
+        factorId: params.data.factorId,
+        content,
+        referenceDate: body.data.referenceDate,
+        diagnosedByUserId: req.auth!.userId,
+      })
+      .returning();
+
+    const [u] = await db
+      .select({ name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.auth!.userId));
+
+    res.status(201).json(serializeDiagnosis(row, u?.name ?? null));
   },
 );
 
