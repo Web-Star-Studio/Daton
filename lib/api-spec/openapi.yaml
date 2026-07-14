@@ -18899,6 +18899,18 @@ components:
         - objectPath
         - uploadedAt
 
+    ActionPlanCoResponsible:
+      type: object
+      description: Co-responsável do plano — um dos "outros responsáveis", além do ponto focal.
+      properties:
+        userId:
+          type: integer
+        name:
+          type: string
+      required:
+        - userId
+        - name
+
     ActionPlan:
       type: object
       properties:
@@ -18953,6 +18965,11 @@ components:
           type: ["integer", "null"]
         responsibleUserName:
           type: ["string", "null"]
+        coResponsibles:
+          type: array
+          description: Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.
+          items:
+            $ref: "#/components/schemas/ActionPlanCoResponsible"
         dueDate:
           type: ["string", "null"]
           format: date-time
@@ -19028,6 +19045,7 @@ components:
         - title
         - status
         - priority
+        - coResponsibles
         - createdAt
         - updatedAt
 
@@ -19065,6 +19083,11 @@ components:
           type: ["integer", "null"]
         responsibleUserName:
           type: ["string", "null"]
+        coResponsibles:
+          type: array
+          description: Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.
+          items:
+            $ref: "#/components/schemas/ActionPlanCoResponsible"
         dueDate:
           type: ["string", "null"]
           format: date-time
@@ -19087,6 +19110,7 @@ components:
         - title
         - status
         - priority
+        - coResponsibles
         - evidencesCount
         - createdAt
         - updatedAt
@@ -19140,6 +19164,12 @@ components:
         responsibleUserId:
           type: integer
           nullable: true
+        coResponsibleUserIds:
+          type: array
+          nullable: true
+          description: Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal.
+          items:
+            type: integer
         dueDate:
           type: string
           format: date-time
@@ -19228,6 +19258,12 @@ components:
         responsibleUserId:
           type: integer
           nullable: true
+        coResponsibleUserIds:
+          type: array
+          nullable: true
+          description: Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal.
+          items:
+            type: integer
         dueDate:
           type: string
           format: date-time

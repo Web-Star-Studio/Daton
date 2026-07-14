@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ActionPlan5W2H } from "./actionPlan5W2H";
+import type { ActionPlanCoResponsible } from "./actionPlanCoResponsible";
 import type { ActionPlanEffectivenessMethod } from "./actionPlanEffectivenessMethod";
 import type { ActionPlanEffectivenessResult } from "./actionPlanEffectivenessResult";
 import type { ActionPlanEvidence } from "./actionPlanEvidence";
@@ -63,6 +64,8 @@ export interface ActionPlan {
   responsibleUserId?: number | null;
   /** @nullable */
   responsibleUserName?: string | null;
+  /** Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há. */
+  coResponsibles: ActionPlanCoResponsible[];
   /** @nullable */
   dueDate?: string | null;
   /** @nullable */

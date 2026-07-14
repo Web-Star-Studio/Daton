@@ -13,6 +13,7 @@ export * from "./actionPlanActivityLogEntry";
 export * from "./actionPlanActivityLogEntryAction";
 export * from "./actionPlanActivityLogEntryChanges";
 export * from "./actionPlanComment";
+export * from "./actionPlanCoResponsible";
 export * from "./actionPlanEffectivenessMethod";
 export * from "./actionPlanEffectivenessResult";
 export * from "./actionPlanEvidence";

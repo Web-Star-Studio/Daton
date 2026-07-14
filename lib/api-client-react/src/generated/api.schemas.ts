@@ -4652,6 +4652,14 @@ export interface ActionPlanEvidence {
   uploadedAt: string;
 }
 
+/**
+ * Co-responsável do plano — um dos "outros responsáveis", além do ponto focal.
+ */
+export interface ActionPlanCoResponsible {
+  userId: number;
+  name: string;
+}
+
 export interface ActionPlan {
   id: number;
   organizationId: number;
@@ -4698,6 +4706,8 @@ export interface ActionPlan {
   responsibleUserId?: number | null;
   /** @nullable */
   responsibleUserName?: string | null;
+  /** Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há. */
+  coResponsibles: ActionPlanCoResponsible[];
   /** @nullable */
   dueDate?: string | null;
   /** @nullable */
@@ -4761,6 +4771,8 @@ export interface ActionPlanListItem {
   responsibleUserId?: number | null;
   /** @nullable */
   responsibleUserName?: string | null;
+  /** Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há. */
+  coResponsibles: ActionPlanCoResponsible[];
   /** @nullable */
   dueDate?: string | null;
   /** @minimum 0 */
@@ -4797,6 +4809,8 @@ export interface CreateActionPlanBody {
   rootCause?: string | null;
   rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
+  /** Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal. */
+  coResponsibleUserIds?: number[] | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
   effectivenessMethod?: ActionPlanEffectivenessMethod | null;
@@ -4834,6 +4848,8 @@ export interface UpdateActionPlanBody {
   rootCause?: string | null;
   rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
+  /** Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal. */
+  coResponsibleUserIds?: number[] | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
   correctiveActionCompletedAt?: string | null;

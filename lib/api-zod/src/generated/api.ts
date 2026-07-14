@@ -18468,6 +18468,20 @@ export const ListActionPlansResponseItem = zod.object({
     .optional(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   evidencesCount: zod.number().min(listActionPlansResponseEvidencesCountMin),
   createdAt: zod.string().datetime({}),
@@ -18573,6 +18587,12 @@ export const CreateActionPlanBody = zod.object({
   rootCause: zod.string().nullish(),
   rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
+  coResponsibleUserIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe(
+      "Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   effectivenessMethod: zod
@@ -18731,6 +18751,20 @@ export const GetActionPlanResponse = zod.object({
   rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
@@ -18849,6 +18883,12 @@ export const UpdateActionPlanBody = zod.object({
   rootCause: zod.string().nullish(),
   rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
+  coResponsibleUserIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe(
+      "Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
@@ -19006,6 +19046,20 @@ export const UpdateActionPlanResponse = zod.object({
   rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
@@ -19411,6 +19465,20 @@ export const RestoreActionPlanPlanningResponse = zod.object({
   rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
