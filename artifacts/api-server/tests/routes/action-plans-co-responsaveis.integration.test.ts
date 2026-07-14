@@ -1,5 +1,4 @@
 import request from "supertest";
-import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { actionPlansTable, db } from "@workspace/db";
 import app from "../../src/app";
