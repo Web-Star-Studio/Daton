@@ -21,13 +21,19 @@ import {
   factorCurrentValue,
   factorGoalValue,
   factorMeasureUnit,
+  formatDateOnly,
   gutRelevance,
   isLinkedToIndicator,
   useLinkedIndicators,
   useRoadSafetyFactors,
 } from "@/lib/road-safety-client";
 import { formatKpiValue } from "@/lib/kpi-client";
-import { RelevanceBadge, StatusBadge, TypeBadge } from "./badges";
+import {
+  DiagnosisBadge,
+  RelevanceBadge,
+  StatusBadge,
+  TypeBadge,
+} from "./badges";
 
 type PainelScreenProps = {
   orgId: number;
@@ -195,6 +201,7 @@ export function PainelScreen({
                 <TableHead>Fator de Desempenho</TableHead>
                 <TableHead>Indicador atual</TableHead>
                 <TableHead>Meta</TableHead>
+                <TableHead>Diagnóstico</TableHead>
                 <TableHead>GUT</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
@@ -244,6 +251,26 @@ export function PainelScreen({
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
                       {fmt(factorGoalValue(f, info), unit)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5">
+                        <DiagnosisBadge
+                          status={f.diagnosisStatus}
+                          nextDate={f.nextDiagnosisDate ?? null}
+                        />
+                        {f.lastDiagnosis ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatDateOnly(f.lastDiagnosis.referenceDate)}
+                            {f.lastDiagnosis.diagnosedByUserName
+                              ? ` · ${f.lastDiagnosis.diagnosedByUserName}`
+                              : ""}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground">
+                            Sem diagnóstico
+                          </p>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <RelevanceBadge score={f.gutScore} />
