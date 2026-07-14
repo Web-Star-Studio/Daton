@@ -59,7 +59,9 @@ describe("parseAnalyses", () => {
               id: "n1",
               text: "Teste não conferido",
               gate: "OR",
-              children: [{ id: "n2", text: "Sem treinamento", gate: "OR", children: [] }],
+              children: [
+                { id: "n2", text: "Sem treinamento", gate: "OR", children: [] },
+              ],
             },
           ],
         },
@@ -96,10 +98,7 @@ describe("normalizeAnalyses", () => {
       {
         key: "fmea",
         data: {
-          rows: [
-            { id: "1", failureMode: "Falha real" },
-            { id: "2" },
-          ],
+          rows: [{ id: "1", failureMode: "Falha real" }, { id: "2" }],
         },
       },
     ]);
@@ -123,7 +122,9 @@ describe("normalizeAnalyses", () => {
         },
       },
     ]);
-    expect((a.data as { selectedCauseId?: string }).selectedCauseId).toBeUndefined();
+    expect(
+      (a.data as { selectedCauseId?: string }).selectedCauseId,
+    ).toBeUndefined();
   });
 
   it("descarta nó de árvore sem texto, junto da sua subárvore vazia", () => {
@@ -133,7 +134,11 @@ describe("normalizeAnalyses", () => {
         data: {
           nodes: [
             { id: "n1", text: "real", gate: "OR", children: [] },
-            { id: "n2", gate: "OR", children: [{ id: "n3", gate: "OR", children: [] }] },
+            {
+              id: "n2",
+              gate: "OR",
+              children: [{ id: "n3", gate: "OR", children: [] }],
+            },
           ],
         },
       },
@@ -147,7 +152,11 @@ describe("normalizeAnalyses", () => {
         key: "fault_tree",
         data: {
           nodes: [
-            { id: "n2", gate: "AND", children: [{ id: "n3", text: "real", gate: "OR", children: [] }] },
+            {
+              id: "n2",
+              gate: "AND",
+              children: [{ id: "n3", text: "real", gate: "OR", children: [] }],
+            },
           ],
         },
       },
@@ -158,7 +167,9 @@ describe("normalizeAnalyses", () => {
 
 describe("analysisHasContent", () => {
   it("tratativa recém-adicionada não tem conteúdo", () => {
-    expect(analysisHasContent({ key: "a3", data: emptyAnalysisData("a3") } as never)).toBe(false);
+    expect(
+      analysisHasContent({ key: "a3", data: emptyAnalysisData("a3") } as never),
+    ).toBe(false);
   });
 
   it("tratativa preenchida tem conteúdo", () => {

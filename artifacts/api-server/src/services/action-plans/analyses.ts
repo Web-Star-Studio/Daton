@@ -92,7 +92,10 @@ const kepnerTregoeData = z.object({
       (rows) =>
         rows.length === KT_DIMENSIONS.length &&
         rows.every((r, i) => r.dimension === KT_DIMENSIONS[i]),
-      { message: "Kepner-Tregoe exige exatamente as 4 dimensões, na ordem canônica" },
+      {
+        message:
+          "Kepner-Tregoe exige exatamente as 4 dimensões, na ordem canônica",
+      },
     ),
   possibleCauses: z.array(
     z.object({
@@ -144,19 +147,21 @@ export const analysisSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("barrier_analysis"), data: barrierAnalysisData }),
 ]);
 
-export const analysesSchema = z.array(analysisSchema).superRefine((list, ctx) => {
-  const seen = new Set<string>();
-  for (const item of list) {
-    if (seen.has(item.key)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `A tratativa "${item.key}" aparece mais de uma vez no plano`,
-      });
-      return;
+export const analysesSchema = z
+  .array(analysisSchema)
+  .superRefine((list, ctx) => {
+    const seen = new Set<string>();
+    for (const item of list) {
+      if (seen.has(item.key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `A tratativa "${item.key}" aparece mais de uma vez no plano`,
+        });
+        return;
+      }
+      seen.add(item.key);
     }
-    seen.add(item.key);
-  }
-});
+  });
 
 export type ParseResult =
   | { ok: true; value: ActionPlanAnalysis[] }
@@ -164,14 +169,20 @@ export type ParseResult =
 
 export function parseAnalyses(value: unknown): ParseResult {
   const r = analysesSchema.safeParse(value);
-  if (!r.success) return { ok: false, error: r.error.issues[0]?.message ?? "Tratativa inválida" };
+  if (!r.success)
+    return {
+      ok: false,
+      error: r.error.issues[0]?.message ?? "Tratativa inválida",
+    };
   return { ok: true, value: r.data as ActionPlanAnalysis[] };
 }
 
 // ─── `data` vazio de cada método ─────────────────────────────────────────────
 
 /** O estado inicial de uma tratativa recém-adicionada. Deve SEMPRE passar em `parseAnalyses`. */
-export function emptyAnalysisData(key: ActionPlanAnalysisMethodKey): ActionPlanAnalysis["data"] {
+export function emptyAnalysisData(
+  key: ActionPlanAnalysisMethodKey,
+): ActionPlanAnalysis["data"] {
   switch (key) {
     case "five_whys":
       return { whys: [] };
@@ -185,7 +196,10 @@ export function emptyAnalysisData(key: ActionPlanAnalysisMethodKey): ActionPlanA
       return { nodes: [] };
     case "kepner_tregoe":
       // As 4 linhas nascem com a tratativa: a matriz É / NÃO É não é editável em estrutura.
-      return { rows: KT_DIMENSIONS.map((dimension) => ({ dimension })), possibleCauses: [] };
+      return {
+        rows: KT_DIMENSIONS.map((dimension) => ({ dimension })),
+        possibleCauses: [],
+      };
     case "rca_apollo":
       return { causes: [] };
     case "barrier_analysis":
@@ -209,12 +223,17 @@ function compact<T extends object>(obj: T): T {
 }
 
 function normalizeWhys(list: string[]): string[] {
-  return list.map((w) => w.trim()).filter(Boolean).slice(0, MAX_WHYS);
+  return list
+    .map((w) => w.trim())
+    .filter(Boolean)
+    .slice(0, MAX_WHYS);
 }
 
 /** Um nó sobrevive se tem texto próprio OU se algum descendente tem — senão sumiria
  *  com filhos preenchidos junto. */
-function normalizeTree<T extends { text?: string; children: T[] }>(nodes: T[]): T[] {
+function normalizeTree<T extends { text?: string; children: T[] }>(
+  nodes: T[],
+): T[] {
   const out: T[] = [];
   for (const node of nodes) {
     const children = normalizeTree(node.children ?? []);
@@ -232,11 +251,16 @@ function normalizeTree<T extends { text?: string; children: T[] }>(nodes: T[]): 
  * pelo formulário viraria uma "versão" no histórico), mas PRESERVA a tratativa cujo
  * `data` ficou vazio: adicionar a tratativa foi uma decisão do usuário, não ruído.
  */
-export function normalizeAnalyses(list: ActionPlanAnalysis[]): ActionPlanAnalysis[] {
+export function normalizeAnalyses(
+  list: ActionPlanAnalysis[],
+): ActionPlanAnalysis[] {
   return list.map((analysis): ActionPlanAnalysis => {
     switch (analysis.key) {
       case "five_whys":
-        return { key: "five_whys", data: { whys: normalizeWhys(analysis.data.whys ?? []) } };
+        return {
+          key: "five_whys",
+          data: { whys: normalizeWhys(analysis.data.whys ?? []) },
+        };
 
       case "ishikawa": {
         const causes = (analysis.data.causes ?? [])
@@ -249,7 +273,10 @@ export function normalizeAnalyses(list: ActionPlanAnalysis[]): ActionPlanAnalysi
           data: compact({
             causes,
             // Órfão vira `undefined` em vez de erro: a causa selecionada pode ter sido apagada.
-            selectedCauseId: selectedCauseId && ids.has(selectedCauseId) ? selectedCauseId : undefined,
+            selectedCauseId:
+              selectedCauseId && ids.has(selectedCauseId)
+                ? selectedCauseId
+                : undefined,
             whys: normalizeWhys(analysis.data.whys ?? []),
           }),
         };
@@ -328,7 +355,9 @@ export function normalizeAnalyses(list: ActionPlanAnalysis[]): ActionPlanAnalysi
             rows,
             possibleCauses,
             mostProbableCauseId:
-              mostProbableCauseId && ids.has(mostProbableCauseId) ? mostProbableCauseId : undefined,
+              mostProbableCauseId && ids.has(mostProbableCauseId)
+                ? mostProbableCauseId
+                : undefined,
           }),
         };
       }
@@ -376,7 +405,9 @@ export function analysisHasContent(analysis: ActionPlanAnalysis): boolean {
       // O KT nasce com as 4 linhas vazias — um array de objetos só com `dimension` não é conteúdo.
       return v.some((item) =>
         typeof item === "object" && item !== null
-          ? Object.keys(item as object).some((k) => k !== "dimension" && k !== "id")
+          ? Object.keys(item as object).some(
+              (k) => k !== "dimension" && k !== "id",
+            )
           : Boolean(item),
       );
     }
