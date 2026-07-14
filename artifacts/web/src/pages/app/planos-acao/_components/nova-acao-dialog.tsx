@@ -24,6 +24,12 @@ import {
   type ActionPlanType,
 } from "@/lib/action-plans-client";
 import { GutInput } from "./gut-input";
+import {
+  DEFAULT_MANUAL_ORIGIN,
+  MANUAL_ORIGIN_OPTIONS,
+  actionTypeForManualOrigin,
+  type ManualOriginModule,
+} from "./manual-origin";
 
 const TYPE_OPTIONS: ActionPlanType[] = ["corrective", "preventive", "improvement"];
 const PRIORITY_OPTIONS: ActionPlanPriority[] = ["high", "medium", "low"];
@@ -41,6 +47,8 @@ export type ActionSource = {
 type FormState = {
   title: string;
   description: string;
+  /** Origem escolhida pelo usuário — só usada quando a ação nasce no módulo (sem `source`). */
+  manualOrigin: ManualOriginModule;
   actionType: ActionPlanType;
   priority: ActionPlanPriority;
   responsibleUserId: string;
@@ -52,7 +60,8 @@ function initialForm(source?: ActionSource): FormState {
   return {
     title: source?.defaultTitle ?? "",
     description: source?.defaultDescription ?? "",
-    actionType: "corrective",
+    manualOrigin: DEFAULT_MANUAL_ORIGIN,
+    actionType: source ? "corrective" : actionTypeForManualOrigin(DEFAULT_MANUAL_ORIGIN),
     priority: "medium",
     responsibleUserId: "",
     dueDate: "",
@@ -91,7 +100,7 @@ export function NovaAcaoDialog({
       toast({ title: "Informe o título da ação", variant: "destructive" });
       return;
     }
-    const sourceModule = source?.sourceModule ?? "manual";
+    const sourceModule = source?.sourceModule ?? form.manualOrigin;
     const sourceRef: ActionPlanSourceRef =
       source?.sourceRef ?? (form.description.trim() ? { manualContext: form.description.trim() } : {});
     try {
@@ -132,9 +141,26 @@ export function NovaAcaoDialog({
             <span className="truncate text-sm font-medium">{originName}</span>
           </div>
         )}
+        {!source && (
+          <div className="space-y-1.5">
+            <Label htmlFor="nova-acao-origem">Origem *</Label>
+            <Select
+              id="nova-acao-origem"
+              value={form.manualOrigin}
+              onChange={(e) => {
+                const manualOrigin = e.target.value as ManualOriginModule;
+                setForm((f) => ({ ...f, manualOrigin, actionType: actionTypeForManualOrigin(manualOrigin) }));
+              }}
+            >
+              {MANUAL_ORIGIN_OPTIONS.map((o) => (
+                <option key={o} value={o}>{SOURCE_MODULE_LABELS[o]}</option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="space-y-1.5">
-          <Label>Título *</Label>
-          <Input autoFocus value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ex.: Revisar EPIs na linha de produção" />
+          <Label htmlFor="nova-acao-titulo">Título *</Label>
+          <Input id="nova-acao-titulo" autoFocus value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ex.: Revisar EPIs na linha de produção" />
         </div>
         <div className="space-y-1.5">
           <Label>Descrição do problema</Label>
@@ -142,8 +168,8 @@ export function NovaAcaoDialog({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>Tipo</Label>
-            <Select value={form.actionType} onChange={(e) => setForm((f) => ({ ...f, actionType: e.target.value as ActionPlanType }))}>
+            <Label htmlFor="nova-acao-tipo">Tipo</Label>
+            <Select id="nova-acao-tipo" value={form.actionType} onChange={(e) => setForm((f) => ({ ...f, actionType: e.target.value as ActionPlanType }))}>
               {TYPE_OPTIONS.map((t) => <option key={t} value={t}>{ACTION_TYPE_LABELS[t]}</option>)}
             </Select>
           </div>
