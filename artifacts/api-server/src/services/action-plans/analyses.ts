@@ -63,6 +63,68 @@ const fmeaData = z.object({
   ),
 });
 
+/**
+ * Teto de profundidade das árvores de análise (Árvore de Falhas e RCA Apollo).
+ *
+ * Existe porque `parseAnalyses` é a guarda de escrita do servidor: sem teto, um payload
+ * forjado de poucos KB — uma cadeia de milhares de nós aninhados — estoura a pilha
+ * durante a recursão do Zod, e o `RangeError` ESCAPA do `safeParse`. A função deixaria
+ * de honrar o contrato `{ ok: false, error }` e viraria exceção não tratada na rota.
+ * Uma árvore de causa preenchida por gente de verdade tem uma dezena de níveis no
+ * máximo; 20 é folgado para o uso real e fecha o vetor.
+ */
+export const MAX_TREE_DEPTH = 20;
+
+/**
+ * A floresta passa do teto de profundidade?
+ *
+ * Medida em LARGURA, com uma fila explícita e sem recursão — uma checagem recursiva
+ * estouraria a pilha exatamente como o parse que este limite existe para proteger.
+ * Anda sobre dado ainda NÃO validado (`unknown`), então trata `children` ausente ou
+ * de tipo errado como "sem filhos" e deixa o schema recursivo reclamar da forma depois.
+ */
+function exceedsMaxDepth(nodes: unknown, limit: number): boolean {
+  let level: unknown[] = Array.isArray(nodes) ? nodes : [];
+  let depth = 0;
+  while (level.length > 0) {
+    depth += 1;
+    if (depth > limit) return true;
+    const next: unknown[] = [];
+    for (const node of level) {
+      const children = (node as { children?: unknown } | null)?.children;
+      // `push(...children)` estouraria a pilha num nível absurdamente LARGO —
+      // o mesmo bug, na outra dimensão.
+      if (Array.isArray(children))
+        for (const child of children) next.push(child);
+    }
+    level = next;
+  }
+  return false;
+}
+
+/**
+ * Envolve o schema recursivo de nó com a guarda de profundidade.
+ *
+ * O `.pipe()` é o ponto todo: o estágio 1 (array de `unknown` + checagem iterativa)
+ * roda ANTES do estágio 2 (a recursão do Zod) e, se a árvore for funda demais, aborta
+ * sem nunca entrar na recursão. Validar a profundidade DEPOIS do parse não adiantaria
+ * nada — o estouro acontece durante o parse.
+ */
+function boundedTree<T>(node: z.ZodType<T>) {
+  return z
+    .array(z.unknown())
+    .superRefine((nodes, ctx) => {
+      if (exceedsMaxDepth(nodes, MAX_TREE_DEPTH)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          fatal: true,
+          message: `A árvore excede a profundidade máxima de ${MAX_TREE_DEPTH} níveis`,
+        });
+      }
+    })
+    .pipe(z.array(node));
+}
+
 const faultTreeNode: z.ZodType<FaultTreeNode> = z.lazy(() =>
   z.object({
     id: trimmed,
@@ -73,7 +135,7 @@ const faultTreeNode: z.ZodType<FaultTreeNode> = z.lazy(() =>
 );
 const faultTreeData = z.object({
   topEvent: trimmed.optional(),
-  nodes: z.array(faultTreeNode),
+  nodes: boundedTree(faultTreeNode),
 });
 
 const kepnerTregoeData = z.object({
@@ -119,7 +181,7 @@ const rcaApolloNode: z.ZodType<RcaApolloNode> = z.lazy(() =>
 );
 const rcaApolloData = z.object({
   primaryEffect: trimmed.optional(),
-  causes: z.array(rcaApolloNode),
+  causes: boundedTree(rcaApolloNode),
 });
 
 const barrierAnalysisData = z.object({
@@ -136,7 +198,9 @@ const barrierAnalysisData = z.object({
   ),
 });
 
-export const analysisSchema = z.discriminatedUnion("key", [
+// Interno de propósito: só `analysesSchema` (plural, com a checagem de duplicata) é a
+// guarda de escrita. Exportar as duas convidaria a usar a errada — diferem numa letra.
+const analysisSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("five_whys"), data: fiveWhysData }),
   z.object({ key: z.literal("ishikawa"), data: ishikawaData }),
   z.object({ key: z.literal("a3"), data: a3Data }),

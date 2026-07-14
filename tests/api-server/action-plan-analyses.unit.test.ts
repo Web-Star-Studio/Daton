@@ -1,11 +1,39 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_TREE_DEPTH,
   analysisHasContent,
   emptyAnalysisData,
   normalizeAnalyses,
   parseAnalyses,
 } from "../../artifacts/api-server/src/services/action-plans/analyses";
-import { ACTION_PLAN_ANALYSIS_METHOD_KEYS } from "@workspace/db";
+import { ACTION_PLAN_ANALYSIS_METHOD_KEYS, KT_DIMENSIONS } from "@workspace/db";
+
+/** Uma cadeia de `depth` níveis: cada nó tem exatamente um filho. */
+function deepFaultTree(depth: number): unknown {
+  let node: Record<string, unknown> = {
+    id: `n${depth}`,
+    text: "folha",
+    gate: "OR",
+    children: [],
+  };
+  for (let i = depth - 1; i >= 1; i--) {
+    node = { id: `n${i}`, text: "no", gate: "OR", children: [node] };
+  }
+  return node;
+}
+
+function deepRcaApollo(depth: number): unknown {
+  let node: Record<string, unknown> = {
+    id: `n${depth}`,
+    text: "folha",
+    type: "condition",
+    children: [],
+  };
+  for (let i = depth - 1; i >= 1; i--) {
+    node = { id: `n${i}`, text: "no", type: "condition", children: [node] };
+  }
+  return node;
+}
 
 describe("parseAnalyses", () => {
   it("aceita uma tratativa válida", () => {
@@ -69,6 +97,63 @@ describe("parseAnalyses", () => {
     ]);
     expect(r.ok).toBe(true);
   });
+
+  it("rejeita Kepner-Tregoe com as 4 dimensões fora da ordem canônica", () => {
+    const r = parseAnalyses([
+      {
+        key: "kepner_tregoe",
+        data: {
+          rows: [
+            { dimension: "onde" },
+            { dimension: "o_que" },
+            { dimension: "quando" },
+            { dimension: "extensao" },
+          ],
+          possibleCauses: [],
+        },
+      },
+    ]);
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("limite de profundidade das árvores", () => {
+  it("aceita uma árvore dentro do limite", () => {
+    const r = parseAnalyses([
+      { key: "fault_tree", data: { nodes: [deepFaultTree(MAX_TREE_DEPTH)] } },
+    ]);
+    expect(r.ok).toBe(true);
+  });
+
+  it("rejeita uma árvore que excede o limite (em vez de estourar a pilha)", () => {
+    const r = parseAnalyses([
+      {
+        key: "fault_tree",
+        data: { nodes: [deepFaultTree(MAX_TREE_DEPTH + 1)] },
+      },
+    ]);
+    expect(r.ok).toBe(false);
+  });
+
+  it("payload absurdamente profundo devolve { ok: false } SEM lançar RangeError", () => {
+    // O parse é a guarda de escrita do servidor: um payload forjado de poucos KB
+    // não pode virar exceção não tratada (era um RangeError escapando do safeParse).
+    expect(() => {
+      const r = parseAnalyses([
+        { key: "fault_tree", data: { nodes: [deepFaultTree(10_000)] } },
+      ]);
+      expect(r.ok).toBe(false);
+    }).not.toThrow();
+  });
+
+  it("o mesmo vale para a árvore do RCA Apollo", () => {
+    expect(() => {
+      const r = parseAnalyses([
+        { key: "rca_apollo", data: { causes: [deepRcaApollo(10_000)] } },
+      ]);
+      expect(r.ok).toBe(false);
+    }).not.toThrow();
+  });
 });
 
 describe("emptyAnalysisData", () => {
@@ -124,6 +209,22 @@ describe("normalizeAnalyses", () => {
     ]);
     expect(
       (a.data as { selectedCauseId?: string }).selectedCauseId,
+    ).toBeUndefined();
+  });
+
+  it("zera mostProbableCauseId órfão do Kepner-Tregoe (caso simétrico do Ishikawa)", () => {
+    const [a] = normalizeAnalyses([
+      {
+        key: "kepner_tregoe",
+        data: {
+          rows: KT_DIMENSIONS.map((dimension) => ({ dimension })),
+          possibleCauses: [{ id: "c1", text: "Falta de conferência" }],
+          mostProbableCauseId: "c99",
+        },
+      },
+    ]);
+    expect(
+      (a.data as { mostProbableCauseId?: string }).mostProbableCauseId,
     ).toBeUndefined();
   });
 
