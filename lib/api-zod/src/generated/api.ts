@@ -20008,10 +20008,15 @@ export const CreateRoadSafetyDiagnosisParams = zod.object({
   factorId: zod.coerce.number(),
 });
 
+export const createRoadSafetyDiagnosisBodyReferenceDateRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}$",
+);
+
 export const CreateRoadSafetyDiagnosisBody = zod.object({
   content: zod.string().min(1),
   referenceDate: zod
     .string()
+    .regex(createRoadSafetyDiagnosisBodyReferenceDateRegExp)
     .describe("Date-only (YYYY-MM-DD). Defaults to today on the client."),
 });
 

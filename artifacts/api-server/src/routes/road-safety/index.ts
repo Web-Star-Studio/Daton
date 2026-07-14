@@ -163,9 +163,15 @@ function serializeMeasurement(r: MeasurementRow, createdByUserName: string | nul
 /**
  * Último diagnóstico de cada fator. Uma query só: ordena por (factor, data, id)
  * e fica com o primeiro de cada fator — sem N+1 na listagem do painel.
+ *
+ * `orgId` é redundante hoje (os `factorIds` sempre vêm de queries já
+ * escopadas por organização), mas é filtrado explicitamente para que o
+ * helper não vire um footgun caso algum dia seja reusado com ids não
+ * pré-validados.
  */
 async function lastDiagnosisByFactor(
   factorIds: number[],
+  orgId: number,
 ): Promise<Map<number, { row: DiagnosisRow; authorName: string | null }>> {
   const byFactor = new Map<number, { row: DiagnosisRow; authorName: string | null }>();
   if (factorIds.length === 0) return byFactor;
@@ -180,7 +186,12 @@ async function lastDiagnosisByFactor(
       usersTable,
       eq(usersTable.id, roadSafetyFactorDiagnosesTable.diagnosedByUserId),
     )
-    .where(inArray(roadSafetyFactorDiagnosesTable.factorId, factorIds))
+    .where(
+      and(
+        inArray(roadSafetyFactorDiagnosesTable.factorId, factorIds),
+        eq(roadSafetyFactorDiagnosesTable.organizationId, orgId),
+      ),
+    )
     .orderBy(
       asc(roadSafetyFactorDiagnosesTable.factorId),
       desc(roadSafetyFactorDiagnosesTable.referenceDate),
@@ -259,7 +270,7 @@ router.get(
       byFactor.set(m.factorId, list);
     }
 
-    const lastByFactor = await lastDiagnosisByFactor(factorIds);
+    const lastByFactor = await lastDiagnosisByFactor(factorIds, params.data.orgId);
 
     res.json(
       rows.map((r) =>
@@ -381,7 +392,7 @@ router.get(
       .from(roadSafetyFactorMeasurementsTable)
       .where(eq(roadSafetyFactorMeasurementsTable.factorId, params.data.factorId));
 
-    const lastByFactor = await lastDiagnosisByFactor([row.factor.id]);
+    const lastByFactor = await lastDiagnosisByFactor([row.factor.id], params.data.orgId);
 
     res.json(
       serializeFactor(
@@ -465,7 +476,7 @@ router.patch(
       .from(roadSafetyFactorMeasurementsTable)
       .where(eq(roadSafetyFactorMeasurementsTable.factorId, row.id));
 
-    const lastByFactor = await lastDiagnosisByFactor([row.id]);
+    const lastByFactor = await lastDiagnosisByFactor([row.id], params.data.orgId);
 
     res.json(
       serializeFactor(

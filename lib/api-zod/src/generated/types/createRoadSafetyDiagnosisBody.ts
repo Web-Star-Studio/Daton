@@ -9,6 +9,9 @@
 export interface CreateRoadSafetyDiagnosisBody {
   /** @minLength 1 */
   content: string;
-  /** Date-only (YYYY-MM-DD). Defaults to today on the client. */
+  /**
+   * Date-only (YYYY-MM-DD). Defaults to today on the client.
+   * @pattern ^\d{4}-\d{2}-\d{2}$
+   */
   referenceDate: string;
 }

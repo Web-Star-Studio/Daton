@@ -1,5 +1,11 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import {
+  db,
+  roadSafetyFactorDiagnosesTable,
+  roadSafetyFactorsTable,
+} from "@workspace/db";
 import app from "../../src/app";
 import {
   authHeader,
@@ -47,6 +53,21 @@ describe("Road safety: diagnóstico do fator", () => {
     expect(res.body.diagnosedByUserId).toBe(context.userId);
     expect(res.body.content).toBe("Frota com idade média de 6,2 anos.");
     expect(res.body.referenceDate).toBe("2026-07-14");
+  });
+
+  it("referenceDate em formato inválido devolve 400 (não 500)", async () => {
+    const context = await createTestContext({ seed: "rs-diag-bad-date" });
+    contexts.push(context);
+    const factorId = await createFactor(context);
+
+    const res = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/road-safety/factors/${factorId}/diagnoses`,
+      )
+      .set(authHeader(context))
+      .send({ content: "x", referenceDate: "banana" });
+
+    expect(res.status).toBe(400);
   });
 
   it("devolve o histórico do mais recente para o mais antigo, com o nome do autor", async () => {
@@ -138,26 +159,71 @@ describe("Road safety: diagnóstico do fator", () => {
     expect(res.body[0].diagnosedByUserId).toBe(context.userId);
   });
 
-  it("PATCH do fator não escreve mais no diagnóstico", async () => {
+  it("POST /factors e PATCH do fator não escrevem mais na coluna legada current_diagnosis", async () => {
     const context = await createTestContext({ seed: "rs-diag-readonly" });
     contexts.push(context);
-    const factorId = await createFactor(context, {
-      initialDiagnosis: "Original",
-    });
 
+    // POST /factors manda currentDiagnosis no corpo — a coluna deve continuar NULL.
+    const created = await request(app)
+      .post(`/api/organizations/${context.organizationId}/road-safety/factors`)
+      .set(authHeader(context))
+      .send({
+        type: "intermediate",
+        name: `Fator ${context.prefix}`,
+        currentDiagnosis: "Tentativa de escrita via POST",
+      });
+    expect(created.status).toBe(201);
+    const factorId = created.body.id as number;
+
+    const [afterPost] = await db
+      .select({ currentDiagnosis: roadSafetyFactorsTable.currentDiagnosis })
+      .from(roadSafetyFactorsTable)
+      .where(eq(roadSafetyFactorsTable.id, factorId));
+    expect(afterPost?.currentDiagnosis).toBeNull();
+
+    // PATCH /factors/:id manda currentDiagnosis no corpo — idem.
     const patch = await request(app)
       .patch(
         `/api/organizations/${context.organizationId}/road-safety/factors/${factorId}`,
       )
       .set(authHeader(context))
       .send({
-        currentDiagnosis: "Tentativa de sobrescrita",
+        currentDiagnosis: "Tentativa de sobrescrita via PATCH",
         analysis: "nova análise",
       });
-
     expect(patch.status).toBe(200);
-    expect(patch.body.currentDiagnosis).toBe("Original");
     expect(patch.body.analysis).toBe("nova análise");
+
+    const [afterPatch] = await db
+      .select({ currentDiagnosis: roadSafetyFactorsTable.currentDiagnosis })
+      .from(roadSafetyFactorsTable)
+      .where(eq(roadSafetyFactorsTable.id, factorId));
+    expect(afterPatch?.currentDiagnosis).toBeNull();
+  });
+
+  it("desempata mesma reference_date por id DESC — o último inserido é quem vale", async () => {
+    const context = await createTestContext({ seed: "rs-diag-tie" });
+    contexts.push(context);
+    const factorId = await createFactor(context);
+    const url = `/api/organizations/${context.organizationId}/road-safety/factors/${factorId}/diagnoses`;
+
+    for (const content of ["Primeiro na mesma data", "Segundo na mesma data"]) {
+      const created = await request(app)
+        .post(url)
+        .set(authHeader(context))
+        .send({ content, referenceDate: "2026-07-01" });
+      expect(created.status).toBe(201);
+    }
+
+    const res = await request(app)
+      .get(
+        `/api/organizations/${context.organizationId}/road-safety/factors/${factorId}`,
+      )
+      .set(authHeader(context));
+
+    expect(res.status).toBe(200);
+    expect(res.body.currentDiagnosis).toBe("Segundo na mesma data");
+    expect(res.body.lastDiagnosis.content).toBe("Segundo na mesma data");
   });
 
   it("fator de outra organização devolve 404", async () => {
@@ -173,5 +239,27 @@ describe("Road safety: diagnóstico do fator", () => {
       .set(authHeader(b));
 
     expect(res.status).toBe(404);
+  });
+
+  it("POST .../diagnoses em fator de outra organização devolve 404 e não insere nada", async () => {
+    const a = await createTestContext({ seed: "rs-diag-post-org-a" });
+    const b = await createTestContext({ seed: "rs-diag-post-org-b" });
+    contexts.push(a, b);
+    const factorId = await createFactor(a);
+
+    const res = await request(app)
+      .post(
+        `/api/organizations/${b.organizationId}/road-safety/factors/${factorId}/diagnoses`,
+      )
+      .set(authHeader(b))
+      .send({ content: "Não deveria entrar", referenceDate: "2026-07-14" });
+
+    expect(res.status).toBe(404);
+
+    const rows = await db
+      .select()
+      .from(roadSafetyFactorDiagnosesTable)
+      .where(eq(roadSafetyFactorDiagnosesTable.factorId, factorId));
+    expect(rows).toHaveLength(0);
   });
 });
