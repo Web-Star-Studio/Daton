@@ -18353,6 +18353,77 @@ export const UpdateNormResponse = zod
   );
 
 /**
+ * @summary List the organization's effectiveness verification method catalog
+ */
+export const ListEffectivenessMethodsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListEffectivenessMethodsResponseItem = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+export const ListEffectivenessMethodsResponse = zod.array(
+  ListEffectivenessMethodsResponseItem,
+);
+
+/**
+ * @summary Add a method to the organization's effectiveness verification method catalog
+ */
+export const CreateEffectivenessMethodParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateEffectivenessMethodBody = zod.object({
+  label: zod.string().min(1),
+});
+
+export const CreateEffectivenessMethodResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+
+/**
+ * @summary Update an effectiveness verification method (label, active flag or sort order)
+ */
+export const UpdateEffectivenessMethodParams = zod.object({
+  orgId: zod.coerce.number(),
+  methodId: zod.coerce.number(),
+});
+
+export const UpdateEffectivenessMethodBody = zod.object({
+  label: zod.string().min(1).optional(),
+  active: zod.boolean().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateEffectivenessMethodResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+
+/**
  * @summary List action plans in the organization with filters
  */
 export const ListActionPlansParams = zod.object({
@@ -18575,19 +18646,7 @@ export const CreateActionPlanBody = zod.object({
   responsibleUserId: zod.number().nullish(),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
-  effectivenessMethod: zod
-    .union([
-      zod.enum([
-        "indicator",
-        "internal_audit",
-        "field_inspection",
-        "training",
-        "sampling",
-        "risk_reduction",
-      ]),
-      zod.null(),
-    ])
-    .optional(),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   odsNumbers: zod.array(zod.number()).nullish(),
@@ -18746,7 +18805,11 @@ export const GetActionPlanResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -18852,19 +18915,7 @@ export const UpdateActionPlanBody = zod.object({
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
-  effectivenessMethod: zod
-    .union([
-      zod.enum([
-        "indicator",
-        "internal_audit",
-        "field_inspection",
-        "training",
-        "sampling",
-        "risk_reduction",
-      ]),
-      zod.null(),
-    ])
-    .optional(),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessResult: zod
@@ -19021,7 +19072,11 @@ export const UpdateActionPlanResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -19426,7 +19481,11 @@ export const RestoreActionPlanPlanningResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),

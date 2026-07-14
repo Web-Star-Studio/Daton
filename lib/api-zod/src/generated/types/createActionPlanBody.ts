@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ActionPlan5W2H } from "./actionPlan5W2H";
-import type { ActionPlanEffectivenessMethod } from "./actionPlanEffectivenessMethod";
 import type { ActionPlanNormRef } from "./actionPlanNormRef";
 import type { ActionPlanPriority } from "./actionPlanPriority";
 import type { ActionPlanSourceModule } from "./actionPlanSourceModule";
@@ -44,7 +43,7 @@ export interface CreateActionPlanBody {
   responsibleUserId?: number | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
-  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessMethodId?: number | null;
   effectivenessDueDate?: string | null;
   effectivenessEvaluatorUserId?: number | null;
   odsNumbers?: number[] | null;
