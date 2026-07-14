@@ -28,7 +28,6 @@ import {
   type ControlStatus,
   type FactorType,
   type Periodicity,
-  type WithCurrentDiagnosis,
 } from "@/lib/road-safety-client";
 import { RelevanceBadge } from "./badges";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
@@ -178,7 +177,7 @@ export function CadastroScreen({
       isAdditional: factor.isAdditional,
       name: factor.name,
       analysis: factor.analysis ?? "",
-      currentDiagnosis: (factor as WithCurrentDiagnosis).currentDiagnosis ?? "",
+      currentDiagnosis: factor.currentDiagnosis ?? "",
       monitoringForm: factor.monitoringForm ?? "",
       kpiIndicatorId:
         factor.kpiIndicatorId != null ? String(factor.kpiIndicatorId) : "",

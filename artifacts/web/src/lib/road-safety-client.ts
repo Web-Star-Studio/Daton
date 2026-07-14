@@ -1,36 +1,37 @@
 import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  getListRoadSafetyDiagnosesQueryKey,
   getListRoadSafetyFactorsQueryKey,
   getListRoadSafetyMeasurementsQueryKey,
+  useCreateRoadSafetyDiagnosis,
   useCreateRoadSafetyFactor,
   useCreateRoadSafetyMeasurement,
   useDeleteRoadSafetyFactor,
+  useListRoadSafetyDiagnoses,
   useListRoadSafetyFactors,
   useListRoadSafetyMeasurements,
   useUpdateRoadSafetyFactor,
+  type CreateRoadSafetyDiagnosisBody,
   type CreateRoadSafetyFactorBody,
   type CreateRoadSafetyMeasurementBody,
   type KpiYearRow,
   type RoadSafetyFactor,
+  type RoadSafetyFactorDiagnosis,
   type RoadSafetyMeasurement,
   type UpdateRoadSafetyFactorBody,
 } from "@workspace/api-client-react";
 import { useKpiYearData } from "@/lib/kpi-client";
 
 export type {
+  CreateRoadSafetyDiagnosisBody,
   CreateRoadSafetyFactorBody,
   CreateRoadSafetyMeasurementBody,
   RoadSafetyFactor,
+  RoadSafetyFactorDiagnosis,
   RoadSafetyMeasurement,
   UpdateRoadSafetyFactorBody,
 };
-
-/**
- * "Diagnóstico atual" (FPLAN 005 · §6.3) — campo já gravado/retornado pela API,
- * ainda fora do contrato gerado. Use até a próxima rodada de codegen.
- */
-export type WithCurrentDiagnosis = { currentDiagnosis?: string | null };
 
 // ─── Domain enums + labels (ISO 39001 · 6.3) ─────────────────────────────────
 
@@ -319,4 +320,96 @@ export function factorMeasureUnit(
 ): string | null {
   if (f.kpiIndicatorId != null && info) return info.measureUnit;
   return f.measureUnit ?? null;
+}
+
+// ─── Diagnóstico do fator ────────────────────────────────────────────────────
+
+export type DiagnosisPeriodicity = Periodicity;
+export const DIAGNOSIS_PERIODICITIES: DiagnosisPeriodicity[] = [
+  ...PERIODICITIES,
+];
+
+export const DIAGNOSIS_PERIODICITY_LABELS: Record<
+  DiagnosisPeriodicity,
+  string
+> = {
+  monthly: "Mensal",
+  quarterly: "Trimestral",
+  semiannual: "Semestral",
+  annual: "Anual",
+};
+
+export type DiagnosisStatus = "none" | "ok" | "due_soon" | "overdue";
+
+/** Hoje em "YYYY-MM-DD" local — padrão da data de referência no diálogo. */
+export function todayDateOnly(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function parseDateOnly(value: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+
+/** "31/01/2027" a partir de "2027-01-31". */
+export function formatDateOnly(value: string): string {
+  const d = parseDateOnly(value);
+  if (!d) return value;
+  return d.toLocaleDateString("pt-BR");
+}
+
+/** Texto do badge de vencimento do diagnóstico no painel e na ficha. */
+export function diagnosisBadgeLabel(
+  status: DiagnosisStatus,
+  nextDate: string | null,
+  now: Date = new Date(),
+): string {
+  if (status === "none" || !nextDate) return "—";
+  if (status === "overdue") return "Vencido";
+  if (status === "ok") return `Próximo em ${formatDateOnly(nextDate)}`;
+  const next = parseDateOnly(nextDate);
+  if (!next) return "A vencer";
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((next.getTime() - today.getTime()) / 86_400_000);
+  if (days <= 0) return "Vence hoje";
+  return days === 1 ? "Vence em 1 dia" : `Vence em ${days} dias`;
+}
+
+// ─── Hooks do diagnóstico ────────────────────────────────────────────────────
+
+export function useRoadSafetyDiagnoses(
+  orgId: number,
+  factorId: number,
+  enabled = true,
+) {
+  return useListRoadSafetyDiagnoses(orgId, factorId, {
+    query: {
+      queryKey: getListRoadSafetyDiagnosesQueryKey(orgId, factorId),
+      enabled: enabled && factorId > 0,
+    },
+  });
+}
+
+export function useCreateDiagnosisWithInvalidation(orgId: number) {
+  const queryClient = useQueryClient();
+  return useCreateRoadSafetyDiagnosis({
+    mutation: {
+      onSuccess: (_data, variables) => {
+        // O painel mostra status de vencimento derivado do histórico: os dois
+        // caches precisam cair juntos, senão o badge fica mentindo até o reload.
+        queryClient.invalidateQueries({
+          queryKey: getListRoadSafetyFactorsQueryKey(orgId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: getListRoadSafetyDiagnosesQueryKey(
+            orgId,
+            variables.factorId,
+          ),
+        });
+      },
+    },
+  });
 }
