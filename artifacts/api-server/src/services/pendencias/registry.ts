@@ -3,6 +3,7 @@ import { kpiPendenciaProvider } from "./providers/kpi";
 import { actionPlanPendenciaProvider } from "./providers/action-plans";
 import { nonconformityPendenciaProvider } from "./providers/nonconformities";
 import { regulatoryDocumentPendenciaProvider } from "./providers/regulatory-documents";
+import { roadSafetyDiagnosisPendenciaProvider } from "./providers/road-safety-diagnosis";
 
 /**
  * Ponto único de extensão: um módulo novo com "responsável + prazo" entra aqui
@@ -13,4 +14,5 @@ export const pendenciaProviders: PendenciaProvider[] = [
   actionPlanPendenciaProvider,
   nonconformityPendenciaProvider,
   regulatoryDocumentPendenciaProvider,
+  roadSafetyDiagnosisPendenciaProvider,
 ];
