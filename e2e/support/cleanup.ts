@@ -88,6 +88,7 @@ import {
   actionPlansTable,
   regulatoryDocumentsTable,
   roadSafetyFactorsTable,
+  roadSafetyFactorDiagnosesTable,
   roadSafetyFactorMeasurementsTable,
 } from "@workspace/db";
 
@@ -788,8 +789,11 @@ export async function cleanupTestData(prefix: string) {
         .delete(kpiIndicatorsTable)
         .where(inArray(kpiIndicatorsTable.organizationId, orgIds));
 
-      // Road safety: measurements cascade from factors, but both reference orgs
-      // (no cascade on the org FK), so delete them before organizations.
+      // Road safety: diagnoses and measurements cascade from factors, but all
+      // reference orgs (no cascade on the org FK), so delete them before organizations.
+      await tx
+        .delete(roadSafetyFactorDiagnosesTable)
+        .where(inArray(roadSafetyFactorDiagnosesTable.organizationId, orgIds));
       await tx
         .delete(roadSafetyFactorMeasurementsTable)
         .where(inArray(roadSafetyFactorMeasurementsTable.organizationId, orgIds));
