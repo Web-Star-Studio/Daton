@@ -4918,11 +4918,19 @@ import {
   type AnalysisMethodKey,
 } from "./types";
 
-type Adaptador<D> = {
-  Component: (props: { data: D; onChange: (next: D) => void; readOnly?: boolean }) => JSX.Element;
-  dataVazio: () => D;
+/** O `data` que corresponde a uma chave — extraído da própria união discriminada, para que
+ *  chave e forma não possam divergir. */
+export type DataFor<K extends AnalysisMethodKey> = Extract<ActionPlanAnalysis, { key: K }>["data"];
+
+type Adaptador<K extends AnalysisMethodKey> = {
+  Component: (props: {
+    data: DataFor<K>;
+    onChange: (next: DataFor<K>) => void;
+    readOnly?: boolean;
+  }) => JSX.Element;
+  dataVazio: () => DataFor<K>;
   /** Uma linha para o card colapsado e para o diff de versões. */
-  resumo: (data: D) => string;
+  resumo: (data: DataFor<K>) => string;
 };
 
 function contar(n: number, singular: string, plural: string): string {
@@ -4933,7 +4941,7 @@ function contar(n: number, singular: string, plural: string): string {
  * A ponte entre a `key` (que o plano guarda) e o editor. Adicionar um método novo é
  * escrever um adaptador e registrá-lo aqui — nenhuma tela precisa saber que ele existe.
  */
-export const ANALYSIS_REGISTRY: { [K in AnalysisMethodKey]: Adaptador<never> } = {
+export const ANALYSIS_REGISTRY: { [K in AnalysisMethodKey]: Adaptador<K> } = {
   five_whys: {
     Component: CincoPorques,
     dataVazio: () => ({ whys: [] }),
@@ -5028,15 +5036,22 @@ export const ANALYSIS_REGISTRY: { [K in AnalysisMethodKey]: Adaptador<never> } =
       return falhas ? `${base} · ${falhas} falhou(ram)` : base;
     },
   },
-} as never;
+};
 
-export function emptyAnalysisData(key: AnalysisMethodKey): AnalysisData {
+/** Correlaciona o retorno com a chave recebida — `emptyAnalysisData("fmea")` devolve
+ *  `FmeaData`, não a união larga dos 8. É o que faz o `switch` de quem consome ser
+ *  verificado pelo compilador. */
+export function emptyAnalysisData<K extends AnalysisMethodKey>(key: K): DataFor<K> {
   return ANALYSIS_REGISTRY[key].dataVazio();
 }
 
 /** Texto do card colapsado. "Não preenchida" quando o usuário só adicionou a tratativa. */
 export function resumoAnalise(analysis: ActionPlanAnalysis): string {
-  const texto = ANALYSIS_REGISTRY[analysis.key].resumo(analysis.data as never);
+  // O único cast do módulo, e ele é inevitável: o TS não estreita `registry[k].resumo` e
+  // `analysis.data` para a MESMA chave num acesso dinâmico. Isolado aqui — em nenhum
+  // adaptador, que continuam integralmente tipados.
+  const adaptador = ANALYSIS_REGISTRY[analysis.key] as Adaptador<typeof analysis.key>;
+  const texto = adaptador.resumo(analysis.data as DataFor<typeof analysis.key>);
   return texto || "Não preenchida";
 }
 ```
@@ -5295,10 +5310,13 @@ export function Tratativas({
 
             {aberta && (
               <div className="border-t px-3 py-3">
+                {/* Despacho dinâmico: o TS não consegue estreitar `Component` e `analysis.data`
+                    para a MESMA chave num acesso indexado. O cast fica confinado a estas duas
+                    linhas — os 8 adaptadores seguem integralmente tipados. */}
                 <Component
-                  data={analysis.data as never}
+                  data={analysis.data as DataFor<typeof analysis.key>}
                   readOnly={readOnly}
-                  onChange={(data: never) =>
+                  onChange={(data) =>
                     onChange(
                       analyses.map((a) =>
                         a.key === analysis.key ? ({ key: a.key, data } as ActionPlanAnalysis) : a,
