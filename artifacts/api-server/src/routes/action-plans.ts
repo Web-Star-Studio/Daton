@@ -111,6 +111,9 @@ const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
   road_safety: "roadSafety",
   incident: "roadSafety",
   manual: "actionPlans",
+  improvement: "actionPlans",
+  corrective: "actionPlans",
+  norm_requirement: "actionPlans",
 };
 
 /**

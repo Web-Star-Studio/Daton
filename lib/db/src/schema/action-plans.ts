@@ -7,15 +7,24 @@ import { usersTable } from "./users";
 export type ActionPlanStatus = "open" | "in_progress" | "completed" | "cancelled";
 export type ActionPlanPriority = "low" | "medium" | "high";
 /**
- * Origin that spawned the action. `manual` = created directly in the action
- * module (no upstream entity). The action module is the unified treatment hub,
- * so origins span every SGI source. The enum is append-only — adding values is
- * a safe `push`.
+ * Origin that spawned the action. The action module is the unified treatment
+ * hub, so origins span every SGI source. Origins created inside the module
+ * itself (no upstream entity) are the ones the user picks in the "Origem"
+ * listbox: `improvement`, `corrective`, `norm_requirement`. `manual` is the
+ * legacy value they replaced — still readable, never written by new actions.
+ * The enum is append-only — adding values is a safe `push`.
+ *
+ * Careful: `improvement` and `corrective` also exist in `actionPlanTypeEnum`
+ * (the "Tipo" field). Different columns, different TS types — the origin only
+ * *suggests* the type in the dialog.
  */
 export type ActionPlanSourceModule =
   | "kpi"
   | "swot"
   | "manual"
+  | "improvement"
+  | "corrective"
+  | "norm_requirement"
   | "nonconformity"
   | "audit_finding"
   | "risk"
@@ -122,6 +131,9 @@ export const actionPlanSourceModuleEnum = pgEnum("action_plan_source_module", [
   "kpi",
   "swot",
   "manual",
+  "improvement",
+  "corrective",
+  "norm_requirement",
   "nonconformity",
   "audit_finding",
   "risk",

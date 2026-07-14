@@ -18752,7 +18752,7 @@ components:
 
     ActionPlanSourceModule:
       type: string
-      enum: [kpi, swot, manual, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
+      enum: [kpi, swot, manual, improvement, corrective, norm_requirement, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
 
     ActionPlanType:
       type: string
