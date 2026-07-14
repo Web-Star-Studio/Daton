@@ -18,6 +18,12 @@
   arquivos que a própria task anuncia, e a Task 8 fecha o servidor / a Task 15 fecha o front.
   Fora dessas, typecheck quebrado = task não terminada. **Nunca** "consertar" um erro que a
   task diz explicitamente que é esperado — isso desfaria a migração.
+- **Convenção de teste (o `CLAUDE.md` está DESATUALIZADO neste ponto — vale o `vitest.config.ts`):**
+  um arquivo `*.test.ts` "puro" **não é descoberto por nenhum projeto do Vitest**. Os globs reais são:
+  - `web-unit` (jsdom): **`artifacts/web/tests/**/*.unit.test.{ts,tsx}`** — teste de componente/hook mora aqui, **não** em `tests/web/`. Importe o código sob teste pelo alias `@/` (→ `artifacts/web/src`).
+  - `node-unit`: `tests/**/*.unit.test.ts` (+ `artifacts/**/tests/`, `lib/**/tests/`; exclui `artifacts/web/tests/`).
+  - `integration`: `tests/**/*.integration.test.ts`.
+- **`zod` importa-se como `zod/v4`** em `lib/db/src/schema/*` — é a convenção de todos os schemas existentes.
 - **Nunca editar arquivos gerados** (`lib/api-zod/src/generated/`, `lib/api-client-react/src/generated/`). Mudou o contrato → editar `lib/api-spec/openapi.yaml` e rodar `pnpm --filter @workspace/api-spec codegen` (precisa de `python3` no PATH).
 - **Testes de integração SEMPRE com `TEST_ENV=integration`.** Sem isso o Vitest carrega o `.env` e bate no **Neon de produção**. Subir o banco de teste com `pnpm test:integration:up` e aplicar schema com `pnpm test:integration:db:push` — **nunca** `pnpm --filter @workspace/db push` (aponta para produção).
 - **Nunca subir servidor de dev** sem pedido explícito. A porta 3001 é o backend de dev do usuário e aponta para o **Neon de produção**.
@@ -82,14 +88,14 @@
 **Files:**
 - Create: `lib/db/src/schema/action-plan-analysis-methods.ts`
 - Modify: `lib/db/src/schema/index.ts`
-- Test: `tests/db/analysis-method-keys.test.ts`
+- Test: `tests/db/analysis-method-keys.unit.test.ts`
 
 **Interfaces:**
 - Produces: `ACTION_PLAN_ANALYSIS_METHOD_KEYS`, `ActionPlanAnalysisMethodKey`, `actionPlanAnalysisMethodKeyEnum`, `actionPlanAnalysisMethodsTable`, `ActionPlanAnalysisMethod`, `ISHIKAWA_CATEGORIES`, `KT_DIMENSIONS`, `BARRIER_TYPES`, `BARRIER_STATUSES`, `FiveWhysData`, `IshikawaData`, `A3Data`, `FmeaData`, `FaultTreeData`, `FaultTreeNode`, `KepnerTregoeData`, `RcaApolloData`, `RcaApolloNode`, `BarrierAnalysisData`, `ActionPlanAnalysis`
 
 - [ ] **Step 1: Escrever o teste que falha**
 
-`tests/db/analysis-method-keys.test.ts`:
+`tests/db/analysis-method-keys.unit.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -139,7 +145,7 @@ describe("vocabulários fechados das tratativas", () => {
 
 - [ ] **Step 2: Rodar o teste e ver falhar**
 
-Run: `pnpm exec vitest run tests/db/analysis-method-keys.test.ts --project node-unit`
+Run: `pnpm exec vitest run tests/db/analysis-method-keys.unit.test.ts --project node-unit`
 Expected: FAIL — `ACTION_PLAN_ANALYSIS_METHOD_KEYS` não é exportado por `@workspace/db`.
 
 - [ ] **Step 3: Criar o schema**
@@ -379,7 +385,7 @@ export * from "./action-plan-analysis-methods";
 
 - [ ] **Step 5: Rodar o teste e ver passar**
 
-Run: `pnpm exec vitest run tests/db/analysis-method-keys.test.ts --project node-unit`
+Run: `pnpm exec vitest run tests/db/analysis-method-keys.unit.test.ts --project node-unit`
 Expected: PASS (4 testes)
 
 Run: `pnpm typecheck`
@@ -388,7 +394,7 @@ Expected: sem erros.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lib/db/src/schema/action-plan-analysis-methods.ts lib/db/src/schema/index.ts tests/db/analysis-method-keys.test.ts
+git add lib/db/src/schema/action-plan-analysis-methods.ts lib/db/src/schema/index.ts tests/db/analysis-method-keys.unit.test.ts
 git commit -m "feat(db): catálogo de tratativas e tipos das 8 análises de causa"
 ```
 
@@ -398,7 +404,7 @@ git commit -m "feat(db): catálogo de tratativas e tipos das 8 análises de caus
 
 **Files:**
 - Modify: `lib/db/src/schema/action-plans.ts`
-- Test: `tests/db/action-plan-actions-schema.test.ts`
+- Test: `tests/db/action-plan-actions-schema.unit.test.ts`
 
 **Interfaces:**
 - Consumes: `ActionPlanAnalysis` (Task 1)
@@ -406,7 +412,7 @@ git commit -m "feat(db): catálogo de tratativas e tipos das 8 análises de caus
 
 - [ ] **Step 1: Escrever o teste que falha**
 
-`tests/db/action-plan-actions-schema.test.ts`:
+`tests/db/action-plan-actions-schema.unit.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -450,7 +456,7 @@ describe("schema das ações do plano", () => {
 
 - [ ] **Step 2: Rodar o teste e ver falhar**
 
-Run: `pnpm exec vitest run tests/db/action-plan-actions-schema.test.ts --project node-unit`
+Run: `pnpm exec vitest run tests/db/action-plan-actions-schema.unit.test.ts --project node-unit`
 Expected: FAIL — `actionPlanActionsTable` não é exportado.
 
 - [ ] **Step 3: Adicionar a coluna `analyses` ao plano**
@@ -590,7 +596,7 @@ export function isActionPlanActionOverdue(
 
 - [ ] **Step 6: Rodar o teste e ver passar**
 
-Run: `pnpm exec vitest run tests/db/action-plan-actions-schema.test.ts --project node-unit`
+Run: `pnpm exec vitest run tests/db/action-plan-actions-schema.unit.test.ts --project node-unit`
 Expected: PASS (3 testes)
 
 Run: `pnpm typecheck`
@@ -599,7 +605,7 @@ Expected: sem erros.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add lib/db/src/schema/action-plans.ts tests/db/action-plan-actions-schema.test.ts
+git add lib/db/src/schema/action-plans.ts tests/db/action-plan-actions-schema.unit.test.ts
 git commit -m "feat(db): coluna analyses no plano e tabela action_plan_actions"
 ```
 
@@ -609,7 +615,7 @@ git commit -m "feat(db): coluna analyses no plano e tabela action_plan_actions"
 
 **Files:**
 - Create: `artifacts/api-server/src/services/action-plans/analyses.ts`
-- Test: `tests/api-server/action-plan-analyses.test.ts`
+- Test: `tests/api-server/action-plan-analyses.unit.test.ts`
 
 **Interfaces:**
 - Consumes: tipos da Task 1
@@ -617,7 +623,7 @@ git commit -m "feat(db): coluna analyses no plano e tabela action_plan_actions"
 
 - [ ] **Step 1: Escrever os testes que falham**
 
-`tests/api-server/action-plan-analyses.test.ts`:
+`tests/api-server/action-plan-analyses.unit.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -793,7 +799,7 @@ describe("analysisHasContent", () => {
 
 - [ ] **Step 2: Rodar e ver falhar**
 
-Run: `pnpm exec vitest run tests/api-server/action-plan-analyses.test.ts --project node-unit`
+Run: `pnpm exec vitest run tests/api-server/action-plan-analyses.unit.test.ts --project node-unit`
 Expected: FAIL — o módulo `analyses` não existe.
 
 - [ ] **Step 3: Implementar `analyses.ts`**
@@ -1190,7 +1196,7 @@ export function analysisHasContent(analysis: ActionPlanAnalysis): boolean {
 
 - [ ] **Step 4: Rodar e ver passar**
 
-Run: `pnpm exec vitest run tests/api-server/action-plan-analyses.test.ts --project node-unit`
+Run: `pnpm exec vitest run tests/api-server/action-plan-analyses.unit.test.ts --project node-unit`
 Expected: PASS (todos os describes)
 
 Run: `pnpm typecheck`
@@ -1198,7 +1204,7 @@ Run: `pnpm typecheck`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add artifacts/api-server/src/services/action-plans/analyses.ts tests/api-server/action-plan-analyses.test.ts
+git add artifacts/api-server/src/services/action-plans/analyses.ts tests/api-server/action-plan-analyses.unit.test.ts
 git commit -m "feat(api): validação e normalização das tratativas do plano de ação"
 ```
 
@@ -1208,7 +1214,7 @@ git commit -m "feat(api): validação e normalização das tratativas do plano d
 
 **Files:**
 - Modify: `artifacts/api-server/src/services/action-plans/planning.ts`
-- Test: `tests/api-server/action-plan-planning.test.ts` (já existe — estender; se não existir, criar)
+- Test: `tests/api-server/action-plan-planning.unit.test.ts` (já existe — estender; se não existir, criar)
 
 **Interfaces:**
 - Consumes: `normalizeAnalyses` (Task 3)
@@ -1216,7 +1222,7 @@ git commit -m "feat(api): validação e normalização das tratativas do plano d
 
 - [ ] **Step 1: Escrever os testes que falham**
 
-Acrescentar a `tests/api-server/action-plan-planning.test.ts` (criando o arquivo com estes imports se ele não existir):
+Acrescentar a `tests/api-server/action-plan-planning.unit.test.ts` (criando o arquivo com estes imports se ele não existir):
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1279,7 +1285,7 @@ describe("PlanningBlock com tratativas", () => {
 
 - [ ] **Step 2: Rodar e ver falhar**
 
-Run: `pnpm exec vitest run tests/api-server/action-plan-planning.test.ts --project node-unit`
+Run: `pnpm exec vitest run tests/api-server/action-plan-planning.unit.test.ts --project node-unit`
 Expected: FAIL — `normalizePlanning` ainda devolve `plan5w2h`/`rootCauseWhys`.
 
 - [ ] **Step 3: Reescrever `planning.ts`**
@@ -1357,7 +1363,7 @@ export function planningChanged(
 
 - [ ] **Step 4: Rodar e ver passar**
 
-Run: `pnpm exec vitest run tests/api-server/action-plan-planning.test.ts --project node-unit`
+Run: `pnpm exec vitest run tests/api-server/action-plan-planning.unit.test.ts --project node-unit`
 Expected: PASS
 
 `pnpm typecheck` vai **quebrar** em `routes/action-plans.ts` (ainda passa `plan5w2h`/`rootCauseWhys` ao bloco). Isso é esperado e será resolvido na Task 8 — não tente consertar aqui.
@@ -1365,7 +1371,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add artifacts/api-server/src/services/action-plans/planning.ts tests/api-server/action-plan-planning.test.ts
+git add artifacts/api-server/src/services/action-plans/planning.ts tests/api-server/action-plan-planning.unit.test.ts
 git commit -m "feat(api): bloco de planejamento versiona tratativas (não mais 5W2H)"
 ```
 
@@ -3326,7 +3332,7 @@ git commit -m "feat(api): ações do plano viram pendência própria do seu resp
 - Create: `.../primitivos/editor-arvore.tsx`
 - Create: `.../primitivos/secoes-texto.tsx`
 - Create: `.../primitivos/tree-ops.ts`
-- Test: `tests/web/analises-primitivos.test.tsx`
+- Test: `artifacts/web/tests/analises-primitivos.unit.test.tsx`
 
 **Interfaces:**
 - Produces: os tipos (espelho do OpenAPI), `newId()`, e os 5 primitivos. `tree-ops.ts` produz `indentNode`, `outdentNode`, `removeNode`, `updateNode`, `addSibling`.
@@ -3335,7 +3341,7 @@ git commit -m "feat(api): ações do plano viram pendência própria do seu resp
 
 - [ ] **Step 1: Escrever os testes que falham**
 
-`tests/web/analises-primitivos.test.tsx`:
+`artifacts/web/tests/analises-primitivos.unit.test.tsx`:
 
 ```tsx
 import { describe, expect, it } from "vitest";
@@ -3345,7 +3351,7 @@ import {
   outdentNode,
   removeNode,
   updateNode,
-} from "../../artifacts/web/src/pages/app/planos-acao/_components/analises/primitivos/tree-ops";
+} from "@/pages/app/planos-acao/_components/analises/primitivos/tree-ops";
 
 type N = { id: string; text?: string; children: N[] };
 const tree = (): N[] => [
@@ -3395,7 +3401,7 @@ describe("tree-ops", () => {
 
 - [ ] **Step 2: Rodar e ver falhar**
 
-Run: `pnpm exec vitest run tests/web/analises-primitivos.test.tsx --project web-unit`
+Run: `pnpm exec vitest run artifacts/web/tests/analises-primitivos.unit.test.tsx --project web-unit`
 Expected: FAIL — `tree-ops` não existe.
 
 - [ ] **Step 3: `types.ts`**
@@ -3688,7 +3694,7 @@ export function outdentNode<T extends AnyNode>(nodes: T[], id: string): T[] {
 
 - [ ] **Step 5: Rodar os testes de árvore e ver passar**
 
-Run: `pnpm exec vitest run tests/web/analises-primitivos.test.tsx --project web-unit`
+Run: `pnpm exec vitest run artifacts/web/tests/analises-primitivos.unit.test.tsx --project web-unit`
 Expected: PASS (7 testes)
 
 - [ ] **Step 6: Escrever os 5 primitivos**
@@ -4136,10 +4142,10 @@ export function EditorArvore<T extends BaseNode>({
 - [ ] **Step 7: Typecheck e commit**
 
 Run: `pnpm typecheck` (erros remanescentes só nos arquivos que ainda usam 5W2H)
-Run: `pnpm exec vitest run tests/web/analises-primitivos.test.tsx --project web-unit` → PASS
+Run: `pnpm exec vitest run artifacts/web/tests/analises-primitivos.unit.test.tsx --project web-unit` → PASS
 
 ```bash
-git add artifacts/web/src/pages/app/planos-acao/_components/analises tests/web/analises-primitivos.test.tsx
+git add artifacts/web/src/pages/app/planos-acao/_components/analises artifacts/web/tests/analises-primitivos.unit.test.tsx
 git commit -m "feat(web): tipos e primitivos de UI das tratativas (cadeia, grupos, tabela, árvore, seções)"
 ```
 
@@ -4150,7 +4156,7 @@ git commit -m "feat(web): tipos e primitivos de UI das tratativas (cadeia, grupo
 **Files:**
 - Create: `.../analises/metodos/{cinco-porques,ishikawa,a3,fmea,arvore-falhas,kepner-tregoe,rca-apollo,barreiras}.tsx`
 - Create: `.../analises/registry.tsx`
-- Test: `tests/web/analises-registry.test.tsx`
+- Test: `artifacts/web/tests/analises-registry.unit.test.tsx`
 
 **Interfaces:**
 - Consumes: primitivos e tipos (Task 11)
@@ -4160,7 +4166,7 @@ Todo adaptador tem a mesma assinatura: `{ data, onChange, readOnly }`.
 
 - [ ] **Step 1: Escrever os testes que falham**
 
-`tests/web/analises-registry.test.tsx`:
+`artifacts/web/tests/analises-registry.unit.test.tsx`:
 
 ```tsx
 import { describe, expect, it } from "vitest";
@@ -4169,8 +4175,8 @@ import {
   ANALYSIS_REGISTRY,
   emptyAnalysisData,
   resumoAnalise,
-} from "../../artifacts/web/src/pages/app/planos-acao/_components/analises/registry";
-import { ANALYSIS_METHOD_KEYS, fmeaRpn } from "../../artifacts/web/src/pages/app/planos-acao/_components/analises/types";
+} from "@/pages/app/planos-acao/_components/analises/registry";
+import { ANALYSIS_METHOD_KEYS, fmeaRpn } from "@/pages/app/planos-acao/_components/analises/types";
 
 describe("registry das tratativas", () => {
   it("cobre as 8 chaves", () => {
@@ -4231,7 +4237,7 @@ describe("FMEA", () => {
 
 - [ ] **Step 2: Rodar e ver falhar**
 
-Run: `pnpm exec vitest run tests/web/analises-registry.test.tsx --project web-unit`
+Run: `pnpm exec vitest run artifacts/web/tests/analises-registry.unit.test.tsx --project web-unit`
 Expected: FAIL — registry inexistente.
 
 - [ ] **Step 3: `metodos/cinco-porques.tsx`**
@@ -5014,7 +5020,7 @@ export function resumoAnalise(analysis: ActionPlanAnalysis): string {
 
 - [ ] **Step 12: Rodar e ver passar**
 
-Run: `pnpm exec vitest run tests/web/analises-registry.test.tsx --project web-unit`
+Run: `pnpm exec vitest run artifacts/web/tests/analises-registry.unit.test.tsx --project web-unit`
 Expected: PASS
 
 Run: `pnpm typecheck`
@@ -5022,7 +5028,7 @@ Run: `pnpm typecheck`
 - [ ] **Step 13: Commit**
 
 ```bash
-git add artifacts/web/src/pages/app/planos-acao/_components/analises tests/web/analises-registry.test.tsx
+git add artifacts/web/src/pages/app/planos-acao/_components/analises artifacts/web/tests/analises-registry.unit.test.tsx
 git commit -m "feat(web): editores estruturados das 8 tratativas + registry"
 ```
 
@@ -5032,18 +5038,18 @@ git commit -m "feat(web): editores estruturados das 8 tratativas + registry"
 
 **Files:**
 - Modify: `artifacts/web/src/lib/action-plans-client.ts`
-- Test: `tests/web/action-plan-stage.test.ts`
+- Test: `artifacts/web/tests/action-plan-stage.unit.test.ts`
 
 **Interfaces:**
 - Produces: `useAllAnalysisMethods(orgId)`, `useActiveAnalysisMethods(orgId)`, `buildAnalysisMethodLabelMap(methods)`, `useActionPlanActions(orgId, planId)`, `useCreateActionPlanActionWithInvalidation(orgId, planId)`, `useUpdateActionPlanActionWithInvalidation(orgId, planId)`, `useDeleteActionPlanActionWithInvalidation(orgId, planId)`, `ACTION_STATUS_LABELS`
 
 - [ ] **Step 1: Teste do estágio**
 
-`tests/web/action-plan-stage.test.ts`:
+`artifacts/web/tests/action-plan-stage.unit.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { actionPlanStageLevel } from "../../artifacts/web/src/lib/action-plans-client";
+import { actionPlanStageLevel } from "@/lib/action-plans-client";
 
 const base = { rootCause: null, analyses: null, actionsTotal: 0, actionsDone: 0, status: "open" } as never;
 
@@ -5073,7 +5079,7 @@ describe("estágio na timeline", () => {
 
 - [ ] **Step 2: Rodar e ver falhar**
 
-Run: `pnpm exec vitest run tests/web/action-plan-stage.test.ts --project web-unit`
+Run: `pnpm exec vitest run artifacts/web/tests/action-plan-stage.unit.test.ts --project web-unit`
 
 - [ ] **Step 3: Hooks do catálogo** (espelho de `norms-client.ts`)
 
@@ -5146,9 +5152,9 @@ Exportar `actionPlanStageLevel` se ela ainda não for exportada (o teste a impor
 - [ ] **Step 5: Rodar, typecheck, commit**
 
 ```bash
-pnpm exec vitest run tests/web/action-plan-stage.test.ts --project web-unit
+pnpm exec vitest run artifacts/web/tests/action-plan-stage.unit.test.ts --project web-unit
 pnpm typecheck
-git add artifacts/web/src/lib/action-plans-client.ts tests/web/action-plan-stage.test.ts
+git add artifacts/web/src/lib/action-plans-client.ts artifacts/web/tests/action-plan-stage.unit.test.ts
 git commit -m "feat(web): hooks do catálogo de tratativas e das ações + estágio da timeline"
 ```
 
@@ -5374,11 +5380,11 @@ git commit -m "feat(web): seção Tratativas na ficha do plano de ação"
 - Create: `.../planos-acao/_components/acoes-do-plano.tsx`
 - Modify: `[id].tsx`
 - Delete: `.../planos-acao/_components/plano-5w2h.tsx`
-- Test: `tests/web/acoes-do-plano.test.tsx`
+- Test: `artifacts/web/tests/acoes-do-plano.unit.test.tsx`
 
 - [ ] **Step 1: Teste**
 
-`tests/web/acoes-do-plano.test.tsx` — cobrir: (a) linha vencida e não concluída mostra o badge "Atrasada"; (b) linha concluída não mostra; (c) o cabeçalho mostra "1 de 2 concluídas". Usar `@testing-library/react` e um mock dos hooks de mutação.
+`artifacts/web/tests/acoes-do-plano.unit.test.tsx` — cobrir: (a) linha vencida e não concluída mostra o badge "Atrasada"; (b) linha concluída não mostra; (c) o cabeçalho mostra "1 de 2 concluídas". Usar `@testing-library/react` e um mock dos hooks de mutação.
 
 - [ ] **Step 2: `acoes-do-plano.tsx`**
 
@@ -5400,8 +5406,8 @@ Ao concluir o plano (`status = completed`) com ações em aberto: **avisar e ped
 - [ ] **Step 4: Typecheck, testes, commit**
 
 ```bash
-pnpm typecheck && pnpm exec vitest run tests/web/acoes-do-plano.test.tsx --project web-unit
-git add -A artifacts/web/src/pages/app/planos-acao tests/web/acoes-do-plano.test.tsx
+pnpm typecheck && pnpm exec vitest run artifacts/web/tests/acoes-do-plano.unit.test.tsx --project web-unit
+git add -A artifacts/web/src/pages/app/planos-acao artifacts/web/tests/acoes-do-plano.unit.test.tsx
 git commit -m "feat(web): seção Ações na ficha (substitui o 5W2H único)"
 ```
 
@@ -5473,7 +5479,7 @@ type SystemTab = "users" | "norms" | "tratativas" | "appearance";
 - Modify: `.../planos-acao/_components/planning-versions.ts`
 - Modify: `.../planos-acao/_components/merge-draft.ts`
 - Modify: `[id].tsx` (o `handleSuggest`)
-- Test: `tests/web/planning-versions-analyses.test.ts`
+- Test: `artifacts/web/tests/planning-versions-analyses.unit.test.ts`
 
 - [ ] **Step 1: Teste do diff**
 
