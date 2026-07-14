@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { db, roadSafetyFactorsTable } from "@workspace/db";
+import {
+  db,
+  roadSafetyFactorDiagnosesTable,
+  roadSafetyFactorsTable,
+} from "@workspace/db";
 import { roadSafetyDiagnosisPendenciaProvider } from "../../../src/services/pendencias/providers/road-safety-diagnosis";
 import {
   cleanupTestContext,
@@ -99,5 +103,40 @@ describe("Pendências: diagnóstico de fator de desempenho", () => {
     });
 
     expect(pendencias).toHaveLength(0);
+  });
+
+  it("registrar um diagnóstico encerra a pendência", async () => {
+    const context = await createTestContext({ seed: "pend-diag-closes" });
+    contexts.push(context);
+    const factor = await insertFactor(context, {
+      code: "FD04",
+      diagnosisPeriodicity: "annual",
+      responsibleUserId: context.userId,
+    });
+
+    const before = await roadSafetyDiagnosisPendenciaProvider.listPending({
+      orgId: context.organizationId,
+      responsibleUserIds: [context.userId],
+      now: new Date(2026, 6, 14),
+      dueSoonDays: 7,
+    });
+    expect(before).toHaveLength(1);
+    expect(before[0].id).toBe(`road_safety_diagnosis:${factor.id}`);
+
+    await db.insert(roadSafetyFactorDiagnosesTable).values({
+      organizationId: context.organizationId,
+      factorId: factor.id,
+      content: "Diagnóstico atualizado",
+      referenceDate: "2026-07-14",
+      diagnosedByUserId: context.userId,
+    });
+
+    const after = await roadSafetyDiagnosisPendenciaProvider.listPending({
+      orgId: context.organizationId,
+      responsibleUserIds: [context.userId],
+      now: new Date(2026, 6, 14),
+      dueSoonDays: 7,
+    });
+    expect(after).toHaveLength(0);
   });
 });
