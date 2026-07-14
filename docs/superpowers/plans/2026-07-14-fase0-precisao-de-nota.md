@@ -18,7 +18,15 @@
 - Nunca editar arquivos gerados (`lib/api-zod/src/generated/`, `lib/api-client-react/src/generated/`). Regenerar via codegen.
 - Prettier: 2 espaços, aspas duplas, trailing commas.
 
-**Contexto do bug (medido na produção em 2026-07-14):** `eficacia/index.tsx:306` calcula `Math.round(avg * 2 * 10) / 10` (ex.: 7.3) e grava em coluna `integer`. O Postgres **arredonda** — não rejeita. A tela mostra "3,7/5" e persiste 7, que relido vira 3,5/5. As 159 avaliações existentes da org 2 têm score íntegro de 3 a 10; **não há dado corrompido a reparar**, só precisão perdida daqui pra frente.
+**Contexto do bug (corrigido em 2026-07-14 pelo ciclo RED da Task 1 — a versão original desta seção estava errada):**
+
+`eficacia/index.tsx:306` calcula `Math.round(avg * 2 * 10) / 10` (ex.: 7,3) e grava em coluna `integer`. **O Postgres não arredonda: ele rejeita.** O `node-pg` envia o parâmetro como texto pelo protocolo estendido, e o `int4` recusa `"7.3"` com `22P02` (`invalid input syntax for type integer`) — a rota devolve **HTTP 500**. (Arredondamento só acontece em cast de literal SQL, que não é o caminho do ORM.) O Zod não barra antes porque o Orval gera `z.number()` sem `.int()`.
+
+**Alcance:** `avg` é a média de 3 critérios de 1 a 5. `avg * 2` só é inteiro quando a soma dos três é múltipla de 3 — **41 das 125 combinações**. Logo **~67% das avaliações de eficácia falham ao salvar, com erro 500.**
+
+**Evidência na produção (org 2):** das 159 avaliações existentes, **nenhuma** tem `evaluator_role` preenchido — campo que o board de eficácia *sempre* preenche. Elas são de 19/03 a 07/05, anteriores ao board. Ou seja: **o board de eficácia nunca gravou uma avaliação em produção.**
+
+Isso torna a Fase 0 um conserto de tela quebrada, não uma melhoria de precisão. Não há dado corrompido a reparar — há um caminho que simplesmente não funciona.
 
 ---
 
