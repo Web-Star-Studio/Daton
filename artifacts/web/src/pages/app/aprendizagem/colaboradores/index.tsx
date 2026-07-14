@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useForm } from "react-hook-form";
 import { cn } from "@/lib/utils";
+import { preventImplicitSubmit } from "@/lib/forms";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -133,6 +134,19 @@ function formatCpfInput(value: string): string {
   if (digits.length <= 9)
     return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+/** (81) 98472-8538 — celular com 9 dígitos ou fixo com 8. */
+function formatPhoneInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+
+  if (digits.length === 0) return "";
+  if (digits.length <= 2) return `(${digits}`;
+  const ddd = digits.slice(0, 2);
+  const rest = digits.slice(2);
+  if (rest.length <= 4) return `(${ddd}) ${rest}`;
+  const split = rest.length > 8 ? 5 : 4;
+  return `(${ddd}) ${rest.slice(0, split)}-${rest.slice(split)}`;
 }
 
 type ProfileDraftItem = {
@@ -1133,7 +1147,10 @@ export default function ColaboradoresPage() {
         }
         size="lg"
       >
-        <form onSubmit={handleSubmit(onCreateSubmit)}>
+        <form
+          onSubmit={handleSubmit(onCreateSubmit)}
+          onKeyDown={preventImplicitSubmit}
+        >
           <DialogStepTabs
             steps={["Pessoal", "Profissional", "Histórico"]}
             step={createStep}
@@ -1238,9 +1255,14 @@ export default function ColaboradoresPage() {
                 <Input
                   {...register("phone", {
                     setValueAs: toOptionalString,
+                    onChange: (event) => {
+                      event.target.value = formatPhoneInput(event.target.value);
+                    },
                   })}
                   className="mt-1"
                   placeholder="(00) 00000-0000"
+                  inputMode="numeric"
+                  maxLength={15}
                 />
               </div>
               <div>
@@ -1438,6 +1460,7 @@ export default function ColaboradoresPage() {
           <DialogFooter>
             {createStep > 0 ? (
               <Button
+                key="voltar"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1449,6 +1472,7 @@ export default function ColaboradoresPage() {
               </Button>
             ) : (
               <Button
+                key="cancelar"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1462,6 +1486,7 @@ export default function ColaboradoresPage() {
             )}
             {createStep < 2 ? (
               <Button
+                key="proximo"
                 type="button"
                 size="sm"
                 onClick={() => {
@@ -1472,6 +1497,7 @@ export default function ColaboradoresPage() {
               </Button>
             ) : (
               <Button
+                key="criar"
                 type="submit"
                 size="sm"
                 disabled={createMutation.isPending}
