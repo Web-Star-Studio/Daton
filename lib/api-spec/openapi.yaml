@@ -11021,7 +11021,7 @@ components:
           type: string
           nullable: true
         score:
-          type: integer
+          type: number
           nullable: true
         result:
           type: string
@@ -11139,7 +11139,7 @@ components:
           type: string
           nullable: true
         score:
-          type: integer
+          type: number
           nullable: true
         result:
           type: string
@@ -12966,7 +12966,7 @@ components:
           type: string
           format: date
         score:
-          type: integer
+          type: number
           nullable: true
           minimum: 0
           maximum: 10
@@ -13710,7 +13710,7 @@ components:
           type: string
           format: date
         score:
-          type: integer
+          type: number
           minimum: 0
           maximum: 10
         isEffective:
