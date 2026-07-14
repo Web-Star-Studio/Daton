@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateRoadSafetyFactorBodyControlStatus } from "./createRoadSafetyFactorBodyControlStatus";
+import type { CreateRoadSafetyFactorBodyDiagnosisPeriodicity } from "./createRoadSafetyFactorBodyDiagnosisPeriodicity";
 import type { CreateRoadSafetyFactorBodyType } from "./createRoadSafetyFactorBodyType";
 
 export interface CreateRoadSafetyFactorBody {
@@ -24,6 +25,9 @@ export interface CreateRoadSafetyFactorBody {
   monitoringDetail?: string | null;
   /** Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual. */
   kpiIndicatorId?: number | null;
+  diagnosisPeriodicity?: CreateRoadSafetyFactorBodyDiagnosisPeriodicity;
+  /** Optional. When present, creates the first diagnosis record (author = logged-in user, reference date = today). */
+  initialDiagnosis?: string | null;
   gutGravity?: number;
   gutUrgency?: number;
   gutTendency?: number;

@@ -331,6 +331,33 @@ export const RoadSafetyFactorType = {
   final: "final",
 } as const;
 
+/**
+ * Review cadence of the diagnosis. Null = no scheduled review (never due, no pendencia).
+ */
+export type RoadSafetyFactorDiagnosisPeriodicity =
+  | (typeof RoadSafetyFactorDiagnosisPeriodicity)[keyof typeof RoadSafetyFactorDiagnosisPeriodicity]
+  | null;
+
+export const RoadSafetyFactorDiagnosisPeriodicity = {
+  monthly: "monthly",
+  quarterly: "quarterly",
+  semiannual: "semiannual",
+  annual: "annual",
+} as const;
+
+/**
+ * Computed — none when there is no scheduled review.
+ */
+export type RoadSafetyFactorDiagnosisStatus =
+  (typeof RoadSafetyFactorDiagnosisStatus)[keyof typeof RoadSafetyFactorDiagnosisStatus];
+
+export const RoadSafetyFactorDiagnosisStatus = {
+  none: "none",
+  ok: "ok",
+  due_soon: "due_soon",
+  overdue: "overdue",
+} as const;
+
 export type RoadSafetyFactorControlStatus =
   (typeof RoadSafetyFactorControlStatus)[keyof typeof RoadSafetyFactorControlStatus];
 
@@ -341,6 +368,20 @@ export const RoadSafetyFactorControlStatus = {
   overdue: "overdue",
   in_progress: "in_progress",
 } as const;
+
+export interface RoadSafetyFactorDiagnosis {
+  id: number;
+  organizationId: number;
+  factorId: number;
+  content: string;
+  /** Date-only (YYYY-MM-DD) the diagnosis refers to. */
+  referenceDate: string;
+  /** Null = migrated record (original author unknown) or removed user. */
+  diagnosedByUserId?: number | null;
+  diagnosedByUserName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface RoadSafetyFactor {
   id: number;
@@ -361,6 +402,15 @@ export interface RoadSafetyFactor {
   monitoringDetail?: string | null;
   /** Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual. */
   kpiIndicatorId?: number | null;
+  /** Computed — text of the most recent diagnosis. Read-only; write via the diagnoses endpoint. */
+  currentDiagnosis?: string | null;
+  /** Review cadence of the diagnosis. Null = no scheduled review (never due, no pendencia). */
+  diagnosisPeriodicity?: RoadSafetyFactorDiagnosisPeriodicity;
+  lastDiagnosis?: RoadSafetyFactorDiagnosis | null;
+  /** Computed — last diagnosis (or factor creation) + periodicity. */
+  nextDiagnosisDate?: string | null;
+  /** Computed — none when there is no scheduled review. */
+  diagnosisStatus: RoadSafetyFactorDiagnosisStatus;
   gutGravity: number;
   gutUrgency: number;
   gutTendency: number;
@@ -393,6 +443,13 @@ export interface RoadSafetyMeasurement {
   updatedAt: string;
 }
 
+export interface CreateRoadSafetyDiagnosisBody {
+  /** @minLength 1 */
+  content: string;
+  /** Date-only (YYYY-MM-DD). Defaults to today on the client. */
+  referenceDate: string;
+}
+
 export type CreateRoadSafetyFactorBodyType =
   (typeof CreateRoadSafetyFactorBodyType)[keyof typeof CreateRoadSafetyFactorBodyType];
 
@@ -400,6 +457,17 @@ export const CreateRoadSafetyFactorBodyType = {
   exposure: "exposure",
   intermediate: "intermediate",
   final: "final",
+} as const;
+
+export type CreateRoadSafetyFactorBodyDiagnosisPeriodicity =
+  | (typeof CreateRoadSafetyFactorBodyDiagnosisPeriodicity)[keyof typeof CreateRoadSafetyFactorBodyDiagnosisPeriodicity]
+  | null;
+
+export const CreateRoadSafetyFactorBodyDiagnosisPeriodicity = {
+  monthly: "monthly",
+  quarterly: "quarterly",
+  semiannual: "semiannual",
+  annual: "annual",
 } as const;
 
 export type CreateRoadSafetyFactorBodyControlStatus =
@@ -429,6 +497,9 @@ export interface CreateRoadSafetyFactorBody {
   monitoringDetail?: string | null;
   /** Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual. */
   kpiIndicatorId?: number | null;
+  diagnosisPeriodicity?: CreateRoadSafetyFactorBodyDiagnosisPeriodicity;
+  /** Optional. When present, creates the first diagnosis record (author = logged-in user, reference date = today). */
+  initialDiagnosis?: string | null;
   gutGravity?: number;
   gutUrgency?: number;
   gutTendency?: number;
@@ -445,6 +516,17 @@ export const UpdateRoadSafetyFactorBodyType = {
   exposure: "exposure",
   intermediate: "intermediate",
   final: "final",
+} as const;
+
+export type UpdateRoadSafetyFactorBodyDiagnosisPeriodicity =
+  | (typeof UpdateRoadSafetyFactorBodyDiagnosisPeriodicity)[keyof typeof UpdateRoadSafetyFactorBodyDiagnosisPeriodicity]
+  | null;
+
+export const UpdateRoadSafetyFactorBodyDiagnosisPeriodicity = {
+  monthly: "monthly",
+  quarterly: "quarterly",
+  semiannual: "semiannual",
+  annual: "annual",
 } as const;
 
 export type UpdateRoadSafetyFactorBodyControlStatus =
@@ -474,6 +556,7 @@ export interface UpdateRoadSafetyFactorBody {
   monitoringDetail?: string | null;
   /** Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual. */
   kpiIndicatorId?: number | null;
+  diagnosisPeriodicity?: UpdateRoadSafetyFactorBodyDiagnosisPeriodicity;
   gutGravity?: number;
   gutUrgency?: number;
   gutTendency?: number;

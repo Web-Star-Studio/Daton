@@ -9771,6 +9771,60 @@ paths:
               schema:
                 $ref: "#/components/schemas/RoadSafetyMeasurement"
 
+  /organizations/{orgId}/road-safety/factors/{factorId}/diagnoses:
+    get:
+      operationId: listRoadSafetyDiagnoses
+      tags: [road-safety]
+      summary: List the append-only diagnosis history of a factor
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: factorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Diagnosis history, most recent first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoadSafetyFactorDiagnosis"
+    post:
+      operationId: createRoadSafetyDiagnosis
+      tags: [road-safety]
+      summary: Register a new diagnosis (append-only; author is the logged-in user)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: factorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoadSafetyDiagnosisBody"
+      responses:
+        "201":
+          description: Diagnosis created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoadSafetyFactorDiagnosis"
+
   /organizations/{orgId}/training-catalog:
     get:
       operationId: listTrainingCatalog
@@ -11296,6 +11350,27 @@ components:
           type: integer
           nullable: true
           description: Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual.
+        currentDiagnosis:
+          type: string
+          nullable: true
+          description: Computed — text of the most recent diagnosis. Read-only; write via the diagnoses endpoint.
+        diagnosisPeriodicity:
+          type: string
+          nullable: true
+          enum: [monthly, quarterly, semiannual, annual]
+          description: Review cadence of the diagnosis. Null = no scheduled review (never due, no pendencia).
+        lastDiagnosis:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RoadSafetyFactorDiagnosis"
+        nextDiagnosisDate:
+          type: string
+          nullable: true
+          description: Computed — last diagnosis (or factor creation) + periodicity.
+        diagnosisStatus:
+          type: string
+          enum: [none, ok, due_soon, overdue]
+          description: Computed — none when there is no scheduled review.
         gutGravity:
           type: integer
         gutUrgency:
@@ -11341,6 +11416,7 @@ components:
         - isAdditional
         - name
         - periodicity
+        - diagnosisStatus
         - gutGravity
         - gutUrgency
         - gutTendency
@@ -11386,6 +11462,53 @@ components:
         - createdAt
         - updatedAt
 
+    RoadSafetyFactorDiagnosis:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        factorId:
+          type: integer
+        content:
+          type: string
+        referenceDate:
+          type: string
+          description: Date-only (YYYY-MM-DD) the diagnosis refers to.
+        diagnosedByUserId:
+          type: integer
+          nullable: true
+          description: Null = migrated record (original author unknown) or removed user.
+        diagnosedByUserName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - factorId
+        - content
+        - referenceDate
+        - createdAt
+        - updatedAt
+
+    CreateRoadSafetyDiagnosisBody:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+        referenceDate:
+          type: string
+          description: Date-only (YYYY-MM-DD). Defaults to today on the client.
+      required:
+        - content
+        - referenceDate
+
     CreateRoadSafetyFactorBody:
       type: object
       properties:
@@ -11427,6 +11550,14 @@ components:
           type: integer
           nullable: true
           description: Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual.
+        diagnosisPeriodicity:
+          type: string
+          nullable: true
+          enum: [monthly, quarterly, semiannual, annual]
+        initialDiagnosis:
+          type: string
+          nullable: true
+          description: Optional. When present, creates the first diagnosis record (author = logged-in user, reference date = today).
         gutGravity:
           type: integer
         gutUrgency:
@@ -11490,6 +11621,10 @@ components:
           type: integer
           nullable: true
           description: Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual.
+        diagnosisPeriodicity:
+          type: string
+          nullable: true
+          enum: [monthly, quarterly, semiannual, annual]
         gutGravity:
           type: integer
         gutUrgency:

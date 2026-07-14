@@ -19570,6 +19570,45 @@ export const ListRoadSafetyFactorsResponseItem = zod.object({
     .describe(
       "Indicador (KPI) vinculado — fonte do valor\/meta exibidos. Null = monitoramento manual.",
     ),
+  currentDiagnosis: zod
+    .string()
+    .nullish()
+    .describe(
+      "Computed — text of the most recent diagnosis. Read-only; write via the diagnoses endpoint.",
+    ),
+  diagnosisPeriodicity: zod
+    .enum(["monthly", "quarterly", "semiannual", "annual"])
+    .nullish()
+    .describe(
+      "Review cadence of the diagnosis. Null = no scheduled review (never due, no pendencia).",
+    ),
+  lastDiagnosis: zod
+    .object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      factorId: zod.number(),
+      content: zod.string(),
+      referenceDate: zod
+        .string()
+        .describe("Date-only (YYYY-MM-DD) the diagnosis refers to."),
+      diagnosedByUserId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Null = migrated record (original author unknown) or removed user.",
+        ),
+      diagnosedByUserName: zod.string().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    })
+    .nullish(),
+  nextDiagnosisDate: zod
+    .string()
+    .nullish()
+    .describe("Computed — last diagnosis (or factor creation) + periodicity."),
+  diagnosisStatus: zod
+    .enum(["none", "ok", "due_soon", "overdue"])
+    .describe("Computed — none when there is no scheduled review."),
   gutGravity: zod.number(),
   gutUrgency: zod.number(),
   gutTendency: zod.number(),
@@ -19626,6 +19665,15 @@ export const CreateRoadSafetyFactorBody = zod.object({
     .describe(
       "Indicador (KPI) vinculado — fonte do valor\/meta exibidos. Null = monitoramento manual.",
     ),
+  diagnosisPeriodicity: zod
+    .enum(["monthly", "quarterly", "semiannual", "annual"])
+    .nullish(),
+  initialDiagnosis: zod
+    .string()
+    .nullish()
+    .describe(
+      "Optional. When present, creates the first diagnosis record (author = logged-in user, reference date = today).",
+    ),
   gutGravity: zod.number().optional(),
   gutUrgency: zod.number().optional(),
   gutTendency: zod.number().optional(),
@@ -19674,6 +19722,45 @@ export const GetRoadSafetyFactorResponse = zod.object({
     .describe(
       "Indicador (KPI) vinculado — fonte do valor\/meta exibidos. Null = monitoramento manual.",
     ),
+  currentDiagnosis: zod
+    .string()
+    .nullish()
+    .describe(
+      "Computed — text of the most recent diagnosis. Read-only; write via the diagnoses endpoint.",
+    ),
+  diagnosisPeriodicity: zod
+    .enum(["monthly", "quarterly", "semiannual", "annual"])
+    .nullish()
+    .describe(
+      "Review cadence of the diagnosis. Null = no scheduled review (never due, no pendencia).",
+    ),
+  lastDiagnosis: zod
+    .object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      factorId: zod.number(),
+      content: zod.string(),
+      referenceDate: zod
+        .string()
+        .describe("Date-only (YYYY-MM-DD) the diagnosis refers to."),
+      diagnosedByUserId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Null = migrated record (original author unknown) or removed user.",
+        ),
+      diagnosedByUserName: zod.string().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    })
+    .nullish(),
+  nextDiagnosisDate: zod
+    .string()
+    .nullish()
+    .describe("Computed — last diagnosis (or factor creation) + periodicity."),
+  diagnosisStatus: zod
+    .enum(["none", "ok", "due_soon", "overdue"])
+    .describe("Computed — none when there is no scheduled review."),
   gutGravity: zod.number(),
   gutUrgency: zod.number(),
   gutTendency: zod.number(),
@@ -19728,6 +19815,9 @@ export const UpdateRoadSafetyFactorBody = zod.object({
     .describe(
       "Indicador (KPI) vinculado — fonte do valor\/meta exibidos. Null = monitoramento manual.",
     ),
+  diagnosisPeriodicity: zod
+    .enum(["monthly", "quarterly", "semiannual", "annual"])
+    .nullish(),
   gutGravity: zod.number().optional(),
   gutUrgency: zod.number().optional(),
   gutTendency: zod.number().optional(),
@@ -19768,6 +19858,45 @@ export const UpdateRoadSafetyFactorResponse = zod.object({
     .describe(
       "Indicador (KPI) vinculado — fonte do valor\/meta exibidos. Null = monitoramento manual.",
     ),
+  currentDiagnosis: zod
+    .string()
+    .nullish()
+    .describe(
+      "Computed — text of the most recent diagnosis. Read-only; write via the diagnoses endpoint.",
+    ),
+  diagnosisPeriodicity: zod
+    .enum(["monthly", "quarterly", "semiannual", "annual"])
+    .nullish()
+    .describe(
+      "Review cadence of the diagnosis. Null = no scheduled review (never due, no pendencia).",
+    ),
+  lastDiagnosis: zod
+    .object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      factorId: zod.number(),
+      content: zod.string(),
+      referenceDate: zod
+        .string()
+        .describe("Date-only (YYYY-MM-DD) the diagnosis refers to."),
+      diagnosedByUserId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Null = migrated record (original author unknown) or removed user.",
+        ),
+      diagnosedByUserName: zod.string().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    })
+    .nullish(),
+  nextDiagnosisDate: zod
+    .string()
+    .nullish()
+    .describe("Computed — last diagnosis (or factor creation) + periodicity."),
+  diagnosisStatus: zod
+    .enum(["none", "ok", "due_soon", "overdue"])
+    .describe("Computed — none when there is no scheduled review."),
   gutGravity: zod.number(),
   gutUrgency: zod.number(),
   gutTendency: zod.number(),
@@ -19839,6 +19968,51 @@ export const CreateRoadSafetyMeasurementBody = zod.object({
   value: zod.number(),
   referenceDate: zod.string(),
   note: zod.string().optional(),
+});
+
+/**
+ * @summary List the append-only diagnosis history of a factor
+ */
+export const ListRoadSafetyDiagnosesParams = zod.object({
+  orgId: zod.coerce.number(),
+  factorId: zod.coerce.number(),
+});
+
+export const ListRoadSafetyDiagnosesResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  factorId: zod.number(),
+  content: zod.string(),
+  referenceDate: zod
+    .string()
+    .describe("Date-only (YYYY-MM-DD) the diagnosis refers to."),
+  diagnosedByUserId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Null = migrated record (original author unknown) or removed user.",
+    ),
+  diagnosedByUserName: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListRoadSafetyDiagnosesResponse = zod.array(
+  ListRoadSafetyDiagnosesResponseItem,
+);
+
+/**
+ * @summary Register a new diagnosis (append-only; author is the logged-in user)
+ */
+export const CreateRoadSafetyDiagnosisParams = zod.object({
+  orgId: zod.coerce.number(),
+  factorId: zod.coerce.number(),
+});
+
+export const CreateRoadSafetyDiagnosisBody = zod.object({
+  content: zod.string().min(1),
+  referenceDate: zod
+    .string()
+    .describe("Date-only (YYYY-MM-DD). Defaults to today on the client."),
 });
 
 /**

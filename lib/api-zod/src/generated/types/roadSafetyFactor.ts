@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RoadSafetyFactorControlStatus } from "./roadSafetyFactorControlStatus";
+import type { RoadSafetyFactorDiagnosis } from "./roadSafetyFactorDiagnosis";
+import type { RoadSafetyFactorDiagnosisPeriodicity } from "./roadSafetyFactorDiagnosisPeriodicity";
+import type { RoadSafetyFactorDiagnosisStatus } from "./roadSafetyFactorDiagnosisStatus";
 import type { RoadSafetyFactorType } from "./roadSafetyFactorType";
 
 export interface RoadSafetyFactor {
@@ -27,6 +30,15 @@ export interface RoadSafetyFactor {
   monitoringDetail?: string | null;
   /** Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual. */
   kpiIndicatorId?: number | null;
+  /** Computed — text of the most recent diagnosis. Read-only; write via the diagnoses endpoint. */
+  currentDiagnosis?: string | null;
+  /** Review cadence of the diagnosis. Null = no scheduled review (never due, no pendencia). */
+  diagnosisPeriodicity?: RoadSafetyFactorDiagnosisPeriodicity;
+  lastDiagnosis?: RoadSafetyFactorDiagnosis | null;
+  /** Computed — last diagnosis (or factor creation) + periodicity. */
+  nextDiagnosisDate?: string | null;
+  /** Computed — none when there is no scheduled review. */
+  diagnosisStatus: RoadSafetyFactorDiagnosisStatus;
   gutGravity: number;
   gutUrgency: number;
   gutTendency: number;
