@@ -19964,9 +19964,15 @@ export const CreateRoadSafetyMeasurementParams = zod.object({
   factorId: zod.coerce.number(),
 });
 
+export const createRoadSafetyMeasurementBodyReferenceDateRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}$",
+);
+
 export const CreateRoadSafetyMeasurementBody = zod.object({
   value: zod.number(),
-  referenceDate: zod.string(),
+  referenceDate: zod
+    .string()
+    .regex(createRoadSafetyMeasurementBodyReferenceDateRegExp),
   note: zod.string().optional(),
 });
 
