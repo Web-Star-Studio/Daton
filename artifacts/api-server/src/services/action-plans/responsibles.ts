@@ -39,29 +39,43 @@ export async function listResponsiblesByPlan(planIds: number[]): Promise<Map<num
   return out;
 }
 
-/** Substitui o conjunto inteiro de responsáveis do plano. Idempotente: rodar
- *  duas vezes com o mesmo conjunto não duplica nem apaga. */
+/**
+ * Substitui o conjunto inteiro de responsáveis do plano. Idempotente: rodar duas
+ * vezes com o mesmo conjunto não duplica nem apaga.
+ *
+ * Numa transação: se o insert falhasse depois do delete já commitado, o plano
+ * ficaria SEM responsável nenhum — pior do que não ter salvado. É o mesmo cuidado
+ * que `unit_managers` toma na troca de gestores (`routes/units.ts:255-260`).
+ */
 export async function setPlanResponsibles(orgId: number, planId: number, userIds: number[]): Promise<void> {
   const desired = [...new Set(userIds)];
-  const current = await listResponsibleIds(planId);
 
-  const toRemove = current.filter((id) => !desired.includes(id));
-  const toAdd = desired.filter((id) => !current.includes(id));
+  await db.transaction(async (tx) => {
+    const current = (
+      await tx
+        .select({ userId: actionPlanResponsiblesTable.userId })
+        .from(actionPlanResponsiblesTable)
+        .where(eq(actionPlanResponsiblesTable.actionPlanId, planId))
+    ).map((r) => r.userId);
 
-  if (toRemove.length > 0) {
-    await db.delete(actionPlanResponsiblesTable).where(
-      and(
-        eq(actionPlanResponsiblesTable.actionPlanId, planId),
-        inArray(actionPlanResponsiblesTable.userId, toRemove),
-      ),
-    );
-  }
-  if (toAdd.length > 0) {
-    await db
-      .insert(actionPlanResponsiblesTable)
-      .values(toAdd.map((userId) => ({ organizationId: orgId, actionPlanId: planId, userId })))
-      .onConflictDoNothing();
-  }
+    const toRemove = current.filter((id) => !desired.includes(id));
+    const toAdd = desired.filter((id) => !current.includes(id));
+
+    if (toRemove.length > 0) {
+      await tx.delete(actionPlanResponsiblesTable).where(
+        and(
+          eq(actionPlanResponsiblesTable.actionPlanId, planId),
+          inArray(actionPlanResponsiblesTable.userId, toRemove),
+        ),
+      );
+    }
+    if (toAdd.length > 0) {
+      await tx
+        .insert(actionPlanResponsiblesTable)
+        .values(toAdd.map((userId) => ({ organizationId: orgId, actionPlanId: planId, userId })))
+        .onConflictDoNothing();
+    }
+  });
 }
 
 /** True quando o usuário é UM dos responsáveis do plano (não só "o" responsável). */
