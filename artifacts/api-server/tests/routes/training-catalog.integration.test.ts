@@ -173,4 +173,23 @@ describe("training-catalog routes", () => {
     }
     expect(seen.size).toBe(total); // nothing skipped
   });
+
+  it("preserva carga horária fracionada (numeric, não integer)", async () => {
+    const context = await createTestContext({ seed: "training-catalog-frac" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-catalog`;
+
+    const res = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ title: `${context.prefix} Treino curto`, workloadHours: 0.33 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.workloadHours).toBe(0.33);
+
+    const get = await request(app)
+      .get(`${base}/${res.body.id}`)
+      .set(authHeader(context));
+    expect(get.body.workloadHours).toBe(0.33);
+  });
 });

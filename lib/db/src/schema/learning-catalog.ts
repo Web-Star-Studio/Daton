@@ -8,6 +8,7 @@ import {
   jsonb,
   timestamp,
   uniqueIndex,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { organizationsTable } from "./organizations";
@@ -31,7 +32,11 @@ export const trainingCatalogTable = pgTable("training_catalog", {
   modality: text("modality"),
   norm: text("norm"),
   clause: text("clause"),
-  workloadHours: integer("workload_hours"),
+  workloadHours: numeric("workload_hours", {
+    precision: 6,
+    scale: 2,
+    mode: "number",
+  }),
   validityMonths: integer("validity_months"),
   isMandatory: boolean("is_mandatory").notNull().default(false),
   status: text("status").notNull().default("ativo"),
@@ -159,7 +164,11 @@ export const trainingClassesTable = pgTable("training_classes", {
   location: text("location"),
   instructor: text("instructor"),
   modality: text("modality"),
-  workloadHours: integer("workload_hours"),
+  workloadHours: numeric("workload_hours", {
+    precision: 6,
+    scale: 2,
+    mode: "number",
+  }),
   capacity: integer("capacity"),
   minScore: integer("min_score"),
   status: text("status").notNull().default("agendada"),
