@@ -6,7 +6,9 @@ import {
   formatLastAccess,
   itemsByDay,
   URGENCY_META,
+  SOURCE_LABELS,
   type Pendencia,
+  type PendenciaSource,
 } from "@/lib/pendencias-format";
 
 const NOW = new Date(2026, 5, 15, 9, 30, 0); // 2026-06-15 09:30 local
@@ -24,6 +26,22 @@ function item(id: string, urgency: Pendencia["urgency"], dueDate: string | null)
     link: { route: "/planos-acao/1", ctaLabel: "Ver plano" },
   };
 }
+
+describe("SOURCE_LABELS", () => {
+  it("has a PT-BR label for every pendência source, including road_safety_diagnosis", () => {
+    const sources: PendenciaSource[] = [
+      "kpi",
+      "action_plan",
+      "nonconformity",
+      "regulatory_document",
+      "road_safety_diagnosis",
+    ];
+    for (const source of sources) {
+      expect(SOURCE_LABELS[source]).toBeTruthy();
+    }
+    expect(SOURCE_LABELS.road_safety_diagnosis).toBe("Diagnóstico de fator");
+  });
+});
 
 describe("priorityOf / URGENCY_META", () => {
   it("maps urgency to priority", () => {
