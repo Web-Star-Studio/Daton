@@ -42,7 +42,12 @@ import {
   type AppModule,
 } from "../middlewares/auth";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
-import { isPlanCoResponsible, listCoResponsiblesByPlan } from "../services/action-plans/responsibles";
+import {
+  isPlanCoResponsible,
+  listCoResponsibleIds,
+  listCoResponsiblesByPlan,
+  setPlanCoResponsibles,
+} from "../services/action-plans/responsibles";
 import {
   assertUserBelongsToOrg,
   resolveUserNames,
@@ -60,7 +65,11 @@ import { computeActionPlanSummary } from "../services/action-plans/summary";
 import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
 import { extractPlanning, normalizePlanning, planningChanged, type PlanningBlock } from "../services/action-plans/planning";
-import { notifyActionPlanAssignment, notifyActionPlanEvaluatorAssignment } from "../services/action-plans/notify-assignment";
+import {
+  notifyActionPlanAssignment,
+  notifyActionPlanCoResponsibleAssignment,
+  notifyActionPlanEvaluatorAssignment,
+} from "../services/action-plans/notify-assignment";
 import { draftActionPlanFromProblem } from "../services/action-plans/ai-draft";
 import { AiCompletionError } from "../services/ai/json-completion";
 
@@ -68,7 +77,9 @@ const router: IRouter = Router();
 
 /** Tracked fields for the update activity diff (display labels handled client-side).
  *  The planning block (5W2H + root cause + whys) is logged separately, as one
- *  logical field — see `planning.ts`. */
+ *  logical field — see `planning.ts`. The responsible set (ponto focal +
+ *  co-responsáveis) is ALSO logged separately, with names instead of ids —
+ *  see the `pontoFocal`/`coResponsibles` block below `planningChanged`. */
 const DIFF_FIELDS = [
   "title",
   "description",
@@ -77,7 +88,6 @@ const DIFF_FIELDS = [
   "gutGravity",
   "gutUrgency",
   "gutTendency",
-  "responsibleUserId",
   "dueDate",
   "correctiveActionDescription",
 ];
@@ -379,18 +389,25 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
   const sourceError = await validateSourceRef(params.data.orgId, body.data.sourceModule, body.data.sourceRef);
   if (sourceError) { res.status(400).json({ error: sourceError }); return; }
 
-  // Validate user references belong to the org (prevents cross-tenant + FK errors)
-  for (const [field, value] of [
-    ["responsibleUserId", body.data.responsibleUserId],
-    ["effectivenessEvaluatorUserId", body.data.effectivenessEvaluatorUserId],
-  ] as const) {
-    if (value !== null && value !== undefined) {
-      const ok = await assertUserBelongsToOrg(value, params.data.orgId);
-      if (!ok) {
-        res.status(400).json({ error: `${field} não corresponde a um usuário desta organização` });
-        return;
-      }
+  const coResponsibleIds = [...new Set(body.data.coResponsibleUserIds ?? [])];
+
+  // Todo id referenciado tem de ser usuário DESTA org (barra cross-tenant + erro de FK).
+  for (const userId of [
+    body.data.responsibleUserId,
+    ...coResponsibleIds,
+    body.data.effectivenessEvaluatorUserId,
+  ].filter((v): v is number => typeof v === "number")) {
+    const ok = await assertUserBelongsToOrg(userId, params.data.orgId);
+    if (!ok) {
+      res.status(400).json({ error: "Responsável, co-responsável ou avaliador não corresponde a um usuário desta organização" });
+      return;
     }
+  }
+
+  // Ninguém é responsável duas vezes: o ponto focal não entra na lista de co-responsáveis.
+  if (body.data.responsibleUserId != null && coResponsibleIds.includes(body.data.responsibleUserId)) {
+    res.status(400).json({ error: "O ponto focal não pode também constar como co-responsável." });
+    return;
   }
 
   // Governance: designating the effectiveness evaluator is an SGI act — only an
@@ -404,13 +421,13 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     res.status(400).json({ error: "O avaliador de eficácia deve ter acesso de escrita — analistas (somente leitura) não podem emitir o veredito." });
     return;
   }
-  // Independence: the effectiveness evaluator must differ from the action's responsible.
+  // Independência (ISO): quem verifica a eficácia não pode ser NENHUM dos responsáveis.
   if (
     body.data.effectivenessEvaluatorUserId != null &&
-    body.data.responsibleUserId != null &&
-    body.data.effectivenessEvaluatorUserId === body.data.responsibleUserId
+    (body.data.effectivenessEvaluatorUserId === body.data.responsibleUserId ||
+      coResponsibleIds.includes(body.data.effectivenessEvaluatorUserId))
   ) {
-    res.status(400).json({ error: "O avaliador da eficácia deve ser diferente do responsável pela ação." });
+    res.status(400).json({ error: "O avaliador da eficácia deve ser diferente do ponto focal e dos co-responsáveis." });
     return;
   }
 
@@ -449,6 +466,8 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     closedAt: status === "completed" || status === "cancelled" ? new Date() : null,
   }).returning();
 
+  await setPlanCoResponsibles(params.data.orgId, row.id, coResponsibleIds);
+
   const creatorName = await currentUserName(req.auth!.userId);
   await logActionPlanActivity({
     orgId: params.data.orgId,
@@ -482,8 +501,11 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     });
   }
 
-  // Notify the responsible user / evaluator if the action is created already assigned.
+  // Notifica quem já nasce vinculado.
   await notifyActionPlanAssignment(row, req.auth!.userId);
+  for (const userId of coResponsibleIds) {
+    await notifyActionPlanCoResponsibleAssignment(row, userId, req.auth!.userId);
+  }
   await notifyActionPlanEvaluatorAssignment(row, req.auth!.userId);
 
   const out = await loadAndSerializePlan(params.data.orgId, row.id);
@@ -508,6 +530,13 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
       eq(actionPlansTable.organizationId, params.data.orgId),
     ));
   if (!existing) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+
+  const existingCoIds = await listCoResponsibleIds(params.data.planId);
+  const incomingCoIds =
+    body.data.coResponsibleUserIds === undefined
+      ? undefined
+      : [...new Set(body.data.coResponsibleUserIds ?? [])];
+  const finalCoIds = incomingCoIds ?? existingCoIds;
 
   // Lock: an encerrado plan (final Encerramento stage / cancelled) is frozen for
   // everyone. The ONLY permitted mutation is an admin (SGI) reopening it — a
@@ -580,6 +609,25 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
     }
     update.responsibleUserId = body.data.responsibleUserId;
   }
+
+  if (incomingCoIds !== undefined) {
+    for (const userId of incomingCoIds) {
+      const ok = await assertUserBelongsToOrg(userId, params.data.orgId);
+      if (!ok) { res.status(400).json({ error: "Co-responsável não corresponde a um usuário desta organização" }); return; }
+    }
+  }
+
+  // Ninguém é responsável duas vezes — qualquer dos dois lados pode estar mudando aqui.
+  {
+    const finalFocal = body.data.responsibleUserId !== undefined
+      ? body.data.responsibleUserId
+      : existing.responsibleUserId;
+    if (finalFocal != null && finalCoIds.includes(finalFocal)) {
+      res.status(400).json({ error: "O ponto focal não pode também constar como co-responsável." });
+      return;
+    }
+  }
+
   if (body.data.dueDate !== undefined) {
     update.dueDate = body.data.dueDate ? new Date(body.data.dueDate) : null;
   }
@@ -615,12 +663,16 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
     }
     update.effectivenessEvaluatorUserId = body.data.effectivenessEvaluatorUserId;
   }
-  // Independence: the evaluator must differ from the responsible (either side may change here).
+  // Independência (ISO): o avaliador não pode ser o ponto focal nem um co-responsável.
   {
-    const effResponsible = body.data.responsibleUserId !== undefined ? body.data.responsibleUserId : existing.responsibleUserId;
-    const effEvaluator = body.data.effectivenessEvaluatorUserId !== undefined ? body.data.effectivenessEvaluatorUserId : existing.effectivenessEvaluatorUserId;
-    if (effResponsible != null && effEvaluator != null && effResponsible === effEvaluator) {
-      res.status(400).json({ error: "O avaliador da eficácia deve ser diferente do responsável pela ação." });
+    const finalFocal = body.data.responsibleUserId !== undefined
+      ? body.data.responsibleUserId
+      : existing.responsibleUserId;
+    const finalEvaluator = body.data.effectivenessEvaluatorUserId !== undefined
+      ? body.data.effectivenessEvaluatorUserId
+      : existing.effectivenessEvaluatorUserId;
+    if (finalEvaluator != null && (finalEvaluator === finalFocal || finalCoIds.includes(finalEvaluator))) {
+      res.status(400).json({ error: "O avaliador da eficácia deve ser diferente do ponto focal e dos co-responsáveis." });
       return;
     }
   }
@@ -667,6 +719,10 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
     ))
     .returning();
 
+  if (incomingCoIds !== undefined) {
+    await setPlanCoResponsibles(params.data.orgId, params.data.planId, incomingCoIds);
+  }
+
   // ─── Activity log (one prioritized entry per update) ───────────────────────
   const userName = await currentUserName(req.auth!.userId);
   const logBase = { orgId: params.data.orgId, actionPlanId: row.id, userId: req.auth!.userId, userName };
@@ -687,6 +743,38 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
     });
   }
 
+  // Nomes, não ids: o histórico é lido por auditor. `action_plan_activity_log` já
+  // snapshota `userName` pelo mesmo motivo.
+  {
+    const focalChanged = row.responsibleUserId !== existing.responsibleUserId;
+    const sortedFinalCo = [...finalCoIds].sort((a, b) => a - b);
+    const coChanged = JSON.stringify(existingCoIds) !== JSON.stringify(sortedFinalCo);
+
+    if (focalChanged || coChanged) {
+      const nameMap = await resolveUserNames([
+        existing.responsibleUserId,
+        row.responsibleUserId,
+        ...existingCoIds,
+        ...sortedFinalCo,
+      ]);
+      const nameOf = (id: number) => nameMap.get(id) ?? `#${id}`;
+      const fields: Record<string, { from: unknown; to: unknown }> = {};
+      if (focalChanged) {
+        fields.pontoFocal = {
+          from: existing.responsibleUserId != null ? nameOf(existing.responsibleUserId) : null,
+          to: row.responsibleUserId != null ? nameOf(row.responsibleUserId) : null,
+        };
+      }
+      if (coChanged) {
+        fields.coResponsibles = {
+          from: existingCoIds.map(nameOf),
+          to: sortedFinalCo.map(nameOf),
+        };
+      }
+      await logActionPlanActivity({ ...logBase, action: "updated", changes: { kind: "diff", fields } });
+    }
+  }
+
   if (reopened) {
     await logActionPlanActivity({ ...logBase, action: "reopened", changes: { kind: "note", message: `Reaberta (${existing.status} → ${row.status})` } });
   } else if (statusChanged) {
@@ -702,9 +790,12 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
     if (diff) await logActionPlanActivity({ ...logBase, action: "updated", changes: diff });
   }
 
-  // Notify the new responsible user / evaluator when the assignment changed (skips unassign + self-assign).
+  // Notifica o ponto focal se ele mudou, e só os co-responsáveis que ENTRARAM.
   if (row.responsibleUserId !== existing.responsibleUserId) {
     await notifyActionPlanAssignment(row, req.auth!.userId);
+  }
+  for (const userId of finalCoIds.filter((id) => !existingCoIds.includes(id))) {
+    await notifyActionPlanCoResponsibleAssignment(row, userId, req.auth!.userId);
   }
   if (row.effectivenessEvaluatorUserId !== existing.effectivenessEvaluatorUserId) {
     await notifyActionPlanEvaluatorAssignment(row, req.auth!.userId);
