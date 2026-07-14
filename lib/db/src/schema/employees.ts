@@ -224,7 +224,10 @@ export const trainingEffectivenessReviewsTable = pgTable(
       .notNull()
       .references(() => usersTable.id),
     evaluationDate: date("evaluation_date").notNull(),
-    score: integer("score"),
+    // numeric, não integer: a média Kirkpatrick de 3 critérios é decimal por
+    // natureza (3,67 → 7,3 na escala 0–10). Em integer o Postgres arredondava
+    // em silêncio e a tela exibia um número que o banco não guardava.
+    score: numeric("score", { precision: 4, scale: 2, mode: "number" }),
     isEffective: boolean("is_effective"),
     resultLevel: integer("result_level"),
     comments: text("comments"),

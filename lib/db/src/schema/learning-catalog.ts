@@ -197,7 +197,8 @@ export const trainingClassParticipantsTable = pgTable(
       .notNull()
       .references(() => employeesTable.id, { onDelete: "cascade" }),
     attendance: text("attendance"),
-    score: integer("score"),
+    // numeric: a nota de turma admite meio ponto (8,5). Ver employees.ts / score.
+    score: numeric("score", { precision: 4, scale: 2, mode: "number" }),
     result: text("result"),
     // FK real para employee_trainings via DDL (set null) — evita ciclo de import.
     employeeTrainingId: integer("employee_training_id"),
