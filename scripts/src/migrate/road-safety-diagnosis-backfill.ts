@@ -34,7 +34,7 @@ async function main() {
     .from(roadSafetyFactorsTable)
     .where(
       sql`${roadSafetyFactorsTable.currentDiagnosis} IS NOT NULL
-          AND btrim(${roadSafetyFactorsTable.currentDiagnosis}) <> ''
+          AND ${roadSafetyFactorsTable.currentDiagnosis} ~ '\\S'
           AND NOT EXISTS (
             SELECT 1 FROM road_safety_factor_diagnoses d
             WHERE d.factor_id = ${roadSafetyFactorsTable.id}
@@ -49,7 +49,7 @@ async function main() {
     await db.insert(roadSafetyFactorDiagnosesTable).values({
       organizationId: f.organizationId,
       factorId: f.id,
-      content: f.currentDiagnosis!,
+      content: f.currentDiagnosis!.trim(),
       referenceDate,
       diagnosedByUserId: null,
     });
