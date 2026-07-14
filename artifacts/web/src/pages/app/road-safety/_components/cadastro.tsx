@@ -399,7 +399,10 @@ export function CadastroScreen({
         <Field label="Forma de monitoramento">
           <Select
             value={form.monitoringForm}
-            onChange={(e) => set("monitoringForm", e.target.value)}
+            onChange={(e) => {
+              set("monitoringForm", e.target.value);
+              if (e.target.value !== "indicator") set("kpiIndicatorId", "");
+            }}
           >
             <option value="">Selecione</option>
             {MONITORING_FORMS.map((m) => (
