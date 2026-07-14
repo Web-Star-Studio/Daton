@@ -1332,6 +1332,7 @@ function CreateDocumentModal({
         <DialogFooter>
           {step > 0 ? (
             <Button
+              key="voltar"
               type="button"
               variant="outline"
               size="sm"
@@ -1343,6 +1344,7 @@ function CreateDocumentModal({
             </Button>
           ) : (
             <Button
+              key="cancelar"
               type="button"
               variant="outline"
               size="sm"
@@ -1353,6 +1355,7 @@ function CreateDocumentModal({
           )}
           {step < steps.length - 1 ? (
             <Button
+              key="proximo"
               type="button"
               size="sm"
               onClick={() => void changeStep(step + 1)}
@@ -1360,7 +1363,7 @@ function CreateDocumentModal({
               Próximo
             </Button>
           ) : (
-            <Button type="submit" size="sm" isLoading={isSubmitting}>
+            <Button key="salvar" type="submit" size="sm" isLoading={isSubmitting}>
               Salvar Documento
             </Button>
           )}

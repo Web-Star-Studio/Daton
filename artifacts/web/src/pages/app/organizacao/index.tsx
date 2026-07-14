@@ -1628,6 +1628,7 @@ export default function OrganizacaoPage({
           <DialogFooter>
             {unitStep > 0 ? (
               <Button
+                key="voltar"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1639,6 +1640,7 @@ export default function OrganizacaoPage({
               </Button>
             ) : (
               <Button
+                key="cancelar"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1654,6 +1656,7 @@ export default function OrganizacaoPage({
             )}
             {unitStep < 2 ? (
               <Button
+                key="proximo"
                 type="button"
                 size="sm"
                 onClick={() => {
@@ -1664,6 +1667,7 @@ export default function OrganizacaoPage({
               </Button>
             ) : (
               <Button
+                key="salvar"
                 type="submit"
                 size="sm"
                 isLoading={createUnitMut.isPending}
@@ -1854,6 +1858,7 @@ export default function OrganizacaoPage({
           <DialogFooter>
             {deptStep > 0 ? (
               <Button
+                key="voltar"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1865,6 +1870,7 @@ export default function OrganizacaoPage({
               </Button>
             ) : (
               <Button
+                key="cancelar"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1881,6 +1887,7 @@ export default function OrganizacaoPage({
             )}
             {deptStep < 1 ? (
               <Button
+                key="proximo"
                 type="button"
                 size="sm"
                 onClick={() => {
@@ -1891,6 +1898,7 @@ export default function OrganizacaoPage({
               </Button>
             ) : (
               <Button
+                key="salvar"
                 type="submit"
                 size="sm"
                 isLoading={createDeptMut.isPending || updateDeptMut.isPending}

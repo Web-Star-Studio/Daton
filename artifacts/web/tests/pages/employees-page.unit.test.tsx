@@ -150,6 +150,42 @@ describe("employees page", () => {
     expect(screen.getByText("Novo colaborador")).toBeInTheDocument();
   });
 
+  it("does not submit when Enter is pressed twice on the step buttons", async () => {
+    const user = userEvent.setup();
+    renderWithQueryClient(<ColaboradoresPage />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Adicionar Colaborador" }),
+    );
+    await user.type(
+      screen.getByPlaceholderText("Nome completo do funcionário"),
+      "Maria da Silva",
+    );
+
+    // "Próximo" e "Criar colaborador" ocupam a mesma posição no rodapé. Sem key
+    // distinta o React reusava o mesmo <button>: ao chegar no último passo ele
+    // virava submit AINDA COM O FOCO, e o Enter seguinte criava o colaborador.
+    screen.getByRole("button", { name: "Próximo" }).focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(screen.getByText("Tipo de contrato")).toBeInTheDocument();
+    });
+    fireEvent.change(
+      document.querySelector('input[type="date"]') as HTMLInputElement,
+      { target: { value: "2024-01-10" } },
+    );
+    screen.getByRole("button", { name: "Próximo" }).focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(screen.getByText("Experiências profissionais")).toBeInTheDocument();
+    });
+
+    await user.keyboard("{Enter}");
+
+    expect(createEmployeeMutate).not.toHaveBeenCalled();
+    expect(screen.getByText("Experiências profissionais")).toBeInTheDocument();
+  });
+
   it("hides the create action for read-only users", () => {
     permissionsState.canWriteEmployees = false;
 
