@@ -43,6 +43,14 @@ export function DiagnosisSection({
 
   const last = factor.lastDiagnosis ?? null;
 
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      setContent("");
+      setReferenceDate(todayDateOnly());
+    }
+    setOpen(next);
+  }
+
   async function submit() {
     const text = content.trim();
     if (!text) {
@@ -59,9 +67,7 @@ export function DiagnosisSection({
         data: { content: text, referenceDate },
       });
       toast({ title: "Diagnóstico registrado" });
-      setOpen(false);
-      setContent("");
-      setReferenceDate(todayDateOnly());
+      handleOpenChange(false);
     } catch {
       toast({
         title: "Não foi possível registrar o diagnóstico",
@@ -136,7 +142,7 @@ export function DiagnosisSection({
 
       <Dialog
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={handleOpenChange}
         title="Registrar novo diagnóstico"
       >
         <div className="space-y-3">
@@ -166,7 +172,7 @@ export function DiagnosisSection({
           </p>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancelar
           </Button>
           <Button onClick={submit} disabled={createDiagnosis.isPending}>
