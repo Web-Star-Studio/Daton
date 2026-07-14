@@ -35,7 +35,8 @@ const TYPE_OPTIONS: ActionPlanType[] = ["corrective", "preventive", "improvement
 const PRIORITY_OPTIONS: ActionPlanPriority[] = ["high", "medium", "low"];
 
 /** An origin-bound creation context (NC, risk, audit finding, etc.). When
- * omitted, the dialog creates a `manual` action. */
+ * omitted, the user picks the origin from the "Origem" listbox (defaults to
+ * `improvement`). */
 export type ActionSource = {
   sourceModule: ActionPlanSourceModule;
   sourceRef: ActionPlanSourceRef;

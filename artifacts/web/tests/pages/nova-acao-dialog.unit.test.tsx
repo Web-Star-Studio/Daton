@@ -94,8 +94,8 @@ describe("NovaAcaoDialog — aberto a partir de outro módulo", () => {
 
     expect(screen.queryByLabelText(/Origem \*/)).toBeNull();
 
-    await user.type(screen.getByLabelText(/Título/), "Tratar desvio do indicador");
-    await user.click(screen.getByRole("button", { name: "Criar ação" }));
+    await user.type(await screen.findByLabelText(/Título/), "Tratar desvio do indicador");
+    await user.click(await screen.findByRole("button", { name: "Criar ação" }));
 
     expect(mutateAsync.mock.calls[0][0].data).toMatchObject({
       sourceModule: "kpi",

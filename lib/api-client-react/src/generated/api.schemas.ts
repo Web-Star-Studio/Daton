@@ -4589,7 +4589,7 @@ export interface ActionPlanNormRef {
 }
 
 /**
- * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.
+ * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.
  */
 export interface ActionPlanSourceRef {
   kpiMonthlyValueId?: number;
