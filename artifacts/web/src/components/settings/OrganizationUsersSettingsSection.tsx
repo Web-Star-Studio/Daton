@@ -100,7 +100,7 @@ const MODULE_LABELS: Record<string, string> = {
   assets: "Infraestrutura",
   regulatoryDocuments: "Documentos Regulatórios",
   swot: "SWOT",
-  actionPlans: "Planos de Ação",
+  actionPlans: "Gestão de Ações",
 };
 
 const ALL_MODULES: OrgUserModule[] = [
