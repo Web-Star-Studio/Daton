@@ -12,7 +12,12 @@
 
 ## Global Constraints
 
-- **Toda mudança passa em `pnpm typecheck`.** Rodar antes de cada commit.
+- **`pnpm typecheck` limpo é a condição de saída de cada task** — rodar antes de cada commit.
+  **Exceção única e deliberada:** as Tasks 4, 5 e 8 são uma migração de contrato indivisível
+  (o contrato muda antes dos consumidores). Nelas o typecheck fica quebrado **apenas** nos
+  arquivos que a própria task anuncia, e a Task 8 fecha o servidor / a Task 15 fecha o front.
+  Fora dessas, typecheck quebrado = task não terminada. **Nunca** "consertar" um erro que a
+  task diz explicitamente que é esperado — isso desfaria a migração.
 - **Nunca editar arquivos gerados** (`lib/api-zod/src/generated/`, `lib/api-client-react/src/generated/`). Mudou o contrato → editar `lib/api-spec/openapi.yaml` e rodar `pnpm --filter @workspace/api-spec codegen` (precisa de `python3` no PATH).
 - **Testes de integração SEMPRE com `TEST_ENV=integration`.** Sem isso o Vitest carrega o `.env` e bate no **Neon de produção**. Subir o banco de teste com `pnpm test:integration:up` e aplicar schema com `pnpm test:integration:db:push` — **nunca** `pnpm --filter @workspace/db push` (aponta para produção).
 - **Nunca subir servidor de dev** sem pedido explícito. A porta 3001 é o backend de dev do usuário e aponta para o **Neon de produção**.
