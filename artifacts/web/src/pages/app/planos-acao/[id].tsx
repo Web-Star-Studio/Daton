@@ -60,6 +60,8 @@ import {
   type ActionPlanType,
   type UpdateActionPlanBody,
 } from "@/lib/action-plans-client";
+import { LEGACY_EFFECTIVENESS_METHOD_LABELS } from "@/lib/action-plans-client";
+import { useAllEffectivenessMethods } from "@/lib/effectiveness-methods-client";
 import { ActionPlanTimeline } from "./_components/timeline";
 import { GutInput } from "./_components/gut-input";
 import { Plano5W2H } from "./_components/plano-5w2h";
@@ -126,7 +128,9 @@ export default function ActionPlanFichaPage() {
   const deleteEvidence = useDeleteActionPlanEvidenceWithInvalidation(orgId);
   const suggestDraft = useSuggestActionPlanDraft();
 
-  const emptyEfic: EficaciaValue = { method: "", dueDate: "", evaluatorUserId: "", before: "", after: "", result: "", comment: "" };
+  const { data: effectivenessMethods = [] } = useAllEffectivenessMethods(orgId);
+
+  const emptyEfic: EficaciaValue = { methodId: "", dueDate: "", evaluatorUserId: "", before: "", after: "", result: "", comment: "" };
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -194,7 +198,7 @@ export default function ActionPlanFichaPage() {
       rootCause: plan.rootCause ?? "",
       rootCauseWhys: plan.rootCauseWhys ?? [],
       efic: {
-        method: plan.effectivenessMethod ?? "",
+        methodId: plan.effectivenessMethodId != null ? String(plan.effectivenessMethodId) : "",
         dueDate: storageIsoToCalendarDate(plan.effectivenessDueDate),
         evaluatorUserId: plan.effectivenessEvaluatorUserId != null ? String(plan.effectivenessEvaluatorUserId) : "",
         before: plan.effectivenessBefore ?? "",
@@ -228,7 +232,7 @@ export default function ActionPlanFichaPage() {
       plan5w2h: clean5w2h(f.plan5w2h),
       rootCause: f.rootCause.trim() || null,
       rootCauseWhys: whys.length > 0 ? whys : null,
-      effectivenessMethod: f.efic.method || null,
+      effectivenessMethodId: f.efic.methodId ? Number(f.efic.methodId) : null,
       effectivenessDueDate: f.efic.dueDate ? calendarDateToStorageIso(f.efic.dueDate) : null,
       effectivenessBefore: f.efic.before.trim() || null,
       effectivenessAfter: f.efic.after.trim() || null,
@@ -753,6 +757,8 @@ export default function ActionPlanFichaPage() {
               value={form.efic}
               onChange={(v) => patch("efic", v)}
               orgUsers={orgUsers}
+              methods={effectivenessMethods}
+              legacyMethodLabel={plan.effectivenessMethod ? LEGACY_EFFECTIVENESS_METHOD_LABELS[plan.effectivenessMethod] : null}
               readOnly={!canEdit}
               canEvaluate={isAdmin || (plan.effectivenessEvaluatorUserId != null && plan.effectivenessEvaluatorUserId === user?.id)}
               canAssignEvaluator={isAdmin}

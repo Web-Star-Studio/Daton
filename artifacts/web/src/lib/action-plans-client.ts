@@ -158,7 +158,13 @@ export function originLink(plan: Pick<ActionPlan, "sourceModule" | "sourceRef">)
   }
 }
 
-export const EFFECTIVENESS_METHOD_LABELS: Record<ActionPlanEffectivenessMethod, string> = {
+/**
+ * @deprecated Rótulos do enum legado, de antes do catálogo de métodos de
+ * verificação. Usado só para exibir planos que ainda não foram migrados
+ * (`effectivenessMethodId === null` e `effectivenessMethod` preenchido).
+ * Nada novo é escrito com estes códigos — ver `effectiveness-methods-client`.
+ */
+export const LEGACY_EFFECTIVENESS_METHOD_LABELS: Record<ActionPlanEffectivenessMethod, string> = {
   indicator: "Verificação por indicador",
   internal_audit: "Auditoria interna",
   field_inspection: "Inspeção física (campo)",
