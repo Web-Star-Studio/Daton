@@ -1,310 +1,238 @@
-# Plano de Ação: múltiplos responsáveis
+# Plano de Ação: ponto focal + responsáveis por ação
 
 **Data:** 2026-07-14
 **Módulo:** Gestão de Ações (`actionPlans`)
-**Origem:** regra de negócio revalidada pela cliente — um plano de ação pode ter mais de um responsável.
+**Status:** decisão de desenho fechada. **Sem código** — a implementação pertence à feature de
+*ações-item dentro do plano*, que está sendo construída em outra frente.
+**Origem:** regra de negócio revalidada pela cliente, duas vezes no mesmo dia.
 
 ---
 
-## 1. Problema
+## 1. Como chegamos aqui (e por que este documento não vira código)
 
-Hoje `action_plans.responsible_user_id` é um único FK para `users.id` (nullable, `ON DELETE SET NULL`).
-Esse campo não é apenas um rótulo de exibição: ele é chave em **cinco mecanismos**.
+A cliente pediu "mais de um responsável no plano de ação". A primeira leitura foi **conjunto
+plano**: N responsáveis iguais, sem hierarquia. Chegamos a implementar a fundação disso — uma
+tabela de junção `action_plan_responsibles` (commits `0d6de59` e `fd925b5`).
 
-| # | Mecanismo | Onde |
-|---|---|---|
-| 1 | **Autorização** — o responsável abre o plano mesmo sem nenhum módulo | `routes/action-plans.ts:126-153` (`requirePlanAccess`) |
-| 2 | **Suas Pendências** — o provider filtra por responsável | `services/pendencias/providers/action-plans.ts:41-42` |
-| 3 | **Escalonamento** — e-mail + notificação de ação vencida | `services/action-plans/escalation.ts:37,48,92-150` |
-| 4 | **Listagem** — filtro "Atribuídas a mim", coluna Responsável, busca textual | `lista-screen.tsx:54-56,159,182` |
-| 5 | **Eficácia** — o avaliador deve ser diferente do responsável | `routes/action-plans.ts:380-388,591-599` |
+Aí a regra foi revalidada com a cliente e mudou: existe sim um **ponto focal**, e os demais
+responsáveis se vinculam às **ações internas do plano** — uma feature em construção, na qual cada
+ação tem responsável e prazo próprios.
 
-A mudança para N responsáveis atravessa os cinco. Não é uma mudança de tela.
+Com esse modelo, a tabela de junção vira **código morto**: o plano mantém sua coluna única
+(`responsible_user_id`), que simplesmente *passa a significar* ponto focal, e a multiplicidade
+migra para a tabela de ações. Os dois commits foram revertidos (`ea318ae`).
 
-## 2. Decisão de modelo
+**Este documento existe para que o trabalho de análise não se perca.** O ativo produzido aqui não
+foi a tabela — foi o **mapa completo dos pontos de acoplamento do "responsável"** (§4), que a
+feature de ações-item vai precisar inteiro. Quem for implementá-la deve ler §2, §3 e §4.
 
-**Conjunto plano: N responsáveis, todos iguais.** Não existe "principal" nem "co-responsável".
-Consequência direta e desejada: **todos** recebem cobrança, **todos** veem o plano em Suas Pendências,
-**todos** ganham acesso ao plano.
+## 2. O modelo
 
-Descartado: modelo "principal + apoio". Reintroduziria hierarquia (e escrita dupla no schema) numa
-regra que a cliente definiu como plana.
+```
+PLANO DE AÇÃO  "Reduzir retrabalho na linha 2"
+  Ponto focal:  Maria Silva          ← responde pelo plano inteiro
+  Prazo macro:  30/09
+  Causa raiz, 5W2H, eficácia         ← inalterados
 
-### 2.1 Schema — tabela de junção
+  Ações:
+    1. Revisar procedimento de solda   João Souza   20/08
+    2. Treinar operadores              Ana Costa    05/09
+    3. Auditar a linha                 João Souza   25/09
 
-Segue o precedente do repo (`unit_managers`, `lib/db/src/schema/units.ts:37-56`).
+  "Outros responsáveis" = {João, Ana}  ← DERIVADO das ações, nunca digitado
+```
+
+Três regras:
+
+1. **O plano tem um ponto focal**, e um só. É a coluna `action_plans.responsible_user_id` que já
+   existe — **sem migração, sem tabela nova**. Muda o rótulo na UI ("Responsável" → "Ponto focal"),
+   não o schema.
+2. **Cada ação tem responsável e prazo próprios.** É onde a multiplicidade mora.
+3. **"Outros responsáveis" do plano é derivado** — o conjunto distinto dos donos das ações dele.
+   Exibido, jamais cadastrado.
+
+E o caso simples continua simples: um plano **sem ações internas** tem exatamente um responsável, o
+ponto focal — que é precisamente o comportamento de hoje. Ninguém paga imposto de complexidade pelo
+caso que não precisa dela.
+
+## 3. Onde as pessoas entram (decisão de UX)
+
+**Na criação do plano: só o ponto focal. Na ficha, ao criar cada ação: o responsável dela.**
+
+O Daton já tinha decidido isso sozinho, no jeito como foi construído. O diálogo de "Nova ação"
+(`_components/nova-acao-dialog.tsx`) pede o mínimo e traz escrito: *"Detalhe 5W2H, causa raiz e
+eficácia na ficha."* **Criação é captura; a ficha é onde se trabalha.**
+
+Três razões para não pedir a equipe na criação:
+
+**Criação é uma interrupção.** O plano quase sempre nasce de dentro de outra tela — uma célula
+vermelha de indicador, uma não conformidade, uma ameaça do SWOT. A pessoa está no meio de outra
+tarefa. Cada campo naquele modal é um pedágio cobrado no momento de menor conhecimento e menor
+paciência. Pedir a equipe ali rende nomes chutados ou campo em branco.
+
+**Na criação você ainda não sabe quem são.** Você sabe o problema e quem responde por ele. Quem mais
+entra depende do desdobramento em ações — e o desdobramento *é a análise* (5 porquês, 5W2H), que
+acontece na ficha. Pedir a equipe antes da análise é pedir a resposta antes da pergunta.
+
+**Co-responsável sem ação é um e-mail sem instrução.** Este é o argumento decisivo, porque o sistema
+**cobra** essas pessoas: manda e-mail de ação vencida e joga o item em "Suas Pendências". Um alerta
+dizendo *"você é co-responsável pelo plano AC-2026-047"* chega sem tarefa e sem prazo — a pessoa
+abre, lê e não sabe o que fazer. Já *"você é responsável por: revisar o procedimento de solda —
+prazo 20/08"* tem endereço. **Nomear pessoa e atribuir tarefa têm que ser o mesmo gesto**, senão a
+cobrança vira ruído e as pessoas param de ler os e-mails do sistema.
+
+É também a disciplina que o módulo existe para impor: o 5W2H tem "quem" e "quando" grudados. Uma
+tela que deixa escrever o nome de alguém sem dizer o que a pessoa vai fazer e até quando sabota a
+própria metodologia que ela implementa.
+
+**Uma fonte da verdade.** Se existisse uma lista de co-responsáveis no plano **e** um responsável em
+cada ação, as duas divergiriam — alguém sai de uma ação e fica na lista como fantasma. Derivar em
+vez de duplicar.
+
+## 4. O mapa: todo lugar que hoje toca `responsible_user_id`
+
+Este é o material que a feature de ações-item precisa. Hoje `action_plans.responsible_user_id`
+(FK → `users.id`, nullable, `ON DELETE SET NULL`) **não é um rótulo** — é chave em cinco mecanismos.
+Quando a ação-item ganhar responsável e prazo, **cada um destes cinco precisa decidir se opera no
+nível do plano (ponto focal) ou da ação**.
+
+### 4.1 Autorização — `routes/action-plans.ts:126-153` (`requirePlanAccess`)
 
 ```ts
-// lib/db/src/schema/action-plans.ts
-export const actionPlanResponsiblesTable = pgTable(
-  "action_plan_responsibles",
-  {
-    id: serial("id").primaryKey(),
-    organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
-    actionPlanId: integer("action_plan_id").notNull()
-      .references(() => actionPlansTable.id, { onDelete: "cascade" }),
-    userId: integer("user_id").notNull()
-      .references(() => usersTable.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    unique("action_plan_responsibles_plan_user_uq").on(table.actionPlanId, table.userId),
-    index("action_plan_responsibles_user_idx").on(table.userId),
-    index("action_plan_responsibles_org_idx").on(table.organizationId),
-  ],
-);
-```
-
-`ON DELETE CASCADE` no `user_id`: usuário removido deixa de ser responsável, sem linha órfã.
-O índice em `user_id` é obrigatório — as consultas mais quentes (pendências, escalonamento,
-filtro "Atribuídas a mim") entram por ele. A tabela `action_plans` hoje **não tem** índice em
-`responsible_user_id`; a junção corrige isso de passagem.
-
-**Alternativa descartada:** coluna `integer[]`. Perde FK (ID órfão após deletar usuário), exige
-índice GIN e joins manuais para resolver nomes.
-
-### 2.2 A coluna antiga vira espelho de escrita (não some agora)
-
-`action_plans.responsible_user_id` **permanece no schema Drizzle e no banco** durante a janela de
-migração, com **nenhum leitor** e **um único escritor**: todo create/update que sincroniza a junção
-também grava ali um responsável *representante* (o de menor id, determinístico), ou `null` quando o
-conjunto está vazio.
-
-Por que espelhar em vez de simplesmente abandonar a coluna: uma coluna que ninguém escreve fica
-**desatualizada no instante seguinte ao deploy** — e aí ela não serve de âncora de rollback nenhuma,
-porque um `revert` perderia toda atribuição feita no mundo novo. Espelhando, o rollback degrada para
-"cada plano volta a ter um responsável" em vez de "planos novos ficam sem responsável".
-
-As duas razões para não dropar já:
-
-1. **Rollback real** — o `revert` do deploy continua encontrando dado válido.
-2. **Anti-drift do `drizzle-kit`** — remover do schema faria um `push` querer dropar a coluna na PROD.
-
-Drop da coluna é um **follow-up** separado, depois de validado em produção. Enquanto isso, ela recebe
-um comentário `@deprecated` no schema: **escrita apenas**, ninguém lê.
-
-## 3. Contrato da API
-
-### 3.1 Leitura
-
-`ActionPlan` e `ActionPlanListItem` trocam os dois campos escalares por um array:
-
-```diff
-- responsibleUserId: integer | null
-- responsibleUserName: string | null
-+ responsibles: Array<{ userId: integer, name: string }>
-```
-
-Array sempre presente (vazio quando não há responsável), ordenado por nome para exibição estável.
-
-### 3.2 Escrita
-
-`CreateActionPlanBody` e `UpdateActionPlanBody`:
-
-```diff
-- responsibleUserId: integer | null
-+ responsibleUserIds: integer[]
-```
-
-Semântica de **substituição total do conjunto**: o payload traz a lista inteira, o servidor
-sincroniza (deleta os que saíram, insere os que entraram) numa transação. Não há operação
-"adicionar/remover um".
-
-> **Nota sobre o autosave.** A ficha faz PATCH com diff (ver memória `action-plan-autosave-diff`).
-> `responsibleUserIds` é um campo como outro qualquer no diff: se mudou, vai inteiro. O
-> last-write-wins por campo entre abas continua valendo — mesmo comportamento de hoje, sem regressão.
-
-### 3.3 Query param — sem mudança de nome
-
-`GET /action-plans?responsibleUserId=N` **mantém o nome**. A semântica passa de
-"o responsável é N" para "**N é um dos** responsáveis", implementado como `EXISTS` sobre a junção.
-Isso preserva o filtro "Atribuídas a mim" e o `<Select>` de responsável na listagem sem churn de contrato.
-
-### 3.4 Fora do contrato novo
-
-`ExternalActionItem` (bridge read-only de `corrective_actions` da governança) continua com
-`responsibleUserName: string` e sem id. Não faz parte desta mudança.
-
-## 4. Os cinco mecanismos
-
-### 4.1 Autorização (`requirePlanAccess`)
-
-```diff
-- plan.responsibleUserId === userId ||
-+ (await isPlanResponsible(plan.id, userId)) ||
+const allowed =
+  plan.responsibleUserId === userId ||
   plan.effectivenessEvaluatorUserId === userId ||
-  ...
+  (await userHasModuleAccess(req.auth!, "actionPlans")) ||
+  (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule]));
 ```
 
-Um helper `isPlanResponsible(planId, userId)` faz um `SELECT 1 ... LIMIT 1` na junção. É uma consulta
-a mais por request nas rotas `/:planId`, coberta pelo índice `(action_plan_id, user_id)` do unique.
+Ser responsável **concede acesso ao plano mesmo sem nenhum módulo** — é assim que o operador chega
+ao plano dele vindo de "Suas Pendências".
 
-### 4.2 Escalonamento
+→ **Decisão necessária:** o dono de uma ação-item precisa abrir o plano inteiro (ele precisa ver o
+contexto, a causa raiz). Logo, `requirePlanAccess` tem de aceitar também *"é dono de alguma ação
+deste plano"*. Sem isso, atribuir uma ação a um operador sem módulo cria um 403.
 
-A dedupe hoje já é por **(plano + usuário + tipo + dia)** (`escalation.ts:112-126`) — não por plano.
-Portanto notificar N responsáveis **não exige redesenho da dedupe**: basta iterar. Cada responsável
-recebe sua notificação e seu e-mail, cada um com seu próprio controle de duplicata.
+### 4.2 Suas Pendências — `services/pendencias/providers/action-plans.ts:41-42`
 
-O `WHERE isNotNull(responsibleUserId)` (`escalation.ts:37`) vira um `INNER JOIN` com a junção, e o loop
-passa a percorrer os pares (plano × responsável).
+Filtra `inArray(responsibleUserId, ctx.responsibleUserIds)` e emite uma pendência **por plano**.
+O tipo `Pendencia` (`services/pendencias/types.ts:21`) exige `responsibleUserId: number` e é
+**compartilhado por 4 provedores** (kpi, action_plan, nonconformity, regulatory_document) — o
+agregador (`aggregate.ts:73-87`) resolve o nome a partir dele.
 
-**Aceito conscientemente:** um responsável adicionado **depois** da passada do dia só recebe o alerta
-no dia seguinte. Sem workaround — o cron roda diariamente.
+→ **Decisão necessária:** a pendência deve passar a ser **a ação, não o plano** — é a ação que tem
+prazo real e dono real. Provavelmente uma pendência por ação-item, com o ponto focal ainda vendo o
+plano. Cuidado: mudar a granularidade muda a **contagem** que o card da home exibe.
 
-### 4.3 Suas Pendências — **uma pendência por plano**
+### 4.3 Escalonamento — `services/action-plans/escalation.ts:37,48,92-150`
 
-Um plano com 3 responsáveis gera **uma** pendência, não três. Nos escopos `unit`/`org` isso evita
-que o mesmo plano apareça 3× na lista e infle o contador do card "Planos de ação" (o gestor quer saber
-quantas **ações** estão abertas, não quantos pares ação×pessoa).
+Varre planos vencidos (`dueDate < hoje`, status não concluído) e, para cada, notifica o responsável:
+notificação in-app + e-mail (Resend). **A dedupe já é por (plano + usuário + tipo + dia)**
+(`escalation.ts:112-126`), não por plano — então escalar para N pessoas **não exige redesenhar a
+dedupe**, basta iterar. Uma segunda passada cobra o avaliador de eficácia
+(`runActionPlanEffectivenessEscalationPass`).
 
-O tipo compartilhado `Pendencia` (usado por 4 providers) ganha **um campo opcional**:
+→ **Decisão necessária:** cobrar o **prazo da ação** (não só o do plano), notificando o dono da
+ação. O ponto focal deveria receber alguma cobrança agregada quando o plano tem ações vencidas.
 
-```diff
-  responsibleUserId: number;          // mantido: "por que isto está nesta lista"
-+ responsibleUserIds?: number[];      // novo, opcional: todos os responsáveis (só o provider de planos preenche)
-  responsibleName?: string;
-```
+### 4.4 Listagem e filtros — `_components/lista-screen.tsx:47,54-56,159,182`
 
-- **Provider de planos** (`providers/action-plans.ts`): dedupe por plano;
-  `responsibleUserId` = menor id **entre os que casam com o escopo** (determinístico, explica a presença
-  na lista); `responsibleUserIds` = **todos** os responsáveis do plano.
-- **`aggregate.ts`** (`:73-87`): a coleta de ids passa a ler `responsibleUserIds ?? [responsibleUserId]`.
-  Quando há mais de um nome, `responsibleName` vira `"Maria Silva +2"`.
-- **Os outros 3 providers** (kpi, nonconformity, regulatory_document) **não mudam** — não preenchem
-  o campo novo e caem no fallback singular.
+- Query param `?responsibleUserId=` (`openapi.yaml:9251`) → filtro do servidor
+  (`routes/action-plans.ts:175-177`)
+- Botão **"Atribuídas a mim"** força `responsibleUserId = user.id` (`lista-screen.tsx:54-56`)
+- Coluna "Responsável" (`:159,:182`) + busca textual sobre `responsibleUserName` (`:73-77`)
+- Painel operacional mostra o responsável no alerta de vencimento (`painel-operacional.tsx:48`)
 
-A tela (`pages/app/pendencias.tsx:87-89`) já renderiza `Responsável: {item.responsibleName}` só nos
-escopos filial/org. Nenhuma mudança de UI é necessária ali além do texto que já vem pronto.
-
-### 4.4 Listagem e filtros
-
-- Coluna "Responsável" → **"Responsáveis"**, renderizando `"Maria Silva +2"` (mesma convenção das pendências).
-- Busca textual (`lista-screen.tsx:73-77`) passa a varrer **todos** os nomes do array.
-- Filtro "Atribuídas a mim" e `<Select>` de responsável: inalterados (o query param manteve o nome).
+→ **Decisão necessária:** "Atribuídas a mim" tem de trazer o plano em que sou **ponto focal OU dono
+de alguma ação** — senão o operador não acha o próprio trabalho.
 
 ### 4.5 Eficácia — independência do avaliador
 
-A regra de independência se estende ao conjunto: **o avaliador não pode ser nenhum dos responsáveis.**
-Validada no create e no update (`routes/action-plans.ts:380-388,591-599`), considerando o conjunto
-recebido no payload ou, se ausente, o já persistido.
+`routes/action-plans.ts:380-388` (create) e `:591-599` (update): o
+`effectivenessEvaluatorUserId` **deve ser diferente do responsável** (regra ISO — quem executa não
+verifica). O front exclui o responsável das opções (`eficacia-panel.tsx:85-92`). Só admin SGI
+designa o avaliador; só o avaliador designado emite o veredito (`:603-618`).
 
-- Backend: 400 quando `effectivenessEvaluatorUserId ∈ responsibleUserIds`.
-- Frontend (`eficacia-panel.tsx:85-92`): as opções de avaliador excluem **todos** os responsáveis.
+→ **Decisão necessária:** o avaliador deve ser diferente do ponto focal **e** de todos os donos de
+ação? Provavelmente sim — mas atenção: isso **rejeita (400) planos existentes** em que a mesma
+pessoa é avaliadora e vira dona de uma ação. É comportamento intencional, mas é uma porta de erro
+nova.
 
-**Risco assumido:** um plano existente em que a pessoa X é avaliadora e alguém a adiciona como
-co-responsável passa a ser rejeitado no save, com mensagem explicando o conflito. É a regra ISO de
-independência da verificação — o comportamento é intencional, não um bug.
+### 4.6 Os demais pontos de contato
 
-## 5. Histórico / auditoria (correção que cai no caminho)
+**Backend**
+- `serializers.ts:85-86` — `responsibleUserId` + `responsibleUserName` no payload
+- `serializers.ts:125-131` — `assertUserBelongsToOrg` (barra atribuição cross-tenant)
+- `serializers.ts:135-141` — `userIsAnalyst` (analista não pode ser avaliador: é read-only, nunca
+  emitiria o veredito)
+- `routes/action-plans.ts:78` — `responsibleUserId` está em `DIFF_FIELDS` (log de auditoria)
+- `notify-assignment.ts:23-39` — e-mail + notificação ao ser atribuído
+- `derivation.ts:24-79` — **não** herda responsável da origem (KPI/NC têm responsável próprio e ele
+  não é herdado; oportunidade em aberto)
+- `summary.ts:5-19` — o summary **não** agrega por responsável (dashboards não fatiam por pessoa)
 
-Hoje o log grava IDs crus (`DIFF_FIELDS` inclui `responsibleUserId`, `routes/action-plans.ts:78`) e a
-tela renderiza literalmente **`responsibleUserId: 3 → 7`** (`comentarios-historico.tsx:62-65`) — nome de
-campo em inglês, ID numérico, ilegível.
+**Contrato** (`lib/api-spec/openapi.yaml` → gera Zod + hooks via Orval; **nunca editar os gerados**)
+- `:9251` query param · `:18952-18955` `ActionPlan` · `:19064-19066` `ActionPlanListItem`
+- `:19140` `CreateActionPlanBody` · `:19228` `UpdateActionPlanBody`
 
-Como o diff desse campo muda de qualquer forma, aproveitamos:
+**Frontend**
+- `[id].tsx:136,188,221,599-608` — form + hidratação + payload + o `SearchableSelect` de Responsável
+- `_components/responsible-options.ts` — semeia o seletor com o responsável atual quando `orgUsers`
+  volta vazia (operador **não pode** listar usuários da org: `GET /organizations/:id/users` é
+  admin/gerente — `[id].tsx:110-120`). **Não perca esse detalhe:** sem isso o operador abre o plano
+  dele e o campo mostra "Selecione".
+- `nova-acao-dialog.tsx:46,107,157-166` · `cell-red-actions-dialog.tsx:64,164,367,459` (criar ação a
+  partir de célula vermelha do KPI)
+- `comentarios-historico.tsx:62-65` — **renderiza o ID cru**: a troca de responsável aparece como
+  `responsibleUserId: 3 → 7`. Nome de campo em inglês, id numérico. Corrija quando mexer no diff:
+  grave **nomes** no log (o `action_plan_activity_log` já snapshota `userName` pelo mesmo motivo) e
+  ponha um mapa de labels na tela.
 
-- O diff passa a gravar **nomes** (snapshot), não ids — há precedente: `action_plan_activity_log` já
-  snapshota `userName`.
-- A tela ganha um mapa de labels e renderiza **"Responsáveis: Maria Silva → Maria Silva, João Souza"**.
+**Desacoplados de propósito (não confundir)**
+- `plan5w2h.who` (`schema/action-plans.ts:50`) — **texto livre**, nunca sincronizado com o
+  responsável. A IA é instruída a escrever o **cargo**, não nomes (`ai-draft.ts:43`).
+- `ExternalActionItem.responsibleUserName` (`services/action-plans/external.ts`) — bridge read-only
+  das `corrective_actions` da governança, **sem id**. Por isso as ações externas somem sob
+  "Atribuídas a mim" (`lista-screen.tsx:84-93`).
+- `createdByUserId`, `activity_log.userId` — bookkeeping.
 
-O mapa de labels cobre apenas `responsibles` nesta entrega. Traduzir os demais campos do diff é
-melhoria separada — fora de escopo.
+### 4.7 Testes que já cobrem o responsável
 
-## 6. Frontend — pontos de troca
+- `tests/routes/action-plans-module-access.integration.test.ts:203-235` — responsável e avaliador
+  abrem o plano **sem módulo nenhum**
+- `tests/services/pendencias/action-plans-provider.integration.test.ts` — filtro por responsável
+- `tests/pages/action-plan-responsible-options.unit.test.ts` — o seed do seletor
+- **Sem cobertura:** a regra de independência responsável≠avaliador, o `notifyActionPlanAssignment`
+  e as duas passadas de escalonamento.
 
-`SearchableMultiSelect` (`components/ui/searchable-multi-select.tsx`) já existe (veio da multi-seleção
-de cargos) e é reusado nos três formulários.
+## 5. Armadilhas de infra (custaram tempo real nesta sessão)
 
-| Arquivo | Mudança |
+- **`pnpm db push` aponta para a PRODUÇÃO** (Neon) e tenta dropar colunas de outras branches. Para o
+  banco de teste: `pnpm test:integration:db:push`. Para a produção: DDL cirúrgico.
+- **Teste de integração sem `TEST_ENV=integration` bate na PRODUÇÃO** — o Vitest carrega o `.env`.
+- **O container Postgres de integração é compartilhado entre worktrees.** Outra sessão rodando
+  `test:integration:db:push` **dropou a tabela** no meio da nossa suíte, e o banco carrega drift de
+  branches não mergeadas (ex.: `effectiveness_method_id`, do worktree de métodos de verificação).
+  Um `push` cru ali propõe dropar coluna alheia. Aplique DDL cirúrgico no banco de teste também.
+
+## 6. O que sobra para fazer, e onde
+
+| Entrega | Onde vive |
 |---|---|
-| `planos-acao/[id].tsx:599-608` | `SearchableSelect` → `SearchableMultiSelect` ("Responsáveis") |
-| `_components/nova-acao-dialog.tsx:157-166` | idem |
-| `components/kpi/cell-red-actions-dialog.tsx:459-462` | idem (criar ação a partir de célula vermelha) |
-| `_components/responsible-options.ts` | `buildResponsibleOptions` recebe o array `responsibles` e semeia o picker com **todos** eles quando `orgUsers` volta vazio (operador sem permissão de listar usuários) |
-| `_components/lista-screen.tsx` | coluna + busca textual (§4.4) |
-| `_components/eficacia-panel.tsx` | exclui todos os responsáveis das opções de avaliador |
-| `_components/painel-operacional.tsx:48` | alerta mostra `"Maria Silva +2"` |
-| `_components/comentarios-historico.tsx` | label + formatação de array (§5) |
+| Tabela de ações-item (responsável + prazo por ação) | **feature de ações-item** |
+| Os cinco mecanismos (§4.1–4.5) passando a operar no nível da ação | **feature de ações-item** |
+| Rótulo "Responsável" → "Ponto focal" | junto com a de ações-item (evita conflito de merge na mesma tela) |
+| "Outros responsáveis" derivado, exibido na ficha | **feature de ações-item** |
+| Histórico exibindo nomes em vez de ids (§4.6) | oportunista, junto com o diff |
 
-## 7. Migração em produção
+**Nada disso pertence a esta branch.** Ela entrega este documento.
 
-**Nunca `pnpm db push`** (a branch atrasada tenta dropar colunas de outras branches — memória
-`drizzle-push-prod-drift-theme`). DDL cirúrgico, idempotente:
+## 7. Fora de escopo (decidido)
 
-```sql
-CREATE TABLE IF NOT EXISTS action_plan_responsibles (
-  id serial PRIMARY KEY,
-  organization_id integer NOT NULL REFERENCES organizations(id),
-  action_plan_id integer NOT NULL REFERENCES action_plans(id) ON DELETE CASCADE,
-  user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS action_plan_responsibles_plan_user_uq
-  ON action_plan_responsibles (action_plan_id, user_id);
-CREATE INDEX IF NOT EXISTS action_plan_responsibles_user_idx ON action_plan_responsibles (user_id);
-CREATE INDEX IF NOT EXISTS action_plan_responsibles_org_idx ON action_plan_responsibles (organization_id);
-
--- Backfill: 1 linha por plano que já tem responsável.
-INSERT INTO action_plan_responsibles (organization_id, action_plan_id, user_id)
-SELECT organization_id, id, responsible_user_id
-FROM action_plans
-WHERE responsible_user_id IS NOT NULL
-ON CONFLICT (action_plan_id, user_id) DO NOTHING;
-```
-
-**Ordem de deploy (zero downtime):**
-1. Aplicar a DDL + backfill (o código antigo continua rodando: ignora a tabela nova).
-2. Deploy do código novo (API + web juntos; passa a **ler** só a junção, e a **escrever** junção +
-   espelho legado — ver §2.2).
-3. Verificar a paridade: `COUNT` de planos com responsável antigo == `COUNT(DISTINCT action_plan_id)` na junção.
-4. **Follow-up:** dropar `action_plans.responsible_user_id` (e remover o espelho de escrita).
-
-Verificação obrigatória antes do passo 4:
-
-```sql
-SELECT
-  (SELECT count(*) FROM action_plans WHERE responsible_user_id IS NOT NULL) AS antigos,
-  (SELECT count(DISTINCT action_plan_id) FROM action_plan_responsibles) AS migrados;
-```
-
-## 8. Testes (TDD — teste antes da implementação)
-
-**Integração (api-server)** — `TEST_ENV=integration` obrigatório (memória
-`integration-tests-sem-testenv-batem-na-prod`; sem ele o vitest bate na PROD):
-
-- `requirePlanAccess` libera **qualquer um** dos responsáveis sem módulo (estende
-  `action-plans-module-access.integration.test.ts:203-220`).
-- `POST` com 2 responsáveis grava 2 linhas na junção; `PATCH` substituindo o conjunto deleta e insere corretamente.
-- `PATCH` com conjunto vazio remove todos (plano sem responsável continua válido).
-- `GET ?responsibleUserId=X` retorna o plano quando X é **co-responsável** (não só o primeiro).
-- Avaliador ∈ responsáveis → **400** (no create e no update).
-- Usuário de outra org no array → **400** (`assertUserBelongsToOrg` para cada id).
-- Provider de pendências: plano com 2 responsáveis aparece **uma vez** no escopo `unit`; aparece para
-  **cada um** deles no escopo `mine`.
-- Escalonamento: plano vencido com 3 responsáveis gera **3** notificações e **3** e-mails; rodar duas
-  vezes no mesmo dia não duplica.
-
-**Unit (node)**
-- Diff do log grava nomes, não ids; conjunto inalterado não gera entrada.
-
-**Unit (web)**
-- `buildResponsibleOptions` com N responsáveis: semeia todos quando `orgUsers` está vazio, sem duplicar
-  quando estão presentes (estende `action-plan-responsible-options.unit.test.ts`).
-
-## 9. Fora de escopo
-
+- **Lista explícita de co-responsáveis no plano** — rejeitada: duas fontes da verdade que divergem.
+  Se um dia aparecer a necessidade de envolver alguém que não executa nenhuma ação (um consultor,
+  um gestor acompanhando), isso é **participante/observador**, um conceito diferente de responsável,
+  e merece sua própria decisão.
 - **Múltiplos avaliadores de eficácia** — continua um só.
-- **`plan5w2h.who`** — segue texto livre, desacoplado dos responsáveis. A IA continua instruída a
-  escrever o cargo, não nomes (`ai-draft.ts:43`).
-- **Herdar responsável da origem** (`derivation.ts` não deriva responsável hoje; continua não derivando).
-- **Bridge de `corrective_actions`** (governança) — read-only, sem id de responsável.
-- **Traduzir os demais campos do histórico** — só `responsibles` ganha label.
-- **Drop da coluna `responsible_user_id`** — follow-up pós-validação em produção.
-
-## 10. Premissas
-
-- Responsável continua **opcional**: um plano pode ficar com zero responsáveis (é o comportamento atual,
-  e o `nullable` de hoje já permite).
-- Sem limite máximo de responsáveis.
-- Não há consumidor externo da API — front e back sobem juntos, então a troca do contrato de leitura é
-  segura sem período de compatibilidade dupla no payload.
+- **`plan5w2h.who`** — segue texto livre, desacoplado.
+- **Herdar responsável da origem** (KPI/NC) — `derivation.ts` não deriva hoje; segue não derivando.
