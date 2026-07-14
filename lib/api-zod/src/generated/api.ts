@@ -20320,6 +20320,9 @@ export const CreateTrainingClassParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
+export const createTrainingClassBodyMinScoreMin = 0;
+export const createTrainingClassBodyMinScoreMax = 10;
+
 export const createTrainingClassBodyAttachmentsItemFileSizeMax = 20971520;
 
 export const createTrainingClassBodyAttachmentsItemObjectPathRegExp =
@@ -20337,7 +20340,11 @@ export const CreateTrainingClassBody = zod.object({
   modality: zod.string().optional(),
   workloadHours: zod.number().optional(),
   capacity: zod.number().optional(),
-  minScore: zod.number().optional(),
+  minScore: zod
+    .number()
+    .min(createTrainingClassBodyMinScoreMin)
+    .max(createTrainingClassBodyMinScoreMax)
+    .optional(),
   status: zod.string().optional(),
   notes: zod.string().optional(),
   attachments: zod
@@ -20369,6 +20376,8 @@ export const getTrainingClassResponseOneAttachmentsItemFileSizeMax = 20971520;
 
 export const getTrainingClassResponseOneAttachmentsItemObjectPathRegExp =
   new RegExp("^\/objects\/uploads\/.+");
+export const getTrainingClassResponseTwoParticipantsItemScoreMin = 0;
+export const getTrainingClassResponseTwoParticipantsItemScoreMax = 10;
 
 export const GetTrainingClassResponse = zod
   .object({
@@ -20413,7 +20422,11 @@ export const GetTrainingClassResponse = zod
           employeeId: zod.number(),
           employeeName: zod.string().nullish(),
           attendance: zod.string().nullish(),
-          score: zod.number().nullish(),
+          score: zod
+            .number()
+            .min(getTrainingClassResponseTwoParticipantsItemScoreMin)
+            .max(getTrainingClassResponseTwoParticipantsItemScoreMax)
+            .nullish(),
           result: zod.string().nullish(),
           employeeTrainingId: zod.number().nullish(),
           createdAt: zod.string().datetime({}),
@@ -20429,6 +20442,9 @@ export const UpdateTrainingClassParams = zod.object({
   orgId: zod.coerce.number(),
   id: zod.coerce.number(),
 });
+
+export const updateTrainingClassBodyMinScoreMin = 0;
+export const updateTrainingClassBodyMinScoreMax = 10;
 
 export const updateTrainingClassBodyAttachmentsItemFileSizeMax = 20971520;
 
@@ -20446,7 +20462,11 @@ export const UpdateTrainingClassBody = zod.object({
   modality: zod.string().optional(),
   workloadHours: zod.number().optional(),
   capacity: zod.number().optional(),
-  minScore: zod.number().optional(),
+  minScore: zod
+    .number()
+    .min(updateTrainingClassBodyMinScoreMin)
+    .max(updateTrainingClassBodyMinScoreMax)
+    .optional(),
   status: zod.string().optional(),
   notes: zod.string().optional(),
   attachments: zod
@@ -20530,6 +20550,8 @@ export const addTrainingClassParticipantsResponseOneAttachmentsItemFileSizeMax =
 
 export const addTrainingClassParticipantsResponseOneAttachmentsItemObjectPathRegExp =
   new RegExp("^\/objects\/uploads\/.+");
+export const addTrainingClassParticipantsResponseTwoParticipantsItemScoreMin = 0;
+export const addTrainingClassParticipantsResponseTwoParticipantsItemScoreMax = 10;
 
 export const AddTrainingClassParticipantsResponse = zod
   .object({
@@ -20578,7 +20600,15 @@ export const AddTrainingClassParticipantsResponse = zod
           employeeId: zod.number(),
           employeeName: zod.string().nullish(),
           attendance: zod.string().nullish(),
-          score: zod.number().nullish(),
+          score: zod
+            .number()
+            .min(
+              addTrainingClassParticipantsResponseTwoParticipantsItemScoreMin,
+            )
+            .max(
+              addTrainingClassParticipantsResponseTwoParticipantsItemScoreMax,
+            )
+            .nullish(),
           result: zod.string().nullish(),
           employeeTrainingId: zod.number().nullish(),
           createdAt: zod.string().datetime({}),
@@ -20596,11 +20626,21 @@ export const UpdateTrainingClassParticipantParams = zod.object({
   participantId: zod.coerce.number(),
 });
 
+export const updateTrainingClassParticipantBodyScoreMin = 0;
+export const updateTrainingClassParticipantBodyScoreMax = 10;
+
 export const UpdateTrainingClassParticipantBody = zod.object({
   attendance: zod.string().nullish(),
-  score: zod.number().nullish(),
+  score: zod
+    .number()
+    .min(updateTrainingClassParticipantBodyScoreMin)
+    .max(updateTrainingClassParticipantBodyScoreMax)
+    .nullish(),
   result: zod.string().nullish(),
 });
+
+export const updateTrainingClassParticipantResponseScoreMin = 0;
+export const updateTrainingClassParticipantResponseScoreMax = 10;
 
 export const UpdateTrainingClassParticipantResponse = zod.object({
   id: zod.number(),
@@ -20608,7 +20648,11 @@ export const UpdateTrainingClassParticipantResponse = zod.object({
   employeeId: zod.number(),
   employeeName: zod.string().nullish(),
   attendance: zod.string().nullish(),
-  score: zod.number().nullish(),
+  score: zod
+    .number()
+    .min(updateTrainingClassParticipantResponseScoreMin)
+    .max(updateTrainingClassParticipantResponseScoreMax)
+    .nullish(),
   result: zod.string().nullish(),
   employeeTrainingId: zod.number().nullish(),
   createdAt: zod.string().datetime({}),

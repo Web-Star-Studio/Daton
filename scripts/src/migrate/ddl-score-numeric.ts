@@ -31,6 +31,13 @@
  * ROLLBACK no catch): se a segunda falhar, a primeira não fica aplicada
  * sozinha. Mesmo padrão do PR #150 (DDL de `workload_hours`) e de
  * `norms-catalog-backfill.ts`.
+ *
+ * Pré-flight OBRIGATÓRIO antes do BEGIN: `USING score::numeric(4,2)` NÃO
+ * trunca — é um cast estrito, e qualquer linha com |score| >= 100 faz o
+ * ALTER abortar com "numeric field overflow" em vez de arredondar/truncar
+ * em silêncio. O script consulta min/max/contagem de estouro nas duas
+ * tabelas e aborta sem tocar em nada (nenhum BEGIN sequer é aberto) se
+ * alguma linha estouraria numeric(4,2).
  */
 import pg from "pg";
 
@@ -60,6 +67,47 @@ async function main() {
   `);
   console.log("ANTES:");
   console.table(before.rows);
+
+  // Pré-flight: `USING score::numeric(4,2)` NÃO trunca — numeric(4,2) guarda
+  // no máximo 99,99, e qualquer linha com |score| >= 100 faz o ALTER abortar
+  // no meio com "numeric field overflow" (a primeira tabela já convertida,
+  // dentro da mesma transação, é revertida pelo ROLLBACK — mas é melhor nunca
+  // nem tentar). Verificamos as duas tabelas ANTES do BEGIN e abortamos sem
+  // tocar em nada se alguma linha estouraria.
+  console.log("\nPré-flight (limite de numeric(4,2): |score| < 100)...");
+  const preflight = await client.query(`
+    SELECT 'training_effectiveness_reviews' AS table_name,
+           min(score) AS min_score,
+           max(score) AS max_score,
+           count(*) FILTER (WHERE abs(score) >= 100) AS overflow_count
+    FROM training_effectiveness_reviews
+    UNION ALL
+    SELECT 'training_class_participants' AS table_name,
+           min(score) AS min_score,
+           max(score) AS max_score,
+           count(*) FILTER (WHERE abs(score) >= 100) AS overflow_count
+    FROM training_class_participants
+  `);
+  console.table(preflight.rows);
+
+  const overflowing = preflight.rows.filter(
+    (row) => Number(row.overflow_count) > 0,
+  );
+  if (overflowing.length > 0) {
+    await client.end();
+    const detail = overflowing
+      .map(
+        (row) =>
+          `${row.table_name}: ${row.overflow_count} linha(s) com |score| >= 100 (max=${row.max_score}, min=${row.min_score})`,
+      )
+      .join("; ");
+    throw new Error(
+      `ABORTADO antes de qualquer ALTER: ${detail}. numeric(4,2) guarda no máximo 99,99 — ` +
+        `essas linhas fariam o ALTER abortar com "numeric field overflow". Corrija ou trunque ` +
+        `esses valores antes de rodar este script. Nenhuma alteração foi feita.`,
+    );
+  }
+  console.log("Pré-flight OK: nenhuma linha estouraria numeric(4,2).\n");
 
   try {
     await client.query("BEGIN");

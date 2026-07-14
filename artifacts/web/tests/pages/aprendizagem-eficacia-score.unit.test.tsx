@@ -1,8 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { computeEffectivenessScore } from "@/pages/app/aprendizagem/eficacia";
 import { ScoreInput } from "@/pages/app/aprendizagem/turmas/detail-panel";
+import { toast } from "@/hooks/use-toast";
+
+vi.mock("@/hooks/use-toast", () => ({
+  toast: vi.fn(),
+}));
+
+beforeEach(() => {
+  vi.mocked(toast).mockClear();
+});
 
 /**
  * Task 3 (fix/score-precisao-nota): a coluna `score` virou numeric(4,2) na
@@ -84,5 +93,42 @@ describe("ScoreInput (nota manual de turma) — não reintroduz a armadilha do i
 
     expect(onSave).not.toHaveBeenCalled();
     expect(input).toHaveValue(7);
+  });
+
+  /**
+   * Achado 3 (revisão final de fix/score-precisao-nota): antes, o valor
+   * inválido só voltava ao campo em silêncio — o usuário digitava, saía do
+   * campo, e o número sumia sem explicação. Agora mostra um toast de erro,
+   * seguindo o mesmo padrão (`toast` de "@/hooks/use-toast") que o resto do
+   * módulo de Aprendizagem já usa para erro.
+   */
+  it("valor fora de 0-10 no blur mostra um toast de erro (não falha em silêncio)", async () => {
+    const onSave = vi.fn();
+    const toastMock = vi.mocked(toast);
+    render(<ScoreInput score={7} disabled={false} onSave={onSave} />);
+    const input = screen.getByRole("spinbutton");
+    const user = userEvent.setup();
+
+    await user.clear(input);
+    await user.type(input, "15");
+    await user.tab();
+
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ variant: "destructive" }),
+    );
+  });
+
+  it("valor válido no blur NÃO dispara toast de erro", async () => {
+    const onSave = vi.fn();
+    const toastMock = vi.mocked(toast);
+    render(<ScoreInput score={7} disabled={false} onSave={onSave} />);
+    const input = screen.getByRole("spinbutton");
+    const user = userEvent.setup();
+
+    await user.clear(input);
+    await user.type(input, "9");
+    await user.tab();
+
+    expect(toastMock).not.toHaveBeenCalled();
   });
 });

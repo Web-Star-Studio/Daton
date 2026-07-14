@@ -340,10 +340,14 @@ async function main() {
       ].filter((s): s is string => !!s);
       const finalComments = commentsParts.length ? commentsParts.join("\n\n") : null;
 
+      // Sem Math.round: a coluna é numeric(4,2) desde fix/score-precisao-nota,
+      // então arredondar aqui só descartaria precisão que o banco já guarda.
       const score =
         r.score == null
           ? null
-          : Math.round(typeof r.score === "string" ? Number(r.score) : r.score);
+          : typeof r.score === "string"
+            ? Number(r.score)
+            : r.score;
 
       const evalDate = formatDate(r.evaluation_date);
       if (!evalDate) {

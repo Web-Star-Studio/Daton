@@ -16,6 +16,7 @@ import type {
 import { usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { formatKpiNumber } from "@/lib/kpi-client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -596,7 +597,7 @@ export default function EficaciaPage() {
                     )}
                     {t.effectivenessScorePercent != null ? (
                       <span className="text-xs text-muted-foreground">
-                        Eficácia: {t.effectivenessScorePercent}%
+                        Eficácia: {formatKpiNumber(t.effectivenessScorePercent)}%
                         {t.latestEffectivenessReview?.evaluationDate
                           ? ` · Concluída ${fmtDateShort(t.latestEffectivenessReview.evaluationDate)}`
                           : ""}

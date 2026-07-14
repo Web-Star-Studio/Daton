@@ -8,7 +8,7 @@ import {
   getGetTrainingClassQueryKey,
 } from "@workspace/api-client-react";
 import type { TrainingClassParticipant } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +50,6 @@ export function TurmaDetailPanel({
   onChanged: () => void;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("presenca");
   const [uploading, setUploading] = useState(false);
 
@@ -373,7 +372,14 @@ export function ScoreInput({
         if (val === "" || val === String(score ?? "")) return;
         const parsed = Number(val);
         if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10) {
-          // Valor inválido: volta ao que estava, em vez de gravar lixo.
+          // Valor inválido: volta ao que estava, em vez de gravar lixo — mas
+          // avisa, senão o número digitado some sem explicação (achado 3 da
+          // revisão de fix/score-precisao-nota).
+          toast({
+            title: "Nota inválida",
+            description: "A nota deve estar entre 0 e 10.",
+            variant: "destructive",
+          });
           setVal(score != null ? String(score) : "");
           return;
         }
