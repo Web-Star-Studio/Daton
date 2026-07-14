@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import {
   CONTROL_STATUSES,
   CONTROL_STATUS_LABELS,
+  DIAGNOSIS_PERIODICITIES,
+  DIAGNOSIS_PERIODICITY_LABELS,
   FACTOR_ORIGINS,
   FACTOR_TYPES,
   FACTOR_TYPE_LABELS,
@@ -30,6 +32,7 @@ import {
   type Periodicity,
 } from "@/lib/road-safety-client";
 import { RelevanceBadge } from "./badges";
+import { DiagnosisSection } from "./diagnostico";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 
 type CadastroScreenProps = {
@@ -46,7 +49,8 @@ type FormData = {
   isAdditional: boolean;
   name: string;
   analysis: string;
-  currentDiagnosis: string;
+  initialDiagnosis: string;
+  diagnosisPeriodicity: "" | Periodicity;
   monitoringForm: string;
   kpiIndicatorId: string;
   periodicity: Periodicity;
@@ -70,7 +74,8 @@ const emptyForm = (): FormData => ({
   isAdditional: false,
   name: "",
   analysis: "",
-  currentDiagnosis: "",
+  initialDiagnosis: "",
+  diagnosisPeriodicity: "",
   monitoringForm: "indicator",
   kpiIndicatorId: "",
   periodicity: "monthly",
@@ -177,7 +182,10 @@ export function CadastroScreen({
       isAdditional: factor.isAdditional,
       name: factor.name,
       analysis: factor.analysis ?? "",
-      currentDiagnosis: factor.currentDiagnosis ?? "",
+      initialDiagnosis: "",
+      diagnosisPeriodicity: (factor.diagnosisPeriodicity ?? "") as
+        | ""
+        | Periodicity,
       monitoringForm: factor.monitoringForm ?? "",
       kpiIndicatorId:
         factor.kpiIndicatorId != null ? String(factor.kpiIndicatorId) : "",
@@ -219,7 +227,10 @@ export function CadastroScreen({
       isAdditional: form.isAdditional,
       name: form.name.trim(),
       analysis: form.analysis || null,
-      currentDiagnosis: form.currentDiagnosis || null,
+      diagnosisPeriodicity: form.diagnosisPeriodicity || null,
+      // initialDiagnosis só existe na criação — na edição o diagnóstico entra
+      // pelo endpoint próprio, com autor e data.
+      ...(editing ? {} : { initialDiagnosis: form.initialDiagnosis || null }),
       monitoringForm: form.monitoringForm || null,
       kpiIndicatorId: form.kpiIndicatorId ? Number(form.kpiIndicatorId) : null,
       periodicity: form.periodicity,
@@ -345,12 +356,31 @@ export function CadastroScreen({
             placeholder="Descreva como e por que este fator impacta a segurança viária da organização..."
           />
         </Field>
-        <Field label="Diagnóstico atual" full>
-          <Textarea
-            value={form.currentDiagnosis}
-            onChange={(e) => set("currentDiagnosis", e.target.value)}
-            placeholder="Estado atual do fator — o diagnóstico que embasa a análise GUT..."
-          />
+        {editing && factor ? (
+          <DiagnosisSection orgId={orgId} factor={factor} />
+        ) : (
+          <Field label="Diagnóstico inicial" full>
+            <Textarea
+              value={form.initialDiagnosis}
+              onChange={(e) => set("initialDiagnosis", e.target.value)}
+              placeholder="Estado atual do fator — o diagnóstico que embasa a análise GUT..."
+            />
+          </Field>
+        )}
+        <Field label="Periodicidade do diagnóstico">
+          <Select
+            value={form.diagnosisPeriodicity}
+            onChange={(e) =>
+              set("diagnosisPeriodicity", e.target.value as "" | Periodicity)
+            }
+          >
+            <option value="">Sem revisão programada</option>
+            {DIAGNOSIS_PERIODICITIES.map((p) => (
+              <option key={p} value={p}>
+                {DIAGNOSIS_PERIODICITY_LABELS[p]}
+              </option>
+            ))}
+          </Select>
         </Field>
         <label className="flex cursor-pointer items-center gap-2 sm:col-span-2">
           <input
