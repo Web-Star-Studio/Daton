@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgEnum, pgTable, serial, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgEnum, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -183,13 +183,6 @@ export const actionPlansTable = pgTable(
     rootCause: text("root_cause"),
     rootCauseWhys: jsonb("root_cause_whys").$type<string[]>(),
     // ─── Assignment & deadline ─────────────────────────────────────────────────
-    /**
-     * @deprecated Espelho de escrita, mantido só durante a migração para
-     * `action_plan_responsibles`. NINGUÉM LÊ esta coluna — o backend obtém os
-     * responsáveis pela junção. Ela continua sendo escrita (com o responsável de
-     * menor id) para que um rollback do deploy ainda encontre dado válido.
-     * Removida no follow-up, depois de validado em produção.
-     */
     responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     dueDate: timestamp("due_date", { withTimezone: true }),
     correctiveActionDescription: text("corrective_action_description"),
@@ -220,33 +213,6 @@ export const actionPlansTable = pgTable(
     index("action_plans_org_code_idx").on(table.organizationId, table.code),
   ],
 );
-
-/**
- * Responsáveis de um plano de ação (N:N). Conjunto PLANO: não existe "principal"
- * — todos recebem a cobrança automática, todos veem o plano em "Suas Pendências"
- * e todos alcançam a ficha mesmo sem o módulo `actionPlans`. Espelha o padrão de
- * `unit_managers`.
- *
- * O índice em `user_id` não é decoração: as consultas quentes (pendências,
- * escalonamento, filtro "Atribuídas a mim") entram por ele.
- */
-export const actionPlanResponsiblesTable = pgTable(
-  "action_plan_responsibles",
-  {
-    id: serial("id").primaryKey(),
-    organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
-    actionPlanId: integer("action_plan_id").notNull().references(() => actionPlansTable.id, { onDelete: "cascade" }),
-    userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    unique("action_plan_responsibles_plan_user_uq").on(table.actionPlanId, table.userId),
-    index("action_plan_responsibles_user_idx").on(table.userId),
-    index("action_plan_responsibles_org_idx").on(table.organizationId),
-  ],
-);
-
-export type ActionPlanResponsible = typeof actionPlanResponsiblesTable.$inferSelect;
 
 export const actionPlanEvidencesTable = pgTable("action_plan_evidences", {
   id: serial("id").primaryKey(),
