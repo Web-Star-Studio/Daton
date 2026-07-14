@@ -1659,6 +1659,29 @@ Em `components.schemas`, acrescentar (perto dos demais schemas de `ActionPlan*`,
         sortOrder: { type: integer }
 ```
 
+- [ ] **Step 1b: Sincronizar o enum do activity log no OpenAPI**
+
+O schema `ActionPlanActivityLogEntry` (~linha 19401) tem o `action` como um enum com os **8 valores antigos**. A Task 2 acrescentou três valores ao `pgEnum` do banco. Acrescente-os aqui também, **ao final e na mesma ordem**:
+
+```yaml
+        action:
+          type: string
+          enum:
+            - created
+            - updated
+            - status_changed
+            - evidence_added
+            - evidence_removed
+            - effectiveness_evaluated
+            - escalated
+            - reopened
+            - action_added
+            - action_updated
+            - action_removed
+```
+
+Sem isto, o tipo gerado do campo `action` continua sendo a união dos 8 valores antigos e **o contrato publicado passa a mentir sobre o que a API devolve** (a Task 9 grava os três eventos novos, e o `GET /activity` os retorna).
+
 - [ ] **Step 2: Ajustar os schemas do plano**
 
 No schema **`ActionPlan`** (~linha 18902): **remover** as propriedades `plan5w2h` e `rootCauseWhys`, e **acrescentar**:
@@ -5398,6 +5421,18 @@ Regras:
 - Remover pede confirmação se a linha tiver algum campo preenchido.
 - `id={`acao-${action.id}`}` em cada linha — é a âncora do link vindo de "Suas Pendências".
 - Plano encerrado → tudo `readOnly`.
+
+- [ ] **Step 2b: Rotular os 3 eventos novos no histórico**
+
+`_components/comentarios-historico.tsx:26` tem um `ACTION_META: Record<string, { label, icon, tone }>` com os 8 eventos antigos, e um fallback `ACTION_META[e.action] ?? ACTION_META.updated`. Como a chave é `string` (não o tipo do enum), **o typecheck não acusa a falta** — os eventos de ação simplesmente apareceriam no histórico como "Atualização" genérica, com ícone de lápis. Acrescente as três chaves:
+
+```ts
+  action_added: { label: "Ação incluída", icon: Plus, tone: "..." },
+  action_updated: { label: "Ação alterada", icon: Pencil, tone: "..." },
+  action_removed: { label: "Ação removida", icon: Trash2, tone: "..." },
+```
+
+(use os mesmos ícones/tons das entradas vizinhas — copie o formato exato do que já está no arquivo). Quando o `changes.kind === "action"`, o resumo da entrada deve mostrar o `what` snapshotado, e quando `fields.status.to === "completed"`, o rótulo vira **"Ação concluída"**.
 
 - [ ] **Step 3: Ligar na ficha, apagar `plano-5w2h.tsx`, e adicionar a guarda de conclusão**
 
