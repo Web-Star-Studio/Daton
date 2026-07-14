@@ -634,10 +634,23 @@ Esperado: FAIL — `expected undefined to deeply equal [...]` (não existe `resp
 
 - [ ] **Step 3: Serializer emite `responsibles`**
 
-Em `artifacts/api-server/src/services/action-plans/serializers.ts`, adicione o import do tipo no topo:
+Primeiro, acrescente ao fim de `artifacts/api-server/src/services/action-plans/responsibles.ts` o helper do representante — **um só**, usado tanto pelo serializer quanto pela listagem (não duplique a regra nos dois lugares):
 
 ```ts
-import type { PlanResponsible } from "./responsibles";
+/**
+ * Representante do conjunto para os campos LEGADOS do payload: o de menor id.
+ * Sai junto com eles na limpeza do contrato.
+ */
+export function legacyRepresentative(responsibles: PlanResponsible[]): PlanResponsible | null {
+  if (responsibles.length === 0) return null;
+  return [...responsibles].sort((a, b) => a.userId - b.userId)[0];
+}
+```
+
+Em `artifacts/api-server/src/services/action-plans/serializers.ts`, adicione o import no topo:
+
+```ts
+import { legacyRepresentative, type PlanResponsible } from "./responsibles";
 ```
 
 Troque a assinatura de `serializePlan` — o `extras` perde `responsibleUserName` e ganha `responsibles`:
@@ -662,18 +675,8 @@ E, dentro do objeto retornado, substitua o par `responsibleUserId` / `responsibl
     // Legado — removido na limpeza do contrato. Derivado do representante (menor
     // id) só para o front continuar compilando durante a migração. O backend não
     // lê nenhum dos dois.
-    responsibleUserId: legacyOf(extras.responsibles)?.userId ?? null,
-    responsibleUserName: legacyOf(extras.responsibles)?.name ?? null,
-```
-
-E acrescente, no fim do arquivo:
-
-```ts
-/** Representante do conjunto para os campos legados do payload: o de menor id. */
-function legacyOf(responsibles: PlanResponsible[]): PlanResponsible | null {
-  if (responsibles.length === 0) return null;
-  return [...responsibles].sort((a, b) => a.userId - b.userId)[0];
-}
+    responsibleUserId: legacyRepresentative(extras.responsibles)?.userId ?? null,
+    responsibleUserName: legacyRepresentative(extras.responsibles)?.name ?? null,
 ```
 
 - [ ] **Step 4: `loadAndSerializePlan` lê a junção**
@@ -681,7 +684,7 @@ function legacyOf(responsibles: PlanResponsible[]): PlanResponsible | null {
 Em `artifacts/api-server/src/routes/action-plans.ts`, acrescente aos imports:
 
 ```ts
-import { isPlanResponsible, listResponsiblesByPlan } from "../services/action-plans/responsibles";
+import { isPlanResponsible, legacyRepresentative, listResponsiblesByPlan } from "../services/action-plans/responsibles";
 ```
 
 e troque `import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";` por:
@@ -775,24 +778,25 @@ e, mais abaixo na mesma rota, troque `const userNameMap = await resolveUserNames
   const responsiblesByPlan = await listResponsiblesByPlan(planIds);
 ```
 
-Por fim, no `res.json(plans.map((p) => ({...})))`, substitua o par de campos do responsável por:
+Por fim, no `res.json(plans.map((p) => ({...})))`, troque o `map` para resolver os responsáveis uma vez por plano. Onde hoje está `res.json(plans.map((p) => ({`, use:
 
 ```ts
-    responsibles: responsiblesByPlan.get(p.id) ?? [],
-    responsibleUserId: legacyListItem(responsiblesByPlan.get(p.id) ?? [])?.userId ?? null,
-    responsibleUserName: legacyListItem(responsiblesByPlan.get(p.id) ?? [])?.name ?? null,
+  res.json(plans.map((p) => {
+    const responsibles = responsiblesByPlan.get(p.id) ?? [];
+    const legacy = legacyRepresentative(responsibles);
+    return {
 ```
 
-e acrescente, logo abaixo de `DIFF_FIELDS` (topo do arquivo), o helper:
+e substitua o par de campos do responsável por:
 
 ```ts
-/** Representante do conjunto para os campos legados do list item (menor id).
- *  Sai junto com eles na limpeza do contrato. */
-function legacyListItem(responsibles: { userId: number; name: string }[]): { userId: number; name: string } | null {
-  if (responsibles.length === 0) return null;
-  return [...responsibles].sort((a, b) => a.userId - b.userId)[0];
-}
+      responsibles,
+      // Legado — sai na limpeza do contrato. Ver serializers.ts.
+      responsibleUserId: legacy?.userId ?? null,
+      responsibleUserName: legacy?.name ?? null,
 ```
+
+fechando o `map` com `};\n  }));` no lugar do `}))` original. `legacyRepresentative` vem do mesmo serviço — acrescente-a ao import de `../services/action-plans/responsibles`. **Não** reescreva a regra do representante aqui: ela vive num lugar só.
 
 - [ ] **Step 7: Rodar os testes e confirmar que passam**
 
@@ -1052,6 +1056,7 @@ Em `artifacts/api-server/src/routes/action-plans.ts`, acrescente ao import do se
 import {
   incomingResponsibleIds,
   isPlanResponsible,
+  legacyRepresentative,
   legacyResponsibleId,
   listResponsibleIds,
   listResponsiblesByPlan,
@@ -2346,11 +2351,13 @@ pnpm --filter @workspace/api-spec codegen
 
 - [ ] **Step 4: Remover a emissão legada do serializer**
 
-Em `artifacts/api-server/src/services/action-plans/serializers.ts`, apague as duas linhas `responsibleUserId:` / `responsibleUserName:` do objeto de `serializePlan` e apague a função `legacyOf`.
+Em `artifacts/api-server/src/services/action-plans/serializers.ts`, apague as duas linhas `responsibleUserId:` / `responsibleUserName:` do objeto de `serializePlan` e remova `legacyRepresentative` do import (o tipo `PlanResponsible` continua sendo usado).
 
 - [ ] **Step 5: Remover a emissão legada da listagem**
 
-Em `artifacts/api-server/src/routes/action-plans.ts`, apague as duas linhas `responsibleUserId:` / `responsibleUserName:` do `res.json(plans.map(...))` e apague a função `legacyListItem`.
+Em `artifacts/api-server/src/routes/action-plans.ts`, apague as duas linhas `responsibleUserId:` / `responsibleUserName:` e a `const legacy = ...` do `res.json(plans.map(...))`, e remova `legacyRepresentative` do import.
+
+Por fim, apague a função `legacyRepresentative` de `artifacts/api-server/src/services/action-plans/responsibles.ts` — ela existia só para os campos legados do payload. (**Não** confunda com `legacyResponsibleId`, que alimenta o espelho de escrita no banco e **permanece**.)
 
 - [ ] **Step 6: Remover o ramo legado de entrada**
 
