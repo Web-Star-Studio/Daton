@@ -1,9 +1,10 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, or, sql, type SQL } from "drizzle-orm";
 import {
   actionPlanActivityLogTable,
   actionPlanCommentsTable,
   actionPlanEvidencesTable,
+  actionPlanResponsiblesTable,
   actionPlansTable,
   db,
   isActionPlanEncerrado,
@@ -41,6 +42,7 @@ import {
   type AppModule,
 } from "../middlewares/auth";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
+import { isPlanCoResponsible, listCoResponsiblesByPlan } from "../services/action-plans/responsibles";
 import {
   assertUserBelongsToOrg,
   resolveUserNames,
@@ -141,11 +143,14 @@ function requirePlanAccess() {
     if (!plan) { next(); return; }
 
     const userId = req.auth!.userId;
+    // Ordem importa: os checks de módulo saem do cache de auth (30s), então o
+    // curto-circuito evita a consulta à junção para quem já entra pelo módulo.
     const allowed =
       plan.responsibleUserId === userId ||
       plan.effectivenessEvaluatorUserId === userId ||
       (await userHasModuleAccess(req.auth!, "actionPlans")) ||
-      (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule]));
+      (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule])) ||
+      (await isPlanCoResponsible(planId, userId));
     if (!allowed) { res.status(403).json({ error: "Sem acesso a este plano de ação" }); return; }
 
     next();
@@ -173,7 +178,25 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
   if (query.data.priority) conditions.push(eq(actionPlansTable.priority, query.data.priority));
   if (query.data.sourceModule) conditions.push(eq(actionPlansTable.sourceModule, query.data.sourceModule));
   if (query.data.responsibleUserId !== undefined) {
-    conditions.push(eq(actionPlansTable.responsibleUserId, query.data.responsibleUserId));
+    // "É responsável": ponto focal OU co-responsável. O nome do parâmetro segue no
+    // singular; a semântica é de pertinência ao conjunto de responsáveis do plano.
+    const responsibleUserId = query.data.responsibleUserId;
+    conditions.push(
+      or(
+        eq(actionPlansTable.responsibleUserId, responsibleUserId),
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(actionPlanResponsiblesTable)
+            .where(
+              and(
+                eq(actionPlanResponsiblesTable.actionPlanId, actionPlansTable.id),
+                eq(actionPlanResponsiblesTable.userId, responsibleUserId),
+              ),
+            ),
+        ),
+      )!,
+    );
   }
   if (query.data.sourceKpiMonthlyValueId !== undefined) {
     conditions.push(
@@ -204,6 +227,7 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
   const countMap = new Map(evidenceCounts.map((c) => [c.planId, Number(c.cnt)]));
 
   const userNameMap = await resolveUserNames(plans.map((p) => p.responsibleUserId));
+  const coResponsiblesByPlan = await listCoResponsiblesByPlan(planIds);
   const sourceContexts = await resolveSourceContexts(
     params.data.orgId,
     plans.map((p) => ({ id: p.id, sourceModule: p.sourceModule, sourceRef: p.sourceRef })),
@@ -224,6 +248,7 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
     effectivenessResult: p.effectivenessResult ?? null,
     responsibleUserId: p.responsibleUserId ?? null,
     responsibleUserName: p.responsibleUserId !== null ? (userNameMap.get(p.responsibleUserId) ?? null) : null,
+    coResponsibles: coResponsiblesByPlan.get(p.id) ?? [],
     dueDate: p.dueDate ? p.dueDate.toISOString() : null,
     evidencesCount: countMap.get(p.id) ?? 0,
     createdAt: p.createdAt.toISOString(),
@@ -314,6 +339,7 @@ async function loadAndSerializePlan(orgId: number, planId: number) {
     orgId,
     [{ id: plan.id, sourceModule: plan.sourceModule, sourceRef: plan.sourceRef }],
   );
+  const coResponsiblesByPlan = await listCoResponsiblesByPlan([plan.id]);
 
   return serializePlan(plan, sourceContexts.get(plan.id) ?? { label: plan.sourceModule, kpi: null }, {
     responsibleUserName: plan.responsibleUserId !== null ? (userNameMap.get(plan.responsibleUserId) ?? null) : null,
@@ -325,6 +351,7 @@ async function loadAndSerializePlan(orgId: number, planId: number) {
       e,
       e.uploadedByUserId !== null ? (userNameMap.get(e.uploadedByUserId) ?? null) : null,
     )),
+    coResponsibles: coResponsiblesByPlan.get(plan.id) ?? [],
   });
 }
 
