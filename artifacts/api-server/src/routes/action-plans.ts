@@ -601,8 +601,8 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
   const logBase = { orgId: params.data.orgId, actionPlanId: row.id, userId: req.auth!.userId, userName };
 
   // Logged outside the prioritized chain below: that chain writes ONE entry per save,
-  // so a save that changed both the status and the 5W2H would record only the status
-  // and the block's version would vanish — the exact hole this feature closes.
+  // so a save that changed both the status and the planning block would record only the
+  // status and the block's version would vanish — the exact hole this feature closes.
   if (planningChanged(existing, row)) {
     await logActionPlanActivity({
       ...logBase,

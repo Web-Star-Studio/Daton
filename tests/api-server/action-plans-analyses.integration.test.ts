@@ -73,6 +73,26 @@ describe("tratativas no plano", () => {
     expect(res.body.analyses[0].key).toBe("fmea");
   });
 
+  it("PATCH { analyses: null } limpa as tratativas SEM arrastar a causa raiz junto", async () => {
+    const context = await createTestContext({ seed: "plan-analyses-clear" });
+    contexts.push(context);
+
+    const created = await createPlan(context, {
+      analyses: [{ key: "five_whys", data: { whys: ["a"] } }],
+      rootCause: "Causa raiz",
+    }).expect(201);
+
+    const res = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/action-plans/${created.body.id}`)
+      .set(authHeader(context))
+      .send({ analyses: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.analyses).toBeNull();
+    // A limpeza das tratativas não pode zerar a causa raiz (campos independentes do bloco).
+    expect(res.body.rootCause).toBe("Causa raiz");
+  });
+
   it("aceita tratativa cuja chave está INATIVA no catálogo (plano antigo tem de continuar salvável)", async () => {
     const context = await createTestContext({ seed: "plan-analyses-inactive-key" });
     contexts.push(context);
