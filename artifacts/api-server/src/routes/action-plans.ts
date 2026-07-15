@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import {
+  actionPlanActionsTable,
   actionPlanActivityLogTable,
   actionPlanCommentsTable,
   actionPlanEvidencesTable,
@@ -144,6 +145,19 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
     .groupBy(actionPlanEvidencesTable.actionPlanId);
   const countMap = new Map(evidenceCounts.map((c) => [c.planId, Number(c.cnt)]));
 
+  // Um único SELECT agrupado para todos os planos da listagem — nunca uma consulta
+  // por plano (N+1).
+  const actionCounts = await db
+    .select({
+      actionPlanId: actionPlanActionsTable.actionPlanId,
+      total: sql<number>`count(*)::int`,
+      done: sql<number>`count(*) filter (where ${actionPlanActionsTable.status} = 'completed')::int`,
+    })
+    .from(actionPlanActionsTable)
+    .where(eq(actionPlanActionsTable.organizationId, params.data.orgId))
+    .groupBy(actionPlanActionsTable.actionPlanId);
+  const actionCountByPlan = new Map(actionCounts.map((c) => [c.actionPlanId, c]));
+
   const userNameMap = await resolveUserNames(plans.map((p) => p.responsibleUserId));
   const sourceContexts = await resolveSourceContexts(
     params.data.orgId,
@@ -167,6 +181,8 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
     responsibleUserName: p.responsibleUserId !== null ? (userNameMap.get(p.responsibleUserId) ?? null) : null,
     dueDate: p.dueDate ? p.dueDate.toISOString() : null,
     evidencesCount: countMap.get(p.id) ?? 0,
+    actionsTotal: actionCountByPlan.get(p.id)?.total ?? 0,
+    actionsDone: actionCountByPlan.get(p.id)?.done ?? 0,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   })));
@@ -256,6 +272,13 @@ async function loadAndSerializePlan(orgId: number, planId: number) {
     [{ id: plan.id, sourceModule: plan.sourceModule, sourceRef: plan.sourceRef }],
   );
 
+  const actionRows = await db
+    .select({ status: actionPlanActionsTable.status })
+    .from(actionPlanActionsTable)
+    .where(eq(actionPlanActionsTable.actionPlanId, planId));
+  const actionsTotal = actionRows.length;
+  const actionsDone = actionRows.filter((a) => a.status === "completed").length;
+
   return serializePlan(plan, sourceContexts.get(plan.id) ?? { label: plan.sourceModule, kpi: null }, {
     responsibleUserName: plan.responsibleUserId !== null ? (userNameMap.get(plan.responsibleUserId) ?? null) : null,
     createdByUserName: plan.createdByUserId !== null ? (userNameMap.get(plan.createdByUserId) ?? null) : null,
@@ -266,6 +289,8 @@ async function loadAndSerializePlan(orgId: number, planId: number) {
       e,
       e.uploadedByUserId !== null ? (userNameMap.get(e.uploadedByUserId) ?? null) : null,
     )),
+    actionsTotal,
+    actionsDone,
   });
 }
 

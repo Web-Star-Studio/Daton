@@ -3,6 +3,7 @@ import {
   db,
   usersTable,
   type ActionPlan as DbActionPlan,
+  type ActionPlanAction as DbActionPlanAction,
   type ActionPlanActivityLogEntry as DbActionPlanActivity,
   type ActionPlanComment as DbActionPlanComment,
   type ActionPlanEvidence as DbActionPlanEvidence,
@@ -41,6 +42,30 @@ export function serializeComment(
   };
 }
 
+/** Uma linha do 5W2H rastreável (ver `action_plan_actions` no schema). */
+export function serializeAction(
+  a: DbActionPlanAction,
+  responsibleUserName: string | null = null,
+) {
+  return {
+    id: a.id,
+    actionPlanId: a.actionPlanId,
+    what: a.what ?? null,
+    why: a.why ?? null,
+    whereAt: a.whereAt ?? null,
+    how: a.how ?? null,
+    howMuch: a.howMuch ?? null,
+    responsibleUserId: a.responsibleUserId ?? null,
+    responsibleUserName,
+    dueDate: a.dueDate ? a.dueDate.toISOString() : null,
+    status: a.status,
+    completedAt: a.completedAt ? a.completedAt.toISOString() : null,
+    notes: a.notes ?? null,
+    sortOrder: a.sortOrder,
+    createdAt: a.createdAt.toISOString(),
+  };
+}
+
 export function serializeActivityEntry(e: DbActionPlanActivity) {
   return {
     id: e.id,
@@ -61,6 +86,8 @@ export function serializePlan(
     createdByUserName: string | null;
     effectivenessEvaluatorUserName: string | null;
     evidences: ReturnType<typeof serializeEvidence>[];
+    actionsTotal: number;
+    actionsDone: number;
   },
 ) {
   return {
@@ -105,6 +132,8 @@ export function serializePlan(
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
     evidences: extras.evidences,
+    actionsTotal: extras.actionsTotal,
+    actionsDone: extras.actionsDone,
   };
 }
 
