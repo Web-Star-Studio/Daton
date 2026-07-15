@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter } from "express";
 import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import {
   actionPlanActivityLogTable,
@@ -8,7 +8,6 @@ import {
   db,
   isActionPlanEncerrado,
   type ActionPlanActivityChanges,
-  type ActionPlanSourceModule,
 } from "@workspace/db";
 import {
   AddActionPlanCommentBody,
@@ -38,8 +37,8 @@ import {
   requireModuleAccess,
   requireWriteAccess,
   userHasModuleAccess,
-  type AppModule,
 } from "../middlewares/auth";
+import { requirePlanAccess, SOURCE_MODULE_OWNER } from "../middlewares/plan-access";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
 import {
   assertUserBelongsToOrg,
@@ -90,66 +89,6 @@ async function currentUserName(userId: number | null | undefined): Promise<strin
  *  whether the row holds `{}` or `null`. */
 function normalizedPlanning(row: Parameters<typeof extractPlanning>[0]) {
   return normalizePlanning(extractPlanning(row));
-}
-
-/**
- * Module that owns each action-plan origin. The hub (`actionPlans`) sees every
- * plan, but the "Ações vinculadas" widget embedded in the origin screens reads
- * this same listing scoped by `sourceModule` — so whoever may open the origin
- * screen may read the actions spawned from it. Without this, granting `kpi`
- * alone would break the RAC deviation flow with a 403.
- */
-const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
-  kpi: "kpi",
-  rac: "kpi",
-  swot: "swot",
-  nonconformity: "governance",
-  audit_finding: "governance",
-  risk: "governance",
-  training: "employees",
-  environmental: "environmental",
-  road_safety: "roadSafety",
-  incident: "roadSafety",
-  manual: "actionPlans",
-};
-
-/**
- * Guards every `/:planId` route. Without it the hub gate would be bypassable by
- * anyone in the org who guesses a plan id. A plan belongs to whoever holds the
- * hub module, holds the module that owns its origin, or is personally assigned
- * to it — the responsible and the effectiveness evaluator reach their own plans
- * from "Suas Pendências" without ever holding `actionPlans`.
- *
- * Registered after `requireAuth`. Unknown ids and malformed params fall through
- * untouched so the routes keep answering 404/400 exactly as before.
- */
-function requirePlanAccess() {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const orgId = Number(req.params.orgId);
-    const planId = Number(req.params.planId);
-    if (!Number.isInteger(orgId) || !Number.isInteger(planId)) { next(); return; }
-    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
-
-    const [plan] = await db
-      .select({
-        sourceModule: actionPlansTable.sourceModule,
-        responsibleUserId: actionPlansTable.responsibleUserId,
-        effectivenessEvaluatorUserId: actionPlansTable.effectivenessEvaluatorUserId,
-      })
-      .from(actionPlansTable)
-      .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
-    if (!plan) { next(); return; }
-
-    const userId = req.auth!.userId;
-    const allowed =
-      plan.responsibleUserId === userId ||
-      plan.effectivenessEvaluatorUserId === userId ||
-      (await userHasModuleAccess(req.auth!, "actionPlans")) ||
-      (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule]));
-    if (!allowed) { res.status(403).json({ error: "Sem acesso a este plano de ação" }); return; }
-
-    next();
-  };
 }
 
 // ─── List ──────────────────────────────────────────────────────────────────
