@@ -6583,7 +6583,14 @@ export type ListOrganizationTrainingsParams = {
   effectivenessStatus?: ListOrganizationTrainingsEffectivenessStatus;
   scope?: ListOrganizationTrainingsScope;
   year?: number;
+  /**
+   * Deprecated — use normId. Kept for backward compatibility.
+   */
   norm?: string;
+  /**
+   * Filtro por id da norma do catálogo (norm_ids do item vinculado).
+   */
+  normId?: number;
   evaluatorRole?: ListOrganizationTrainingsEvaluatorRole;
   boardColumn?: ListOrganizationTrainingsBoardColumn;
   /**

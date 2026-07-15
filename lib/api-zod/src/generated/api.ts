@@ -1707,7 +1707,16 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
     .optional(),
   scope: zod.enum(["needs_evaluation", "all"]).optional(),
   year: zod.coerce.number().optional(),
-  norm: zod.coerce.string().optional(),
+  norm: zod.coerce
+    .string()
+    .optional()
+    .describe("Deprecated — use normId. Kept for backward compatibility."),
+  normId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "Filtro por id da norma do catálogo (norm_ids do item vinculado).",
+    ),
   evaluatorRole: zod
     .enum(["gestor", "rh", "instrutor", "colaborador"])
     .optional(),

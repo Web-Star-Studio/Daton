@@ -1130,8 +1130,16 @@ paths:
         - name: norm
           in: query
           required: false
+          deprecated: true
+          description: "Deprecated — use normId. Kept for backward compatibility."
           schema:
             type: string
+        - name: normId
+          in: query
+          required: false
+          description: "Filtro por id da norma do catálogo (norm_ids do item vinculado)."
+          schema:
+            type: integer
         - name: evaluatorRole
           in: query
           required: false
