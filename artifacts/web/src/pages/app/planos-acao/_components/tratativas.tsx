@@ -32,7 +32,13 @@ export function Tratativas({
   labelPorChave: Map<string, string>;
   readOnly?: boolean;
 }) {
-  const [abertas, setAbertas] = useState<Set<string>>(() => new Set(analyses.map((a) => a.key)));
+  // Rastreamos as COLAPSADAS, não as abertas: assim o default é "aberto" e não depende do
+  // timing de montagem. Um inicializador lazy sobre `analyses` rodaria só no mount — e o
+  // componente monta com `analyses = []` (a página faz early-return enquanto o plano carrega,
+  // e a hidratação de `form.analyses` só acontece no render seguinte), então as tratativas já
+  // salvas nasceriam colapsadas para sempre. Com o conjunto invertido, o que não está aqui
+  // está aberto — vale para as já presentes e para as recém-adicionadas.
+  const [colapsadas, setColapsadas] = useState<Set<string>>(() => new Set());
   const [aRemover, setARemover] = useState<AnalysisMethodKey | null>(null);
 
   const jaNoPlano = new Set(analyses.map((a) => a.key));
@@ -40,7 +46,14 @@ export function Tratativas({
 
   const adicionar = (key: AnalysisMethodKey) => {
     onChange([...analyses, { key, data: emptyAnalysisData(key) } as ActionPlanAnalysis]);
-    setAbertas((prev) => new Set(prev).add(key));
+    // A nova tratativa já nasce aberta (não está em `colapsadas`); só garantimos que uma
+    // remoção+readição anterior não a tenha deixado marcada como colapsada.
+    setColapsadas((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
   };
 
   const remover = (key: AnalysisMethodKey) => {
@@ -71,7 +84,7 @@ export function Tratativas({
         // de assinatura diferente — impossível de chamar sem cast. Este é o único cast do
         // arquivo; os 8 adaptadores em si seguem integralmente tipados.
         const { Component } = ANALYSIS_REGISTRY[analysis.key] as Adaptador<typeof analysis.key>;
-        const aberta = abertas.has(analysis.key);
+        const aberta = !colapsadas.has(analysis.key);
         const rotulo = labelPorChave.get(analysis.key) ?? analysis.key;
         const resumo = resumoAnalise(analysis);
         const noCatalogoAtivo = metodosAtivos.some((m) => m.key === analysis.key);
@@ -83,7 +96,7 @@ export function Tratativas({
                 type="button"
                 className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                 onClick={() =>
-                  setAbertas((prev) => {
+                  setColapsadas((prev) => {
                     const next = new Set(prev);
                     if (next.has(analysis.key)) next.delete(analysis.key);
                     else next.add(analysis.key);
