@@ -188,4 +188,114 @@ describe("ações do plano", () => {
     );
     expect(removed?.changes.what).toBe("Bloquear no sistema");
   });
+
+  it("POST { status: completed } SEM `what` é 400 — não se cria uma ação já concluída sem enunciado", async () => {
+    const context = await createTestContext({ seed: "action-post-complete-no-what" });
+    contexts.push(context);
+    const plan = await createPlan(context).expect(201);
+
+    const res = await request(app)
+      .post(actionsUrl(context, plan.body.id))
+      .set(authHeader(context))
+      .send({ status: "completed" });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("POST { status: completed, what } nasce com completedAt não-nulo", async () => {
+    const context = await createTestContext({ seed: "action-post-complete-with-what" });
+    contexts.push(context);
+    const plan = await createPlan(context).expect(201);
+
+    const res = await request(app)
+      .post(actionsUrl(context, plan.body.id))
+      .set(authHeader(context))
+      .send({ status: "completed", what: "Já feito na origem" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe("completed");
+    expect(res.body.completedAt).not.toBeNull();
+  });
+
+  it("PATCH numa ação de plano encerrado devolve 409", async () => {
+    const context = await createTestContext({ seed: "action-patch-locked" });
+    contexts.push(context);
+    const plan = await createPlan(context).expect(201);
+
+    // cria a ação ANTES de encerrar (depois do encerramento nem dá para criar)
+    const created = await request(app)
+      .post(actionsUrl(context, plan.body.id))
+      .set(authHeader(context))
+      .send({ what: "Ação pré-encerramento" })
+      .expect(201);
+
+    await request(app)
+      .patch(`/api/organizations/${context.organizationId}/action-plans/${plan.body.id}`)
+      .set(authHeader(context))
+      .send({ status: "completed", effectivenessResult: "effective" })
+      .expect(200);
+
+    const res = await request(app)
+      .patch(actionsUrl(context, plan.body.id, created.body.id))
+      .set(authHeader(context))
+      .send({ what: "tarde demais" });
+
+    expect(res.status).toBe(409);
+  });
+
+  it("DELETE numa ação de plano encerrado devolve 409", async () => {
+    const context = await createTestContext({ seed: "action-delete-locked" });
+    contexts.push(context);
+    const plan = await createPlan(context).expect(201);
+
+    const created = await request(app)
+      .post(actionsUrl(context, plan.body.id))
+      .set(authHeader(context))
+      .send({ what: "Ação pré-encerramento" })
+      .expect(201);
+
+    await request(app)
+      .patch(`/api/organizations/${context.organizationId}/action-plans/${plan.body.id}`)
+      .set(authHeader(context))
+      .send({ status: "completed", effectivenessResult: "effective" })
+      .expect(200);
+
+    const res = await request(app)
+      .delete(actionsUrl(context, plan.body.id, created.body.id))
+      .set(authHeader(context));
+
+    expect(res.status).toBe(409);
+  });
+
+  it("PATCH rejeita trocar o responsável para um usuário de outra organização", async () => {
+    const context = await createTestContext({ seed: "action-patch-cross-org" });
+    contexts.push(context);
+    const other = await createTestContext({ seed: "action-patch-cross-org-other" });
+    contexts.push(other);
+    const plan = await createPlan(context).expect(201);
+
+    const created = await request(app)
+      .post(actionsUrl(context, plan.body.id))
+      .set(authHeader(context))
+      .send({ what: "x" })
+      .expect(201);
+
+    const res = await request(app)
+      .patch(actionsUrl(context, plan.body.id, created.body.id))
+      .set(authHeader(context))
+      .send({ responsibleUserId: other.userId });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("GET de planId inexistente devolve 404 (não 200 [])", async () => {
+    const context = await createTestContext({ seed: "action-get-missing-plan" });
+    contexts.push(context);
+
+    const res = await request(app)
+      .get(actionsUrl(context, 999999999))
+      .set(authHeader(context));
+
+    expect(res.status).toBe(404);
+  });
 });

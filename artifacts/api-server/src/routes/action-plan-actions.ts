@@ -77,6 +77,15 @@ router.get(
     if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
     if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+    // Confere a existência do plano na org antes de listar — mesmo padrão de
+    // GET .../comments e GET .../activity. Sem isso, um planId inexistente (ou de
+    // outra org) devolveria 200 [] em vez de 404.
+    const [plan] = await db
+      .select({ id: actionPlansTable.id })
+      .from(actionPlansTable)
+      .where(and(eq(actionPlansTable.id, params.data.planId), eq(actionPlansTable.organizationId, params.data.orgId)));
+    if (!plan) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+
     const rows = await db
       .select()
       .from(actionPlanActionsTable)
@@ -109,6 +118,13 @@ router.post(
     const loaded = await loadEditablePlan(params.data.orgId, params.data.planId);
     if ("error" in loaded) { res.status(loaded.error.status).json({ error: loaded.error.message }); return; }
 
+    // Mesma regra do PATCH: uma ação sem enunciado não pode nascer já concluída — o registro
+    // ficaria sem sentido para o auditor ("concluída: (vazio)").
+    if (body.data.status === "completed" && !body.data.what?.trim()) {
+      res.status(400).json({ error: "Descreva o que será feito (campo \"O quê\") antes de concluir a ação." });
+      return;
+    }
+
     if (body.data.responsibleUserId != null) {
       const ok = await assertUserBelongsToOrg(body.data.responsibleUserId, params.data.orgId);
       if (!ok) { res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" }); return; }
@@ -119,6 +135,7 @@ router.post(
       .from(actionPlanActionsTable)
       .where(eq(actionPlanActionsTable.actionPlanId, params.data.planId));
 
+    const status = body.data.status ?? "open";
     const [row] = await db
       .insert(actionPlanActionsTable)
       .values({
@@ -131,7 +148,9 @@ router.post(
         howMuch: body.data.howMuch ?? null,
         responsibleUserId: body.data.responsibleUserId ?? null,
         dueDate: body.data.dueDate ? new Date(body.data.dueDate) : null,
-        status: body.data.status ?? "open",
+        status,
+        // Coerente com o PATCH: completed ⇒ completedAt carimbado no servidor.
+        completedAt: status === "completed" ? new Date() : null,
         notes: body.data.notes ?? null,
         sortOrder: (currentMax ?? -1) + 1,
         createdByUserId: req.auth!.userId,
