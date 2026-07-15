@@ -19879,7 +19879,16 @@ export const ListTrainingCatalogParams = zod.object({
 
 export const ListTrainingCatalogQueryParams = zod.object({
   search: zod.coerce.string().optional(),
-  norm: zod.coerce.string().optional(),
+  norm: zod.coerce
+    .string()
+    .optional()
+    .describe("Deprecated — use normId. Kept for backward compatibility."),
+  normId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "Filter by a regulatory norm id (matches items whose normIds contains it).",
+    ),
   category: zod.coerce.string().optional(),
   modality: zod.coerce.string().optional(),
   status: zod.coerce.string().optional(),
@@ -19896,8 +19905,19 @@ export const ListTrainingCatalogResponse = zod.object({
         title: zod.string(),
         category: zod.string().nullish(),
         modality: zod.string().nullish(),
-        norm: zod.string().nullish(),
-        clause: zod.string().nullish(),
+        norm: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — use normIds. Kept for backward compatibility.",
+          ),
+        clause: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — clause moved into the managed norm catalog label.",
+          ),
+        normIds: zod.array(zod.number()),
         workloadHours: zod.number().nullish(),
         validityMonths: zod.number().nullish(),
         isMandatory: zod.boolean(),
@@ -19935,6 +19955,7 @@ export const CreateTrainingCatalogItemBody = zod.object({
   modality: zod.string().optional(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
+  normIds: zod.array(zod.number()).optional(),
   workloadHours: zod.number().optional(),
   validityMonths: zod.number().nullish(),
   isMandatory: zod.boolean().optional(),
@@ -19963,8 +19984,17 @@ export const GetTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
-    norm: zod.string().nullish(),
-    clause: zod.string().nullish(),
+    norm: zod
+      .string()
+      .nullish()
+      .describe("Deprecated — use normIds. Kept for backward compatibility."),
+    clause: zod
+      .string()
+      .nullish()
+      .describe(
+        "Deprecated — clause moved into the managed norm catalog label.",
+      ),
+    normIds: zod.array(zod.number()),
     workloadHours: zod.number().nullish(),
     validityMonths: zod.number().nullish(),
     isMandatory: zod.boolean(),
@@ -19995,6 +20025,7 @@ export const UpdateTrainingCatalogItemBody = zod.object({
   modality: zod.string().optional(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
+  normIds: zod.array(zod.number()).optional(),
   workloadHours: zod.number().optional(),
   validityMonths: zod.number().nullish(),
   isMandatory: zod.boolean().optional(),
@@ -20015,8 +20046,17 @@ export const UpdateTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
-    norm: zod.string().nullish(),
-    clause: zod.string().nullish(),
+    norm: zod
+      .string()
+      .nullish()
+      .describe("Deprecated — use normIds. Kept for backward compatibility."),
+    clause: zod
+      .string()
+      .nullish()
+      .describe(
+        "Deprecated — clause moved into the managed norm catalog label.",
+      ),
+    normIds: zod.array(zod.number()),
     workloadHours: zod.number().nullish(),
     validityMonths: zod.number().nullish(),
     isMandatory: zod.boolean(),

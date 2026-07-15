@@ -18,6 +18,7 @@ import {
   UpdateTrainingCatalogItemParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
+import { assertNormsBelongToOrg } from "../services/norms/validate";
 
 const router: IRouter = Router();
 
@@ -48,7 +49,7 @@ router.get(
       res.status(400).json({ error: query.error.message });
       return;
     }
-    const { search, norm, category, modality, status } = query.data;
+    const { search, norm, normId, category, modality, status } = query.data;
     const page = query.data.page && query.data.page > 0 ? query.data.page : 1;
     const pageSize =
       query.data.pageSize && query.data.pageSize > 0 ? query.data.pageSize : 50;
@@ -56,8 +57,15 @@ router.get(
     const conditions: SQL[] = [
       eq(trainingCatalogTable.organizationId, params.data.orgId),
     ];
-    if (search) conditions.push(ilike(trainingCatalogTable.title, `%${search}%`));
-    if (norm) conditions.push(eq(trainingCatalogTable.norm, norm));
+    if (search)
+      conditions.push(ilike(trainingCatalogTable.title, `%${search}%`));
+    // `norm` (texto livre) é legado; `normId` filtra pelo id do catálogo dentro do
+    // array jsonb norm_ids (containment). Ambos aceitos p/ compatibilidade.
+    if (normId)
+      conditions.push(
+        sql`${trainingCatalogTable.normIds} @> ${JSON.stringify([normId])}::jsonb`,
+      );
+    else if (norm) conditions.push(eq(trainingCatalogTable.norm, norm));
     if (category) conditions.push(eq(trainingCatalogTable.category, category));
     if (modality) conditions.push(eq(trainingCatalogTable.modality, modality));
     if (status) conditions.push(eq(trainingCatalogTable.status, status));
@@ -117,6 +125,17 @@ router.post(
       res.status(400).json({ error: "Informe o título do treinamento" });
       return;
     }
+    if (
+      !(await assertNormsBelongToOrg(
+        params.data.orgId,
+        body.data.normIds ?? [],
+      ))
+    ) {
+      res
+        .status(400)
+        .json({ error: "Norma(s) inválida(s) para esta organização" });
+      return;
+    }
     const [row] = await db
       .insert(trainingCatalogTable)
       .values({
@@ -126,6 +145,7 @@ router.post(
         modality: body.data.modality ?? null,
         norm: body.data.norm ?? null,
         clause: body.data.clause ?? null,
+        normIds: body.data.normIds ?? [],
         workloadHours: body.data.workloadHours ?? null,
         validityMonths: body.data.validityMonths ?? null,
         isMandatory: body.data.isMandatory ?? false,
@@ -209,8 +229,18 @@ router.patch(
     if (b.modality !== undefined) updates.modality = b.modality;
     if (b.norm !== undefined) updates.norm = b.norm;
     if (b.clause !== undefined) updates.clause = b.clause;
+    if (b.normIds !== undefined) {
+      if (!(await assertNormsBelongToOrg(params.data.orgId, b.normIds))) {
+        res
+          .status(400)
+          .json({ error: "Norma(s) inválida(s) para esta organização" });
+        return;
+      }
+      updates.normIds = b.normIds;
+    }
     if (b.workloadHours !== undefined) updates.workloadHours = b.workloadHours;
-    if (b.validityMonths !== undefined) updates.validityMonths = b.validityMonths;
+    if (b.validityMonths !== undefined)
+      updates.validityMonths = b.validityMonths;
     if (b.isMandatory !== undefined) updates.isMandatory = b.isMandatory;
     if (b.status !== undefined) updates.status = b.status;
     if (b.targetCompetencyName !== undefined)
@@ -222,7 +252,8 @@ router.patch(
     if (b.defaultInstructor !== undefined)
       updates.defaultInstructor = b.defaultInstructor;
     if (b.objective !== undefined) updates.objective = b.objective;
-    if (b.programContent !== undefined) updates.programContent = b.programContent;
+    if (b.programContent !== undefined)
+      updates.programContent = b.programContent;
     if (b.evaluationMethod !== undefined)
       updates.evaluationMethod = b.evaluationMethod;
 

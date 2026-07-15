@@ -9872,8 +9872,16 @@ paths:
         - name: norm
           in: query
           required: false
+          deprecated: true
+          description: "Deprecated — use normId. Kept for backward compatibility."
           schema:
             type: string
+        - name: normId
+          in: query
+          required: false
+          description: "Filter by a regulatory norm id (matches items whose normIds contains it)."
+          schema:
+            type: integer
         - name: category
           in: query
           required: false
@@ -10659,9 +10667,17 @@ components:
         norm:
           type: string
           nullable: true
+          deprecated: true
+          description: "Deprecated — use normIds. Kept for backward compatibility."
         clause:
           type: string
           nullable: true
+          deprecated: true
+          description: "Deprecated — clause moved into the managed norm catalog label."
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
           nullable: true
@@ -10703,6 +10719,7 @@ components:
         - id
         - organizationId
         - title
+        - normIds
         - isMandatory
         - status
         - createdAt
@@ -10720,8 +10737,14 @@ components:
           type: string
         norm:
           type: string
+          deprecated: true
         clause:
           type: string
+          deprecated: true
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
         validityMonths:
@@ -10760,8 +10783,14 @@ components:
           type: string
         norm:
           type: string
+          deprecated: true
         clause:
           type: string
+          deprecated: true
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
         validityMonths:
