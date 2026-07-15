@@ -49,11 +49,12 @@ import {
   todayCalendarDate,
   useActionPlan,
   useAddActionPlanEvidenceWithInvalidation,
+  useAllAnalysisMethods,
+  buildAnalysisMethodLabelMap,
   useDeleteActionPlanEvidenceWithInvalidation,
   useDeleteActionPlanWithInvalidation,
   useSuggestActionPlanDraft,
   useUpdateActionPlanWithInvalidation,
-  type ActionPlan5W2H,
   type ActionPlanNormRef,
   type ActionPlanPriority,
   type ActionPlanStatus,
@@ -62,8 +63,9 @@ import {
 } from "@/lib/action-plans-client";
 import { ActionPlanTimeline } from "./_components/timeline";
 import { GutInput } from "./_components/gut-input";
-import { Plano5W2H } from "./_components/plano-5w2h";
-import { CausaRaiz } from "./_components/causa-raiz";
+import { Tratativas } from "./_components/tratativas";
+import { AutoGrowTextarea } from "./_components/auto-grow-textarea";
+import type { ActionPlanAnalysis } from "./_components/analises/types";
 import { EficaciaPanel, type EficaciaValue } from "./_components/eficacia-panel";
 import { Vinculos } from "./_components/vinculos";
 import { ComentariosHistorico } from "./_components/comentarios-historico";
@@ -84,11 +86,6 @@ function Section({ id, title, action, children }: { id?: string; title: string; 
       {children}
     </section>
   );
-}
-
-function clean5w2h(v: ActionPlan5W2H): ActionPlan5W2H | null {
-  const entries = Object.entries(v).filter(([, val]) => typeof val === "string" && val.trim() !== "");
-  return entries.length > 0 ? (Object.fromEntries(entries) as ActionPlan5W2H) : null;
 }
 
 export default function ActionPlanFichaPage() {
@@ -126,6 +123,13 @@ export default function ActionPlanFichaPage() {
   const deleteEvidence = useDeleteActionPlanEvidenceWithInvalidation(orgId);
   const suggestDraft = useSuggestActionPlanDraft();
 
+  // Catálogo de tratativas: displays (labelPorChave) usam o catálogo INTEIRO
+  // (incl. inativas), pois um plano pode ter adotado uma tratativa antes de a
+  // empresa desligá-la; "+ Adicionar tratativa" só oferece as ativas.
+  const { data: todasTratativas = [] } = useAllAnalysisMethods(orgId);
+  const metodosAtivos = todasTratativas.filter((m) => m.active);
+  const labelPorChave = buildAnalysisMethodLabelMap(todasTratativas);
+
   const emptyEfic: EficaciaValue = { method: "", dueDate: "", evaluatorUserId: "", before: "", after: "", result: "", comment: "" };
   const [form, setForm] = useState({
     title: "",
@@ -138,9 +142,8 @@ export default function ActionPlanFichaPage() {
     correctiveActionDescription: "",
     correctiveActionCompletedAt: "",
     gut: { gravity: null as number | null, urgency: null as number | null, tendency: null as number | null },
-    plan5w2h: {} as ActionPlan5W2H,
+    analyses: [] as ActionPlanAnalysis[],
     rootCause: "",
-    rootCauseWhys: [] as string[],
     efic: emptyEfic,
     vinc: { odsNumbers: [] as number[], normRefs: [] as ActionPlanNormRef[] },
   });
@@ -190,9 +193,8 @@ export default function ActionPlanFichaPage() {
       correctiveActionDescription: plan.correctiveActionDescription ?? "",
       correctiveActionCompletedAt: storageIsoToCalendarDate(plan.correctiveActionCompletedAt),
       gut: { gravity: plan.gutGravity ?? null, urgency: plan.gutUrgency ?? null, tendency: plan.gutTendency ?? null },
-      plan5w2h: plan.plan5w2h ?? {},
+      analyses: plan.analyses ?? [],
       rootCause: plan.rootCause ?? "",
-      rootCauseWhys: plan.rootCauseWhys ?? [],
       efic: {
         method: plan.effectivenessMethod ?? "",
         dueDate: storageIsoToCalendarDate(plan.effectivenessDueDate),
@@ -211,7 +213,6 @@ export default function ActionPlanFichaPage() {
   }, [plan]);
 
   function buildPayload(f: typeof form): UpdateActionPlanBody {
-    const whys = f.rootCauseWhys.map((w) => w.trim()).filter(Boolean);
     const body: UpdateActionPlanBody = {
       title: f.title.trim(),
       description: f.description.trim() || null,
@@ -225,9 +226,8 @@ export default function ActionPlanFichaPage() {
       gutGravity: f.gut.gravity,
       gutUrgency: f.gut.urgency,
       gutTendency: f.gut.tendency,
-      plan5w2h: clean5w2h(f.plan5w2h),
+      analyses: f.analyses.length ? f.analyses : null,
       rootCause: f.rootCause.trim() || null,
-      rootCauseWhys: whys.length > 0 ? whys : null,
       effectivenessMethod: f.efic.method || null,
       effectivenessDueDate: f.efic.dueDate ? calendarDateToStorageIso(f.efic.dueDate) : null,
       effectivenessBefore: f.efic.before.trim() || null,
@@ -354,8 +354,11 @@ export default function ActionPlanFichaPage() {
           contextLabel: sourceContext?.label ?? null,
         },
       });
-      const filledNothing =
-        Object.keys(draft.plan5w2h).length === 0 && !draft.rootCause && draft.rootCauseWhys.length === 0;
+      // plan5w2h fica de fora deste critério de propósito: a IA ainda o retorna, mas
+      // o form não tem onde colocá-lo até a Task 15 criar a seção de Ações (ver
+      // mergeDraftIntoForm). Contar plan5w2h aqui faria a IA "não ter nada a
+      // acrescentar" mesmo quando ela sugeriu 5W2H — o toast mentiria.
+      const filledNothing = !draft.rootCause && draft.rootCauseWhys.length === 0;
       if (filledNothing) {
         toast({ title: "A IA não retornou sugestões", variant: "destructive" });
         return;
@@ -656,21 +659,24 @@ export default function ActionPlanFichaPage() {
             <div className="space-y-6">
               <div>
                 <h4 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Plano de ação (5W2H)
+                  Tratativas
                 </h4>
-                <Plano5W2H value={form.plan5w2h} onChange={(v) => patch("plan5w2h", v)} readOnly={!canEdit} />
+                <Tratativas
+                  analyses={form.analyses}
+                  onChange={(analyses) => patch("analyses", analyses)}
+                  metodosAtivos={metodosAtivos}
+                  labelPorChave={labelPorChave}
+                  readOnly={!canEdit}
+                />
               </div>
               <div>
-                <h4 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Causa raiz (5 porquês)
-                </h4>
-                <CausaRaiz
-                  rootCause={form.rootCause}
-                  whys={form.rootCauseWhys}
-                  onChange={({ rootCause, whys }) => {
-                    setForm((f) => ({ ...f, rootCause, rootCauseWhys: whys }));
-                    setDirty(true);
-                  }}
+                <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Causa raiz identificada
+                </label>
+                <AutoGrowTextarea
+                  value={form.rootCause}
+                  onChange={(e) => patch("rootCause", e.target.value)}
+                  placeholder="Conclusão da análise — a causa fundamental a ser tratada."
                   readOnly={!canEdit}
                 />
               </div>

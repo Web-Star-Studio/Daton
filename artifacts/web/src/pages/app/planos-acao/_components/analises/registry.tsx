@@ -22,7 +22,7 @@ export type DataFor<K extends AnalysisMethodKey> = Extract<
   { key: K }
 >["data"];
 
-type Adaptador<K extends AnalysisMethodKey> = {
+export type Adaptador<K extends AnalysisMethodKey> = {
   Component: (props: {
     data: DataFor<K>;
     onChange: (next: DataFor<K>) => void;
