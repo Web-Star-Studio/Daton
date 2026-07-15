@@ -8,6 +8,7 @@ import {
   db,
   isActionPlanEncerrado,
   type ActionPlanActivityChanges,
+  type ActionPlanAnalysis,
 } from "@workspace/db";
 import {
   AddActionPlanCommentBody,
@@ -40,6 +41,7 @@ import {
 } from "../middlewares/auth";
 import { requirePlanAccess, SOURCE_MODULE_OWNER } from "../middlewares/plan-access";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
+import { normalizeAnalyses, parseAnalyses } from "../services/action-plans/analyses";
 import {
   assertUserBelongsToOrg,
   resolveUserNames,
@@ -64,7 +66,7 @@ import { AiCompletionError } from "../services/ai/json-completion";
 const router: IRouter = Router();
 
 /** Tracked fields for the update activity diff (display labels handled client-side).
- *  The planning block (5W2H + root cause + whys) is logged separately, as one
+ *  The planning block (root cause + tratativas) is logged separately, as one
  *  logical field — see `planning.ts`. */
 const DIFF_FIELDS = [
   "title",
@@ -85,8 +87,8 @@ async function currentUserName(userId: number | null | undefined): Promise<strin
   return map.get(userId) ?? null;
 }
 
-/** The block as it goes into the log: normalized, so an empty 5W2H reads as null
- *  whether the row holds `{}` or `null`. */
+/** The block as it goes into the log: normalized, so an empty planning block reads
+ *  as null whether the row holds `{}`/`[]` or `null`. */
 function normalizedPlanning(row: Parameters<typeof extractPlanning>[0]) {
   return normalizePlanning(extractPlanning(row));
 }
@@ -326,6 +328,17 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     return;
   }
 
+  // As tratativas chegam validadas pelo zod do OpenAPI, mas a forma de `data` por chave e a
+  // unicidade da chave são regra nossa — reforçadas aqui, independentemente de como o Orval
+  // resolveu a união discriminada.
+  let normalizedAnalyses: ActionPlanAnalysis[] | null = null;
+  if (body.data.analyses != null) {
+    const parsed = parseAnalyses(body.data.analyses);
+    if (!parsed.ok) { res.status(400).json({ error: parsed.error }); return; }
+    const list = normalizeAnalyses(parsed.value);
+    normalizedAnalyses = list.length ? list : null;
+  }
+
   const actionType = body.data.actionType ?? "corrective";
   const derived = await deriveCreateDefaults(params.data.orgId, body.data.sourceModule, body.data.sourceRef);
   const code = await generateActionPlanCode(params.data.orgId, actionType, new Date().getFullYear());
@@ -344,9 +357,8 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     gutGravity: body.data.gutGravity ?? null,
     gutUrgency: body.data.gutUrgency ?? null,
     gutTendency: body.data.gutTendency ?? null,
-    plan5w2h: body.data.plan5w2h ?? null,
     rootCause: body.data.rootCause ?? derived.rootCause ?? null,
-    rootCauseWhys: body.data.rootCauseWhys ?? null,
+    analyses: normalizedAnalyses,
     responsibleUserId: body.data.responsibleUserId ?? null,
     dueDate: body.data.dueDate ? new Date(body.data.dueDate) : null,
     correctiveActionDescription: body.data.correctiveActionDescription ?? null,
@@ -371,14 +383,14 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     changes: { kind: "snapshot", data: { code, title: row.title, sourceModule: row.sourceModule, status: row.status } },
   });
 
-  // A plan can be BORN with a planning block — the POST accepts plan5w2h /
-  // rootCause / rootCauseWhys, and `deriveCreateDefaults` inherits the rootCause
-  // of an origin nonconformity. The `created` snapshot doesn't carry the block, so
-  // without a dedicated entry the initial state would survive only in the `from`
-  // of the first later edit — and restore reads only `to`, leaving no restorable
+  // A plan can be BORN with a planning block — the POST accepts rootCause /
+  // analyses, and `deriveCreateDefaults` inherits the rootCause of an origin
+  // nonconformity. The `created` snapshot doesn't carry the block, so without a
+  // dedicated entry the initial state would survive only in the `from` of the
+  // first later edit — and restore reads only `to`, leaving no restorable
   // version of the initial state. Record it as the first version, right after
   // `created`, as an edit from the empty block. A plan born empty logs nothing.
-  const emptyPlanning: PlanningBlock = { plan5w2h: null, rootCause: null, rootCauseWhys: null };
+  const emptyPlanning: PlanningBlock = { rootCause: null, analyses: null };
   const initialPlanning = normalizedPlanning(row);
   if (planningChanged(emptyPlanning, initialPlanning)) {
     await logActionPlanActivity({
@@ -461,28 +473,33 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
   if (body.data.gutGravity !== undefined) update.gutGravity = body.data.gutGravity;
   if (body.data.gutUrgency !== undefined) update.gutUrgency = body.data.gutUrgency;
   if (body.data.gutTendency !== undefined) update.gutTendency = body.data.gutTendency;
-  // Normalize the planning block ON WRITE so the DB holds the canonical form and
-  // the "every persisted change is logged" invariant holds: `planningChanged` and
-  // the activity log both compare NORMALIZED blocks, so persisting a raw value
-  // could store a whitespace-only edit that no entry ever records. Merge the
-  // incoming fields over the current row, normalize, then write back only the
-  // fields the caller actually sent (a PATCH that omits a field must not start
-  // persisting it).
-  if (
-    body.data.plan5w2h !== undefined ||
-    body.data.rootCause !== undefined ||
-    body.data.rootCauseWhys !== undefined
-  ) {
+  // Normaliza o bloco de análise NA ESCRITA, para que o banco guarde a forma canônica e
+  // valha a invariante "toda mudança persistida é logada": `planningChanged` e o activity
+  // log comparam blocos NORMALIZADOS, então persistir um valor cru poderia gravar uma
+  // edição só-de-espaços que entrada nenhuma registra. Faz o merge do que veio sobre a
+  // linha atual, normaliza, e grava só os campos que o chamador realmente enviou (um PATCH
+  // que omite um campo não pode passar a persisti-lo).
+  if (body.data.analyses !== undefined) {
+    if (body.data.analyses === null) {
+      update.analyses = null;
+    } else {
+      const parsed = parseAnalyses(body.data.analyses);
+      if (!parsed.ok) { res.status(400).json({ error: parsed.error }); return; }
+      const list = normalizeAnalyses(parsed.value);
+      update.analyses = list.length ? list : null;
+    }
+  }
+  if (body.data.rootCause !== undefined || body.data.analyses !== undefined) {
     const normalized = normalizePlanning(
       extractPlanning({
-        plan5w2h: body.data.plan5w2h !== undefined ? body.data.plan5w2h : existing.plan5w2h,
         rootCause: body.data.rootCause !== undefined ? body.data.rootCause : existing.rootCause,
-        rootCauseWhys: body.data.rootCauseWhys !== undefined ? body.data.rootCauseWhys : existing.rootCauseWhys,
+        analyses:
+          body.data.analyses !== undefined
+            ? (update.analyses as ActionPlanAnalysis[] | null)
+            : existing.analyses,
       }),
     );
-    if (body.data.plan5w2h !== undefined) update.plan5w2h = normalized.plan5w2h;
     if (body.data.rootCause !== undefined) update.rootCause = normalized.rootCause;
-    if (body.data.rootCauseWhys !== undefined) update.rootCauseWhys = normalized.rootCauseWhys;
   }
 
   if (body.data.responsibleUserId !== undefined) {
@@ -796,9 +813,8 @@ router.post(
     const [row] = await db
       .update(actionPlansTable)
       .set({
-        plan5w2h: restored.plan5w2h,
         rootCause: restored.rootCause,
-        rootCauseWhys: restored.rootCauseWhys,
+        analyses: restored.analyses,
         updatedAt: new Date(),
       })
       .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)))

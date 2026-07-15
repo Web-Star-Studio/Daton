@@ -51,7 +51,7 @@ async function planningEntries(planId: number) {
 }
 
 describe("planning version log", () => {
-  it("records the whole block, before and after, when the 5W2H changes", async () => {
+  it("records the whole block, before and after, when the tratativas change", async () => {
     const context = await createTestContext({ seed: "plan-log-5w2h" });
     contexts.push(context);
     const planId = await createPlan(context.organizationId);
@@ -62,7 +62,7 @@ describe("planning version log", () => {
       )
       .set(authHeader(context))
       .send({
-        plan5w2h: { what: "Treinar" },
+        analyses: [{ key: "five_whys", data: { whys: ["Falta de treinamento"] } }],
         rootCause: "Falta de treinamento.",
       })
       .expect(200);
@@ -73,14 +73,12 @@ describe("planning version log", () => {
     ).fields.planning;
 
     expect(planning.from).toEqual({
-      plan5w2h: null,
       rootCause: null,
-      rootCauseWhys: null,
+      analyses: null,
     });
     expect(planning.to).toEqual({
-      plan5w2h: { what: "Treinar" },
       rootCause: "Falta de treinamento.",
-      rootCauseWhys: null,
+      analyses: [{ key: "five_whys", data: { whys: ["Falta de treinamento"] } }],
     });
   });
 
@@ -103,8 +101,8 @@ describe("planning version log", () => {
   /**
    * The log is prioritized: an if/else writes ONE entry per save, and the buildDiff
    * branch is only reached in the else. Without a dedicated entry, a save that
-   * changes both the status and the 5W2H would record only the status — and the
-   * block's version would disappear.
+   * changes both the status and the tratativas would record only the status — and
+   * the block's version would disappear.
    */
   it("records planning even when the same save also changed the status", async () => {
     const context = await createTestContext({ seed: "plan-log-with-status" });
@@ -116,7 +114,10 @@ describe("planning version log", () => {
         `/api/organizations/${context.organizationId}/action-plans/${planId}`,
       )
       .set(authHeader(context))
-      .send({ status: "in_progress", plan5w2h: { what: "Treinar" } })
+      .send({
+        status: "in_progress",
+        analyses: [{ key: "five_whys", data: { whys: ["Treinar"] } }],
+      })
       .expect(200);
 
     const entries = await planningEntries(planId);
@@ -224,11 +225,11 @@ describe("planning version log", () => {
 });
 
 /**
- * A plan can be BORN with a planning block (the POST accepts plan5w2h / rootCause /
- * rootCauseWhys, and a plan derived from a nonconformity inherits its rootCause).
- * The `created` snapshot does not carry the block, so without a dedicated `updated`
- * entry the initial state would live only in the `from` of the FIRST later edit —
- * and restore reads only `to`. The initial state would therefore be irrecoverable.
+ * A plan can be BORN with a planning block (the POST accepts rootCause / analyses,
+ * and a plan derived from a nonconformity inherits its rootCause). The `created`
+ * snapshot does not carry the block, so without a dedicated `updated` entry the
+ * initial state would live only in the `from` of the FIRST later edit — and
+ * restore reads only `to`. The initial state would therefore be irrecoverable.
  */
 describe("planning version log at creation", () => {
   function createViaApi(
@@ -254,9 +255,8 @@ describe("planning version log at creation", () => {
     contexts.push(context);
 
     const created = await createViaApi(context, {
-      plan5w2h: { what: "Treinar" },
+      analyses: [{ key: "five_whys", data: { whys: ["Sem instrutor"] } }],
       rootCause: "Falta de treinamento.",
-      rootCauseWhys: ["Sem instrutor"],
     }).expect(201);
     const planId = created.body.id as number;
 
@@ -274,14 +274,12 @@ describe("planning version log at creation", () => {
     ).fields.planning;
 
     expect(block.from).toEqual({
-      plan5w2h: null,
       rootCause: null,
-      rootCauseWhys: null,
+      analyses: null,
     });
     expect(block.to).toEqual({
-      plan5w2h: { what: "Treinar" },
       rootCause: "Falta de treinamento.",
-      rootCauseWhys: ["Sem instrutor"],
+      analyses: [{ key: "five_whys", data: { whys: ["Sem instrutor"] } }],
     });
   });
 
@@ -306,7 +304,7 @@ describe("planning version log at creation", () => {
     contexts.push(context);
 
     const created = await createViaApi(context, {
-      plan5w2h: { what: "Inicial" },
+      analyses: [{ key: "five_whys", data: { whys: ["Inicial"] } }],
       rootCause: "Causa inicial",
     }).expect(201);
     const planId = created.body.id as number;
@@ -320,7 +318,10 @@ describe("planning version log at creation", () => {
         `/api/organizations/${context.organizationId}/action-plans/${planId}`,
       )
       .set(authHeader(context))
-      .send({ plan5w2h: { what: "Editado" }, rootCause: "Causa editada" })
+      .send({
+        analyses: [{ key: "five_whys", data: { whys: ["Editado"] } }],
+        rootCause: "Causa editada",
+      })
       .expect(200);
 
     // Restoring the initial version brings the born content back.
@@ -332,7 +333,9 @@ describe("planning version log at creation", () => {
       .send({ activityId: initial.id })
       .expect(200);
 
-    expect(response.body.plan5w2h).toEqual({ what: "Inicial" });
+    expect(response.body.analyses).toEqual([
+      { key: "five_whys", data: { whys: ["Inicial"] } },
+    ]);
     expect(response.body.rootCause).toBe("Causa inicial");
   });
 });
