@@ -27,6 +27,30 @@ export const KPI_CODE_TO_LABEL: Record<string, string> = {
 };
 
 /**
+ * De/para das normas legadas do catálogo de treinamentos (lista hardcoded
+ * antiga, ex. "ISO 9001 §7.2") para os labels canônicos do catálogo. Chaves em
+ * lower-case. As que NÃO aparecem aqui (ex. "NR (MTE)", "ABNT ISO 10015",
+ * "Procedimento interno", texto livre) são preservadas: o backfill cria uma
+ * entrada no catálogo com o próprio label — nada é perdido.
+ */
+export const TRAINING_NORM_ALIASES: Record<string, string> = {
+  "iso 9001 §7.2": "ISO 9001 · cl. 9.1",
+  "iso 14001 §7.2": "ISO 14001 · cl. 9.1",
+  "iso 39001 §7.2": "ISO 39001 · cl. 9.1",
+  pr2030: "PR 2030",
+};
+
+/**
+ * Resolve o label legado de treinamento para o label canônico do catálogo:
+ * aplica o alias quando conhecido; senão devolve o texto original (trim) para
+ * ser criado como norma nova. Nunca descarta.
+ */
+export function canonicalTrainingNormLabel(raw: string): string {
+  const trimmed = raw.trim();
+  return TRAINING_NORM_ALIASES[trimmed.toLowerCase()] ?? trimmed;
+}
+
+/**
  * Semeia os 4 labels padrão na organização (idempotente, ON CONFLICT DO
  * NOTHING) e devolve um mapa código legado (ex. "9001") -> id do catálogo.
  */
