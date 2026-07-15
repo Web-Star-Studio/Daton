@@ -1130,8 +1130,16 @@ paths:
         - name: norm
           in: query
           required: false
+          deprecated: true
+          description: "Deprecated — use normId. Kept for backward compatibility."
           schema:
             type: string
+        - name: normId
+          in: query
+          required: false
+          description: "Filtro por id da norma do catálogo (norm_ids do item vinculado)."
+          schema:
+            type: integer
         - name: evaluatorRole
           in: query
           required: false
@@ -9339,6 +9347,18 @@ paths:
           description: When sourceModule=kpi, filter by linked monthly value id
           schema:
             type: integer
+        - name: actionType
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanType"
+        - name: effectiveness
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanEffectivenessFilter"
+        - name: dueWindow
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanDueWindow"
       responses:
         "200":
           description: Action plans
@@ -9872,8 +9892,16 @@ paths:
         - name: norm
           in: query
           required: false
+          deprecated: true
+          description: "Deprecated — use normId. Kept for backward compatibility."
           schema:
             type: string
+        - name: normId
+          in: query
+          required: false
+          description: "Filter by a regulatory norm id (matches items whose normIds contains it)."
+          schema:
+            type: integer
         - name: category
           in: query
           required: false
@@ -10659,9 +10687,17 @@ components:
         norm:
           type: string
           nullable: true
+          deprecated: true
+          description: "Deprecated — use normIds. Kept for backward compatibility."
         clause:
           type: string
           nullable: true
+          deprecated: true
+          description: "Deprecated — clause moved into the managed norm catalog label."
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
           nullable: true
@@ -10703,6 +10739,7 @@ components:
         - id
         - organizationId
         - title
+        - normIds
         - isMandatory
         - status
         - createdAt
@@ -10720,8 +10757,14 @@ components:
           type: string
         norm:
           type: string
+          deprecated: true
         clause:
           type: string
+          deprecated: true
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
         validityMonths:
@@ -10760,8 +10803,14 @@ components:
           type: string
         norm:
           type: string
+          deprecated: true
         clause:
           type: string
+          deprecated: true
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
         validityMonths:
@@ -18869,7 +18918,7 @@ components:
 
     ActionPlanSourceModule:
       type: string
-      enum: [kpi, swot, manual, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
+      enum: [kpi, swot, manual, improvement, corrective, norm_requirement, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
 
     ActionPlanType:
       type: string
@@ -18882,6 +18931,14 @@ components:
     ActionPlanEffectivenessResult:
       type: string
       enum: [effective, ineffective, pending]
+
+    ActionPlanEffectivenessFilter:
+      type: string
+      enum: [effective, ineffective, pending]
+
+    ActionPlanDueWindow:
+      type: string
+      enum: [overdue, due_soon]
 
     ActionPlan5W2H:
       type: object
@@ -18908,8 +18965,11 @@ components:
       description: >-
         Polymorphic reference to the entity that originated the action plan. The
         relevant fields depend on sourceModule (enforced server-side): for kpi,
-        kpiMonthlyValueId is required; for swot, swotFactorId is required; for
-        manual, none are required.
+        kpiMonthlyValueId is required; for swot, swotFactorId is required. The
+        free-form origins — manual, incident, rac, improvement, corrective and
+        norm_requirement — require no upstream entity; the three created inside
+        the action-plans module itself (improvement, corrective,
+        norm_requirement) may carry manualContext as free-text context instead.
       properties:
         kpiMonthlyValueId:
           type: integer

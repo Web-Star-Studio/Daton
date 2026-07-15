@@ -105,6 +105,9 @@ export const ACTION_TYPE_LABELS: Record<ActionPlanType, string> = {
 export const SOURCE_MODULE_LABELS: Record<string, string> = {
   kpi: "Indicador (KPI)",
   swot: "SWOT",
+  improvement: "Melhoria de Processo",
+  corrective: "Corretiva",
+  norm_requirement: "Não atendimento a requisito da norma",
   manual: "Manual",
   nonconformity: "Não conformidade",
   audit_finding: "Auditoria",

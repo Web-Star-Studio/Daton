@@ -11,6 +11,7 @@ import {
   getListPositionsQueryKey,
 } from "@workspace/api-client-react";
 import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import { useActiveNorms } from "@/lib/norms-client";
 import type {
   OrganizationTraining,
   OrganizationTrainingStatus,
@@ -31,7 +32,11 @@ function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   const parts = iso.slice(0, 10).split("-");
   if (parts.length === 3) {
-    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    const d = new Date(
+      Number(parts[0]),
+      Number(parts[1]) - 1,
+      Number(parts[2]),
+    );
     if (!isNaN(d.getTime())) {
       return d.toLocaleDateString("pt-BR", {
         day: "2-digit",
@@ -106,7 +111,7 @@ export default function AprendizagemGestaoPage() {
   // ── Filter state ──────────────────────────────────────────────────────────
   const [filial, setFilial] = useState<string>(""); // unitId (string)
   const [cargo, setCargo] = useState<string>(""); // position name
-  const [norma, setNorma] = useState<string>(""); // norm
+  const [normId, setNormId] = useState<string>(""); // id da norma do catálogo
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
   const [tab, setTab] = useState<Tab>("colaborador");
   const [pageSize, setPageSize] = useState(100);
@@ -134,7 +139,7 @@ export default function AprendizagemGestaoPage() {
   const baseParams = {
     unitId: filial ? Number(filial) : undefined,
     position: onClassTab ? undefined : cargo || undefined,
-    norm: onClassTab ? undefined : norma || undefined,
+    normId: onClassTab || !normId ? undefined : Number(normId),
   };
 
   // ── Query de contagem (metric cards): stats vencido/pendente/concluido ──────
@@ -142,12 +147,16 @@ export default function AprendizagemGestaoPage() {
     ...baseParams,
     pageSize: 1,
   };
-  const { data: countResult } = useListOrganizationTrainings(orgId, countParams, {
-    query: {
-      enabled,
-      queryKey: getListOrganizationTrainingsQueryKey(orgId, countParams),
+  const { data: countResult } = useListOrganizationTrainings(
+    orgId,
+    countParams,
+    {
+      query: {
+        enabled,
+        queryKey: getListOrganizationTrainingsQueryKey(orgId, countParams),
+      },
     },
-  });
+  );
   const stats = countResult?.stats;
 
   // ── Query "a vencer em 30 dias": total da paginação ─────────────────────────
@@ -235,16 +244,12 @@ export default function AprendizagemGestaoPage() {
     () => new Map((catalogResult?.data ?? []).map((c) => [c.id, c.title])),
     [catalogResult],
   );
+  // Opções de norma vêm do catálogo gerenciável (Configurações → Normas); o
+  // filtro casa pelo id do catálogo (norm_ids do item), não pelo texto legado.
+  const { data: activeNorms = [] } = useActiveNorms(orgId);
   const normOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (catalogResult?.data ?? [])
-            .map((c) => c.norm)
-            .filter((n): n is string => !!n),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [catalogResult],
+    () => activeNorms.map((n) => ({ id: n.id, label: n.label })),
+    [activeNorms],
   );
 
   // ── Guards ──────────────────────────────────────────────────────────────
@@ -301,14 +306,14 @@ export default function AprendizagemGestaoPage() {
               ))}
             </Select>
             <Select
-              value={norma}
-              onChange={(e) => setNorma(e.target.value)}
+              value={normId}
+              onChange={(e) => setNormId(e.target.value)}
               className="w-auto"
             >
               <option value="">Todas as normas</option>
               {normOptions.map((n) => (
-                <option key={n} value={n}>
-                  {n}
+                <option key={n.id} value={String(n.id)}>
+                  {n.label}
                 </option>
               ))}
             </Select>
@@ -438,7 +443,10 @@ export default function AprendizagemGestaoPage() {
                 </thead>
                 <tbody>
                   {classes.map((c: TrainingClass) => (
-                    <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
+                    <tr
+                      key={c.id}
+                      className="border-b last:border-0 hover:bg-muted/40"
+                    >
                       <td className="px-4 py-2 font-medium">{c.code ?? "—"}</td>
                       <td className="px-4 py-2">
                         {catalogTitle.get(c.catalogItemId) ??

@@ -264,6 +264,21 @@ function resolveOne(r: SourceContextInput, m: Maps): SourceContext {
       const ctx = typeof ref.manualContext === "string" ? ref.manualContext.trim() : "";
       return { label: ctx ? `Manual · ${truncate(ctx)}` : "Ação manual", kpi: null };
     }
+    case "improvement": {
+      const ctx = typeof ref.manualContext === "string" ? ref.manualContext.trim() : "";
+      return { label: ctx ? `Melhoria de Processo · ${truncate(ctx)}` : "Melhoria de Processo", kpi: null };
+    }
+    case "corrective": {
+      const ctx = typeof ref.manualContext === "string" ? ref.manualContext.trim() : "";
+      return { label: ctx ? `Corretiva · ${truncate(ctx)}` : "Corretiva", kpi: null };
+    }
+    case "norm_requirement": {
+      const ctx = typeof ref.manualContext === "string" ? ref.manualContext.trim() : "";
+      return {
+        label: ctx ? `Não atendimento a requisito da norma · ${truncate(ctx)}` : "Não atendimento a requisito da norma",
+        kpi: null,
+      };
+    }
     case "rac": {
       const lbl = typeof ref.racLabel === "string" ? ref.racLabel.trim() : "";
       return { label: lbl ? `Análise Crítica · ${truncate(lbl)}` : "Análise Crítica", kpi: null };

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, asc, desc, eq, exists, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, inArray, isNull, lt, notInArray, or, sql, type SQL } from "drizzle-orm";
 import {
   actionPlanActivityLogTable,
   actionPlanCommentsTable,
@@ -124,6 +124,9 @@ const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
   road_safety: "roadSafety",
   incident: "roadSafety",
   manual: "actionPlans",
+  improvement: "actionPlans",
+  corrective: "actionPlans",
+  norm_requirement: "actionPlans",
 };
 
 /**
@@ -213,6 +216,29 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
     conditions.push(
       sql`(${actionPlansTable.sourceRef}->>'kpiMonthlyValueId')::int = ${query.data.sourceKpiMonthlyValueId}`,
     );
+  }
+  if (query.data.actionType) conditions.push(eq(actionPlansTable.actionType, query.data.actionType));
+  if (query.data.effectiveness === "effective" || query.data.effectiveness === "ineffective") {
+    conditions.push(eq(actionPlansTable.effectivenessResult, query.data.effectiveness));
+  } else if (query.data.effectiveness === "pending") {
+    // "Aguardando verificação": concluída, ainda sem veredito. Mesmo critério do
+    // tile "Aguardando" (eficacia-screen) e do escalation: result NULL OU 'pending'.
+    conditions.push(eq(actionPlansTable.status, "completed"));
+    const noVerdict = or(isNull(actionPlansTable.effectivenessResult), eq(actionPlansTable.effectivenessResult, "pending"));
+    if (noVerdict) conditions.push(noVerdict);
+  }
+  if (query.data.dueWindow) {
+    // Mesmas fronteiras do card (summary.ts): meia-noite local + 7 dias.
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dueSoonLimit = new Date(startOfToday.getTime() + 7 * 86_400_000);
+    conditions.push(notInArray(actionPlansTable.status, ["completed", "cancelled"]));
+    if (query.data.dueWindow === "overdue") {
+      conditions.push(lt(actionPlansTable.dueDate, startOfToday));
+    } else {
+      conditions.push(gte(actionPlansTable.dueDate, startOfToday));
+      conditions.push(lt(actionPlansTable.dueDate, dueSoonLimit));
+    }
   }
 
   const plans = await db

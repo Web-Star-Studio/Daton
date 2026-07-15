@@ -8,10 +8,23 @@ import { usersTable } from "./users";
 export type ActionPlanStatus = "open" | "in_progress" | "completed" | "cancelled";
 export type ActionPlanPriority = "low" | "medium" | "high";
 /**
- * Origin that spawned the action. `manual` = created directly in the action
- * module (no upstream entity). The action module is the unified treatment hub,
- * so origins span every SGI source. The enum is append-only — adding values is
- * a safe `push`.
+ * Origin that spawned the action. The action module is the unified treatment
+ * hub, so origins span every SGI source. Origins created inside the module
+ * itself (no upstream entity) are the ones the user picks in the "Origem"
+ * listbox: `improvement`, `corrective`, `norm_requirement`. `manual` is the
+ * legacy value they replaced — still readable, never written by new actions.
+ * The enum is append-only — new values must be added at the END of this list
+ * (both here and in `actionPlanSourceModuleEnum` below), matching the order of
+ * the production `ALTER TYPE ... ADD VALUE` statements. Inserting in the
+ * middle desyncs the TS order from the DB order, and the next `drizzle-kit
+ * push` will DROP and RECREATE the type to "fix" it — an exclusive lock on
+ * the table just to reorder. `improvement`/`corrective`/`norm_requirement`
+ * were added this way and live at the end, after `rac`, even though they read
+ * more naturally grouped near `manual` above.
+ *
+ * Careful: `improvement` and `corrective` also exist in `actionPlanTypeEnum`
+ * (the "Tipo" field). Different columns, different TS types — the origin only
+ * *suggests* the type in the dialog.
  */
 export type ActionPlanSourceModule =
   | "kpi"
@@ -24,7 +37,10 @@ export type ActionPlanSourceModule =
   | "environmental"
   | "road_safety"
   | "incident"
-  | "rac";
+  | "rac"
+  | "improvement"
+  | "corrective"
+  | "norm_requirement";
 export type ActionPlanType = "corrective" | "preventive" | "improvement";
 export type ActionPlanEffectivenessMethod =
   | "indicator"
@@ -131,6 +147,9 @@ export const actionPlanSourceModuleEnum = pgEnum("action_plan_source_module", [
   "road_safety",
   "incident",
   "rac",
+  "improvement",
+  "corrective",
+  "norm_requirement",
 ]);
 export const actionPlanTypeEnum = pgEnum("action_plan_type", [
   "corrective",

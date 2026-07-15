@@ -50,6 +50,58 @@ export type AllTrainingCatalogParams = Omit<
   "page" | "pageSize"
 >;
 
+export interface CatalogFilterInput {
+  search: string;
+  /** Id da norma do catálogo (regulatory_norms), como string do <Select>. */
+  normId: string;
+  category: string;
+  modality: string;
+  /** "ativo" | "inativo" | "todos" — "todos" remove o filtro de status. */
+  statusFilter: string;
+}
+
+/**
+ * Monta os params de busca do Catálogo a partir dos filtros da tela. Função
+ * pura (sem React) para ser testável direto: o único ponto que exige atenção
+ * é que `statusFilter: "todos"` precisa virar `status: undefined` — enviar a
+ * string "todos" ao servidor não filtraria nada do jeito certo, e mudar essa
+ * regra silenciosamente traria de volta os itens inativos por padrão.
+ */
+export function buildCatalogParams({
+  search,
+  normId,
+  category,
+  modality,
+  statusFilter,
+}: CatalogFilterInput): AllTrainingCatalogParams {
+  return {
+    search: search || undefined,
+    normId: normId ? Number(normId) : undefined,
+    category: category || undefined,
+    modality: modality || undefined,
+    status: statusFilter === "todos" ? undefined : statusFilter,
+  };
+}
+
+/**
+ * Itens para um PICKER de treinamento (dropdown de escolha em obrigatoriedades /
+ * turmas / programa / lançamento de treino): só os ativos, mais o item
+ * atualmente selecionado no form — mesmo que esteja arquivado. Sem o segundo
+ * termo, editar um registro que aponta para um treino arquivado deixaria o
+ * dropdown sem a opção selecionada (edição parece "vazia"). Isto é só para as
+ * OPÇÕES do dropdown — o mapa id→título usado para exibir registros já criados
+ * precisa continuar recebendo a lista inteira (ativos + inativos), nunca este
+ * resultado filtrado.
+ */
+export function selectPickerCatalogItems(
+  items: TrainingCatalogItem[],
+  selectedId?: number | string | null,
+): TrainingCatalogItem[] {
+  const sel =
+    selectedId == null || selectedId === "" ? null : Number(selectedId);
+  return items.filter((c) => c.status === "ativo" || c.id === sel);
+}
+
 /**
  * The whole training catalog for an org, with the same server-side filters the
  * paginated endpoint accepts (search / norm / category / modality / status), but

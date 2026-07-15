@@ -9,6 +9,11 @@
  *  3) Obrigatoriedade: para `training_requirements` com `norm` (texto legado)
  *     preenchido e `norm_ids` ainda vazio, garante uma entrada no catálogo
  *     para aquele label exato e preenche `norm_ids`.
+ *  4) Catálogo de treinamentos: para `training_catalog` com `norm` (texto
+ *     legado) preenchido e `norm_ids` vazio, resolve o label via alias
+ *     (ISO 9001 §7.2 → ISO 9001 · cl. 9.1, PR2030 → PR 2030, …) e, quando não
+ *     há equivalente (NR (MTE), ABNT ISO 10015, Procedimento interno, texto
+ *     livre), CRIA a norma no catálogo — nada é perdido — e preenche `norm_ids`.
  *
  * Não-destrutivo: só INSERT ... ON CONFLICT DO NOTHING e UPDATE (nunca
  * DELETE); a coluna legada `norm`/os códigos antigos não são apagados.
@@ -23,7 +28,11 @@
  */
 import { pool } from "@workspace/db";
 import type { PoolClient } from "pg";
-import { DEFAULT_NORM_LABELS, KPI_CODE_TO_LABEL } from "./norm-catalog";
+import {
+  DEFAULT_NORM_LABELS,
+  KPI_CODE_TO_LABEL,
+  canonicalTrainingNormLabel,
+} from "./norm-catalog";
 
 const COMMIT = process.argv.includes("--commit");
 
@@ -31,6 +40,7 @@ type OrgRow = { id: number };
 type NormRow = { id: number; label: string };
 type KpiRow = { id: number; norms: unknown };
 type ReqRow = { id: number; norm: string | null; norm_ids: unknown };
+type CatalogRow = { id: number; norm: string | null; norm_ids: unknown };
 
 /** true quando `norms` já é (e só é) um array de números — nada a fazer. */
 function isAlreadyNumeric(norms: unknown): boolean {
@@ -48,6 +58,7 @@ interface OrgPlan {
   newDefaultLabels: number;
   kpiToRemap: number;
   obligationsToFill: number;
+  catalogToFill: number;
   newCustomLabels: number;
 }
 
@@ -93,11 +104,30 @@ async function planOrg(orgId: number): Promise<OrgPlan> {
     }
   }
 
+  const { rows: catalogRows } = await pool.query<CatalogRow>(
+    `SELECT id, norm, norm_ids FROM training_catalog WHERE organization_id = $1`,
+    [orgId],
+  );
+  let catalogToFill = 0;
+  for (const r of catalogRows) {
+    const norm = r.norm?.trim();
+    const hasNormIds = Array.isArray(r.norm_ids) && r.norm_ids.length > 0;
+    if (!norm || hasNormIds) continue;
+    catalogToFill++;
+    // Alias resolve para o label canônico; senão o próprio texto será criado.
+    const key = canonicalTrainingNormLabel(norm).toLowerCase();
+    if (!map.has(key) && !seenNewLabels.has(key)) {
+      seenNewLabels.add(key);
+      newCustomLabels++;
+    }
+  }
+
   return {
     orgId,
     newDefaultLabels,
     kpiToRemap,
     obligationsToFill,
+    catalogToFill,
     newCustomLabels,
   };
 }
@@ -107,6 +137,8 @@ interface OrgApplyResult {
   kpiSkipped: number;
   obligationsUpdated: number;
   obligationsSkipped: number;
+  catalogUpdated: number;
+  catalogSkipped: number;
   newLabelsCreated: number;
   unknownCodes: string[];
 }
@@ -242,11 +274,68 @@ async function applyOrg(
     }
   }
 
+  // 5) Catálogo de treinamentos: `norm` (texto legado) -> `norm_ids`.
+  // Resolve via alias para os labels canônicos; cria a norma quando não há
+  // equivalente (preserva NR (MTE), ABNT ISO 10015, Procedimento interno, …).
+  const { rows: catalogRows } = await client.query<CatalogRow>(
+    `SELECT id, norm, norm_ids FROM training_catalog WHERE organization_id = $1`,
+    [orgId],
+  );
+  let catalogUpdated = 0;
+  let catalogSkipped = 0;
+  for (const row of catalogRows) {
+    const raw = row.norm?.trim();
+    const hasNormIds = Array.isArray(row.norm_ids) && row.norm_ids.length > 0;
+    if (!raw || hasNormIds) continue;
+
+    const label = canonicalTrainingNormLabel(raw);
+    const key = label.toLowerCase();
+    let normId = map.get(key);
+    if (normId == null) {
+      const inserted = await client.query<{ id: number }>(
+        `INSERT INTO regulatory_norms (organization_id, label, sort_order)
+         VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
+        [orgId, label, nextSortOrder],
+      );
+      if (inserted.rows.length > 0) {
+        normId = inserted.rows[0].id;
+        nextSortOrder++;
+        newLabelsCreated++;
+      } else {
+        const existing = await client.query<{ id: number }>(
+          `SELECT id FROM regulatory_norms WHERE organization_id = $1 AND lower(label) = lower($2)`,
+          [orgId, label],
+        );
+        normId = existing.rows[0]?.id;
+      }
+      if (normId == null) {
+        throw new Error(
+          `Não foi possível resolver/criar a norma "${label}" (org ${orgId})`,
+        );
+      }
+      map.set(key, normId);
+    }
+
+    const result = await client.query(
+      `UPDATE training_catalog SET norm_ids = $1::jsonb WHERE id = $2 AND norm_ids = $3::jsonb`,
+      [JSON.stringify([normId]), row.id, JSON.stringify(row.norm_ids)],
+    );
+    if ((result.rowCount ?? 0) > 0) {
+      catalogUpdated++;
+    } else {
+      catalogSkipped++;
+    }
+  }
+
   return {
     kpiUpdated,
     kpiSkipped,
     obligationsUpdated,
     obligationsSkipped,
+    catalogUpdated,
+    catalogSkipped,
     newLabelsCreated,
     unknownCodes,
   };
@@ -269,6 +358,8 @@ async function main(): Promise<void> {
   let totalKpiSkipped = 0;
   let totalObligations = 0;
   let totalObligationsSkipped = 0;
+  let totalCatalog = 0;
+  let totalCatalogSkipped = 0;
   let totalNewCustomLabels = 0;
   let failures = 0;
   const allUnknownCodes = new Set<string>();
@@ -279,16 +370,19 @@ async function main(): Promise<void> {
       totalNewDefaultLabels += plan.newDefaultLabels;
       totalKpi += plan.kpiToRemap;
       totalObligations += plan.obligationsToFill;
+      totalCatalog += plan.catalogToFill;
       totalNewCustomLabels += plan.newCustomLabels;
       if (
         plan.newDefaultLabels ||
         plan.kpiToRemap ||
         plan.obligationsToFill ||
+        plan.catalogToFill ||
         plan.newCustomLabels
       ) {
         console.log(
           `Org ${orgId}: normas padrão a criar=${plan.newDefaultLabels} · ` +
             `KPI a remapear=${plan.kpiToRemap} · obrigatoriedades a preencher=${plan.obligationsToFill} · ` +
+            `catálogo a preencher=${plan.catalogToFill} · ` +
             `labels novos (não-padrão) a criar=${plan.newCustomLabels}`,
         );
       }
@@ -304,18 +398,23 @@ async function main(): Promise<void> {
       totalKpiSkipped += result.kpiSkipped;
       totalObligations += result.obligationsUpdated;
       totalObligationsSkipped += result.obligationsSkipped;
+      totalCatalog += result.catalogUpdated;
+      totalCatalogSkipped += result.catalogSkipped;
       totalNewCustomLabels += result.newLabelsCreated;
       for (const code of result.unknownCodes) allUnknownCodes.add(code);
       if (
         result.kpiUpdated ||
         result.obligationsUpdated ||
+        result.catalogUpdated ||
         result.newLabelsCreated ||
         result.kpiSkipped ||
-        result.obligationsSkipped
+        result.obligationsSkipped ||
+        result.catalogSkipped
       ) {
         console.log(
           `Org ${orgId}: KPI remapeados=${result.kpiUpdated} (skip=${result.kpiSkipped}) · ` +
             `obrigatoriedades preenchidas=${result.obligationsUpdated} (skip=${result.obligationsSkipped}) · ` +
+            `catálogo preenchido=${result.catalogUpdated} (skip=${result.catalogSkipped}) · ` +
             `labels novos criados=${result.newLabelsCreated}`,
         );
       }
@@ -345,6 +444,14 @@ async function main(): Promise<void> {
       );
     }
     console.log(
+      `Itens do catálogo de treinamentos preenchidos: ${totalCatalog}`,
+    );
+    if (totalCatalogSkipped > 0) {
+      console.log(
+        `Itens do catálogo pulados (escrita concorrente detectada): ${totalCatalogSkipped}`,
+      );
+    }
+    console.log(
       `Labels de norma novos (não-padrão) criados: ${totalNewCustomLabels}`,
     );
     if (allUnknownCodes.size > 0) {
@@ -358,6 +465,9 @@ async function main(): Promise<void> {
     );
     console.log(`KPI indicadores que SERIAM remapeados: ${totalKpi}`);
     console.log(`Obrigatoriedades que SERIAM preenchidas: ${totalObligations}`);
+    console.log(
+      `Itens do catálogo de treinamentos que SERIAM preenchidos: ${totalCatalog}`,
+    );
     console.log(
       `Labels de norma novos (não-padrão) que SERIAM criados: ${totalNewCustomLabels}`,
     );
