@@ -2467,18 +2467,31 @@ por:
     analyses: p.analyses ?? null,
 ```
 
+- [ ] **Step 5b: Atualizar os testes de integração PRÉ-EXISTENTES do bloco de planejamento**
+
+Dois testes de integração já existentes asseguram o contrato ANTIGO (`plan5w2h`/`rootCauseWhys`) e vão **falhar em runtime** depois desta task. Como esta task é o corte do contrato no servidor, ela também os migra. **Reescreva** (não delete — o comportamento que eles cobrem continua valendo, só muda a forma do bloco):
+
+1. `artifacts/api-server/tests/routes/action-plan-planning-log.integration.test.ts` — hoje envia `plan5w2h: { what: "Treinar" }` e espera `planning.to = { plan5w2h, rootCause, rootCauseWhys }`. Troque por enviar `analyses: [{ key: "five_whys", data: { whys: ["a"] } }]` e esperar `planning.to = { rootCause: ..., analyses: [...] }`. Mantenha os casos "não registra quando o save não tocou o bloco" e "registra planning mesmo quando o mesmo save mudou o status" — só troque o campo do bloco de `plan5w2h` para `analyses`.
+2. `artifacts/api-server/tests/routes/action-plan-planning-restore.integration.test.ts` — hoje faz `patch({ plan5w2h: { what: "Versão A" } })` / `"Versão B"` e espera restaurar `plan5w2h`. Troque `plan5w2h` por `analyses` (ex.: `analyses: [{ key: "five_whys", data: { whys: ["Versão A"] } }]`) em todos os `patch(...)` e nas asserções `.plan5w2h`/`planning.from`/`planning.to`. A lógica de restauração (aplica o `to`, isola por organização) não muda.
+
+Verifique que ambos passam:
+`TEST_ENV=integration pnpm exec vitest run artifacts/api-server/tests/routes/action-plan-planning-log.integration.test.ts artifacts/api-server/tests/routes/action-plan-planning-restore.integration.test.ts --project integration`
+
 - [ ] **Step 6: Rodar e ver passar**
 
 Run: `TEST_ENV=integration pnpm exec vitest run tests/api-server/action-plans-analyses.integration.test.ts --project integration`
 Expected: PASS (5 testes)
 
 Run: `pnpm typecheck`
-Expected: erros SOMENTE no front (`[id].tsx`, `plano-5w2h.tsx`, `causa-raiz.tsx`) — resolvidos nas Tasks 15/16. O servidor deve estar limpo.
+Expected: erros SOMENTE no front (`[id].tsx`, `plano-5w2h.tsx`, `causa-raiz.tsx`) — resolvidos nas Tasks 14/15. O servidor deve estar **limpo**.
+
+Run (regressão do servidor): `TEST_ENV=integration pnpm exec vitest run --project integration -t "planning"`
+Expected: PASS — nenhuma falha remanescente ligada a `plan5w2h`/`rootCauseWhys` no servidor.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add artifacts/api-server/src/routes/action-plans.ts artifacts/api-server/src/services/action-plans/serializers.ts tests/api-server/action-plans-analyses.integration.test.ts
+git add artifacts/api-server/src/routes/action-plans.ts artifacts/api-server/src/services/action-plans/serializers.ts tests/api-server/action-plans-analyses.integration.test.ts artifacts/api-server/tests/routes/action-plan-planning-log.integration.test.ts artifacts/api-server/tests/routes/action-plan-planning-restore.integration.test.ts
 git commit -m "feat(api): plano de ação persiste e versiona as tratativas"
 ```
 
@@ -5532,7 +5545,7 @@ type SystemTab = "users" | "norms" | "tratativas" | "appearance";
 - Modify: `.../planos-acao/_components/planning-versions.ts`
 - Modify: `.../planos-acao/_components/merge-draft.ts`
 - Modify: `[id].tsx` (o `handleSuggest`)
-- Test: `artifacts/web/tests/planning-versions-analyses.unit.test.ts`
+- Test: **estender o arquivo já existente** `artifacts/web/tests/pages/action-plan-planning-versions.unit.test.ts` (NÃO criar arquivo novo — esse é o teste co-localizado de `planning-versions.ts`; ele já cobre o diff no contrato antigo e precisa ser migrado + estendido para `analyses`, incluindo o caso de compatibilidade com `plan5w2h` legado em entradas antigas do log)
 
 - [ ] **Step 1: Teste do diff**
 
