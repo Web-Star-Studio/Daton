@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, notInArray, sql, type SQL } from "drizzle-orm";
 import {
   actionPlanActivityLogTable,
   actionPlanCommentsTable,
@@ -182,6 +182,27 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
     conditions.push(
       sql`(${actionPlansTable.sourceRef}->>'kpiMonthlyValueId')::int = ${query.data.sourceKpiMonthlyValueId}`,
     );
+  }
+  if (query.data.actionType) conditions.push(eq(actionPlansTable.actionType, query.data.actionType));
+  if (query.data.effectiveness === "effective" || query.data.effectiveness === "ineffective") {
+    conditions.push(eq(actionPlansTable.effectivenessResult, query.data.effectiveness));
+  } else if (query.data.effectiveness === "pending") {
+    // "Aguardando verificação": concluída, ainda sem veredito de eficácia.
+    conditions.push(eq(actionPlansTable.status, "completed"));
+    conditions.push(isNull(actionPlansTable.effectivenessResult));
+  }
+  if (query.data.dueWindow) {
+    // Mesmas fronteiras do card (summary.ts): meia-noite local + 7 dias.
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dueSoonLimit = new Date(startOfToday.getTime() + 7 * 86_400_000);
+    conditions.push(notInArray(actionPlansTable.status, ["completed", "cancelled"]));
+    if (query.data.dueWindow === "overdue") {
+      conditions.push(lt(actionPlansTable.dueDate, startOfToday));
+    } else {
+      conditions.push(gte(actionPlansTable.dueDate, startOfToday));
+      conditions.push(lt(actionPlansTable.dueDate, dueSoonLimit));
+    }
   }
 
   const plans = await db

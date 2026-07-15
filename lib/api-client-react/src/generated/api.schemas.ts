@@ -4569,6 +4569,23 @@ export const ActionPlanEffectivenessResult = {
   pending: "pending",
 } as const;
 
+export type ActionPlanEffectivenessFilter =
+  (typeof ActionPlanEffectivenessFilter)[keyof typeof ActionPlanEffectivenessFilter];
+
+export const ActionPlanEffectivenessFilter = {
+  effective: "effective",
+  ineffective: "ineffective",
+  pending: "pending",
+} as const;
+
+export type ActionPlanDueWindow =
+  (typeof ActionPlanDueWindow)[keyof typeof ActionPlanDueWindow];
+
+export const ActionPlanDueWindow = {
+  overdue: "overdue",
+  due_soon: "due_soon",
+} as const;
+
 /**
  * Structured 5W2H plan. howMuch carries estimated cost (free text).
  */
@@ -6843,6 +6860,9 @@ export type ListActionPlansParams = {
    * When sourceModule=kpi, filter by linked monthly value id
    */
   sourceKpiMonthlyValueId?: number;
+  actionType?: ActionPlanType;
+  effectiveness?: ActionPlanEffectivenessFilter;
+  dueWindow?: ActionPlanDueWindow;
 };
 
 export type RestoreActionPlanPlanningBody = {

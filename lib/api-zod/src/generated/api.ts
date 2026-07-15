@@ -18387,6 +18387,9 @@ export const ListActionPlansQueryParams = zod.object({
     .number()
     .optional()
     .describe("When sourceModule=kpi, filter by linked monthly value id"),
+  actionType: zod.enum(["corrective", "preventive", "improvement"]).optional(),
+  effectiveness: zod.enum(["effective", "ineffective", "pending"]).optional(),
+  dueWindow: zod.enum(["overdue", "due_soon"]).optional(),
 });
 
 export const listActionPlansResponseSourceRefKpiMonthMax = 12;

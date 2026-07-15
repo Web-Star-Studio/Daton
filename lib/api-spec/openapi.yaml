@@ -9257,6 +9257,18 @@ paths:
           description: When sourceModule=kpi, filter by linked monthly value id
           schema:
             type: integer
+        - name: actionType
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanType"
+        - name: effectiveness
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanEffectivenessFilter"
+        - name: dueWindow
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanDueWindow"
       responses:
         "200":
           description: Action plans
@@ -18765,6 +18777,14 @@ components:
     ActionPlanEffectivenessResult:
       type: string
       enum: [effective, ineffective, pending]
+
+    ActionPlanEffectivenessFilter:
+      type: string
+      enum: [effective, ineffective, pending]
+
+    ActionPlanDueWindow:
+      type: string
+      enum: [overdue, due_soon]
 
     ActionPlan5W2H:
       type: object
