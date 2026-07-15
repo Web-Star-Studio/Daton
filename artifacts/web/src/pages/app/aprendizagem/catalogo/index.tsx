@@ -390,7 +390,21 @@ export default function CatalogoPage() {
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : items.length === 0 ? (
         <div className="rounded-xl border bg-muted/20 px-4 py-12 text-center text-sm text-muted-foreground">
-          Nenhum treinamento no catálogo{canWrite ? " — clique em “Novo treinamento”." : "."}
+          {statusFilter === "ativo" ? (
+            // Só ativos é o padrão: uma lista vazia aqui pode ser só um recorte —
+            // pode haver itens arquivados. Avisa antes que o usuário recrie um
+            // treinamento que já existe (inativo).
+            <>
+              Nenhum treinamento ativo{isCatalogFiltered ? " no filtro atual" : ""}.
+              Troque o filtro para “Inativos” ou “Todos” para ver os arquivados
+              {canWrite ? ", ou clique em “Novo treinamento”." : "."}
+            </>
+          ) : (
+            <>
+              Nenhum treinamento encontrado
+              {canWrite ? " — clique em “Novo treinamento”." : "."}
+            </>
+          )}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
