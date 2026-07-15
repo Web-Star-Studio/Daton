@@ -9347,6 +9347,18 @@ paths:
           description: When sourceModule=kpi, filter by linked monthly value id
           schema:
             type: integer
+        - name: actionType
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanType"
+        - name: effectiveness
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanEffectivenessFilter"
+        - name: dueWindow
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanDueWindow"
       responses:
         "200":
           description: Action plans
@@ -18906,7 +18918,7 @@ components:
 
     ActionPlanSourceModule:
       type: string
-      enum: [kpi, swot, manual, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
+      enum: [kpi, swot, manual, improvement, corrective, norm_requirement, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
 
     ActionPlanType:
       type: string
@@ -18919,6 +18931,14 @@ components:
     ActionPlanEffectivenessResult:
       type: string
       enum: [effective, ineffective, pending]
+
+    ActionPlanEffectivenessFilter:
+      type: string
+      enum: [effective, ineffective, pending]
+
+    ActionPlanDueWindow:
+      type: string
+      enum: [overdue, due_soon]
 
     ActionPlan5W2H:
       type: object
@@ -18945,8 +18965,11 @@ components:
       description: >-
         Polymorphic reference to the entity that originated the action plan. The
         relevant fields depend on sourceModule (enforced server-side): for kpi,
-        kpiMonthlyValueId is required; for swot, swotFactorId is required; for
-        manual, none are required.
+        kpiMonthlyValueId is required; for swot, swotFactorId is required. The
+        free-form origins — manual, incident, rac, improvement, corrective and
+        norm_requirement — require no upstream entity; the three created inside
+        the action-plans module itself (improvement, corrective,
+        norm_requirement) may carry manualContext as free-text context instead.
       properties:
         kpiMonthlyValueId:
           type: integer

@@ -6,6 +6,7 @@ import {
   useActionPlansSummary,
 } from "@/lib/action-plans-client";
 import { DashCard, MiniBars } from "./mini-charts";
+import type { ActionPlanEffectivenessFilter } from "./list-filters";
 
 const MONTH_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -17,16 +18,22 @@ const CRITERIA = [
   "O risco residual foi reduzido?",
 ];
 
-function Tile({ label, value, tone, bg }: { label: string; value: string; tone: string; bg: string }) {
-  return (
-    <div className={cn("rounded-xl px-4 py-3 text-center", bg)}>
+function Tile({ label, value, tone, bg, onClick }: { label: string; value: string; tone: string; bg: string; onClick?: () => void }) {
+  const inner = (
+    <>
       <div className={cn("text-2xl font-semibold tabular-nums", tone)}>{value}</div>
       <div className={cn("text-[11px]", tone)}>{label}</div>
-    </div>
+    </>
+  );
+  const base = cn("rounded-xl px-4 py-3 text-center", bg);
+  return onClick ? (
+    <button type="button" onClick={onClick} className={cn(base, "w-full transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring")}>{inner}</button>
+  ) : (
+    <div className={base}>{inner}</div>
   );
 }
 
-export function EficaciaScreen({ orgId }: { orgId: number }) {
+export function EficaciaScreen({ orgId, onDrillDown }: { orgId: number; onDrillDown?: (filters: { effectiveness: ActionPlanEffectivenessFilter }) => void }) {
   const { data: s } = useActionPlansSummary(orgId);
   const { data: plans = [] } = useActionPlans(orgId);
 
@@ -47,9 +54,9 @@ export function EficaciaScreen({ orgId }: { orgId: number }) {
       <div className="space-y-4">
         <DashCard title="Painel de eficácia">
           <div className="grid grid-cols-3 gap-3">
-            <Tile label="Eficazes" value={String(counts.effective)} tone="text-emerald-700 dark:text-emerald-300" bg="bg-emerald-100 dark:bg-emerald-500/15" />
-            <Tile label="Não eficazes" value={String(counts.ineffective)} tone="text-red-700 dark:text-red-300" bg="bg-red-100 dark:bg-red-500/15" />
-            <Tile label="Aguardando" value={String(counts.pending)} tone="text-amber-700 dark:text-amber-300" bg="bg-amber-100 dark:bg-amber-500/15" />
+            <Tile label="Eficazes" value={String(counts.effective)} tone="text-emerald-700 dark:text-emerald-300" bg="bg-emerald-100 dark:bg-emerald-500/15" onClick={onDrillDown && (() => onDrillDown({ effectiveness: "effective" }))} />
+            <Tile label="Não eficazes" value={String(counts.ineffective)} tone="text-red-700 dark:text-red-300" bg="bg-red-100 dark:bg-red-500/15" onClick={onDrillDown && (() => onDrillDown({ effectiveness: "ineffective" }))} />
+            <Tile label="Aguardando" value={String(counts.pending)} tone="text-amber-700 dark:text-amber-300" bg="bg-amber-100 dark:bg-amber-500/15" onClick={onDrillDown && (() => onDrillDown({ effectiveness: "pending" }))} />
           </div>
           <div className="mt-3 flex items-center justify-between border-t pt-3 text-sm">
             <span className="text-muted-foreground">Taxa de eficácia</span>

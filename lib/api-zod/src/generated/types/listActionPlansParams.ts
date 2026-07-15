@@ -5,9 +5,12 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ActionPlanDueWindow } from "./actionPlanDueWindow";
+import type { ActionPlanEffectivenessFilter } from "./actionPlanEffectivenessFilter";
 import type { ActionPlanPriority } from "./actionPlanPriority";
 import type { ActionPlanSourceModule } from "./actionPlanSourceModule";
 import type { ActionPlanStatus } from "./actionPlanStatus";
+import type { ActionPlanType } from "./actionPlanType";
 
 export type ListActionPlansParams = {
   status?: ActionPlanStatus;
@@ -18,4 +21,7 @@ export type ListActionPlansParams = {
    * When sourceModule=kpi, filter by linked monthly value id
    */
   sourceKpiMonthlyValueId?: number;
+  actionType?: ActionPlanType;
+  effectiveness?: ActionPlanEffectivenessFilter;
+  dueWindow?: ActionPlanDueWindow;
 };

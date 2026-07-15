@@ -18449,6 +18449,9 @@ export const ListActionPlansQueryParams = zod.object({
       "kpi",
       "swot",
       "manual",
+      "improvement",
+      "corrective",
+      "norm_requirement",
       "nonconformity",
       "audit_finding",
       "risk",
@@ -18464,6 +18467,9 @@ export const ListActionPlansQueryParams = zod.object({
     .number()
     .optional()
     .describe("When sourceModule=kpi, filter by linked monthly value id"),
+  actionType: zod.enum(["corrective", "preventive", "improvement"]).optional(),
+  effectiveness: zod.enum(["effective", "ineffective", "pending"]).optional(),
+  dueWindow: zod.enum(["overdue", "due_soon"]).optional(),
 });
 
 export const listActionPlansResponseSourceRefKpiMonthMax = 12;
@@ -18478,6 +18484,9 @@ export const ListActionPlansResponseItem = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18511,7 +18520,7 @@ export const ListActionPlansResponseItem = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -18575,6 +18584,9 @@ export const CreateActionPlanBody = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18608,7 +18620,7 @@ export const CreateActionPlanBody = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   actionType: zod.enum(["corrective", "preventive", "improvement"]).optional(),
   title: zod.string().min(1),
@@ -18696,6 +18708,9 @@ export const GetActionPlanResponse = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18729,7 +18744,7 @@ export const GetActionPlanResponse = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -18963,6 +18978,9 @@ export const UpdateActionPlanResponse = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18996,7 +19014,7 @@ export const UpdateActionPlanResponse = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -19372,6 +19390,9 @@ export const RestoreActionPlanPlanningResponse = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -19405,7 +19426,7 @@ export const RestoreActionPlanPlanningResponse = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -19563,6 +19584,9 @@ export const SuggestActionPlanDraftBody = zod
         "kpi",
         "swot",
         "manual",
+        "improvement",
+        "corrective",
+        "norm_requirement",
         "nonconformity",
         "audit_finding",
         "risk",
