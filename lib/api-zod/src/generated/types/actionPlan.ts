@@ -72,7 +72,13 @@ export interface ActionPlan {
   correctiveActionDescription?: string | null;
   /** @nullable */
   correctiveActionCompletedAt?: string | null;
+  /**
+   * Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.
+   * @deprecated
+   */
   effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  /** @nullable */
+  effectivenessMethodId?: number | null;
   /** @nullable */
   effectivenessDueDate?: string | null;
   /** @nullable */

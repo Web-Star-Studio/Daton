@@ -91,6 +91,7 @@ export function serializePlan(
     correctiveActionDescription: p.correctiveActionDescription ?? null,
     correctiveActionCompletedAt: p.correctiveActionCompletedAt ? p.correctiveActionCompletedAt.toISOString() : null,
     effectivenessMethod: p.effectivenessMethod ?? null,
+    effectivenessMethodId: p.effectivenessMethodId ?? null,
     effectivenessDueDate: p.effectivenessDueDate ? p.effectivenessDueDate.toISOString() : null,
     effectivenessEvaluatorUserId: p.effectivenessEvaluatorUserId ?? null,
     effectivenessEvaluatorUserName: extras.effectivenessEvaluatorUserName,

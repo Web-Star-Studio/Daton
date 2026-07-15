@@ -4519,6 +4519,29 @@ export interface UpdateRegulatoryNormBody {
   sortOrder?: number;
 }
 
+/**
+ * Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).
+ */
+export interface EffectivenessMethod {
+  id: number;
+  organizationId: number;
+  label: string;
+  active: boolean;
+  sortOrder: number;
+}
+
+export interface CreateEffectivenessMethodBody {
+  /** @minLength 1 */
+  label: string;
+}
+
+export interface UpdateEffectivenessMethodBody {
+  /** @minLength 1 */
+  label?: string;
+  active?: boolean;
+  sortOrder?: number;
+}
+
 export type ActionPlanSourceModule =
   (typeof ActionPlanSourceModule)[keyof typeof ActionPlanSourceModule];
 
@@ -4714,7 +4737,13 @@ export interface ActionPlan {
   correctiveActionDescription?: string | null;
   /** @nullable */
   correctiveActionCompletedAt?: string | null;
+  /**
+   * Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.
+   * @deprecated
+   */
   effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  /** @nullable */
+  effectivenessMethodId?: number | null;
   /** @nullable */
   effectivenessDueDate?: string | null;
   /** @nullable */
@@ -4813,7 +4842,7 @@ export interface CreateActionPlanBody {
   coResponsibleUserIds?: number[] | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
-  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessMethodId?: number | null;
   effectivenessDueDate?: string | null;
   effectivenessEvaluatorUserId?: number | null;
   odsNumbers?: number[] | null;
@@ -4853,7 +4882,7 @@ export interface UpdateActionPlanBody {
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
   correctiveActionCompletedAt?: string | null;
-  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessMethodId?: number | null;
   effectivenessDueDate?: string | null;
   effectivenessEvaluatorUserId?: number | null;
   effectivenessResult?: ActionPlanEffectivenessResult | null;
