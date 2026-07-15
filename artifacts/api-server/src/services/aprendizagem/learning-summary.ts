@@ -14,11 +14,15 @@ import {
   db,
   employeesTable,
   employeeTrainingsTable,
+  regulatoryNormsTable,
   trainingCatalogTable,
   trainingEffectivenessReviewsTable,
   unitsTable,
 } from "@workspace/db";
-import { computeCriticalGapCountsByUnit, computeLmsMetric } from "../kpi/lms-metrics";
+import {
+  computeCriticalGapCountsByUnit,
+  computeLmsMetric,
+} from "../kpi/lms-metrics";
 
 type Database = Pick<typeof db, "select">;
 
@@ -40,7 +44,6 @@ function deriveStatus(
   if (c < 50 || e < 50) return "critico";
   return "atencao";
 }
-
 
 export interface LearningSummaryCards {
   patCompletion: number | null;
@@ -187,24 +190,22 @@ export async function computeLearningSummary(args: {
   // Gaps críticos por filial (via helper compartilhado com lms-metrics)
   const unitGapsMap = await computeCriticalGapCountsByUnit(orgId, database);
 
-  const patMap = new Map(
-    patByUnit.map((r) => [r.unitId ?? -1, r]),
-  );
-  const effMap = new Map(
-    effectivenessByUnit.map((r) => [r.unitId ?? -1, r]),
-  );
+  const patMap = new Map(patByUnit.map((r) => [r.unitId ?? -1, r]));
+  const effMap = new Map(effectivenessByUnit.map((r) => [r.unitId ?? -1, r]));
 
   const byUnit: LearningSummaryUnitRow[] = units.map((unit) => {
     const pat = patMap.get(unit.id);
     const eff = effMap.get(unit.id);
     const gaps = unitGapsMap.get(unit.id) ?? 0;
 
-    const completion = pat && Number(pat.total) > 0
-      ? pct(Number(pat.realizadas), Number(pat.total))
-      : null;
-    const unitEff = eff && Number(eff.total) > 0
-      ? pct(Number(eff.eficazes), Number(eff.total))
-      : null;
+    const completion =
+      pat && Number(pat.total) > 0
+        ? pct(Number(pat.realizadas), Number(pat.total))
+        : null;
+    const unitEff =
+      eff && Number(eff.total) > 0
+        ? pct(Number(eff.eficazes), Number(eff.total))
+        : null;
 
     return {
       unitId: unit.id,
@@ -217,13 +218,25 @@ export async function computeLearningSummary(args: {
   });
 
   // ─── BY NORM ────────────────────────────────────────────────────────────────
-  // Eficácia de reviews agrupada pela norma do item do catálogo vinculado.
-  // Treinamentos sem vínculo a catálogo (ou catálogo sem norma) são excluídos.
-  const byNormRows = await database
+  // Eficácia de reviews agrupada pela(s) norma(s) do item do catálogo vinculado.
+  // A norma passou de texto legado (`norm`) para o catálogo (`norm_ids`, multi).
+  // Agregamos em JS porque cada item pode ter N normas — um review conta para
+  // cada norma vinculada. Preferimos os rótulos do catálogo; caímos no texto
+  // legado apenas para itens ainda não migrados (norm_ids vazio).
+  const normLabelRows = await database
     .select({
+      id: regulatoryNormsTable.id,
+      label: regulatoryNormsTable.label,
+    })
+    .from(regulatoryNormsTable)
+    .where(eq(regulatoryNormsTable.organizationId, orgId));
+  const normLabelById = new Map(normLabelRows.map((r) => [r.id, r.label]));
+
+  const reviewNormRows = await database
+    .select({
+      normIds: trainingCatalogTable.normIds,
       norm: trainingCatalogTable.norm,
-      total: count(),
-      eficazes: sql<number>`count(*) filter (where ${trainingEffectivenessReviewsTable.isEffective} = true)`,
+      isEffective: trainingEffectivenessReviewsTable.isEffective,
     })
     .from(trainingEffectivenessReviewsTable)
     .innerJoin(
@@ -244,18 +257,34 @@ export async function computeLearningSummary(args: {
     .where(
       and(
         eq(employeesTable.organizationId, orgId),
-        isNotNull(trainingCatalogTable.norm),
         unitId !== undefined ? eq(employeesTable.unitId, unitId) : undefined,
       ),
-    )
-    .groupBy(trainingCatalogTable.norm);
+    );
 
-  const byNorm: LearningSummaryNormRow[] = byNormRows
-    .filter((r): r is typeof r & { norm: string } => r.norm !== null)
-    .map((r) => ({
-      norm: r.norm,
-      effectiveness: pct(Number(r.eficazes), Number(r.total)),
-    }));
+  const byNormAcc = new Map<string, { total: number; eficazes: number }>();
+  for (const r of reviewNormRows) {
+    const labels =
+      Array.isArray(r.normIds) && r.normIds.length > 0
+        ? r.normIds
+            .map((id) => normLabelById.get(id))
+            .filter((l): l is string => Boolean(l))
+        : r.norm
+          ? [r.norm]
+          : [];
+    for (const label of labels) {
+      const acc = byNormAcc.get(label) ?? { total: 0, eficazes: 0 };
+      acc.total += 1;
+      if (r.isEffective === true) acc.eficazes += 1;
+      byNormAcc.set(label, acc);
+    }
+  }
+
+  const byNorm: LearningSummaryNormRow[] = [...byNormAcc.entries()].map(
+    ([norm, acc]) => ({
+      norm,
+      effectiveness: pct(acc.eficazes, acc.total),
+    }),
+  );
 
   // ─── EXPIRED ────────────────────────────────────────────────────────────────
   const expiredConditions = [

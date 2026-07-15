@@ -30,8 +30,15 @@ export const trainingCatalogTable = pgTable("training_catalog", {
   title: text("title").notNull(),
   category: text("category"),
   modality: text("modality"),
+  // `norm`/`clause` são legado (texto livre / lista hardcoded). A norma passou a
+  // referenciar o catálogo gerenciável (regulatory_norms) por id, multi-seleção,
+  // mesmo modelo de training_requirements. Colunas mantidas p/ migração — não dropar.
   norm: text("norm"),
   clause: text("clause"),
+  normIds: jsonb("norm_ids")
+    .notNull()
+    .default(sql`'[]'::jsonb`)
+    .$type<number[]>(),
   workloadHours: numeric("workload_hours", {
     precision: 6,
     scale: 2,
@@ -99,46 +106,53 @@ export type CompetencyCatalogItem = typeof competencyCatalogTable.$inferSelect;
  * um cargo. Alimenta o motor de auto-vínculo (applyTrainingRequirements) na
  * admissão e na mudança de cargo. Escopo geral (todas filiais) ou por filial.
  */
-export const trainingRequirementsTable = pgTable("training_requirements", {
-  id: serial("id").primaryKey(),
-  organizationId: integer("organization_id")
-    .notNull()
-    .references(() => organizationsTable.id, { onDelete: "cascade" }),
-  positionId: integer("position_id")
-    .notNull()
-    .references(() => positionsTable.id, { onDelete: "cascade" }),
-  catalogItemId: integer("catalog_item_id")
-    .notNull()
-    .references(() => trainingCatalogTable.id, { onDelete: "cascade" }),
-  deadlineType: text("deadline_type").notNull().default("rh"),
-  deadlineDays: integer("deadline_days"),
-  scope: text("scope").notNull().default("geral"),
-  filialUnitIds: jsonb("filial_unit_ids")
-    .notNull()
-    .default(sql`'[]'::jsonb`)
-    .$type<number[]>(),
-  recurrence: text("recurrence").notNull().default("nao_repete"),
-  isCritical: boolean("is_critical").notNull().default(false),
-  norm: text("norm"), // legado — não usado após a migração; será removido depois
-  normIds: jsonb("norm_ids").notNull().default(sql`'[]'::jsonb`).$type<number[]>(),
-  notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-}, (table) => [
-  // Evita obrigatoriedades duplicadas para o mesmo cargo+treinamento+escopo.
-  // Mantém `scope` na chave para uma regra 'geral' coexistir com uma 'filial'.
-  uniqueIndex("training_requirement_unique").on(
-    table.organizationId,
-    table.positionId,
-    table.catalogItemId,
-    table.scope,
-  ),
-]);
+export const trainingRequirementsTable = pgTable(
+  "training_requirements",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id, { onDelete: "cascade" }),
+    positionId: integer("position_id")
+      .notNull()
+      .references(() => positionsTable.id, { onDelete: "cascade" }),
+    catalogItemId: integer("catalog_item_id")
+      .notNull()
+      .references(() => trainingCatalogTable.id, { onDelete: "cascade" }),
+    deadlineType: text("deadline_type").notNull().default("rh"),
+    deadlineDays: integer("deadline_days"),
+    scope: text("scope").notNull().default("geral"),
+    filialUnitIds: jsonb("filial_unit_ids")
+      .notNull()
+      .default(sql`'[]'::jsonb`)
+      .$type<number[]>(),
+    recurrence: text("recurrence").notNull().default("nao_repete"),
+    isCritical: boolean("is_critical").notNull().default(false),
+    norm: text("norm"), // legado — não usado após a migração; será removido depois
+    normIds: jsonb("norm_ids")
+      .notNull()
+      .default(sql`'[]'::jsonb`)
+      .$type<number[]>(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    // Evita obrigatoriedades duplicadas para o mesmo cargo+treinamento+escopo.
+    // Mantém `scope` na chave para uma regra 'geral' coexistir com uma 'filial'.
+    uniqueIndex("training_requirement_unique").on(
+      table.organizationId,
+      table.positionId,
+      table.catalogItemId,
+      table.scope,
+    ),
+  ],
+);
 
 export type TrainingRequirement = typeof trainingRequirementsTable.$inferSelect;
 

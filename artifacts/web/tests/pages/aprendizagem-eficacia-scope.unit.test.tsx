@@ -28,6 +28,13 @@ vi.mock("@/lib/training-catalog-client", () => ({
   useAllTrainingCatalog: () => ({ data: { data: [] } }),
 }));
 
+// A tela usa o catálogo de normas (filtro por norma). Mocka no nível que a
+// página consome (@/lib/norms-client) em vez do useListNorms transitivo —
+// mais robusto a mudanças na cadeia de hooks (ver achado cubic P2).
+vi.mock("@/lib/norms-client", () => ({
+  useActiveNorms: () => ({ data: [] }),
+}));
+
 // A EficaciaPage renderiza estes componentes de plano de ação dentro de cada
 // card de treinamento. Hoje o mock devolve colunas vazias (nenhum card monta),
 // então eles nunca puxam seus exports de @workspace/api-client-react — mas

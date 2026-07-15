@@ -8,7 +8,14 @@
 
 export type ListTrainingCatalogParams = {
   search?: string;
+  /**
+   * Deprecated — use normId. Kept for backward compatibility.
+   */
   norm?: string;
+  /**
+   * Filter by a regulatory norm id (matches items whose normIds contains it).
+   */
+  normId?: number;
   category?: string;
   modality?: string;
   status?: string;

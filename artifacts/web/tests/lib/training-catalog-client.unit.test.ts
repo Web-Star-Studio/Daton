@@ -68,7 +68,7 @@ describe("fetchAllPages", () => {
 // que o usuário peça). "todos" precisa sair do filtro (sem status = sem
 // restrição no servidor); qualquer outro valor de statusFilter vai direto.
 describe("buildCatalogParams", () => {
-  const base = { search: "", norm: "", category: "", modality: "" };
+  const base = { search: "", normId: "", category: "", modality: "" };
 
   it('statusFilter "ativo" (padrão) filtra por status ativo', () => {
     expect(buildCatalogParams({ ...base, statusFilter: "ativo" }).status).toBe(
@@ -91,22 +91,22 @@ describe("buildCatalogParams", () => {
   it("demais filtros vazios continuam virando undefined (comportamento existente)", () => {
     const params = buildCatalogParams({ ...base, statusFilter: "ativo" });
     expect(params.search).toBeUndefined();
-    expect(params.norm).toBeUndefined();
+    expect(params.normId).toBeUndefined();
     expect(params.category).toBeUndefined();
     expect(params.modality).toBeUndefined();
   });
 
-  it("filtros preenchidos passam adiante sem alteração", () => {
+  it("filtros preenchidos passam adiante (normId vira número)", () => {
     const params = buildCatalogParams({
       search: "NR-35",
-      norm: "NR (MTE)",
+      normId: "7",
       category: "Capacitação",
       modality: "Presencial",
       statusFilter: "todos",
     });
     expect(params).toEqual({
       search: "NR-35",
-      norm: "NR (MTE)",
+      normId: 7,
       category: "Capacitação",
       modality: "Presencial",
       status: undefined,
