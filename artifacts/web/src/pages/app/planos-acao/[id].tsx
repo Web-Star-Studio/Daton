@@ -25,7 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { buildResponsibleOptions } from "./_components/responsible-options";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { buildCoResponsibleOptions, buildResponsibleOptions } from "./_components/responsible-options";
 import { mergeDraftIntoForm } from "./_components/merge-draft";
 import { diffActionPlanPayload } from "./_components/payload-diff";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -134,6 +135,7 @@ export default function ActionPlanFichaPage() {
     status: "open" as ActionPlanStatus,
     priority: "medium" as ActionPlanPriority,
     responsibleUserId: "",
+    coResponsibleUserIds: [] as number[],
     dueDate: "",
     correctiveActionDescription: "",
     correctiveActionCompletedAt: "",
@@ -186,6 +188,7 @@ export default function ActionPlanFichaPage() {
       status: plan.status,
       priority: plan.priority,
       responsibleUserId: plan.responsibleUserId != null ? String(plan.responsibleUserId) : "",
+      coResponsibleUserIds: plan.coResponsibles.map((r) => r.userId),
       dueDate: storageIsoToCalendarDate(plan.dueDate),
       correctiveActionDescription: plan.correctiveActionDescription ?? "",
       correctiveActionCompletedAt: storageIsoToCalendarDate(plan.correctiveActionCompletedAt),
@@ -219,6 +222,7 @@ export default function ActionPlanFichaPage() {
       status: f.status,
       priority: f.priority,
       responsibleUserId: f.responsibleUserId ? Number(f.responsibleUserId) : null,
+      coResponsibleUserIds: f.coResponsibleUserIds,
       dueDate: f.dueDate ? calendarDateToStorageIso(f.dueDate) : null,
       correctiveActionDescription: f.correctiveActionDescription.trim() || null,
       correctiveActionCompletedAt: f.correctiveActionCompletedAt ? calendarDateToStorageIso(f.correctiveActionCompletedAt) : null,
@@ -596,12 +600,35 @@ export default function ActionPlanFichaPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Responsável</Label>
+                  <Label>Ponto focal</Label>
                   <SearchableSelect
                     value={form.responsibleUserId}
                     onChange={(v) => patch("responsibleUserId", v)}
                     options={buildResponsibleOptions(orgUsers, form.responsibleUserId, plan.responsibleUserName)}
                     placeholder="Selecione"
+                    searchPlaceholder="Buscar usuário..."
+                    emptyMessage="Nenhum usuário encontrado"
+                    disabled={!canEdit}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Co-responsáveis</Label>
+                  <SearchableMultiSelect
+                    options={buildCoResponsibleOptions(
+                      orgUsers,
+                      plan.coResponsibles,
+                      form.responsibleUserId ? Number(form.responsibleUserId) : null,
+                    )}
+                    selected={form.coResponsibleUserIds}
+                    onToggle={(id) =>
+                      patch(
+                        "coResponsibleUserIds",
+                        form.coResponsibleUserIds.includes(id)
+                          ? form.coResponsibleUserIds.filter((v) => v !== id)
+                          : [...form.coResponsibleUserIds, id],
+                      )
+                    }
+                    placeholder="Ninguém além do ponto focal"
                     searchPlaceholder="Buscar usuário..."
                     emptyMessage="Nenhum usuário encontrado"
                     disabled={!canEdit}
@@ -757,6 +784,7 @@ export default function ActionPlanFichaPage() {
               canEvaluate={isAdmin || (plan.effectivenessEvaluatorUserId != null && plan.effectivenessEvaluatorUserId === user?.id)}
               canAssignEvaluator={isAdmin}
               responsibleUserId={form.responsibleUserId}
+              coResponsibleUserIds={form.coResponsibleUserIds}
             />
           </Section>
 

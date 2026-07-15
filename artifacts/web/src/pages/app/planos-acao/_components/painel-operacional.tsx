@@ -4,6 +4,7 @@ import { AlertCircle, ChevronRight, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   ACTION_PLAN_PRIORITY_LABELS,
+  formatResponsibles,
   GUT_RELEVANCE_LABELS,
   gutRelevance,
   gutScoreColor,
@@ -45,7 +46,9 @@ function AlertRow({ p, onOpen }: { p: ActionPlanListItem; onOpen: () => void }) 
         <div className="text-[11px] text-muted-foreground">
           {p.code ? `${p.code} · ` : ""}
           {overdue ? `vencida há ${Math.abs(d!)}d` : `vence em ${d}d`}
-          {p.responsibleUserName ? ` · ${p.responsibleUserName}` : ""}
+          {formatResponsibles(p.responsibleUserName, p.coResponsibles)
+            ? ` · ${formatResponsibles(p.responsibleUserName, p.coResponsibles)}`
+            : ""}
         </div>
       </div>
       {p.gutScore != null && <span className={cn("text-sm font-semibold tabular-nums", gutScoreColor(p.gutScore))}>{p.gutScore}</span>}

@@ -42,6 +42,7 @@ export function EficaciaPanel({
   canEvaluate = true,
   canAssignEvaluator = true,
   responsibleUserId = "",
+  coResponsibleUserIds = [],
 }: {
   value: EficaciaValue;
   onChange: (next: EficaciaValue) => void;
@@ -53,6 +54,8 @@ export function EficaciaPanel({
   canAssignEvaluator?: boolean;
   /** The action's responsible — excluded from evaluator options (must differ). */
   responsibleUserId?: string;
+  /** Co-responsáveis — também não podem avaliar a própria eficácia (ISO). */
+  coResponsibleUserIds?: number[];
 }) {
   const set = <K extends keyof EficaciaValue>(key: K, v: EficaciaValue[K]) => onChange({ ...value, [key]: v });
 
@@ -87,7 +90,12 @@ export function EficaciaPanel({
             value={value.evaluatorUserId}
             onChange={(v) => set("evaluatorUserId", v)}
             options={orgUsers
-              .filter((u) => String(u.id) !== responsibleUserId && u.role !== "analyst")
+              .filter(
+                (u) =>
+                  String(u.id) !== responsibleUserId &&
+                  !coResponsibleUserIds.includes(u.id) &&
+                  u.role !== "analyst",
+              )
               .map((u) => ({ value: String(u.id), label: u.name }))}
             placeholder="Quem confirma a eficácia"
             searchPlaceholder="Buscar usuário..."
