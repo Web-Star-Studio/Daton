@@ -545,3 +545,19 @@ export function useAddKpiMonthJustificationWithInvalidation(orgId: number, year:
     },
   });
 }
+
+/**
+ * Rótulo curto do conjunto de responsáveis do plano: o ponto focal, mais "+N"
+ * quando há co-responsáveis. Mesma convenção do rótulo de "Suas Pendências" — as
+ * duas telas mostram a mesma coisa.
+ */
+export function formatResponsibles(
+  pontoFocalName: string | null | undefined,
+  coResponsibles: Array<{ userId: number; name: string }> | null | undefined,
+): string | null {
+  const co = coResponsibles ?? [];
+  const primary = pontoFocalName ?? co[0]?.name ?? null;
+  if (!primary) return null;
+  const extras = pontoFocalName ? co.length : Math.max(0, co.length - 1);
+  return extras > 0 ? `${primary} +${extras}` : primary;
+}

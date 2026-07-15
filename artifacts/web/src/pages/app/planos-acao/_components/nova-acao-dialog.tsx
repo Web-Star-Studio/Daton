@@ -181,7 +181,7 @@ export function NovaAcaoDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Responsável</Label>
+            <Label>Ponto focal</Label>
             <SearchableSelect
               value={form.responsibleUserId}
               onChange={(v) => setForm((f) => ({ ...f, responsibleUserId: v }))}

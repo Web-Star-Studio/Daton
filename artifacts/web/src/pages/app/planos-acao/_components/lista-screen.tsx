@@ -19,6 +19,7 @@ import {
   actionPlanStatusColor,
   effectivenessResultColor,
   formatCalendarDateBR,
+  formatResponsibles,
   gutScoreColor,
   todayCalendarDate,
   useActionPlans,
@@ -119,7 +120,7 @@ export function ListaScreen({
     const q = search.trim().toLowerCase();
     if (!q) return plans;
     return plans.filter((p) =>
-      [p.title, p.code, p.responsibleUserName, p.sourceContext?.label]
+      [p.title, p.code, p.responsibleUserName, ...p.coResponsibles.map((r) => r.name), p.sourceContext?.label]
         .filter(Boolean)
         .some((s) => String(s).toLowerCase().includes(q)),
     );
@@ -242,7 +243,7 @@ export function ListaScreen({
                 <TableHead className="w-14">GUT</TableHead>
                 <TableHead>Ação</TableHead>
                 <TableHead>Origem</TableHead>
-                <TableHead>Responsável</TableHead>
+                <TableHead>Responsáveis</TableHead>
                 <TableHead>Prazo</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Eficácia</TableHead>
@@ -265,7 +266,11 @@ export function ListaScreen({
                     <TableCell>
                       <Badge variant="outline" className="text-[10px] text-muted-foreground">{SOURCE_MODULE_LABELS[p.sourceModule] ?? p.sourceModule}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{p.responsibleUserName ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-sm">
+                      {formatResponsibles(p.responsibleUserName, p.coResponsibles) ?? (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className={cn("text-sm tabular-nums whitespace-nowrap", overdue && "text-red-600 dark:text-red-400")}>
                       {p.dueDate ? formatCalendarDateBR(p.dueDate) : <span className="text-muted-foreground">—</span>}
                     </TableCell>

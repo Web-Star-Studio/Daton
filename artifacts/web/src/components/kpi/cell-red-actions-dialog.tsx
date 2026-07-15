@@ -24,6 +24,7 @@ import {
   actionPlanStatusColor,
   calendarDateToStorageIso,
   formatCalendarDateBR,
+  formatResponsibles,
   useActionPlansForKpiCell,
   useAddKpiMonthJustificationWithInvalidation,
   useCreateActionPlanWithInvalidation,
@@ -364,8 +365,10 @@ function PlanCard({
             <Badge variant="secondary" className={cn("text-[10px] px-1.5", actionPlanPriorityColor(plan.priority))}>
               {ACTION_PLAN_PRIORITY_LABELS[plan.priority]}
             </Badge>
-            {plan.responsibleUserName && (
-              <span className="text-[11px] text-muted-foreground truncate">{plan.responsibleUserName}</span>
+            {formatResponsibles(plan.responsibleUserName, plan.coResponsibles) && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                {formatResponsibles(plan.responsibleUserName, plan.coResponsibles)}
+              </span>
             )}
             {plan.dueDate && (
               <span className="text-[11px] text-muted-foreground">
@@ -456,7 +459,7 @@ function PlanForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Responsável</Label>
+          <Label>Ponto focal</Label>
           <SearchableSelect
             value={form.responsibleUserId}
             onChange={(v) => setForm((f) => ({ ...f, responsibleUserId: v }))}
