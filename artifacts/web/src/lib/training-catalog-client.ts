@@ -50,6 +50,38 @@ export type AllTrainingCatalogParams = Omit<
   "page" | "pageSize"
 >;
 
+export interface CatalogFilterInput {
+  search: string;
+  norm: string;
+  category: string;
+  modality: string;
+  /** "ativo" | "inativo" | "todos" — "todos" remove o filtro de status. */
+  statusFilter: string;
+}
+
+/**
+ * Monta os params de busca do Catálogo a partir dos filtros da tela. Função
+ * pura (sem React) para ser testável direto: o único ponto que exige atenção
+ * é que `statusFilter: "todos"` precisa virar `status: undefined` — enviar a
+ * string "todos" ao servidor não filtraria nada do jeito certo, e mudar essa
+ * regra silenciosamente traria de volta os itens inativos por padrão.
+ */
+export function buildCatalogParams({
+  search,
+  norm,
+  category,
+  modality,
+  statusFilter,
+}: CatalogFilterInput): AllTrainingCatalogParams {
+  return {
+    search: search || undefined,
+    norm: norm || undefined,
+    category: category || undefined,
+    modality: modality || undefined,
+    status: statusFilter === "todos" ? undefined : statusFilter,
+  };
+}
+
 /**
  * The whole training catalog for an org, with the same server-side filters the
  * paginated endpoint accepts (search / norm / category / modality / status), but

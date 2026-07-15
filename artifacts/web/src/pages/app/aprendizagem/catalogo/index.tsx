@@ -10,7 +10,10 @@ import {
   useListCompetencyCatalog,
   getListCompetencyCatalogQueryKey,
 } from "@workspace/api-client-react";
-import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import {
+  buildCatalogParams,
+  useAllTrainingCatalog,
+} from "@/lib/training-catalog-client";
 import { paginateList } from "@/lib/paginate";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { formatKpiNumber } from "@/lib/kpi-client";
@@ -189,15 +192,21 @@ export default function CatalogoPage() {
   const [norm, setNorm] = useState("");
   const [category, setCategory] = useState("");
   const [modality, setModality] = useState("");
+  // Padrão = só ativos (os 2.707 itens de histórico marcados como inativo no
+  // banco não devem aparecer aqui sem o usuário pedir). "todos" remove o
+  // filtro de status na busca — ver buildCatalogParams.
+  const [statusFilter, setStatusFilter] = useState("ativo");
 
   const params = useMemo(
-    () => ({
-      search: debouncedSearch || undefined,
-      norm: norm || undefined,
-      category: category || undefined,
-      modality: modality || undefined,
-    }),
-    [debouncedSearch, norm, category, modality],
+    () =>
+      buildCatalogParams({
+        search: debouncedSearch,
+        norm,
+        category,
+        modality,
+        statusFilter,
+      }),
+    [debouncedSearch, norm, category, modality, statusFilter],
   );
 
   const { data: result, isLoading } = useAllTrainingCatalog(orgId ?? 0, params, {
@@ -210,7 +219,12 @@ export default function CatalogoPage() {
   );
   // Rótulo honesto: a lista é filtrada no servidor, então o total só é "do
   // catálogo" quando não há filtro ativo (review #132). Ver params abaixo.
-  const isCatalogFiltered = Boolean(search || norm || category || modality);
+  // statusFilter "ativo" é o padrão (não é escolha do usuário), então não
+  // conta como filtro — senão o rótulo do topo diria "no filtro atual" o
+  // tempo todo, mesmo sem nenhuma ação do usuário.
+  const isCatalogFiltered = Boolean(
+    search || norm || category || modality || statusFilter !== "ativo",
+  );
 
   // The full (filtered) catalog is already in memory — paginate the DOM so a
   // large catalog (800+ items) doesn't render every card at once. Back to page 1
@@ -295,15 +309,25 @@ export default function CatalogoPage() {
     invalidate();
   };
 
+  // Com o filtro de status default ("ativo"), items já é só ativos e
+  // activeCount === items.length. Ao escolher "Inativos"/"Todos", manter a
+  // palavra "ativos" no rótulo ficaria estranho ("0 treinamentos ativos" ao
+  // lado de uma lista de 15 inativos) — nesse caso o rótulo mostra a
+  // contagem simples de items.length, sem o adjetivo.
+  const catalogCountLabel =
+    statusFilter === "ativo" ? activeCount : items.length;
+
   return (
     <div className="space-y-4">
       {/* Métrica em destaque (fidelidade ao mockup: treinamentos ativos) */}
       <p className="text-sm text-muted-foreground">
         <span className="text-base font-semibold text-foreground">
-          {activeCount}
+          {catalogCountLabel}
         </span>{" "}
-        treinamento{activeCount !== 1 ? "s" : ""} ativo
-        {activeCount !== 1 ? "s" : ""}{" "}
+        treinamento{catalogCountLabel !== 1 ? "s" : ""}
+        {statusFilter === "ativo"
+          ? ` ativo${catalogCountLabel !== 1 ? "s" : ""}`
+          : ""}{" "}
         {isCatalogFiltered ? "no filtro atual" : "no catálogo"}
       </p>
 
@@ -347,6 +371,15 @@ export default function CatalogoPage() {
             </option>
           ))}
         </Select>
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-auto"
+        >
+          <option value="ativo">Ativos</option>
+          <option value="inativo">Inativos (arquivados)</option>
+          <option value="todos">Todos</option>
+        </Select>
         <span className="ml-auto text-sm text-muted-foreground">
           {items.length} treinamento{items.length !== 1 ? "s" : ""}
         </span>
@@ -357,7 +390,21 @@ export default function CatalogoPage() {
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : items.length === 0 ? (
         <div className="rounded-xl border bg-muted/20 px-4 py-12 text-center text-sm text-muted-foreground">
-          Nenhum treinamento no catálogo{canWrite ? " — clique em “Novo treinamento”." : "."}
+          {statusFilter === "ativo" ? (
+            // Só ativos é o padrão: uma lista vazia aqui pode ser só um recorte —
+            // pode haver itens arquivados. Avisa antes que o usuário recrie um
+            // treinamento que já existe (inativo).
+            <>
+              Nenhum treinamento ativo{isCatalogFiltered ? " no filtro atual" : ""}.
+              Troque o filtro para “Inativos” ou “Todos” para ver os arquivados
+              {canWrite ? ", ou clique em “Novo treinamento”." : "."}
+            </>
+          ) : (
+            <>
+              Nenhum treinamento encontrado
+              {canWrite ? " — clique em “Novo treinamento”." : "."}
+            </>
+          )}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
