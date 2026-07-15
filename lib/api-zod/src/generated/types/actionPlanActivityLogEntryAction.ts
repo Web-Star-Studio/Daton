@@ -18,4 +18,7 @@ export const ActionPlanActivityLogEntryAction = {
   effectiveness_evaluated: "effectiveness_evaluated",
   escalated: "escalated",
   reopened: "reopened",
+  action_added: "action_added",
+  action_updated: "action_updated",
+  action_removed: "action_removed",
 } as const;

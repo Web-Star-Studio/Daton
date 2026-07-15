@@ -4566,6 +4566,321 @@ export const ActionPlanEffectivenessResult = {
   pending: "pending",
 } as const;
 
+export type ActionPlanAnalysisMethodKey =
+  (typeof ActionPlanAnalysisMethodKey)[keyof typeof ActionPlanAnalysisMethodKey];
+
+export const ActionPlanAnalysisMethodKey = {
+  five_whys: "five_whys",
+  ishikawa: "ishikawa",
+  a3: "a3",
+  fmea: "fmea",
+  fault_tree: "fault_tree",
+  kepner_tregoe: "kepner_tregoe",
+  rca_apollo: "rca_apollo",
+  barrier_analysis: "barrier_analysis",
+} as const;
+
+export interface ActionPlanAnalysisMethod {
+  id: number;
+  organizationId: number;
+  key: ActionPlanAnalysisMethodKey;
+  label: string;
+  active: boolean;
+  isDefault: boolean;
+  sortOrder: number;
+}
+
+export interface UpdateAnalysisMethodBody {
+  /** @minLength 1 */
+  label?: string;
+  active?: boolean;
+  isDefault?: boolean;
+  sortOrder?: number;
+}
+
+export interface FiveWhysData {
+  /** @maxItems 5 */
+  whys: string[];
+}
+
+export type IshikawaDataCausesItemCategory =
+  (typeof IshikawaDataCausesItemCategory)[keyof typeof IshikawaDataCausesItemCategory];
+
+export const IshikawaDataCausesItemCategory = {
+  metodo: "metodo",
+  maquina: "maquina",
+  mao_de_obra: "mao_de_obra",
+  material: "material",
+  medicao: "medicao",
+  meio_ambiente: "meio_ambiente",
+} as const;
+
+export type IshikawaDataCausesItem = {
+  id: string;
+  category: IshikawaDataCausesItemCategory;
+  text: string;
+};
+
+export interface IshikawaData {
+  causes: IshikawaDataCausesItem[];
+  selectedCauseId?: string;
+  /** @maxItems 5 */
+  whys: string[];
+}
+
+export interface A3Data {
+  background?: string;
+  currentState?: string;
+  goal?: string;
+  analysis?: string;
+  countermeasures?: string;
+}
+
+export type FmeaDataRowsItem = {
+  id: string;
+  failureMode?: string;
+  effect?: string;
+  /**
+   * @minimum 1
+   * @maximum 10
+   */
+  severity?: number;
+  cause?: string;
+  /**
+   * @minimum 1
+   * @maximum 10
+   */
+  occurrence?: number;
+  currentControl?: string;
+  /**
+   * @minimum 1
+   * @maximum 10
+   */
+  detection?: number;
+  recommendedAction?: string;
+};
+
+export interface FmeaData {
+  rows: FmeaDataRowsItem[];
+}
+
+export type FaultTreeNodeGate =
+  (typeof FaultTreeNodeGate)[keyof typeof FaultTreeNodeGate];
+
+export const FaultTreeNodeGate = {
+  AND: "AND",
+  OR: "OR",
+} as const;
+
+export interface FaultTreeNode {
+  id: string;
+  text?: string;
+  gate: FaultTreeNodeGate;
+  children: FaultTreeNode[];
+}
+
+export interface FaultTreeData {
+  topEvent?: string;
+  nodes: FaultTreeNode[];
+}
+
+export type KepnerTregoeDataRowsItemDimension =
+  (typeof KepnerTregoeDataRowsItemDimension)[keyof typeof KepnerTregoeDataRowsItemDimension];
+
+export const KepnerTregoeDataRowsItemDimension = {
+  o_que: "o_que",
+  onde: "onde",
+  quando: "quando",
+  extensao: "extensao",
+} as const;
+
+export type KepnerTregoeDataRowsItem = {
+  dimension: KepnerTregoeDataRowsItemDimension;
+  is?: string;
+  isNot?: string;
+  distinction?: string;
+  change?: string;
+};
+
+export type KepnerTregoeDataPossibleCausesItem = {
+  id: string;
+  text?: string;
+  verification?: string;
+  verified?: boolean;
+};
+
+export interface KepnerTregoeData {
+  /**
+   * @minItems 4
+   * @maxItems 4
+   */
+  rows: KepnerTregoeDataRowsItem[];
+  possibleCauses: KepnerTregoeDataPossibleCausesItem[];
+  mostProbableCauseId?: string;
+}
+
+export type RcaApolloNodeType =
+  (typeof RcaApolloNodeType)[keyof typeof RcaApolloNodeType];
+
+export const RcaApolloNodeType = {
+  condition: "condition",
+  action: "action",
+} as const;
+
+export interface RcaApolloNode {
+  id: string;
+  text?: string;
+  type: RcaApolloNodeType;
+  evidence?: string;
+  children: RcaApolloNode[];
+}
+
+export interface RcaApolloData {
+  primaryEffect?: string;
+  causes: RcaApolloNode[];
+}
+
+export type BarrierAnalysisDataBarriersItemType =
+  (typeof BarrierAnalysisDataBarriersItemType)[keyof typeof BarrierAnalysisDataBarriersItemType];
+
+export const BarrierAnalysisDataBarriersItemType = {
+  fisica: "fisica",
+  administrativa: "administrativa",
+  humana: "humana",
+  procedimental: "procedimental",
+} as const;
+
+export type BarrierAnalysisDataBarriersItemStatus =
+  (typeof BarrierAnalysisDataBarriersItemStatus)[keyof typeof BarrierAnalysisDataBarriersItemStatus];
+
+export const BarrierAnalysisDataBarriersItemStatus = {
+  ausente: "ausente",
+  falhou: "falhou",
+  ineficaz: "ineficaz",
+  funcionou: "funcionou",
+} as const;
+
+export type BarrierAnalysisDataBarriersItem = {
+  id: string;
+  name?: string;
+  type?: BarrierAnalysisDataBarriersItemType;
+  status?: BarrierAnalysisDataBarriersItemStatus;
+  failureReason?: string;
+};
+
+export interface BarrierAnalysisData {
+  hazard?: string;
+  target?: string;
+  barriers: BarrierAnalysisDataBarriersItem[];
+}
+
+export type ActionPlanAnalysis =
+  | {
+      key: "five_whys";
+      data: FiveWhysData;
+    }
+  | {
+      key: "ishikawa";
+      data: IshikawaData;
+    }
+  | {
+      key: "a3";
+      data: A3Data;
+    }
+  | {
+      key: "fmea";
+      data: FmeaData;
+    }
+  | {
+      key: "fault_tree";
+      data: FaultTreeData;
+    }
+  | {
+      key: "kepner_tregoe";
+      data: KepnerTregoeData;
+    }
+  | {
+      key: "rca_apollo";
+      data: RcaApolloData;
+    }
+  | {
+      key: "barrier_analysis";
+      data: BarrierAnalysisData;
+    };
+
+export type ActionPlanActionStatus =
+  (typeof ActionPlanActionStatus)[keyof typeof ActionPlanActionStatus];
+
+export const ActionPlanActionStatus = {
+  open: "open",
+  in_progress: "in_progress",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+export interface ActionPlanAction {
+  id: number;
+  actionPlanId: number;
+  what?: string | null;
+  why?: string | null;
+  whereAt?: string | null;
+  how?: string | null;
+  howMuch?: string | null;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  dueDate?: string | null;
+  status: ActionPlanActionStatus;
+  completedAt?: string | null;
+  notes?: string | null;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export type CreateActionPlanActionBodyStatus =
+  (typeof CreateActionPlanActionBodyStatus)[keyof typeof CreateActionPlanActionBodyStatus];
+
+export const CreateActionPlanActionBodyStatus = {
+  open: "open",
+  in_progress: "in_progress",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+export interface CreateActionPlanActionBody {
+  what?: string | null;
+  why?: string | null;
+  whereAt?: string | null;
+  how?: string | null;
+  howMuch?: string | null;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  status?: CreateActionPlanActionBodyStatus;
+  notes?: string | null;
+}
+
+export type UpdateActionPlanActionBodyStatus =
+  (typeof UpdateActionPlanActionBodyStatus)[keyof typeof UpdateActionPlanActionBodyStatus];
+
+export const UpdateActionPlanActionBodyStatus = {
+  open: "open",
+  in_progress: "in_progress",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+export interface UpdateActionPlanActionBody {
+  what?: string | null;
+  why?: string | null;
+  whereAt?: string | null;
+  how?: string | null;
+  howMuch?: string | null;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  status?: UpdateActionPlanActionBodyStatus;
+  notes?: string | null;
+  sortOrder?: number;
+}
+
 /**
  * Structured 5W2H plan. howMuch carries estimated cost (free text).
  */
@@ -4689,11 +5004,11 @@ export interface ActionPlan {
    * @nullable
    */
   gutScore?: number | null;
-  plan5w2h?: ActionPlan5W2H | null;
+  analyses?: ActionPlanAnalysis[] | null;
+  actionsTotal?: number;
+  actionsDone?: number;
   /** @nullable */
   rootCause?: string | null;
-  /** @nullable */
-  rootCauseWhys?: string[] | null;
   /** @nullable */
   responsibleUserId?: number | null;
   /** @nullable */
@@ -4765,6 +5080,8 @@ export interface ActionPlanListItem {
   dueDate?: string | null;
   /** @minimum 0 */
   evidencesCount: number;
+  actionsTotal?: number;
+  actionsDone?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -4793,9 +5110,8 @@ export interface CreateActionPlanBody {
    * @maximum 5
    */
   gutTendency?: number | null;
-  plan5w2h?: ActionPlan5W2H | null;
+  analyses?: ActionPlanAnalysis[] | null;
   rootCause?: string | null;
-  rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
@@ -4830,9 +5146,8 @@ export interface UpdateActionPlanBody {
    * @maximum 5
    */
   gutTendency?: number | null;
-  plan5w2h?: ActionPlan5W2H | null;
+  analyses?: ActionPlanAnalysis[] | null;
   rootCause?: string | null;
-  rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
@@ -4932,6 +5247,9 @@ export const ActionPlanActivityLogEntryAction = {
   effectiveness_evaluated: "effectiveness_evaluated",
   escalated: "escalated",
   reopened: "reopened",
+  action_added: "action_added",
+  action_updated: "action_updated",
+  action_removed: "action_removed",
 } as const;
 
 /**

@@ -5,7 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { ActionPlan5W2H } from "./actionPlan5W2H";
+import type { ActionPlanAnalysis } from "./actionPlanAnalysis";
 import type { ActionPlanEffectivenessMethod } from "./actionPlanEffectivenessMethod";
 import type { ActionPlanEffectivenessResult } from "./actionPlanEffectivenessResult";
 import type { ActionPlanEvidence } from "./actionPlanEvidence";
@@ -54,11 +54,11 @@ export interface ActionPlan {
    * @nullable
    */
   gutScore?: number | null;
-  plan5w2h?: ActionPlan5W2H | null;
+  analyses?: ActionPlanAnalysis[] | null;
+  actionsTotal?: number;
+  actionsDone?: number;
   /** @nullable */
   rootCause?: string | null;
-  /** @nullable */
-  rootCauseWhys?: string[] | null;
   /** @nullable */
   responsibleUserId?: number | null;
   /** @nullable */
