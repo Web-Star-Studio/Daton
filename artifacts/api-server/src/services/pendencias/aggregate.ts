@@ -101,7 +101,13 @@ export async function aggregatePendencias(
     noDue: 0,
     upcoming: 0,
     completedToday: 0,
-    bySource: { kpi: 0, action_plan: 0, nonconformity: 0, regulatory_document: 0 },
+    bySource: {
+      kpi: 0,
+      action_plan: 0,
+      action_plan_action: 0,
+      nonconformity: 0,
+      regulatory_document: 0,
+    },
   };
   for (const item of items) {
     if (item.urgency === "overdue") counts.overdue++;

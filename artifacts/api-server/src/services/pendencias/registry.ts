@@ -1,6 +1,7 @@
 import type { PendenciaProvider } from "./types";
 import { kpiPendenciaProvider } from "./providers/kpi";
 import { actionPlanPendenciaProvider } from "./providers/action-plans";
+import { actionPlanActionPendenciaProvider } from "./providers/action-plan-actions";
 import { nonconformityPendenciaProvider } from "./providers/nonconformities";
 import { regulatoryDocumentPendenciaProvider } from "./providers/regulatory-documents";
 
@@ -11,6 +12,7 @@ import { regulatoryDocumentPendenciaProvider } from "./providers/regulatory-docu
 export const pendenciaProviders: PendenciaProvider[] = [
   kpiPendenciaProvider,
   actionPlanPendenciaProvider,
+  actionPlanActionPendenciaProvider,
   nonconformityPendenciaProvider,
   regulatoryDocumentPendenciaProvider,
 ];
