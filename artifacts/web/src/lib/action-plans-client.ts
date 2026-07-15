@@ -3,30 +3,40 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetActionPlanQueryKey,
   getListActionPlanActivityQueryKey,
+  getListActionPlanActionsQueryKey,
   getListActionPlanCommentsQueryKey,
   getListActionPlansQueryKey,
   getGetActionPlansSummaryQueryKey,
+  getListAnalysisMethodsQueryKey,
   getListKpiMonthJustificationsQueryKey,
   getListKpiYearDataQueryKey,
   useAddActionPlanComment,
   useAddActionPlanEvidence,
   useAddKpiMonthJustification,
   useCreateActionPlan,
+  useCreateActionPlanAction,
   useDeleteActionPlan,
+  useDeleteActionPlanAction,
   useDeleteActionPlanEvidence,
   useGetActionPlan,
   getListExternalActionsQueryKey,
   useGetActionPlansSummary,
+  useListActionPlanActions,
   useListActionPlanActivity,
   useListActionPlanComments,
   useListActionPlans,
+  useListAnalysisMethods,
   useListExternalActions,
   useListKpiMonthJustifications,
   useSuggestActionPlanDraft,
   useUpdateActionPlan,
+  useUpdateActionPlanAction,
   type ActionPlan,
   type ActionPlan5W2H,
+  type ActionPlanAction,
+  type ActionPlanActionStatus,
   type ActionPlanActivityLogEntry,
+  type ActionPlanAnalysisMethod,
   type ActionPlanComment,
   type ActionPlanEffectivenessMethod,
   type ActionPlanEffectivenessResult,
@@ -39,21 +49,30 @@ import {
   type ActionPlanStatus,
   type ActionPlanSummary,
   type ActionPlanType,
+  type CreateActionPlanActionBody,
   type CreateActionPlanBody,
   type ExternalActionItem,
   type KpiMonthlyValueJustification,
   type ListActionPlansParams,
   type SuggestActionPlanDraftBody,
   type SuggestActionPlanDraftResponse,
+  type UpdateActionPlanActionBody,
   type UpdateActionPlanBody,
 } from "@workspace/api-client-react";
 // GUT relevance bands are shared with the road-safety module (single source of truth).
 import { GUT_RELEVANCE_LABELS, gutRelevance, type GutRelevance } from "@/lib/road-safety-client";
+// Renders a one-line summary of a treatment's content ("Não preenchida" when it's
+// been added but nothing filled in yet) — the single source of truth for that
+// judgment call, shared between the analyses cards and the timeline stage below.
+import { resumoAnalise } from "@/pages/app/planos-acao/_components/analises/registry";
 
 export type {
   ActionPlan,
   ActionPlan5W2H,
+  ActionPlanAction,
+  ActionPlanActionStatus,
   ActionPlanActivityLogEntry,
+  ActionPlanAnalysisMethod,
   ActionPlanComment,
   ActionPlanEffectivenessMethod,
   ActionPlanEffectivenessResult,
@@ -66,12 +85,14 @@ export type {
   ActionPlanStatus,
   ActionPlanSummary,
   ActionPlanType,
+  CreateActionPlanActionBody,
   CreateActionPlanBody,
   ExternalActionItem,
   KpiMonthlyValueJustification,
   ListActionPlansParams,
   SuggestActionPlanDraftBody,
   SuggestActionPlanDraftResponse,
+  UpdateActionPlanActionBody,
   UpdateActionPlanBody,
 };
 export { GUT_RELEVANCE_LABELS, gutRelevance, type GutRelevance };
@@ -100,6 +121,15 @@ export const ACTION_TYPE_LABELS: Record<ActionPlanType, string> = {
   corrective: "Corretiva",
   preventive: "Preventiva",
   improvement: "Melhoria",
+};
+
+/** Status of an individual action within the plan's 5W2H action list (distinct
+ * from `ACTION_PLAN_STATUS_LABELS`, which is the plan's own status). */
+export const ACTION_STATUS_LABELS: Record<ActionPlanActionStatus, string> = {
+  open: "Pendente",
+  in_progress: "Em andamento",
+  completed: "Concluída",
+  cancelled: "Cancelada",
 };
 
 export const SOURCE_MODULE_LABELS: Record<string, string> = {
@@ -258,23 +288,26 @@ export const ACTION_PLAN_STAGE_ANCHORS = [
   "etapa-encerramento",
 ] as const;
 
-/** Highest reached stage (1–6) for the timeline, derived from the plan state so
- * we never store a stage column that could drift. */
+/** Highest reached stage (0–5, index-aligned with `ACTION_PLAN_STAGES`) for the
+ * timeline, derived from the plan state so we never store a stage column that
+ * could drift. */
 export function actionPlanStageLevel(plan: ActionPlan): number {
-  const hasPlan =
-    (plan.plan5w2h != null && Object.values(plan.plan5w2h).some((v) => typeof v === "string" && v.trim() !== "")) ||
-    (plan.rootCause != null && plan.rootCause.trim() !== "") ||
-    (plan.responsibleUserId != null && plan.dueDate != null);
+  // Planejamento: há análise de causa (raiz ou qualquer tratativa com conteúdo) OU já existe
+  // pelo menos uma ação registrada.
+  const temTratativa = (plan.analyses ?? []).some((a) => resumoAnalise(a) !== "Não preenchida");
+  const planejou = Boolean(plan.rootCause?.trim()) || temTratativa || (plan.actionsTotal ?? 0) > 0;
+  // Execução: alguma ação saiu do papel.
+  const executou = (plan.actionsDone ?? 0) > 0 || plan.status === "in_progress";
   const hasEvidence = (plan.evidences?.length ?? 0) > 0;
   const evaluated = plan.effectivenessResult === "effective" || plan.effectivenessResult === "ineffective";
   const completed = plan.status === "completed";
 
-  let level = 1; // Identificação
-  if (hasPlan) level = 2; // Planejamento
-  if (plan.status === "in_progress" || completed) level = Math.max(level, 3); // Execução
-  if (hasEvidence || completed) level = Math.max(level, 4); // Evidência
-  if (evaluated) level = Math.max(level, 5); // Eficácia
-  if (completed && evaluated) level = 6; // Encerramento
+  let level = 0; // Identificação
+  if (planejou) level = 1; // Planejamento
+  if (executou || completed) level = Math.max(level, 2); // Execução
+  if (hasEvidence || completed) level = Math.max(level, 3); // Evidência
+  if (evaluated) level = Math.max(level, 4); // Eficácia
+  if (completed && evaluated) level = 5; // Encerramento
   return level;
 }
 
@@ -388,6 +421,80 @@ export function useActionPlan(orgId: number, planId: number | null) {
     query: {
       queryKey: getGetActionPlanQueryKey(orgId, planId ?? 0),
       enabled: planId !== null,
+    },
+  });
+}
+
+// ─── Catálogo de tratativas (analysis methods) ───────────────────────────────
+
+/** Catálogo inteiro (ativas + inativas). Displays = todas: um plano que já usa uma tratativa
+ *  desativada precisa continuar mostrando o rótulo dela, não um "—". */
+export function useAllAnalysisMethods(orgId: number) {
+  return useListAnalysisMethods(orgId, {
+    query: { enabled: !!orgId, queryKey: getListAnalysisMethodsQueryKey(orgId) },
+  });
+}
+
+/** Só as ativas — para os seletores (criação do plano, "+ Adicionar tratativa"). Filtra no
+ *  cliente sobre a mesma query: nenhuma requisição a mais. */
+export function useActiveAnalysisMethods(orgId: number) {
+  const q = useAllAnalysisMethods(orgId);
+  const data = (q.data ?? []).filter((m) => m.active);
+  return { ...q, data };
+}
+
+export function buildAnalysisMethodLabelMap(
+  methods: ActionPlanAnalysisMethod[],
+): Map<string, string> {
+  return new Map(methods.map((m) => [m.key, m.label]));
+}
+
+// ─── Ações do plano (5W2H action list) ───────────────────────────────────────
+
+export function useActionPlanActions(orgId: number, planId: number | null) {
+  return useListActionPlanActions(orgId, planId ?? 0, {
+    query: {
+      queryKey: getListActionPlanActionsQueryKey(orgId, planId ?? 0),
+      enabled: planId !== null,
+    },
+  });
+}
+
+/** Invalidates both the plan's action list AND the plan itself — the plan carries
+ * `actionsTotal`/`actionsDone` (and the timeline stage derives from them), so both
+ * need to refresh when an action is created/updated/deleted. */
+function invalidateActionPlanActions(
+  queryClient: ReturnType<typeof useQueryClient>,
+  orgId: number,
+  planId: number,
+) {
+  queryClient.invalidateQueries({ queryKey: getListActionPlanActionsQueryKey(orgId, planId) });
+  queryClient.invalidateQueries({ queryKey: getGetActionPlanQueryKey(orgId, planId) });
+}
+
+export function useCreateActionPlanActionWithInvalidation(orgId: number, planId: number) {
+  const queryClient = useQueryClient();
+  return useCreateActionPlanAction({
+    mutation: {
+      onSuccess: () => invalidateActionPlanActions(queryClient, orgId, planId),
+    },
+  });
+}
+
+export function useUpdateActionPlanActionWithInvalidation(orgId: number, planId: number) {
+  const queryClient = useQueryClient();
+  return useUpdateActionPlanAction({
+    mutation: {
+      onSuccess: () => invalidateActionPlanActions(queryClient, orgId, planId),
+    },
+  });
+}
+
+export function useDeleteActionPlanActionWithInvalidation(orgId: number, planId: number) {
+  const queryClient = useQueryClient();
+  return useDeleteActionPlanAction({
+    mutation: {
+      onSuccess: () => invalidateActionPlanActions(queryClient, orgId, planId),
     },
   });
 }
