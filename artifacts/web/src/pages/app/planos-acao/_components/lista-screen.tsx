@@ -32,7 +32,7 @@ import { EMPTY_FILTERS, buildActionPlanQuery, hasActiveFilters, type ListFilters
 
 const STATUS_OPTIONS: ActionPlanStatus[] = ["open", "in_progress", "completed", "cancelled"];
 
-function StatCard({ label, value, tone, hint, icon: Icon, onClick }: { label: string; value: number | string; tone?: string; hint?: string; icon: typeof ClipboardList; onClick?: () => void }) {
+function StatCard({ label, value, tone, hint, icon: Icon, onClick, active }: { label: string; value: number | string; tone?: string; hint?: string; icon: typeof ClipboardList; onClick?: () => void; active?: boolean }) {
   const content = (
     <>
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -42,11 +42,22 @@ function StatCard({ label, value, tone, hint, icon: Icon, onClick }: { label: st
       {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
     </>
   );
-  const base = "rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md text-left";
+  const base = "rounded-xl border px-4 py-3 backdrop-blur-md text-left";
   return onClick ? (
-    <button type="button" onClick={onClick} className={cn(base, "transition-colors hover:bg-card/70 focus:outline-none focus:ring-2 focus:ring-ring")}>{content}</button>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        base,
+        "transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border/60 bg-card/42 hover:bg-card/70",
+      )}
+    >
+      {content}
+    </button>
   ) : (
-    <div className={base}>{content}</div>
+    <div className={cn(base, "border-border/60 bg-card/42")}>{content}</div>
   );
 }
 
@@ -85,6 +96,14 @@ export function ListaScreen({
   const clearFilters = () => {
     setFilters(EMPTY_FILTERS);
     setMineOnly(false);
+  };
+
+  // Card de prazo funciona como toggle: clicar no que já está ativo volta à
+  // lista cheia; caso contrário, aplica só aquele prazo (zerando os demais).
+  const setDueWindowCard = (window: "overdue" | "due_soon") => {
+    setMineOnly(false);
+    setSearch("");
+    setFilters((f) => (f.dueWindow === window ? EMPTY_FILTERS : { ...EMPTY_FILTERS, dueWindow: window }));
   };
 
   const { data: plans = [], isLoading } = useActionPlans(orgId, queryParams);
@@ -128,9 +147,9 @@ export function ListaScreen({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Ativas" value={active} icon={ClipboardList} hint="abertas + em andamento" />
-        <StatCard label="Vencidas" value={summary?.overdue ?? 0} tone="text-red-600 dark:text-red-400" icon={AlertTriangle} hint="requer atenção" onClick={() => { setFilters({ ...EMPTY_FILTERS, dueWindow: "overdue" }); setMineOnly(false); setSearch(""); }} />
-        <StatCard label="Vencendo (7d)" value={summary?.dueSoon ?? 0} tone="text-amber-600 dark:text-amber-400" icon={Clock} hint="próximos 7 dias" onClick={() => { setFilters({ ...EMPTY_FILTERS, dueWindow: "due_soon" }); setMineOnly(false); setSearch(""); }} />
+        <StatCard label="Ativas" value={active} icon={ClipboardList} hint="abertas + em andamento" active={!hasActiveFilters(filters) && !mineOnly && !search} onClick={() => { setFilters(EMPTY_FILTERS); setMineOnly(false); setSearch(""); }} />
+        <StatCard label="Vencidas" value={summary?.overdue ?? 0} tone="text-red-600 dark:text-red-400" icon={AlertTriangle} hint="requer atenção" active={filters.dueWindow === "overdue"} onClick={() => setDueWindowCard("overdue")} />
+        <StatCard label="Vencendo (7d)" value={summary?.dueSoon ?? 0} tone="text-amber-600 dark:text-amber-400" icon={Clock} hint="próximos 7 dias" active={filters.dueWindow === "due_soon"} onClick={() => setDueWindowCard("due_soon")} />
         <StatCard label="Concluídas no mês" value={summary?.completedThisMonth ?? 0} tone="text-emerald-600 dark:text-emerald-400" icon={CheckCircle2} />
       </div>
 
