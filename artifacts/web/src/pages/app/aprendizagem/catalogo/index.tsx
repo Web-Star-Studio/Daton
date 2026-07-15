@@ -12,18 +12,23 @@ import {
 } from "@workspace/api-client-react";
 import {
   buildCatalogParams,
+  describeCatalogDeletionImpact,
+  readCatalogDeletionDependencies,
   useAllTrainingCatalog,
+  type CatalogDeletionDependencies,
 } from "@/lib/training-catalog-client";
 import {
   useActiveNorms,
   useAllNorms,
   buildNormLabelMap,
 } from "@/lib/norms-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { paginateList } from "@/lib/paginate";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { formatKpiNumber } from "@/lib/kpi-client";
 import { TrainingWorkloadInput } from "@/pages/app/aprendizagem/_components/carga-horaria";
+import { useToast } from "@/hooks/use-toast";
 
 const CATALOG_PAGE_SIZE = 24;
 import type {
@@ -194,6 +199,7 @@ export default function CatalogoPage() {
   const { canWriteModule } = usePermissions();
   const canWrite = canWriteModule("employees");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [search, setSearch] = useState("");
   // Debounced before it reaches the query: each keystroke would otherwise refetch
@@ -272,6 +278,12 @@ export default function CatalogoPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<CatalogForm>(EMPTY_FORM);
   const [fichaItem, setFichaItem] = useState<TrainingCatalogItem | null>(null);
+  // Confirmação de exclusão em cascata: aberta quando o DELETE sem cascade
+  // volta 409 (item com obrigatoriedades/turmas/PAT vinculados).
+  const [cascadeConfirm, setCascadeConfirm] = useState<{
+    item: TrainingCatalogItem;
+    dependencies: CatalogDeletionDependencies;
+  } | null>(null);
 
   // Normas ofertadas no seletor: as ativas + qualquer inativa já selecionada
   // (editar um item cuja norma foi desativada não pode esconder o marcado).
@@ -335,8 +347,49 @@ export default function CatalogoPage() {
       )
     )
       return;
-    await deleteMutation.mutateAsync({ orgId, itemId: item.id });
-    invalidate();
+    try {
+      await deleteMutation.mutateAsync({ orgId, itemId: item.id });
+      invalidate();
+      toast({ title: "Treinamento removido do catálogo" });
+    } catch (error) {
+      // 409: item tem obrigatoriedades/turmas/PAT vinculados — fluxo
+      // esperado, não é erro. Abre o diálogo de confirmação de cascata em
+      // vez de mostrar um toast de falha.
+      const dependencies = readCatalogDeletionDependencies(error);
+      if (dependencies) {
+        setCascadeConfirm({ item, dependencies });
+        return;
+      }
+      toast({
+        title: "Não foi possível remover",
+        description: apiErrorMessage(error),
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Confirmação de "excluir mesmo assim": apaga o item junto com as
+  // dependências (?cascade=true) — o backend some com as obrigatoriedades,
+  // turmas, PAT e pendências ainda não realizadas, e preserva o registro de
+  // quem já concluiu (histórico).
+  const handleCascadeDelete = async () => {
+    if (!orgId || !cascadeConfirm) return;
+    try {
+      await deleteMutation.mutateAsync({
+        orgId,
+        itemId: cascadeConfirm.item.id,
+        params: { cascade: true },
+      });
+      invalidate();
+      toast({ title: "Treinamento removido do catálogo" });
+      setCascadeConfirm(null);
+    } catch (error) {
+      toast({
+        title: "Não foi possível remover",
+        description: apiErrorMessage(error),
+        variant: "destructive",
+      });
+    }
   };
 
   // Com o filtro de status default ("ativo"), items já é só ativos e
@@ -429,8 +482,9 @@ export default function CatalogoPage() {
             // pode haver itens arquivados. Avisa antes que o usuário recrie um
             // treinamento que já existe (inativo).
             <>
-              Nenhum treinamento ativo{isCatalogFiltered ? " no filtro atual" : ""}.
-              Troque o filtro para “Inativos” ou “Todos” para ver os arquivados
+              Nenhum treinamento ativo
+              {isCatalogFiltered ? " no filtro atual" : ""}. Troque o filtro
+              para “Inativos” ou “Todos” para ver os arquivados
               {canWrite ? ", ou clique em “Novo treinamento”." : "."}
             </>
           ) : (
@@ -627,6 +681,35 @@ export default function CatalogoPage() {
                 <span>· Instrutor: {fichaItem.defaultInstructor}</span>
               ) : null}
             </div>
+          </div>
+        ) : null}
+      </Dialog>
+
+      {/* Confirmação de exclusão em cascata: aberta quando o DELETE simples
+          volta 409 (item com obrigatoriedades/turmas/PAT vinculados). */}
+      <Dialog
+        open={!!cascadeConfirm}
+        onOpenChange={(o) => !o && setCascadeConfirm(null)}
+        title={cascadeConfirm ? `Excluir "${cascadeConfirm.item.title}"?` : ""}
+        size="sm"
+      >
+        {cascadeConfirm ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {describeCatalogDeletionImpact(cascadeConfirm.dependencies)}
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCascadeConfirm(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => void handleCascadeDelete()}
+                disabled={deleteMutation.isPending}
+              >
+                Excluir mesmo assim
+              </Button>
+            </DialogFooter>
           </div>
         ) : null}
       </Dialog>
