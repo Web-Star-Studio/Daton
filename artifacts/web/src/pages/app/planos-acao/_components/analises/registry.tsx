@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import { CincoPorques } from "./metodos/cinco-porques";
 import { Ishikawa } from "./metodos/ishikawa";
-import { A3 } from "./metodos/a3";
+import { A3, A3_SECOES } from "./metodos/a3";
 import { Fmea } from "./metodos/fmea";
 import { ArvoreFalhas } from "./metodos/arvore-falhas";
 import { KepnerTregoe } from "./metodos/kepner-tregoe";
@@ -12,7 +12,6 @@ import {
   KT_DIMENSIONS,
   fmeaRpn,
   type ActionPlanAnalysis,
-  type AnalysisData,
   type AnalysisMethodKey,
 } from "./types";
 
@@ -36,6 +35,11 @@ type Adaptador<K extends AnalysisMethodKey> = {
 
 function contar(n: number, singular: string, plural: string): string {
   return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** Conta recursivamente os nós de uma árvore (o nó + toda a sua descendência). */
+function contarNos<T extends { children: T[] }>(nodes: T[]): number {
+  return nodes.reduce((acc, n) => acc + 1 + contarNos(n.children), 0);
 }
 
 /**
@@ -79,7 +83,7 @@ export const ANALYSIS_REGISTRY: { [K in AnalysisMethodKey]: Adaptador<K> } = {
         (v) => typeof v === "string" && v.trim(),
       ).length;
       return preenchidas
-        ? `${contar(preenchidas, "seção preenchida", "seções preenchidas")} de 5`
+        ? `${contar(preenchidas, "seção preenchida", "seções preenchidas")} de ${A3_SECOES.length}`
         : "";
     },
   },
@@ -99,8 +103,6 @@ export const ANALYSIS_REGISTRY: { [K in AnalysisMethodKey]: Adaptador<K> } = {
     Component: ArvoreFalhas,
     dataVazio: () => ({ nodes: [] }),
     resumo: (d) => {
-      const contarNos = (nodes: typeof d.nodes): number =>
-        nodes.reduce((acc, n) => acc + 1 + contarNos(n.children), 0);
       const total = contarNos(d.nodes ?? []);
       const partes: string[] = [];
       if (d.topEvent?.trim()) partes.push(d.topEvent.trim());
@@ -124,7 +126,8 @@ export const ANALYSIS_REGISTRY: { [K in AnalysisMethodKey]: Adaptador<K> } = {
           r.change?.trim(),
       ).length;
       const partes: string[] = [];
-      if (preenchidas) partes.push(`${preenchidas} de 4 dimensões`);
+      if (preenchidas)
+        partes.push(`${preenchidas} de ${KT_DIMENSIONS.length} dimensões`);
       if (d.possibleCauses?.length)
         partes.push(
           contar(d.possibleCauses.length, "causa possível", "causas possíveis"),
@@ -140,8 +143,6 @@ export const ANALYSIS_REGISTRY: { [K in AnalysisMethodKey]: Adaptador<K> } = {
     Component: RcaApollo,
     dataVazio: () => ({ causes: [] }),
     resumo: (d) => {
-      const contarNos = (nodes: typeof d.causes): number =>
-        nodes.reduce((acc, n) => acc + 1 + contarNos(n.children), 0);
       const total = contarNos(d.causes ?? []);
       const partes: string[] = [];
       if (d.primaryEffect?.trim()) partes.push(d.primaryEffect.trim());

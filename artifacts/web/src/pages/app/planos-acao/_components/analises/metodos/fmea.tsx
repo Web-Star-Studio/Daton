@@ -17,6 +17,19 @@ import {
 const escalaOptions = (scale: Record<number, string>) =>
   Object.entries(scale).map(([value, label]) => ({ value, label }));
 
+/**
+ * RPN a partir de uma linha de `rowsParaTabela`, onde S/O/D são strings disfarçadas de number
+ * (para alimentar o SearchableSelect). Converte explicitamente com `Number(...)` antes de
+ * calcular — nunca confia na coerção implícita do `*`. Usado no render da coluna e no
+ * rowClassName para não duplicar a conversão.
+ */
+const rpnFromStringRow = (row: FmeaRow) =>
+  fmeaRpn({
+    severity: row.severity != null ? Number(row.severity) : undefined,
+    occurrence: row.occurrence != null ? Number(row.occurrence) : undefined,
+    detection: row.detection != null ? Number(row.detection) : undefined,
+  });
+
 export function Fmea({
   data,
   onChange,
@@ -85,7 +98,7 @@ export function Fmea({
       // Calculado, nunca digitado: o RPN é S×O×D por definição, e deixá-lo aberto
       // permitiria uma nota inconsistente com as três escalas.
       render: (row) => {
-        const rpn = fmeaRpn(row);
+        const rpn = rpnFromStringRow(row);
         if (rpn == null)
           return <span className="text-muted-foreground">—</span>;
         return rpn >= FMEA_RPN_ALERT ? (
@@ -140,12 +153,7 @@ export function Fmea({
       addLabel="Adicionar modo de falha"
       readOnly={readOnly}
       rowClassName={(row) => {
-        const rpn = fmeaRpn({
-          severity: row.severity != null ? Number(row.severity) : undefined,
-          occurrence:
-            row.occurrence != null ? Number(row.occurrence) : undefined,
-          detection: row.detection != null ? Number(row.detection) : undefined,
-        });
+        const rpn = rpnFromStringRow(row);
         return rpn != null && rpn >= FMEA_RPN_ALERT
           ? "bg-destructive/5"
           : undefined;

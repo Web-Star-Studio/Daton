@@ -6,7 +6,7 @@ import type { A3Data } from "../types";
  * Eficácia deste mesmo plano — repeti-las aqui faria o usuário digitar duas vezes a mesma
  * coisa, e as duas cópias divergiriam.
  */
-const SECOES = [
+export const A3_SECOES = [
   {
     key: "background",
     label: "Contexto",
@@ -46,7 +46,7 @@ export function A3({
   return (
     <div className="space-y-3">
       <SecoesTexto
-        secoes={SECOES}
+        secoes={A3_SECOES}
         value={data}
         onChange={(next) => onChange(next)}
         readOnly={readOnly}
