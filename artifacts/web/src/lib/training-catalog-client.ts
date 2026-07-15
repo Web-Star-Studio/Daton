@@ -52,7 +52,8 @@ export type AllTrainingCatalogParams = Omit<
 
 export interface CatalogFilterInput {
   search: string;
-  norm: string;
+  /** Id da norma do catálogo (regulatory_norms), como string do <Select>. */
+  normId: string;
   category: string;
   modality: string;
   /** "ativo" | "inativo" | "todos" — "todos" remove o filtro de status. */
@@ -68,14 +69,14 @@ export interface CatalogFilterInput {
  */
 export function buildCatalogParams({
   search,
-  norm,
+  normId,
   category,
   modality,
   statusFilter,
 }: CatalogFilterInput): AllTrainingCatalogParams {
   return {
     search: search || undefined,
-    norm: norm || undefined,
+    normId: normId ? Number(normId) : undefined,
     category: category || undefined,
     modality: modality || undefined,
     status: statusFilter === "todos" ? undefined : statusFilter,
