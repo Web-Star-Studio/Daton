@@ -1,6 +1,7 @@
 import { index, integer, jsonb, pgEnum, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { effectivenessMethodsTable } from "./effectiveness-methods";
 import { organizationsTable } from "./organizations";
 import { usersTable } from "./users";
 
@@ -155,6 +156,11 @@ export const actionPlanTypeEnum = pgEnum("action_plan_type", [
   "preventive",
   "improvement",
 ]);
+/**
+ * @deprecated Legado. O método de verificação virou catálogo por organização
+ * (`effectiveness_methods` + `action_plans.effectiveness_method_id`). Mantido
+ * para ler planos criados antes da migração — não dropar, não escrever mais.
+ */
 export const actionPlanEffectivenessMethodEnum = pgEnum("action_plan_effectiveness_method", [
   "indicator",
   "internal_audit",
@@ -207,7 +213,12 @@ export const actionPlansTable = pgTable(
     correctiveActionDescription: text("corrective_action_description"),
     correctiveActionCompletedAt: timestamp("corrective_action_completed_at", { withTimezone: true }),
     // ─── Effectiveness verification (mirrors governance NC fields) ──────────────
+    /** @deprecated legado — só leitura, para planos anteriores ao catálogo. */
     effectivenessMethod: actionPlanEffectivenessMethodEnum("effectiveness_method"),
+    effectivenessMethodId: integer("effectiveness_method_id").references(
+      () => effectivenessMethodsTable.id,
+      { onDelete: "set null" },
+    ),
     effectivenessDueDate: timestamp("effectiveness_due_date", { withTimezone: true }),
     effectivenessEvaluatorUserId: integer("effectiveness_evaluator_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     effectivenessResult: actionPlanEffectivenessResultEnum("effectiveness_result"),

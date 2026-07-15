@@ -69,6 +69,8 @@ tags:
     description: Programa Anual de Treinamento (PAT) — itens planejados por ano/filial
   - name: norms
     description: Catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento)
+  - name: effectiveness-methods
+    description: Catálogo de métodos de verificação de eficácia da organização (usado na avaliação de eficácia dos planos de ação)
 
 paths:
   /healthz:
@@ -1128,8 +1130,16 @@ paths:
         - name: norm
           in: query
           required: false
+          deprecated: true
+          description: "Deprecated — use normId. Kept for backward compatibility."
           schema:
             type: string
+        - name: normId
+          in: query
+          required: false
+          description: "Filtro por id da norma do catálogo (norm_ids do item vinculado)."
+          schema:
+            type: integer
         - name: evaluatorRole
           in: query
           required: false
@@ -9225,6 +9235,86 @@ paths:
               schema:
                 $ref: "#/components/schemas/RegulatoryNorm"
 
+  /organizations/{orgId}/effectiveness-methods:
+    get:
+      operationId: listEffectivenessMethods
+      tags: [effectiveness-methods]
+      summary: List the organization's effectiveness verification method catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Effectiveness verification methods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EffectivenessMethod"
+    post:
+      operationId: createEffectivenessMethod
+      tags: [effectiveness-methods]
+      summary: Add a method to the organization's effectiveness verification method catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEffectivenessMethodBody"
+      responses:
+        "201":
+          description: Method created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectivenessMethod"
+        "200":
+          description: Existing method returned (idempotent hit on the same label)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectivenessMethod"
+
+  /organizations/{orgId}/effectiveness-methods/{methodId}:
+    patch:
+      operationId: updateEffectivenessMethod
+      tags: [effectiveness-methods]
+      summary: Update an effectiveness verification method (label, active flag or sort order)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: methodId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEffectivenessMethodBody"
+      responses:
+        "200":
+          description: Method updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectivenessMethod"
+
   /organizations/{orgId}/action-plans:
     get:
       operationId: listActionPlans
@@ -9802,8 +9892,16 @@ paths:
         - name: norm
           in: query
           required: false
+          deprecated: true
+          description: "Deprecated — use normId. Kept for backward compatibility."
           schema:
             type: string
+        - name: normId
+          in: query
+          required: false
+          description: "Filter by a regulatory norm id (matches items whose normIds contains it)."
+          schema:
+            type: integer
         - name: category
           in: query
           required: false
@@ -10589,9 +10687,17 @@ components:
         norm:
           type: string
           nullable: true
+          deprecated: true
+          description: "Deprecated — use normIds. Kept for backward compatibility."
         clause:
           type: string
           nullable: true
+          deprecated: true
+          description: "Deprecated — clause moved into the managed norm catalog label."
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
           nullable: true
@@ -10633,6 +10739,7 @@ components:
         - id
         - organizationId
         - title
+        - normIds
         - isMandatory
         - status
         - createdAt
@@ -10650,8 +10757,14 @@ components:
           type: string
         norm:
           type: string
+          deprecated: true
         clause:
           type: string
+          deprecated: true
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
         validityMonths:
@@ -10690,8 +10803,14 @@ components:
           type: string
         norm:
           type: string
+          deprecated: true
         clause:
           type: string
+          deprecated: true
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
         validityMonths:
@@ -18762,6 +18881,41 @@ components:
         sortOrder:
           type: integer
 
+    EffectivenessMethod:
+      type: object
+      description: "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação)."
+      required: [id, organizationId, label, active, sortOrder]
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        label:
+          type: string
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    CreateEffectivenessMethodBody:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+
+    UpdateEffectivenessMethodBody:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
+
     ActionPlanSourceModule:
       type: string
       enum: [kpi, swot, manual, improvement, corrective, norm_requirement, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
@@ -18985,9 +19139,13 @@ components:
           type: ["string", "null"]
           format: date-time
         effectivenessMethod:
+          deprecated: true
+          description: "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId."
           oneOf:
             - $ref: "#/components/schemas/ActionPlanEffectivenessMethod"
             - type: "null"
+        effectivenessMethodId:
+          type: ["integer", "null"]
         effectivenessDueDate:
           type: ["string", "null"]
           format: date-time
@@ -19170,10 +19328,9 @@ components:
         correctiveActionDescription:
           type: string
           nullable: true
-        effectivenessMethod:
-          oneOf:
-            - $ref: "#/components/schemas/ActionPlanEffectivenessMethod"
-            - type: "null"
+        effectivenessMethodId:
+          type: integer
+          nullable: true
         effectivenessDueDate:
           type: string
           format: date-time
@@ -19262,10 +19419,9 @@ components:
           type: string
           format: date-time
           nullable: true
-        effectivenessMethod:
-          oneOf:
-            - $ref: "#/components/schemas/ActionPlanEffectivenessMethod"
-            - type: "null"
+        effectivenessMethodId:
+          type: integer
+          nullable: true
         effectivenessDueDate:
           type: string
           format: date-time

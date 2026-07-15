@@ -10,7 +10,16 @@ import {
   useListCompetencyCatalog,
   getListCompetencyCatalogQueryKey,
 } from "@workspace/api-client-react";
-import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import {
+  buildCatalogParams,
+  useAllTrainingCatalog,
+} from "@/lib/training-catalog-client";
+import {
+  useActiveNorms,
+  useAllNorms,
+  buildNormLabelMap,
+} from "@/lib/norms-client";
+import { cn } from "@/lib/utils";
 import { paginateList } from "@/lib/paginate";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { formatKpiNumber } from "@/lib/kpi-client";
@@ -45,15 +54,20 @@ const CATEGORIES = [
   "Reunião",
 ];
 const MODALITIES = ["Presencial", "EAD", "Híbrido", "Externo"];
-const NORMS = [
-  "ISO 9001 §7.2",
-  "ISO 14001 §7.2",
-  "ISO 39001 §7.2",
-  "NR (MTE)",
-  "PR2030",
-  "ABNT ISO 10015",
-  "Procedimento interno",
-];
+
+/** Rótulo(s) da(s) norma(s) de um item: prioriza o catálogo (normIds); cai no
+ *  texto legado `norm` para itens ainda não migrados. */
+function normLabelsForItem(
+  item: TrainingCatalogItem,
+  normLabelMap: Map<number, string>,
+): string[] {
+  const fromCatalog = (item.normIds ?? [])
+    .map((id) => normLabelMap.get(id))
+    .filter((l): l is string => Boolean(l));
+  if (fromCatalog.length > 0) return fromCatalog;
+  const legacy = item.norm?.replace(" §7.2", "").replace(" (MTE)", "").trim();
+  return legacy ? [legacy] : [];
+}
 const VALIDITIES: { label: string; value: number | null }[] = [
   { label: "Sem validade", value: null },
   { label: "6 meses", value: 6 },
@@ -68,8 +82,7 @@ type CatalogForm = {
   title: string;
   category: string;
   modality: string;
-  norm: string;
-  clause: string;
+  normIds: number[];
   workloadHours: string;
   validityMonths: string;
   isMandatory: boolean;
@@ -84,8 +97,7 @@ const EMPTY_FORM: CatalogForm = {
   title: "",
   category: "Capacitação",
   modality: "Presencial",
-  norm: "ISO 9001 §7.2",
-  clause: "",
+  normIds: [],
   workloadHours: "",
   validityMonths: "",
   isMandatory: false,
@@ -101,8 +113,7 @@ function itemToForm(item: TrainingCatalogItem): CatalogForm {
     title: item.title,
     category: item.category ?? "Capacitação",
     modality: item.modality ?? "Presencial",
-    norm: item.norm ?? "ISO 9001 §7.2",
-    clause: item.clause ?? "",
+    normIds: item.normIds ?? [],
     workloadHours: item.workloadHours != null ? String(item.workloadHours) : "",
     validityMonths:
       item.validityMonths != null ? String(item.validityMonths) : "",
@@ -120,8 +131,7 @@ function formToBody(form: CatalogForm): CreateTrainingCatalogItemBody {
     title: form.title.trim(),
     category: form.category || undefined,
     modality: form.modality || undefined,
-    norm: form.norm || undefined,
-    clause: form.clause || undefined,
+    normIds: form.normIds,
     workloadHours: form.workloadHours ? Number(form.workloadHours) : undefined,
     validityMonths:
       form.validityMonths === "" ? null : Number(form.validityMonths),
@@ -176,6 +186,11 @@ export default function CatalogoPage() {
     () => (competencyQuery.data?.data ?? []).map((c) => c.name),
     [competencyQuery.data],
   );
+  // Catálogo de normas gerenciável (Configurações → Normas). Pickers usam as
+  // ativas; exibições usam o mapa completo (inclui inativas já referenciadas).
+  const { data: activeNorms = [] } = useActiveNorms(orgId ?? 0);
+  const { data: allNorms = [] } = useAllNorms(orgId ?? 0);
+  const normLabelMap = useMemo(() => buildNormLabelMap(allNorms), [allNorms]);
   const { canWriteModule } = usePermissions();
   const canWrite = canWriteModule("employees");
   const queryClient = useQueryClient();
@@ -186,23 +201,34 @@ export default function CatalogoPage() {
   // short query into dozens of requests on a large catalog. Same pattern as the
   // user picker above.
   const debouncedSearch = useDebouncedValue(search, 300);
-  const [norm, setNorm] = useState("");
+  // Filtro por id do catálogo de normas (string no <Select>, número na query).
+  const [normFilter, setNormFilter] = useState("");
   const [category, setCategory] = useState("");
   const [modality, setModality] = useState("");
+  // Padrão = só ativos (os 2.707 itens de histórico marcados como inativo no
+  // banco não devem aparecer aqui sem o usuário pedir). "todos" remove o
+  // filtro de status na busca — ver buildCatalogParams.
+  const [statusFilter, setStatusFilter] = useState("ativo");
 
   const params = useMemo(
-    () => ({
-      search: debouncedSearch || undefined,
-      norm: norm || undefined,
-      category: category || undefined,
-      modality: modality || undefined,
-    }),
-    [debouncedSearch, norm, category, modality],
+    () =>
+      buildCatalogParams({
+        search: debouncedSearch,
+        normId: normFilter,
+        category,
+        modality,
+        statusFilter,
+      }),
+    [debouncedSearch, normFilter, category, modality, statusFilter],
   );
 
-  const { data: result, isLoading } = useAllTrainingCatalog(orgId ?? 0, params, {
-    query: { enabled: !!orgId },
-  });
+  const { data: result, isLoading } = useAllTrainingCatalog(
+    orgId ?? 0,
+    params,
+    {
+      query: { enabled: !!orgId },
+    },
+  );
   const items = result?.data ?? [];
   const activeCount = useMemo(
     () => items.filter((i) => i.status === "ativo").length,
@@ -210,7 +236,12 @@ export default function CatalogoPage() {
   );
   // Rótulo honesto: a lista é filtrada no servidor, então o total só é "do
   // catálogo" quando não há filtro ativo (review #132). Ver params abaixo.
-  const isCatalogFiltered = Boolean(search || norm || category || modality);
+  // statusFilter "ativo" é o padrão (não é escolha do usuário), então não
+  // conta como filtro — senão o rótulo do topo diria "no filtro atual" o
+  // tempo todo, mesmo sem nenhuma ação do usuário.
+  const isCatalogFiltered = Boolean(
+    search || normFilter || category || modality || statusFilter !== "ativo",
+  );
 
   // The full (filtered) catalog is already in memory — paginate the DOM so a
   // large catalog (800+ items) doesn't render every card at once. Back to page 1
@@ -241,6 +272,15 @@ export default function CatalogoPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<CatalogForm>(EMPTY_FORM);
   const [fichaItem, setFichaItem] = useState<TrainingCatalogItem | null>(null);
+
+  // Normas ofertadas no seletor: as ativas + qualquer inativa já selecionada
+  // (editar um item cuja norma foi desativada não pode esconder o marcado).
+  const checkboxNorms = useMemo(() => {
+    const referencedInactive = allNorms.filter(
+      (n) => !n.active && form.normIds.includes(n.id),
+    );
+    return [...activeNorms, ...referencedInactive];
+  }, [activeNorms, allNorms, form.normIds]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -275,7 +315,11 @@ export default function CatalogoPage() {
     if (!orgId || !form.title.trim()) return;
     const body = formToBody(form);
     if (editingId) {
-      await updateMutation.mutateAsync({ orgId, itemId: editingId, data: body });
+      await updateMutation.mutateAsync({
+        orgId,
+        itemId: editingId,
+        data: body,
+      });
     } else {
       await createMutation.mutateAsync({ orgId, data: body });
     }
@@ -295,15 +339,25 @@ export default function CatalogoPage() {
     invalidate();
   };
 
+  // Com o filtro de status default ("ativo"), items já é só ativos e
+  // activeCount === items.length. Ao escolher "Inativos"/"Todos", manter a
+  // palavra "ativos" no rótulo ficaria estranho ("0 treinamentos ativos" ao
+  // lado de uma lista de 15 inativos) — nesse caso o rótulo mostra a
+  // contagem simples de items.length, sem o adjetivo.
+  const catalogCountLabel =
+    statusFilter === "ativo" ? activeCount : items.length;
+
   return (
     <div className="space-y-4">
       {/* Métrica em destaque (fidelidade ao mockup: treinamentos ativos) */}
       <p className="text-sm text-muted-foreground">
         <span className="text-base font-semibold text-foreground">
-          {activeCount}
+          {catalogCountLabel}
         </span>{" "}
-        treinamento{activeCount !== 1 ? "s" : ""} ativo
-        {activeCount !== 1 ? "s" : ""}{" "}
+        treinamento{catalogCountLabel !== 1 ? "s" : ""}
+        {statusFilter === "ativo"
+          ? ` ativo${catalogCountLabel !== 1 ? "s" : ""}`
+          : ""}{" "}
         {isCatalogFiltered ? "no filtro atual" : "no catálogo"}
       </p>
 
@@ -315,11 +369,15 @@ export default function CatalogoPage() {
           placeholder="Buscar treinamento..."
           className="max-w-xs"
         />
-        <Select value={norm} onChange={(e) => setNorm(e.target.value)} className="w-auto">
+        <Select
+          value={normFilter}
+          onChange={(e) => setNormFilter(e.target.value)}
+          className="w-auto"
+        >
           <option value="">Todas as normas</option>
-          {NORMS.map((n) => (
-            <option key={n} value={n}>
-              {n}
+          {activeNorms.map((n) => (
+            <option key={n.id} value={String(n.id)}>
+              {n.label}
             </option>
           ))}
         </Select>
@@ -347,6 +405,15 @@ export default function CatalogoPage() {
             </option>
           ))}
         </Select>
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-auto"
+        >
+          <option value="ativo">Ativos</option>
+          <option value="inativo">Inativos (arquivados)</option>
+          <option value="todos">Todos</option>
+        </Select>
         <span className="ml-auto text-sm text-muted-foreground">
           {items.length} treinamento{items.length !== 1 ? "s" : ""}
         </span>
@@ -357,7 +424,21 @@ export default function CatalogoPage() {
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : items.length === 0 ? (
         <div className="rounded-xl border bg-muted/20 px-4 py-12 text-center text-sm text-muted-foreground">
-          Nenhum treinamento no catálogo{canWrite ? " — clique em “Novo treinamento”." : "."}
+          {statusFilter === "ativo" ? (
+            // Só ativos é o padrão: uma lista vazia aqui pode ser só um recorte —
+            // pode haver itens arquivados. Avisa antes que o usuário recrie um
+            // treinamento que já existe (inativo).
+            <>
+              Nenhum treinamento ativo{isCatalogFiltered ? " no filtro atual" : ""}.
+              Troque o filtro para “Inativos” ou “Todos” para ver os arquivados
+              {canWrite ? ", ou clique em “Novo treinamento”." : "."}
+            </>
+          ) : (
+            <>
+              Nenhum treinamento encontrado
+              {canWrite ? " — clique em “Novo treinamento”." : "."}
+            </>
+          )}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -369,14 +450,26 @@ export default function CatalogoPage() {
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="text-sm font-semibold">{item.title}</h3>
-                {item.norm ? (
-                  <span className="shrink-0 rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">
-                    {item.norm.replace(" §7.2", "").replace(" (MTE)", "")}
-                  </span>
+                {normLabelsForItem(item, normLabelMap).length > 0 ? (
+                  <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                    {normLabelsForItem(item, normLabelMap).map((label) => (
+                      <span
+                        key={label}
+                        className="rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700"
+                      >
+                        {label}
+                      </span>
+                    ))}
+                  </div>
                 ) : null}
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {[item.category, item.workloadHours ? `${formatKpiNumber(item.workloadHours)}h` : null]
+                {[
+                  item.category,
+                  item.workloadHours
+                    ? `${formatKpiNumber(item.workloadHours)}h`
+                    : null,
+                ]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
@@ -394,10 +487,14 @@ export default function CatalogoPage() {
                 {item.isMandatory ? (
                   <Badge className="bg-red-50 text-red-700">Obrigatório</Badge>
                 ) : (
-                  <Badge className="bg-muted text-muted-foreground">Seletivo</Badge>
+                  <Badge className="bg-muted text-muted-foreground">
+                    Seletivo
+                  </Badge>
                 )}
                 {item.status !== "ativo" ? (
-                  <Badge className="bg-amber-50 text-amber-700">{item.status}</Badge>
+                  <Badge className="bg-amber-50 text-amber-700">
+                    {item.status}
+                  </Badge>
                 ) : null}
               </div>
               {canWrite ? (
@@ -456,7 +553,11 @@ export default function CatalogoPage() {
         title={fichaItem?.title ?? ""}
         description={
           fichaItem
-            ? [fichaItem.category, fichaItem.modality, fichaItem.isMandatory ? "Obrigatório" : "Seletivo"]
+            ? [
+                fichaItem.category,
+                fichaItem.modality,
+                fichaItem.isMandatory ? "Obrigatório" : "Seletivo",
+              ]
                 .filter(Boolean)
                 .join(" · ")
             : ""
@@ -469,7 +570,11 @@ export default function CatalogoPage() {
               <Info label="Categoria" value={fichaItem.category} />
               <Info
                 label="Carga horária"
-                value={fichaItem.workloadHours ? `${formatKpiNumber(fichaItem.workloadHours)}h` : null}
+                value={
+                  fichaItem.workloadHours
+                    ? `${formatKpiNumber(fichaItem.workloadHours)}h`
+                    : null
+                }
               />
               <Info
                 label="Validade"
@@ -488,7 +593,9 @@ export default function CatalogoPage() {
                     <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
                       Objetivo
                     </h4>
-                    <p className="text-muted-foreground">{fichaItem.objective}</p>
+                    <p className="text-muted-foreground">
+                      {fichaItem.objective}
+                    </p>
                   </div>
                 ) : null}
                 {fichaItem.programContent ? (
@@ -504,7 +611,15 @@ export default function CatalogoPage() {
               </div>
             ) : null}
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              {fichaItem.norm ? <span>Norma: {fichaItem.norm}</span> : null}
+              {normLabelsForItem(fichaItem, normLabelMap).length > 0 ? (
+                <span>
+                  Norma
+                  {normLabelsForItem(fichaItem, normLabelMap).length > 1
+                    ? "s"
+                    : ""}
+                  : {normLabelsForItem(fichaItem, normLabelMap).join(", ")}
+                </span>
+              ) : null}
               {fichaItem.targetCompetencyName ? (
                 <span>· Competência: {fichaItem.targetCompetencyName}</span>
               ) : null}
@@ -551,22 +666,44 @@ export default function CatalogoPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Norma / referência">
-            <Select
-              value={form.norm}
-              onChange={(e) => setForm({ ...form, norm: e.target.value })}
-            >
-              {NORMS.map((n) => (
-                <option key={n}>{n}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Cláusula">
-            <Input
-              value={form.clause}
-              onChange={(e) => setForm({ ...form, clause: e.target.value })}
-              placeholder="Ex: §7.2, NR-35"
-            />
+          <Field label="Norma(s) de referência" className="md:col-span-2">
+            {checkboxNorms.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhuma norma cadastrada. Cadastre em Configurações → Normas.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {checkboxNorms.map((norm) => {
+                  const checked = form.normIds.includes(norm.id);
+                  return (
+                    <label
+                      key={norm.id}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors",
+                        checked
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
+                          : "border-border text-foreground hover:bg-muted/50",
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5 accent-emerald-600"
+                        checked={checked}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            normIds: e.target.checked
+                              ? [...f.normIds, norm.id]
+                              : f.normIds.filter((n) => n !== norm.id),
+                          }))
+                        }
+                      />
+                      {norm.label}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </Field>
           <Field label="Carga horária (h)">
             <TrainingWorkloadInput
@@ -592,7 +729,10 @@ export default function CatalogoPage() {
             <SearchableSelect
               value={form.targetCompetencyName}
               onChange={(v) => setForm({ ...form, targetCompetencyName: v })}
-              options={toNameOptions(competencyNames, form.targetCompetencyName)}
+              options={toNameOptions(
+                competencyNames,
+                form.targetCompetencyName,
+              )}
               onCreateOption={(v) =>
                 setForm({ ...form, targetCompetencyName: v })
               }
@@ -622,7 +762,10 @@ export default function CatalogoPage() {
             />
             <span className="text-sm font-medium">Treinamento obrigatório</span>
           </label>
-          <Field label="Instrutor / responsável padrão" className="md:col-span-2">
+          <Field
+            label="Instrutor / responsável padrão"
+            className="md:col-span-2"
+          >
             <SearchableSelect
               value={form.defaultInstructor}
               onChange={(v) => setForm({ ...form, defaultInstructor: v })}

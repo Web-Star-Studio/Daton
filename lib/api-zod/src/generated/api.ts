@@ -1707,7 +1707,16 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
     .optional(),
   scope: zod.enum(["needs_evaluation", "all"]).optional(),
   year: zod.coerce.number().optional(),
-  norm: zod.coerce.string().optional(),
+  norm: zod.coerce
+    .string()
+    .optional()
+    .describe("Deprecated — use normId. Kept for backward compatibility."),
+  normId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "Filtro por id da norma do catálogo (norm_ids do item vinculado).",
+    ),
   evaluatorRole: zod
     .enum(["gestor", "rh", "instrutor", "colaborador"])
     .optional(),
@@ -18353,6 +18362,77 @@ export const UpdateNormResponse = zod
   );
 
 /**
+ * @summary List the organization's effectiveness verification method catalog
+ */
+export const ListEffectivenessMethodsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListEffectivenessMethodsResponseItem = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+export const ListEffectivenessMethodsResponse = zod.array(
+  ListEffectivenessMethodsResponseItem,
+);
+
+/**
+ * @summary Add a method to the organization's effectiveness verification method catalog
+ */
+export const CreateEffectivenessMethodParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateEffectivenessMethodBody = zod.object({
+  label: zod.string().min(1),
+});
+
+export const CreateEffectivenessMethodResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+
+/**
+ * @summary Update an effectiveness verification method (label, active flag or sort order)
+ */
+export const UpdateEffectivenessMethodParams = zod.object({
+  orgId: zod.coerce.number(),
+  methodId: zod.coerce.number(),
+});
+
+export const UpdateEffectivenessMethodBody = zod.object({
+  label: zod.string().min(1).optional(),
+  active: zod.boolean().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateEffectivenessMethodResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+
+/**
  * @summary List action plans in the organization with filters
  */
 export const ListActionPlansParams = zod.object({
@@ -18587,19 +18667,7 @@ export const CreateActionPlanBody = zod.object({
   responsibleUserId: zod.number().nullish(),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
-  effectivenessMethod: zod
-    .union([
-      zod.enum([
-        "indicator",
-        "internal_audit",
-        "field_inspection",
-        "training",
-        "sampling",
-        "risk_reduction",
-      ]),
-      zod.null(),
-    ])
-    .optional(),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   odsNumbers: zod.array(zod.number()).nullish(),
@@ -18761,7 +18829,11 @@ export const GetActionPlanResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -18867,19 +18939,7 @@ export const UpdateActionPlanBody = zod.object({
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
-  effectivenessMethod: zod
-    .union([
-      zod.enum([
-        "indicator",
-        "internal_audit",
-        "field_inspection",
-        "training",
-        "sampling",
-        "risk_reduction",
-      ]),
-      zod.null(),
-    ])
-    .optional(),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessResult: zod
@@ -19039,7 +19099,11 @@ export const UpdateActionPlanResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -19447,7 +19511,11 @@ export const RestoreActionPlanPlanningResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -19844,7 +19912,16 @@ export const ListTrainingCatalogParams = zod.object({
 
 export const ListTrainingCatalogQueryParams = zod.object({
   search: zod.coerce.string().optional(),
-  norm: zod.coerce.string().optional(),
+  norm: zod.coerce
+    .string()
+    .optional()
+    .describe("Deprecated — use normId. Kept for backward compatibility."),
+  normId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "Filter by a regulatory norm id (matches items whose normIds contains it).",
+    ),
   category: zod.coerce.string().optional(),
   modality: zod.coerce.string().optional(),
   status: zod.coerce.string().optional(),
@@ -19861,8 +19938,19 @@ export const ListTrainingCatalogResponse = zod.object({
         title: zod.string(),
         category: zod.string().nullish(),
         modality: zod.string().nullish(),
-        norm: zod.string().nullish(),
-        clause: zod.string().nullish(),
+        norm: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — use normIds. Kept for backward compatibility.",
+          ),
+        clause: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — clause moved into the managed norm catalog label.",
+          ),
+        normIds: zod.array(zod.number()),
         workloadHours: zod.number().nullish(),
         validityMonths: zod.number().nullish(),
         isMandatory: zod.boolean(),
@@ -19900,6 +19988,7 @@ export const CreateTrainingCatalogItemBody = zod.object({
   modality: zod.string().optional(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
+  normIds: zod.array(zod.number()).optional(),
   workloadHours: zod.number().optional(),
   validityMonths: zod.number().nullish(),
   isMandatory: zod.boolean().optional(),
@@ -19928,8 +20017,17 @@ export const GetTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
-    norm: zod.string().nullish(),
-    clause: zod.string().nullish(),
+    norm: zod
+      .string()
+      .nullish()
+      .describe("Deprecated — use normIds. Kept for backward compatibility."),
+    clause: zod
+      .string()
+      .nullish()
+      .describe(
+        "Deprecated — clause moved into the managed norm catalog label.",
+      ),
+    normIds: zod.array(zod.number()),
     workloadHours: zod.number().nullish(),
     validityMonths: zod.number().nullish(),
     isMandatory: zod.boolean(),
@@ -19960,6 +20058,7 @@ export const UpdateTrainingCatalogItemBody = zod.object({
   modality: zod.string().optional(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
+  normIds: zod.array(zod.number()).optional(),
   workloadHours: zod.number().optional(),
   validityMonths: zod.number().nullish(),
   isMandatory: zod.boolean().optional(),
@@ -19980,8 +20079,17 @@ export const UpdateTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
-    norm: zod.string().nullish(),
-    clause: zod.string().nullish(),
+    norm: zod
+      .string()
+      .nullish()
+      .describe("Deprecated — use normIds. Kept for backward compatibility."),
+    clause: zod
+      .string()
+      .nullish()
+      .describe(
+        "Deprecated — clause moved into the managed norm catalog label.",
+      ),
+    normIds: zod.array(zod.number()),
     workloadHours: zod.number().nullish(),
     validityMonths: zod.number().nullish(),
     isMandatory: zod.boolean(),

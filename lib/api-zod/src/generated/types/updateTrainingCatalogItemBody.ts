@@ -11,8 +11,11 @@ export interface UpdateTrainingCatalogItemBody {
   title?: string;
   category?: string;
   modality?: string;
+  /** @deprecated */
   norm?: string;
+  /** @deprecated */
   clause?: string;
+  normIds?: number[];
   workloadHours?: number;
   validityMonths?: number | null;
   isMandatory?: boolean;

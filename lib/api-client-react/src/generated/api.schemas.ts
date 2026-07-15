@@ -14,8 +14,17 @@ export interface TrainingCatalogItem {
   title: string;
   category?: string | null;
   modality?: string | null;
+  /**
+   * Deprecated — use normIds. Kept for backward compatibility.
+   * @deprecated
+   */
   norm?: string | null;
+  /**
+   * Deprecated — clause moved into the managed norm catalog label.
+   * @deprecated
+   */
   clause?: string | null;
+  normIds: number[];
   workloadHours?: number | null;
   validityMonths?: number | null;
   isMandatory: boolean;
@@ -36,8 +45,11 @@ export interface CreateTrainingCatalogItemBody {
   title: string;
   category?: string;
   modality?: string;
+  /** @deprecated */
   norm?: string;
+  /** @deprecated */
   clause?: string;
+  normIds?: number[];
   workloadHours?: number;
   validityMonths?: number | null;
   isMandatory?: boolean;
@@ -56,8 +68,11 @@ export interface UpdateTrainingCatalogItemBody {
   title?: string;
   category?: string;
   modality?: string;
+  /** @deprecated */
   norm?: string;
+  /** @deprecated */
   clause?: string;
+  normIds?: number[];
   workloadHours?: number;
   validityMonths?: number | null;
   isMandatory?: boolean;
@@ -4519,6 +4534,29 @@ export interface UpdateRegulatoryNormBody {
   sortOrder?: number;
 }
 
+/**
+ * Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).
+ */
+export interface EffectivenessMethod {
+  id: number;
+  organizationId: number;
+  label: string;
+  active: boolean;
+  sortOrder: number;
+}
+
+export interface CreateEffectivenessMethodBody {
+  /** @minLength 1 */
+  label: string;
+}
+
+export interface UpdateEffectivenessMethodBody {
+  /** @minLength 1 */
+  label?: string;
+  active?: boolean;
+  sortOrder?: number;
+}
+
 export type ActionPlanSourceModule =
   (typeof ActionPlanSourceModule)[keyof typeof ActionPlanSourceModule];
 
@@ -4724,7 +4762,13 @@ export interface ActionPlan {
   correctiveActionDescription?: string | null;
   /** @nullable */
   correctiveActionCompletedAt?: string | null;
+  /**
+   * Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.
+   * @deprecated
+   */
   effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  /** @nullable */
+  effectivenessMethodId?: number | null;
   /** @nullable */
   effectivenessDueDate?: string | null;
   /** @nullable */
@@ -4819,7 +4863,7 @@ export interface CreateActionPlanBody {
   responsibleUserId?: number | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
-  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessMethodId?: number | null;
   effectivenessDueDate?: string | null;
   effectivenessEvaluatorUserId?: number | null;
   odsNumbers?: number[] | null;
@@ -4857,7 +4901,7 @@ export interface UpdateActionPlanBody {
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
   correctiveActionCompletedAt?: string | null;
-  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessMethodId?: number | null;
   effectivenessDueDate?: string | null;
   effectivenessEvaluatorUserId?: number | null;
   effectivenessResult?: ActionPlanEffectivenessResult | null;
@@ -6559,7 +6603,14 @@ export type ListOrganizationTrainingsParams = {
   effectivenessStatus?: ListOrganizationTrainingsEffectivenessStatus;
   scope?: ListOrganizationTrainingsScope;
   year?: number;
+  /**
+   * Deprecated — use normId. Kept for backward compatibility.
+   */
   norm?: string;
+  /**
+   * Filtro por id da norma do catálogo (norm_ids do item vinculado).
+   */
+  normId?: number;
   evaluatorRole?: ListOrganizationTrainingsEvaluatorRole;
   boardColumn?: ListOrganizationTrainingsBoardColumn;
   /**
@@ -6872,7 +6923,14 @@ export type RestoreActionPlanPlanningBody = {
 
 export type ListTrainingCatalogParams = {
   search?: string;
+  /**
+   * Deprecated — use normId. Kept for backward compatibility.
+   */
   norm?: string;
+  /**
+   * Filter by a regulatory norm id (matches items whose normIds contains it).
+   */
+  normId?: number;
   category?: string;
   modality?: string;
   status?: string;
