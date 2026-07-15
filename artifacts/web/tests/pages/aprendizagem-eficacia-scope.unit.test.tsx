@@ -28,6 +28,17 @@ vi.mock("@/lib/training-catalog-client", () => ({
   useAllTrainingCatalog: () => ({ data: { data: [] } }),
 }));
 
+// A EficaciaPage renderiza estes componentes de plano de ação dentro de cada
+// card de treinamento. Hoje o mock devolve colunas vazias (nenhum card monta),
+// então eles nunca puxam seus exports de @workspace/api-client-react — mas
+// mocká-los aqui blinda o teste caso passe a renderizar cards no futuro.
+vi.mock("@/pages/app/planos-acao/_components/criar-acao-button", () => ({
+  CriarAcaoButton: () => null,
+}));
+vi.mock("@/pages/app/planos-acao/_components/acoes-vinculadas", () => ({
+  AcoesVinculadas: () => null,
+}));
+
 vi.mock("@workspace/api-client-react", () => ({
   useListOrganizationTrainings: (...args: unknown[]) =>
     mockListOrganizationTrainings(...args),
