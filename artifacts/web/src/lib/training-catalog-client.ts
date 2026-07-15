@@ -83,6 +83,25 @@ export function buildCatalogParams({
 }
 
 /**
+ * Itens para um PICKER de treinamento (dropdown de escolha em obrigatoriedades /
+ * turmas / programa / lançamento de treino): só os ativos, mais o item
+ * atualmente selecionado no form — mesmo que esteja arquivado. Sem o segundo
+ * termo, editar um registro que aponta para um treino arquivado deixaria o
+ * dropdown sem a opção selecionada (edição parece "vazia"). Isto é só para as
+ * OPÇÕES do dropdown — o mapa id→título usado para exibir registros já criados
+ * precisa continuar recebendo a lista inteira (ativos + inativos), nunca este
+ * resultado filtrado.
+ */
+export function selectPickerCatalogItems(
+  items: TrainingCatalogItem[],
+  selectedId?: number | string | null,
+): TrainingCatalogItem[] {
+  const sel =
+    selectedId == null || selectedId === "" ? null : Number(selectedId);
+  return items.filter((c) => c.status === "ativo" || c.id === sel);
+}
+
+/**
  * The whole training catalog for an org, with the same server-side filters the
  * paginated endpoint accepts (search / norm / category / modality / status), but
  * with no page cap. Returns the same shape as `useListTrainingCatalog` — a
