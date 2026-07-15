@@ -13,7 +13,10 @@ import {
   useListUserOptions,
   getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
-import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import {
+  useAllTrainingCatalog,
+  selectPickerCatalogItems,
+} from "@/lib/training-catalog-client";
 import type { AnnualProgramItem } from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
@@ -174,6 +177,13 @@ export default function ProgramaAnualPage() {
     if (!open) setUserSearch("");
   }, [open]);
   const [form, setForm] = useState<ItemForm>(emptyForm());
+  // Opções do picker: só ativos + o item já selecionado no form. O
+  // catalogTitle (acima) continua com a lista inteira — é ele quem exibe o
+  // nome do treinamento nos itens do programa já cadastrados.
+  const catalogPickerOptions = useMemo(
+    () => selectPickerCatalogItems(catalogItems, form.catalogItemId),
+    [catalogItems, form.catalogItemId],
+  );
 
   useHeaderActions(
     canWrite ? (
@@ -421,7 +431,7 @@ export default function ProgramaAnualPage() {
             <SearchableSelect
               value={form.catalogItemId}
               onChange={(v) => setForm({ ...form, catalogItemId: v })}
-              options={catalogItems.map((c) => ({
+              options={catalogPickerOptions.map((c) => ({
                 value: String(c.id),
                 label: c.title,
               }))}
