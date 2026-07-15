@@ -113,7 +113,10 @@ export function ListaScreen({
   const filteredExternal = useMemo(() => {
     // The governance bridge doesn't expose a responsible user id, so it can't be
     // reliably narrowed to the current user — hide it under "Atribuídas a mim".
-    if (filters.sourceModule || mineOnly) return [];
+    // O bridge da Governança não carrega tipo/prioridade/eficácia/prazo, então
+    // esconde-se sob qualquer filtro que ele não saiba honrar (evita mostrar
+    // itens que contradizem o filtro ativo).
+    if (filters.sourceModule || mineOnly || filters.actionType || filters.priority || filters.effectiveness || filters.dueWindow) return [];
     const q = search.trim().toLowerCase();
     return externalActions.filter((e) => {
       if (filters.status && e.status !== filters.status) return false;
@@ -126,8 +129,8 @@ export function ListaScreen({
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="Ativas" value={active} icon={ClipboardList} hint="abertas + em andamento" />
-        <StatCard label="Vencidas" value={summary?.overdue ?? 0} tone="text-red-600 dark:text-red-400" icon={AlertTriangle} hint="requer atenção" onClick={() => { setFilters({ ...EMPTY_FILTERS, dueWindow: "overdue" }); setMineOnly(false); }} />
-        <StatCard label="Vencendo (7d)" value={summary?.dueSoon ?? 0} tone="text-amber-600 dark:text-amber-400" icon={Clock} hint="próximos 7 dias" onClick={() => { setFilters({ ...EMPTY_FILTERS, dueWindow: "due_soon" }); setMineOnly(false); }} />
+        <StatCard label="Vencidas" value={summary?.overdue ?? 0} tone="text-red-600 dark:text-red-400" icon={AlertTriangle} hint="requer atenção" onClick={() => { setFilters({ ...EMPTY_FILTERS, dueWindow: "overdue" }); setMineOnly(false); setSearch(""); }} />
+        <StatCard label="Vencendo (7d)" value={summary?.dueSoon ?? 0} tone="text-amber-600 dark:text-amber-400" icon={Clock} hint="próximos 7 dias" onClick={() => { setFilters({ ...EMPTY_FILTERS, dueWindow: "due_soon" }); setMineOnly(false); setSearch(""); }} />
         <StatCard label="Concluídas no mês" value={summary?.completedThisMonth ?? 0} tone="text-emerald-600 dark:text-emerald-400" icon={CheckCircle2} />
       </div>
 

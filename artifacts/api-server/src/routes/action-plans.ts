@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, asc, desc, eq, gte, inArray, isNull, lt, notInArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, notInArray, or, sql, type SQL } from "drizzle-orm";
 import {
   actionPlanActivityLogTable,
   actionPlanCommentsTable,
@@ -187,9 +187,11 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
   if (query.data.effectiveness === "effective" || query.data.effectiveness === "ineffective") {
     conditions.push(eq(actionPlansTable.effectivenessResult, query.data.effectiveness));
   } else if (query.data.effectiveness === "pending") {
-    // "Aguardando verificação": concluída, ainda sem veredito de eficácia.
+    // "Aguardando verificação": concluída, ainda sem veredito. Mesmo critério do
+    // tile "Aguardando" (eficacia-screen) e do escalation: result NULL OU 'pending'.
     conditions.push(eq(actionPlansTable.status, "completed"));
-    conditions.push(isNull(actionPlansTable.effectivenessResult));
+    const noVerdict = or(isNull(actionPlansTable.effectivenessResult), eq(actionPlansTable.effectivenessResult, "pending"));
+    if (noVerdict) conditions.push(noVerdict);
   }
   if (query.data.dueWindow) {
     // Mesmas fronteiras do card (summary.ts): meia-noite local + 7 dias.

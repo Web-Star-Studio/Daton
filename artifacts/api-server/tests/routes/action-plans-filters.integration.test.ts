@@ -55,14 +55,15 @@ describe("filtros da listagem de planos de ação", () => {
     expect(await listTitles(ctx, { actionType: "preventive" })).toEqual(["Prev"]);
   });
 
-  it("effectiveness=pending devolve concluídas sem veredito e exclui as com veredito", async () => {
+  it("effectiveness=pending devolve concluídas sem veredito (result NULL ou 'pending') e exclui as avaliadas", async () => {
     const ctx = await createTestContext({ seed: "filtro-efic-pending" });
     contexts.push(ctx);
-    await seedPlan(ctx.organizationId, { title: "Aguardando", status: "completed", effectivenessResult: null });
+    await seedPlan(ctx.organizationId, { title: "AguardandoNull", status: "completed", effectivenessResult: null });
+    await seedPlan(ctx.organizationId, { title: "AguardandoPending", status: "completed", effectivenessResult: "pending" });
     await seedPlan(ctx.organizationId, { title: "JaAvaliada", status: "completed", effectivenessResult: "effective" });
     await seedPlan(ctx.organizationId, { title: "Aberta", status: "open", effectivenessResult: null });
 
-    expect(await listTitles(ctx, { effectiveness: "pending" })).toEqual(["Aguardando"]);
+    expect(await listTitles(ctx, { effectiveness: "pending" })).toEqual(["AguardandoNull", "AguardandoPending"]);
   });
 
   it("effectiveness=effective devolve só as eficazes", async () => {

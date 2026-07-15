@@ -36,7 +36,7 @@ Mais dois elementos que faltam na barra:
 
 **Definições exatas** (para bater com os cards, ver decisão de arquitetura):
 
-- **Eficácia = Aguardando verificação**: `status = 'completed'` **e** `effectiveness_result IS NULL`. É o mesmo critério do tile "Aguardando" da aba Eficácia (`eficacia-screen.tsx`) e do helper `isActionPlanEncerrado` correlato.
+- **Eficácia = Aguardando verificação**: `status = 'completed'` **e** ainda sem veredito — `effectiveness_result IS NULL` **ou** `= 'pending'`. É o mesmo critério do tile "Aguardando" da aba Eficácia (`eficacia-screen.tsx`) e do `escalation.ts` (`or(isNull, eq('pending'))`).
 - **Eficácia = Eficaz / Não eficaz**: `effectiveness_result = 'effective'` / `'ineffective'`.
 - **Prazo = Vencidas**: ação aberta (`status NOT IN ('completed','cancelled')`) **e** `due_date < início de hoje`.
 - **Prazo = Vencendo em 7 dias**: ação aberta **e** `início de hoje ≤ due_date < início de hoje + 7 dias`.
