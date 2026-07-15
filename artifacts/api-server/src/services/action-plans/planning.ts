@@ -1,58 +1,47 @@
-import type { ActionPlan5W2H } from "@workspace/db";
+import type { ActionPlanAnalysis } from "@workspace/db";
+import { normalizeAnalyses } from "./analyses";
 
 /**
- * The block "Sugerir plano (IA)" writes, versioned as one logical field.
+ * O bloco de análise de causa, versionado como UM campo lógico.
  *
- * The activity log stores per-field diffs and the only snapshot it keeps is the
- * creation one (code/title/sourceModule/status). Replaying diffs therefore cannot
- * rebuild "the block as of 12:34" — an entry that only touched the root cause says
- * nothing about the 5W2H at that instant. Storing the whole block in `from`/`to`
- * makes every entry's `to` a complete version, so restoring is just applying it.
+ * O activity log guarda diffs por campo e o único snapshot que ele mantém é o da
+ * criação (code/title/sourceModule/status). Reproduzir diffs, portanto, não recompõe
+ * "o bloco às 12:34" — uma entrada que só tocou a causa raiz nada diz sobre as
+ * tratativas naquele instante. Guardar o bloco inteiro em `from`/`to` faz de todo `to`
+ * uma versão completa, e restaurar vira simplesmente aplicá-lo.
+ *
+ * As AÇÕES do plano ficam de fora deste bloco de propósito: elas têm status e data de
+ * conclusão reais, e restaurar um snapshot delas apagaria trabalho executado. Elas têm
+ * trilha própria no activity log (`action_added` / `action_updated` / `action_removed`).
  */
 export interface PlanningBlock {
-  plan5w2h: ActionPlan5W2H | null;
   rootCause: string | null;
-  rootCauseWhys: string[] | null;
+  analyses: ActionPlanAnalysis[] | null;
 }
 
 interface PlanningSource {
-  plan5w2h?: ActionPlan5W2H | null;
   rootCause?: string | null;
-  rootCauseWhys?: string[] | null;
+  analyses?: ActionPlanAnalysis[] | null;
 }
 
 export function extractPlanning(row: PlanningSource): PlanningBlock {
   return {
-    plan5w2h: row.plan5w2h ?? null,
     rootCause: row.rootCause ?? null,
-    rootCauseWhys: row.rootCauseWhys ?? null,
+    analyses: row.analyses ?? null,
   };
 }
 
-/** `null`, `{}`, `""` and `[]` all mean "empty" — collapse them so an autosave that
- *  merely round-trips an empty block never shows up as a version. */
+/** `null`, `""` e `[]` todos querem dizer "vazio" — colapsa-os, para que um autosave que
+ *  apenas roda um bloco vazio de ida e volta nunca vire uma versão no histórico. */
 export function normalizePlanning(block: PlanningSource): PlanningBlock {
-  const entries = Object.entries(block.plan5w2h ?? {}).filter(
-    ([, value]) => typeof value === "string" && value.trim() !== "",
-  );
-  const plan5w2h = entries.length
-    ? (Object.fromEntries(
-        entries.map(([k, v]) => [k, (v as string).trim()]),
-      ) as ActionPlan5W2H)
-    : null;
-
   const rootCause = block.rootCause?.trim() || null;
-
-  const whys = (block.rootCauseWhys ?? [])
-    .filter((why): why is string => typeof why === "string")
-    .map((why) => why.trim())
-    .filter(Boolean);
-
-  return { plan5w2h, rootCause, rootCauseWhys: whys.length ? whys : null };
+  const analyses = normalizeAnalyses(block.analyses ?? []);
+  return { rootCause, analyses: analyses.length ? analyses : null };
 }
 
-/** Deep equality with object keys sorted, so `{what, why}` equals `{why, what}`.
- *  Arrays stay order-sensitive: the 5 whys are a chain, not a set. */
+/** Igualdade profunda com as chaves de objeto ordenadas, para que `{what, why}` seja igual
+ *  a `{why, what}`. Arrays continuam sensíveis à ordem: os 5 porquês são uma cadeia, não um
+ *  conjunto — e a ordem das tratativas é a ordem em que o usuário as adicionou. */
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value !== null && typeof value === "object") {
