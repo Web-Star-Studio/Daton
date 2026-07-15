@@ -288,26 +288,27 @@ export const ACTION_PLAN_STAGE_ANCHORS = [
   "etapa-encerramento",
 ] as const;
 
-/** Highest reached stage (0–5, index-aligned with `ACTION_PLAN_STAGES`) for the
- * timeline, derived from the plan state so we never store a stage column that
- * could drift. */
+/** Highest reached stage (1–6) for the timeline, derived from the plan state so
+ * we never store a stage column that could drift. The scale is 1-based on
+ * purpose: the stepper in `timeline.tsx` maps circle `i` to `stage = i + 1` and
+ * treats `level === 6` as the closed end — do NOT renumber to 0-based. */
 export function actionPlanStageLevel(plan: ActionPlan): number {
   // Planejamento: há análise de causa (raiz ou qualquer tratativa com conteúdo) OU já existe
   // pelo menos uma ação registrada.
   const temTratativa = (plan.analyses ?? []).some((a) => resumoAnalise(a) !== "Não preenchida");
   const planejou = Boolean(plan.rootCause?.trim()) || temTratativa || (plan.actionsTotal ?? 0) > 0;
   // Execução: alguma ação saiu do papel.
-  const executou = (plan.actionsDone ?? 0) > 0 || plan.status === "in_progress";
+  const executou = (plan.actionsDone ?? 0) > 0;
   const hasEvidence = (plan.evidences?.length ?? 0) > 0;
   const evaluated = plan.effectivenessResult === "effective" || plan.effectivenessResult === "ineffective";
   const completed = plan.status === "completed";
 
-  let level = 0; // Identificação
-  if (planejou) level = 1; // Planejamento
-  if (executou || completed) level = Math.max(level, 2); // Execução
-  if (hasEvidence || completed) level = Math.max(level, 3); // Evidência
-  if (evaluated) level = Math.max(level, 4); // Eficácia
-  if (completed && evaluated) level = 5; // Encerramento
+  let level = 1; // Identificação
+  if (planejou) level = 2; // Planejamento
+  if (executou || plan.status === "in_progress" || completed) level = Math.max(level, 3); // Execução
+  if (hasEvidence || completed) level = Math.max(level, 4); // Evidência
+  if (evaluated) level = Math.max(level, 5); // Eficácia
+  if (completed && evaluated) level = 6; // Encerramento
   return level;
 }
 
