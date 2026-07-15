@@ -125,7 +125,6 @@ export default function EficaciaPage() {
   const [year, setYear] = useState<string>("");
   const [norm, setNorm] = useState<string>("");
   const [evaluatorRole, setEvaluatorRole] = useState<string>("");
-  const [scope, setScope] = useState<"needs_evaluation" | "all">("needs_evaluation");
 
   // Per-column page sizes (grow-pageSize pagination — each column independent)
   const [pageSizePendentes, setPageSizePendentes] = useState(DEFAULT_PAGE_SIZE);
@@ -153,10 +152,6 @@ export default function EficaciaPage() {
   }
   function handleSetEvaluatorRole(v: string) {
     setEvaluatorRole(v);
-    resetPageSizes();
-  }
-  function handleSetScope(v: "needs_evaluation" | "all") {
-    setScope(v);
     resetPageSizes();
   }
 
@@ -203,7 +198,11 @@ export default function EficaciaPage() {
 
   const sharedParams = {
     status: "concluido" as const,
-    scope,
+    // Escopo fixo: o board de eficácia nunca mostra o histórico puro
+    // (reuniões/orientações que nunca entram no fluxo de eficácia). A
+    // cliente pediu para remover o toggle "Ver todos" — a única diferença
+    // entre "all" e "needs_evaluation" é justamente esse histórico.
+    scope: "needs_evaluation" as const,
     unitId: unitId ? Number(unitId) : undefined,
     year: year ? Number(year) : undefined,
     norm: norm || undefined,
@@ -456,20 +455,6 @@ export default function EficaciaPage() {
               </option>
             ))}
           </Select>
-        </div>
-
-        {/* Scope toggle */}
-        <div className="flex items-center gap-2 pb-1">
-          <input
-            id="scope-all"
-            type="checkbox"
-            checked={scope === "all"}
-            onChange={(e) => handleSetScope(e.target.checked ? "all" : "needs_evaluation")}
-            className="h-4 w-4 rounded border-input accent-primary"
-          />
-          <Label htmlFor="scope-all" className="text-xs text-muted-foreground cursor-pointer">
-            Ver todos (inclui histórico)
-          </Label>
         </div>
       </div>
 
