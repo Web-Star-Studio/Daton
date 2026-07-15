@@ -166,6 +166,7 @@ export * from "./createWorkEnvironmentControlBodyFactorType";
 export * from "./createWorkEnvironmentControlBodyFrequency";
 export * from "./createWorkEnvironmentVerificationBody";
 export * from "./createWorkEnvironmentVerificationBodyResult";
+export * from "./deleteTrainingCatalogItemParams";
 export * from "./department";
 export * from "./developmentProjectBody";
 export * from "./developmentProjectChange";

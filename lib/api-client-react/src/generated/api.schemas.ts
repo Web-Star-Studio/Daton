@@ -6915,6 +6915,13 @@ export type ListTrainingCatalogParams = {
   pageSize?: number;
 };
 
+export type DeleteTrainingCatalogItemParams = {
+  /**
+   * When true, also deletes linked requirements/classes/PAT items and not-yet-completed employee trainings. Completed employee trainings are preserved (unlinked, not deleted).
+   */
+  cascade?: boolean;
+};
+
 export type ListCompetencyCatalog200 = {
   data: CompetencyCatalogItem[];
 };
