@@ -8,6 +8,7 @@ import {
   actionPlansTable,
   db,
   isActionPlanEncerrado,
+  usersTable,
   type ActionPlanActivityChanges,
   type ActionPlanSourceModule,
 } from "@workspace/db";
@@ -43,6 +44,7 @@ import {
 } from "../middlewares/auth";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
 import { deriveActionPlanUnit } from "../services/action-plans/derive-unit";
+import type { ActionPlanRequesterScope } from "../services/action-plans/access";
 import {
   isPlanCoResponsible,
   listCoResponsibleIds,
@@ -172,6 +174,54 @@ function requirePlanAccess() {
   };
 }
 
+/**
+ * Resolve o escopo do solicitante para o hub de Ações. Faz lookup do unitId só
+ * quando role=manager (fonte sempre fresca, sem depender do token). Espelha
+ * `getRequesterKpiScope` (routes/kpi/index.ts).
+ */
+async function getRequesterActionPlanScope(
+  req: { auth?: { userId: number; role: ActionPlanRequesterScope["role"] } },
+): Promise<ActionPlanRequesterScope> {
+  const { userId, role } = req.auth!;
+  let unitId: number | null = null;
+  if (role === "manager") {
+    const [u] = await db.select({ unitId: usersTable.unitId }).from(usersTable).where(eq(usersTable.id, userId));
+    unitId = u?.unitId ?? null;
+  }
+  return { role, userId, unitId };
+}
+
+/**
+ * Condição SQL de visibilidade por papel na listagem. undefined = sem
+ * restrição (admin/analista, que veem tudo). Espelha `kpiVisibilityCondition`.
+ */
+function actionPlanVisibilityCondition(scope: ActionPlanRequesterScope): SQL | undefined {
+  if (scope.role === "org_admin" || scope.role === "platform_admin" || scope.role === "analyst") return undefined;
+
+  // "Pessoalmente vinculado": ponto focal, avaliador, ou co-responsável (EXISTS na junção).
+  const personal = or(
+    eq(actionPlansTable.responsibleUserId, scope.userId),
+    eq(actionPlansTable.effectivenessEvaluatorUserId, scope.userId),
+    exists(
+      db.select({ one: sql`1` }).from(actionPlanResponsiblesTable).where(
+        and(
+          eq(actionPlanResponsiblesTable.actionPlanId, actionPlansTable.id),
+          eq(actionPlanResponsiblesTable.userId, scope.userId),
+        ),
+      ),
+    ),
+  )!; // seguro: sempre 3 argumentos definidos, or() nunca devolve undefined aqui.
+
+  if (scope.role === "manager") {
+    return or(
+      personal,
+      isNull(actionPlansTable.unitId), // corporativo
+      scope.unitId !== null ? eq(actionPlansTable.unitId, scope.unitId) : sql`false`,
+    );
+  }
+  return personal; // operator
+}
+
 // ─── List ──────────────────────────────────────────────────────────────────
 
 router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): Promise<void> => {
@@ -241,6 +291,13 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
       conditions.push(lt(actionPlansTable.dueDate, dueSoonLimit));
     }
   }
+
+  // Visibilidade por papel: o gate acima só decide se o hub ABRE; esta condição
+  // decide QUAIS planos aparecem dentro dele (operador só os seus, gestor a
+  // filial+corporativo). admin/analista não têm restrição (undefined).
+  const scope = await getRequesterActionPlanScope(req);
+  const visibility = actionPlanVisibilityCondition(scope);
+  if (visibility) conditions.push(visibility);
 
   const plans = await db
     .select()
