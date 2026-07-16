@@ -106,6 +106,7 @@ import {
   User,
   Archive,
   CheckCircle2,
+  CalendarCheck,
   XCircle,
   Building2,
   AlertTriangle,
@@ -2241,6 +2242,7 @@ function TreinamentosTab({
   trainings,
   orgId,
   empId,
+  employeeName,
   editable = true,
   createOpen = false,
   onCreateOpenChange,
@@ -2249,6 +2251,7 @@ function TreinamentosTab({
   trainings: EmployeeTraining[];
   orgId: number;
   empId: number;
+  employeeName?: string;
   editable?: boolean;
   createOpen?: boolean;
   onCreateOpenChange?: (open: boolean) => void;
@@ -2263,8 +2266,10 @@ function TreinamentosTab({
   const [reviewTraining, setReviewTraining] = useState<EmployeeTraining | null>(
     null,
   );
+  const [deleteTraining, setDeleteTraining] = useState<EmployeeTraining | null>(
+    null,
+  );
   const [createStep, setCreateStep] = useState(0);
-  const [editStep, setEditStep] = useState(0);
   const [createAttachments, setCreateAttachments] = useState<UploadedFileRef[]>(
     [],
   );
@@ -2345,7 +2350,6 @@ function TreinamentosTab({
 
   const closeEditDialog = () => {
     setEditingTraining(null);
-    setEditStep(0);
     setForm(emptyForm);
     setEditingAttachments([]);
     setIsUploadingEditAttachments(false);
@@ -2391,9 +2395,8 @@ function TreinamentosTab({
     closeCreateDialog();
   };
 
-  const openEdit = (t: EmployeeTraining) => {
+  const openComplete = (t: EmployeeTraining) => {
     setEditingTraining(t);
-    setEditStep(0);
     setForm({
       title: t.title,
       description: t.description || "",
@@ -2445,12 +2448,16 @@ function TreinamentosTab({
     closeEditDialog();
   };
 
-  const handleDelete = async (trainId: number) => {
-    if (!confirm("Excluir este treinamento? Esta ação não pode ser desfeita."))
-      return;
+  const confirmDelete = async () => {
+    if (!deleteTraining) return;
     try {
-      await deleteMutation.mutateAsync({ orgId, empId, trainId });
+      await deleteMutation.mutateAsync({
+        orgId,
+        empId,
+        trainId: deleteTraining.id,
+      });
       invalidate();
+      setDeleteTraining(null);
     } catch {
       toast({
         title: "Não foi possível excluir o treinamento",
@@ -2518,19 +2525,19 @@ function TreinamentosTab({
             >
               {(() => {
                 const trainingAttachments = t.attachments || [];
+                const isConcluido =
+                  t.status === CreateTrainingBodyStatusValues.concluido;
                 const effectivenessStatus = t.latestEffectivenessReview
                   ? t.latestEffectivenessReview.isEffective
                     ? "effective"
                     : "ineffective"
-                  : t.evaluationMethod || t.targetCompetencyName
+                  : isConcluido &&
+                      (t.evaluationMethod || t.targetCompetencyName)
                     ? "pending"
                     : null;
                 return (
                   <div className="flex items-start justify-between">
-                    <div
-                      className={cn("flex-1", editable ? "cursor-pointer" : "")}
-                      onClick={() => editable && openEdit(t)}
-                    >
+                    <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <p className="text-[13px] font-medium text-foreground">
                           {t.title}
@@ -2709,6 +2716,26 @@ function TreinamentosTab({
                     {editable && (
                       <TooltipProvider delayDuration={200}>
                         <div className="flex items-center gap-1">
+                          {isConcluido && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  aria-label="Avaliar eficácia"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openReviewDialog(t);
+                                  }}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Avaliar eficácia</TooltipContent>
+                            </Tooltip>
+                          )}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -2716,34 +2743,16 @@ function TreinamentosTab({
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 w-7 p-0"
-                                aria-label="Registrar eficácia"
+                                aria-label="Registrar conclusão"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openReviewDialog(t);
+                                  openComplete(t);
                                 }}
                               >
-                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <CalendarCheck className="h-3.5 w-3.5" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Registrar eficácia</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                aria-label="Editar"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openEdit(t);
-                                }}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Editar</TooltipContent>
+                            <TooltipContent>Registrar conclusão</TooltipContent>
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -2752,16 +2761,16 @@ function TreinamentosTab({
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                                aria-label="Excluir"
+                                aria-label="Remover da ficha"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDelete(t.id);
+                                  setDeleteTraining(t);
                                 }}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Excluir</TooltipContent>
+                            <TooltipContent>Remover da ficha</TooltipContent>
                           </Tooltip>
                         </div>
                       </TooltipProvider>
@@ -2831,50 +2840,123 @@ function TreinamentosTab({
         onOpenChange={(open) => {
           if (!open) closeEditDialog();
         }}
-        title="Editar Treinamento"
-        description={descriptions[editStep]}
+        title="Registrar conclusão"
+        description={
+          editingTraining
+            ? `Treinamento "${editingTraining.title}"`
+            : "Registro do colaborador"
+        }
         size="lg"
       >
-        <DialogStepTabs
-          steps={steps}
-          step={editStep}
-          onStepChange={setEditStep}
-        />
-        <TrainingFormStep
-          form={form}
-          setForm={setForm}
-          step={editStep}
-          attachments={editingAttachments}
-          onUpload={(files) => {
-            setIsUploadingEditAttachments(true);
-            void uploadEmployeeRecordFiles(
-              files,
-              editingAttachments.length,
-              (uploads) =>
-                setEditingAttachments((current) => [...current, ...uploads]),
-              () => setIsUploadingEditAttachments(false),
-            );
-          }}
-          onRemoveAttachment={(objectPath) => {
-            setEditingAttachments((current) =>
-              current.filter(
-                (attachment) => attachment.objectPath !== objectPath,
-              ),
-            );
-          }}
-          uploading={isUploadingEditAttachments}
-        />
-        <DialogStepFooter
-          step={editStep}
-          totalSteps={steps.length}
-          onBack={() => setEditStep((current) => current - 1)}
-          onCancel={closeEditDialog}
-          onNext={() => setEditStep((current) => current + 1)}
-          onSubmit={handleUpdate}
-          submitLabel="Atualizar"
-          isPending={updateMutation.isPending}
-          disabled={!form.title}
-        />
+        <div className="space-y-5">
+          <p className="text-xs text-muted-foreground">
+            Atualize o andamento deste treinamento na ficha do colaborador. Para
+            corrigir o nome ou o conteúdo do treinamento, edite no catálogo — a
+            alteração vale para todos.
+          </p>
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Status *
+              </Label>
+              <Select
+                value={form.status}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    status: e.target.value as CreateTrainingBodyStatus,
+                  }))
+                }
+                className="mt-1 h-10 text-[13px]"
+              >
+                <option value={CreateTrainingBodyStatusValues.pendente}>
+                  Pendente
+                </option>
+                <option value={CreateTrainingBodyStatusValues.concluido}>
+                  Concluído
+                </option>
+                <option value={CreateTrainingBodyStatusValues.vencido}>
+                  Vencido
+                </option>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Data de conclusão
+              </Label>
+              <Input
+                type="date"
+                value={form.completionDate}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    completionDate: e.target.value,
+                  }))
+                }
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Validade
+              </Label>
+              <Input
+                type="date"
+                value={form.expirationDate}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    expirationDate: e.target.value,
+                  }))
+                }
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <ProfileItemAttachmentsField
+            attachments={mapRecordAttachmentItems(
+              editingAttachments,
+              (objectPath) => {
+                setEditingAttachments((current) =>
+                  current.filter(
+                    (attachment) => attachment.objectPath !== objectPath,
+                  ),
+                );
+              },
+            )}
+            onUpload={(files) => {
+              setIsUploadingEditAttachments(true);
+              void uploadEmployeeRecordFiles(
+                files,
+                editingAttachments.length,
+                (uploads) =>
+                  setEditingAttachments((current) => [...current, ...uploads]),
+                () => setIsUploadingEditAttachments(false),
+              );
+            }}
+            uploading={isUploadingEditAttachments}
+            emptyText="Anexe o certificado ou evidência de conclusão."
+            accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={closeEditDialog}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleUpdate}
+              disabled={updateMutation.isPending || isUploadingEditAttachments}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </div>
       </Dialog>
 
       <Dialog
@@ -3021,6 +3103,43 @@ function TreinamentosTab({
               disabled={!reviewForm.evaluationDate}
             >
               Registrar eficácia
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={editable && !!deleteTraining}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTraining(null);
+        }}
+        title="Remover treinamento da ficha"
+        description={deleteTraining ? `"${deleteTraining.title}"` : undefined}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-[13px] text-muted-foreground">
+            Isto remove este treinamento da ficha
+            {employeeName ? ` de ${employeeName}` : " deste colaborador"}. Não
+            afeta os outros colaboradores nem o catálogo de treinamentos.
+          </p>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteTraining(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              Remover
             </Button>
           </DialogFooter>
         </div>
@@ -3902,6 +4021,7 @@ export default function ColaboradorDetailPage() {
             trainings={employee.trainings || []}
             orgId={orgId}
             empId={empId}
+            employeeName={employee.name}
             editable={canWriteEmployees}
             createOpen={trainingCreateOpen}
             onCreateOpenChange={handleTrainingCreateOpenChange}

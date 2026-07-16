@@ -113,6 +113,7 @@ import type {
   CreateUnitBody,
   CreateWorkEnvironmentControlBody,
   CreateWorkEnvironmentVerificationBody,
+  DeleteTrainingCatalogItemParams,
   Department,
   DevelopmentProjectBody,
   DevelopmentProjectChange,
@@ -34893,36 +34894,53 @@ export const useUpdateTrainingCatalogItem = <
 export const getDeleteTrainingCatalogItemUrl = (
   orgId: number,
   itemId: number,
+  params?: DeleteTrainingCatalogItemParams,
 ) => {
-  return `/api/organizations/${orgId}/training-catalog/${itemId}`;
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/training-catalog/${itemId}?${stringifiedParams}`
+    : `/api/organizations/${orgId}/training-catalog/${itemId}`;
 };
 
 export const deleteTrainingCatalogItem = async (
   orgId: number,
   itemId: number,
+  params?: DeleteTrainingCatalogItemParams,
   options?: RequestInit,
 ): Promise<void> => {
-  return customFetch<void>(getDeleteTrainingCatalogItemUrl(orgId, itemId), {
-    ...options,
-    method: "DELETE",
-  });
+  return customFetch<void>(
+    getDeleteTrainingCatalogItemUrl(orgId, itemId, params),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
 };
 
 export const getDeleteTrainingCatalogItemMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
     TError,
-    { orgId: number; itemId: number },
+    { orgId: number; itemId: number; params?: DeleteTrainingCatalogItemParams },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
   TError,
-  { orgId: number; itemId: number },
+  { orgId: number; itemId: number; params?: DeleteTrainingCatalogItemParams },
   TContext
 > => {
   const mutationKey = ["deleteTrainingCatalogItem"];
@@ -34936,11 +34954,11 @@ export const getDeleteTrainingCatalogItemMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
-    { orgId: number; itemId: number }
+    { orgId: number; itemId: number; params?: DeleteTrainingCatalogItemParams }
   > = (props) => {
-    const { orgId, itemId } = props ?? {};
+    const { orgId, itemId, params } = props ?? {};
 
-    return deleteTrainingCatalogItem(orgId, itemId, requestOptions);
+    return deleteTrainingCatalogItem(orgId, itemId, params, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -34950,26 +34968,26 @@ export type DeleteTrainingCatalogItemMutationResult = NonNullable<
   Awaited<ReturnType<typeof deleteTrainingCatalogItem>>
 >;
 
-export type DeleteTrainingCatalogItemMutationError = ErrorType<unknown>;
+export type DeleteTrainingCatalogItemMutationError = ErrorType<void>;
 
 /**
  * @summary Delete a training catalog item (referencing trainings keep their snapshot; link is nulled)
  */
 export const useDeleteTrainingCatalogItem = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
     TError,
-    { orgId: number; itemId: number },
+    { orgId: number; itemId: number; params?: DeleteTrainingCatalogItemParams },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
   TError,
-  { orgId: number; itemId: number },
+  { orgId: number; itemId: number; params?: DeleteTrainingCatalogItemParams },
   TContext
 > => {
   return useMutation(getDeleteTrainingCatalogItemMutationOptions(options));
