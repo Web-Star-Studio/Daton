@@ -54,6 +54,7 @@ import {
   strategicPlansTable,
   strategicPlanRevisionsTable,
   strategicPlanSwotItemsTable,
+  swotFactorsTable,
   trainingEffectivenessReviewsTable,
   unitLegislationsTable,
   unitsTable,
@@ -758,6 +759,11 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(actionPlansTable)
         .where(inArray(actionPlansTable.organizationId, orgIds));
+
+      // swot_factors: leaf table, FKs to org/unit only (no cascade on org FK).
+      await tx
+        .delete(swotFactorsTable)
+        .where(inArray(swotFactorsTable.organizationId, orgIds));
     }
 
     if (userIds.length > 0) {
