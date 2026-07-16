@@ -1,14 +1,12 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
-import { cn } from "@/lib/utils";
 import {
   ACTION_STATUS_LABELS,
   calendarDateToStorageIso,
@@ -253,7 +251,6 @@ export function AcoesDoPlano({
 
   const total = actions.length;
   const done = actions.filter((a) => a.status === "completed").length;
-  const columnCount = canEdit ? 6 : 5;
 
   return (
     <div className="space-y-3">
@@ -281,46 +278,50 @@ export function AcoesDoPlano({
           Nenhuma ação registrada neste plano. Inclua as ações que tratam a causa raiz.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8" />
-                <TableHead>O quê</TableHead>
-                <TableHead className="w-48">Quem</TableHead>
-                <TableHead className="w-36">Quando</TableHead>
-                <TableHead className="w-52">Status</TableHead>
-                {canEdit && <TableHead className="w-10" />}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {actions.map((action) => {
-                const draft = drafts[action.id] ?? draftFromAction(action);
-                const aberta = expanded.has(action.id);
-                const overdue = isActionOverdue(action, today);
-                return (
-                  <Fragment key={action.id}>
-                    <TableRow id={`acao-${action.id}`} className="scroll-mt-20 align-top">
-                      <TableCell className="pt-3">
-                        <button
-                          type="button"
-                          onClick={() => toggleExpanded(action.id)}
-                          aria-label={aberta ? "Recolher ação" : "Expandir ação"}
-                          aria-expanded={aberta}
-                          className="flex h-7 w-7 items-center justify-center text-muted-foreground"
-                        >
-                          {aberta ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={draft.what}
-                          onChange={(e) => patchField(action.id, "what", e.target.value)}
-                          placeholder="O que será feito"
-                          readOnly={!canEdit}
-                        />
-                      </TableCell>
-                      <TableCell>
+        // Um card por ação, empilhado — a coluna da ficha é estreita e uma tabela
+        // com O quê + 3 controles não cabe (rolava na horizontal). Aqui o "O quê"
+        // ocupa a linha inteira e Quem/Quando/Status quebram para 1 coluna no estreito.
+        <div className="space-y-2">
+          {actions.map((action) => {
+            const draft = drafts[action.id] ?? draftFromAction(action);
+            const aberta = expanded.has(action.id);
+            const overdue = isActionOverdue(action, today);
+            return (
+              <div
+                key={action.id}
+                id={`acao-${action.id}`}
+                className="scroll-mt-20 rounded-xl border bg-card/60"
+              >
+                <div className="flex items-start gap-2 p-2.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(action.id)}
+                    aria-label={aberta ? "Recolher ação" : "Expandir ação"}
+                    aria-expanded={aberta}
+                    className="mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground"
+                  >
+                    {aberta ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </button>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={draft.what}
+                        onChange={(e) => patchField(action.id, "what", e.target.value)}
+                        placeholder="O que será feito"
+                        readOnly={!canEdit}
+                        className="flex-1"
+                      />
+                      {overdue && (
+                        <Badge variant="destructive" className="shrink-0 text-[10px]">
+                          Atrasada
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Quem
+                        </label>
                         <SearchableSelect
                           value={draft.responsibleUserId}
                           onChange={(v) => patchField(action.id, "responsibleUserId", v)}
@@ -330,99 +331,93 @@ export function AcoesDoPlano({
                           emptyMessage="Nenhum usuário encontrado"
                           disabled={!canEdit}
                         />
-                      </TableCell>
-                      <TableCell>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Quando
+                        </label>
                         <Input
                           type="date"
                           value={draft.dueDate}
                           onChange={(e) => patchField(action.id, "dueDate", e.target.value)}
                           readOnly={!canEdit}
                         />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <SearchableSelect
-                            value={draft.status}
-                            // Status is required — ignore the combobox's "Limpar
-                            // seleção" (which would try to set it to "").
-                            onChange={(v) => {
-                              if (v) patchField(action.id, "status", v as ActionPlanActionStatus);
-                            }}
-                            options={STATUS_OPTIONS}
-                            disabled={!canEdit}
-                          />
-                          {overdue && (
-                            <Badge variant="destructive" className="shrink-0 text-[10px]">
-                              Atrasada
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      {canEdit && (
-                        <TableCell className="pt-2.5">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground"
-                            aria-label="Remover ação"
-                            onClick={() => requestRemove(action)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                    {aberta && (
-                      <TableRow className={cn(!canEdit && "hover:bg-transparent")}>
-                        <TableCell colSpan={columnCount} className="bg-muted/20 pb-4">
-                          <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
-                            <Field
-                              label="Por quê"
-                              value={draft.why}
-                              placeholder="Justificativa / objetivo"
-                              onChange={(v) => patchField(action.id, "why", v)}
-                              readOnly={!canEdit}
-                            />
-                            <Field
-                              label="Onde"
-                              value={draft.whereAt}
-                              placeholder="Local / processo / unidade"
-                              onChange={(v) => patchField(action.id, "whereAt", v)}
-                              readOnly={!canEdit}
-                            />
-                            <Field
-                              label="Como"
-                              value={draft.how}
-                              placeholder="Método / passos"
-                              onChange={(v) => patchField(action.id, "how", v)}
-                              readOnly={!canEdit}
-                            />
-                            <Field
-                              label="Quanto"
-                              value={draft.howMuch}
-                              placeholder="Custo estimado (ex.: R$ 2.400,00)"
-                              onChange={(v) => patchField(action.id, "howMuch", v)}
-                              readOnly={!canEdit}
-                            />
-                            <div className="sm:col-span-2">
-                              <Field
-                                label="Observações"
-                                value={draft.notes}
-                                placeholder="Notas adicionais sobre esta ação"
-                                onChange={(v) => patchField(action.id, "notes", v)}
-                                readOnly={!canEdit}
-                              />
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Status
+                        </label>
+                        <SearchableSelect
+                          value={draft.status}
+                          // Status é obrigatório — ignora o "Limpar seleção" do combobox (setaria "").
+                          onChange={(v) => {
+                            if (v) patchField(action.id, "status", v as ActionPlanActionStatus);
+                          }}
+                          options={STATUS_OPTIONS}
+                          disabled={!canEdit}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {canEdit && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="mt-1 h-8 w-8 shrink-0 text-muted-foreground"
+                      aria-label="Remover ação"
+                      onClick={() => requestRemove(action)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                {aberta && (
+                  <div className="border-t bg-muted/20 p-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field
+                        label="Por quê"
+                        value={draft.why}
+                        placeholder="Justificativa / objetivo"
+                        onChange={(v) => patchField(action.id, "why", v)}
+                        readOnly={!canEdit}
+                      />
+                      <Field
+                        label="Onde"
+                        value={draft.whereAt}
+                        placeholder="Local / processo / unidade"
+                        onChange={(v) => patchField(action.id, "whereAt", v)}
+                        readOnly={!canEdit}
+                      />
+                      <Field
+                        label="Como"
+                        value={draft.how}
+                        placeholder="Método / passos"
+                        onChange={(v) => patchField(action.id, "how", v)}
+                        readOnly={!canEdit}
+                      />
+                      <Field
+                        label="Quanto"
+                        value={draft.howMuch}
+                        placeholder="Custo estimado (ex.: R$ 2.400,00)"
+                        onChange={(v) => patchField(action.id, "howMuch", v)}
+                        readOnly={!canEdit}
+                      />
+                      <div className="sm:col-span-2">
+                        <Field
+                          label="Observações"
+                          value={draft.notes}
+                          placeholder="Notas adicionais sobre esta ação"
+                          onChange={(v) => patchField(action.id, "notes", v)}
+                          readOnly={!canEdit}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -195,6 +195,15 @@ export default function ActionPlanFichaPage() {
   // what differs from it, so an untouched field can never be reverted by a save
   // from a tab that loaded before someone else changed it.
   const baselineRef = useRef<UpdateActionPlanBody | null>(null);
+  // Set right after our OWN autosave, so the plan refetch it triggers (via
+  // invalidation) doesn't rehydrate — and clobber — the form the user is still
+  // editing. The server normalizes away empty rows (an Ishikawa cause / FMEA line
+  // just added, still blank); without this, that echo would delete them from under
+  // the cursor ~1s after "+ Causa". One-shot: consumed by the next same-plan
+  // hydration (a PATCH always bumps updatedAt, so the echo always rehydrates). A
+  // genuine external/cross-tab change still syncs, because the flag is only ever
+  // true in the brief window right after this tab's own save.
+  const suppressHydrationRef = useRef(false);
 
   // Hydrate the form from the server. NEVER overwrite a DIRTY form on a same-plan
   // refetch — that was silently wiping unsaved edits ("estava completinha, entrei
@@ -205,6 +214,11 @@ export default function ActionPlanFichaPage() {
     if (!plan) return;
     const isNewPlan = plan.id !== hydratedIdRef.current;
     if (!isNewPlan && dirtyRef.current) return;
+    if (!isNewPlan && suppressHydrationRef.current) {
+      suppressHydrationRef.current = false;
+      return;
+    }
+    suppressHydrationRef.current = false;
     hydratedIdRef.current = plan.id;
     const hydrated: typeof form = {
       title: plan.title,
@@ -302,6 +316,9 @@ export default function ActionPlanFichaPage() {
         // The saved fields are now the server's truth for this tab; the rest of the
         // baseline stays as loaded, so we keep not touching what we never edited.
         baselineRef.current = { ...(baselineRef.current ?? {}), ...data };
+        // The refetch this save just invalidated must NOT rehydrate the form and
+        // wipe empty rows the user is mid-adding (server normalizes them away).
+        suppressHydrationRef.current = true;
         // Clear "dirty" only if nothing changed during the save; otherwise the next
         // chained run (scheduled by the autosave effect) persists the newer edits.
         if (formRef.current === snapshot) setDirty(false);
