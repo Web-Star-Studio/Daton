@@ -146,7 +146,7 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
           <ClipboardList className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>
           <p className="text-xs text-muted-foreground">Crie uma ação manual, ou elas surgem de células vermelhas em Indicadores e de fatores SWOT que exigem ação.</p>
-          {canWrite && <Button size="sm" className="mt-1" onClick={onNova}><Plus className="mr-1.5 h-4 w-4" /> Nova ação</Button>}
+          {canWrite && <Button size="sm" className="mt-1" onClick={onNova}><Plus className="mr-1.5 h-4 w-4" /> Novo plano de ação</Button>}
         </div>
       ) : (
         <div className="overflow-x-auto">

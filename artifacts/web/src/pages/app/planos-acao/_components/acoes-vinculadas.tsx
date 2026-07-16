@@ -17,7 +17,7 @@ import {
 /**
  * Compact affordance showing the action plans spawned from ONE origin entity
  * (a SWOT factor, a nonconformity, a risk item, ...), with a modal to browse and
- * open them. Drop it next to the module's "Criar ação" button so the origin and
+ * open them. Drop it next to the module's "Criar plano de ação" button so the origin and
  * the central hub stay bidirectionally linked.
  *
  *   <AcoesVinculadas orgId={orgId} sourceModule="swot" refId={factor.id} />

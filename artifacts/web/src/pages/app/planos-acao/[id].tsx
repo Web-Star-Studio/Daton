@@ -281,7 +281,7 @@ export default function ActionPlanFichaPage() {
       if (!planId) return false;
       const snapshot = formRef.current;
       if (!snapshot.title.trim()) {
-        if (!opts?.silent) toast({ title: "Informe o título da ação", variant: "destructive" });
+        if (!opts?.silent) toast({ title: "Informe o título do plano de ação", variant: "destructive" });
         return false;
       }
       // Send ONLY what this tab changed. A full payload would revert every field

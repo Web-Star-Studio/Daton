@@ -24,7 +24,7 @@ import {
 import { diffPlanningFields, type PlanningBlock } from "./planning-versions";
 
 const ACTION_META: Record<string, { label: string; icon: typeof Pencil; tone: string }> = {
-  created: { label: "Ação criada", icon: Plus, tone: "text-blue-600 dark:text-blue-400" },
+  created: { label: "Plano de ação criado", icon: Plus, tone: "text-blue-600 dark:text-blue-400" },
   updated: { label: "Atualização", icon: Pencil, tone: "text-muted-foreground" },
   status_changed: { label: "Status alterado", icon: RotateCcw, tone: "text-blue-600 dark:text-blue-400" },
   evidence_added: { label: "Evidência anexada", icon: Paperclip, tone: "text-emerald-600 dark:text-emerald-400" },

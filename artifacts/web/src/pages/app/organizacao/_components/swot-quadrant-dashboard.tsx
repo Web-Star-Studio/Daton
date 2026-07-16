@@ -305,7 +305,7 @@ function PriorityBars({
                     variant="outline"
                     className="h-7 px-2 text-xs"
                     onClick={() => onCreateAction(f)}
-                    aria-label={`Criar ação para: ${f.description}`}
+                    aria-label={`Criar plano de ação para: ${f.description}`}
                   >
                     <Plus className="h-3.5 w-3.5 sm:mr-1" />
                     <span className="hidden sm:inline">Ação</span>
