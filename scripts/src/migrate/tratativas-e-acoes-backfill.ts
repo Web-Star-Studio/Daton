@@ -7,10 +7,10 @@
  *
  * Três fases, cada uma idempotente:
  *
- *  1) Semente: `ensureAnalysisMethods` (reaproveitada do api-server, não
- *     reescrita aqui) garante as 8 tratativas em TODA organização — sem isso a
+ *  1) Semente: garante as 8 tratativas em TODA organização — sem isso a
  *     organização não teria o catálogo pra exibir/escolher "5 Porquês" no
- *     plano já migrado.
+ *     plano já migrado. A lista de seed é duplicada localmente (ver
+ *     `DEFAULT_ANALYSIS_METHODS` abaixo), não importada do api-server.
  *  2) Tratativas: plano com `root_cause_whys` preenchido (array não vazio) E
  *     `analyses` ainda vazio ganha `analyses = [{ key: "five_whys", data: {
  *     whys } }]`. `root_cause` (a CONCLUSÃO da análise) é campo à parte e não
@@ -41,14 +41,53 @@
  */
 import { fileURLToPath } from "node:url";
 import { pool } from "@workspace/db";
-import type {
-  ActionPlan5W2H,
-  ActionPlanAnalysis,
-  ActionPlanStatus,
+import {
+  ACTION_PLAN_ANALYSIS_METHOD_KEYS,
+  type ActionPlan5W2H,
+  type ActionPlanAnalysis,
+  type ActionPlanAnalysisMethodKey,
+  type ActionPlanStatus,
 } from "@workspace/db";
-import { ensureAnalysisMethods } from "../../../artifacts/api-server/src/services/action-plans/analysis-methods";
 
 // ─── Fase 1: semente do catálogo de tratativas ──────────────────────────────
+
+/**
+ * As 8 tratativas que o produto conhece, com rótulo e padrão. Fonte de
+ * verdade: artifacts/api-server/src/services/action-plans/analysis-methods.ts
+ * (`DEFAULT_ANALYSIS_METHODS`). Duplicada aqui de propósito — igual ao
+ * `norm-catalog.ts` faz com os labels de norma — para NÃO acoplar `scripts/`
+ * ao build do `api-server` (que não é um pacote-biblioteca). Manter em
+ * sincronia com o original se a lista mudar; as chaves são validadas contra
+ * `ACTION_PLAN_ANALYSIS_METHOD_KEYS` (via @workspace/db) no boot do script.
+ */
+const DEFAULT_ANALYSIS_METHODS: ReadonlyArray<{
+  key: ActionPlanAnalysisMethodKey;
+  label: string;
+  isDefault: boolean;
+}> = [
+  { key: "five_whys", label: "5 Porquês", isDefault: true },
+  { key: "ishikawa", label: "Ishikawa + 5 Porquês", isDefault: false },
+  { key: "a3", label: "A3", isDefault: false },
+  { key: "fmea", label: "FMEA", isDefault: false },
+  { key: "fault_tree", label: "Árvore de Falhas", isDefault: false },
+  { key: "kepner_tregoe", label: "Kepner-Tregoe", isDefault: false },
+  { key: "rca_apollo", label: "RCA Apollo", isDefault: false },
+  { key: "barrier_analysis", label: "Análise de Barreiras", isDefault: false },
+];
+
+// Guarda de sincronia: se o enum de chaves (de @workspace/db) ganhar/perder um
+// método e esta lista local não acompanhar, o script falha no boot em vez de
+// semear um catálogo incompleto silenciosamente.
+const localKeys = new Set(DEFAULT_ANALYSIS_METHODS.map((m) => m.key));
+if (
+  localKeys.size !== ACTION_PLAN_ANALYSIS_METHOD_KEYS.length ||
+  !ACTION_PLAN_ANALYSIS_METHOD_KEYS.every((k) => localKeys.has(k))
+) {
+  throw new Error(
+    "DEFAULT_ANALYSIS_METHODS está fora de sincronia com ACTION_PLAN_ANALYSIS_METHOD_KEYS — " +
+      "atualize a lista local em tratativas-e-acoes-backfill.ts.",
+  );
+}
 
 async function fetchAllOrgIds(): Promise<number[]> {
   const { rows } = await pool.query<{ id: number }>(
@@ -57,9 +96,24 @@ async function fetchAllOrgIds(): Promise<number[]> {
   return rows.map((r) => r.id);
 }
 
+/**
+ * Garante as 8 linhas do catálogo em cada organização. Idempotente por
+ * `(organization_id, key)` — `ON CONFLICT DO NOTHING` preserva o que a empresa
+ * já configurou (label/active/is_default). `sort_order` = índice do array,
+ * igual ao `ensureAnalysisMethods` original do api-server.
+ */
 export async function seedAnalysisMethods(orgIds: number[]): Promise<void> {
   for (const orgId of orgIds) {
-    await ensureAnalysisMethods(orgId);
+    for (let i = 0; i < DEFAULT_ANALYSIS_METHODS.length; i++) {
+      const method = DEFAULT_ANALYSIS_METHODS[i];
+      await pool.query(
+        `INSERT INTO action_plan_analysis_methods
+           (organization_id, key, label, is_default, sort_order)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (organization_id, key) DO NOTHING`,
+        [orgId, method.key, method.label, method.isDefault, i],
+      );
+    }
   }
 }
 
