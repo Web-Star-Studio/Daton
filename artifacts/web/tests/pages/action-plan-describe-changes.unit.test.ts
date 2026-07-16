@@ -12,7 +12,29 @@ describe("describeChanges", () => {
       changes: { kind: "diff", fields: { planning } },
     });
 
-    expect(text).toBe("Planejamento: O quê, Causa raiz");
+    // Entradas ANTIGAS do log (formato plan5w2h) colapsam num único rótulo de
+    // compatibilidade — a granularidade por campo ("O quê") só existe para o formato novo.
+    expect(text).toBe("Planejamento: Causa raiz, Plano 5W2H (formato anterior)");
+    expect(text).not.toContain("[object Object]");
+  });
+
+  it("summarizes the current shape (analyses) in words, never as [object Object]", () => {
+    const text = describeChanges({
+      changes: {
+        kind: "diff",
+        fields: {
+          planning: {
+            from: { rootCause: null, analyses: null },
+            to: {
+              rootCause: "Nova causa",
+              analyses: [{ key: "five_whys", data: { whys: ["a", "b"] } }],
+            },
+          },
+        },
+      },
+    });
+
+    expect(text).toContain("Planejamento");
     expect(text).not.toContain("[object Object]");
   });
 
