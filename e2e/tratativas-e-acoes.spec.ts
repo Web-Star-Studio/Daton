@@ -42,8 +42,19 @@ function waitForActionPatch(page: Page, planId: number) {
 test("tratativas and actions on an action plan persist end to end", async ({
   authenticatedPage: page,
   orgAdmin,
-}) => {
+}, testInfo) => {
+  // This flow touches three tratativas, a 2-row actions table, and a reload —
+  // comfortably past the default 60s test timeout on a dev-server (not a
+  // production build), especially when the debounced per-row PATCHes are
+  // awaited explicitly.
+  testInfo.setTimeout(150_000);
+
   const title = `Plano E2E Tratativas ${Date.now()}`;
+  // The API uppercases the admin's name on registration
+  // (see artifacts/api-server/src/routes/auth.ts, `adminFullName.toUpperCase()`),
+  // so the stored/displayed name never matches the fixture's mixed-case
+  // `adminFullName` — use the same transform to pick/assert the "Quem" option.
+  const responsibleName = orgAdmin.adminFullName.toUpperCase();
 
   await page.goto("/planos-acao");
   await page.getByRole("button", { name: "Novo plano de ação" }).click();
@@ -152,7 +163,7 @@ test("tratativas and actions on an action plan persist end to end", async ({
   const action2What = "Treinar a equipe na nova instrução de trabalho";
 
   await row1.locator("td").nth(1).locator("input").fill(action1What);
-  await pickSearchable(row1.locator("td").nth(2), page, orgAdmin.adminFullName);
+  await pickSearchable(row1.locator("td").nth(2), page, responsibleName);
   await row1
     .locator("td")
     .nth(3)
@@ -161,7 +172,7 @@ test("tratativas and actions on an action plan persist end to end", async ({
   await waitForActionPatch(page, planId);
 
   await row2.locator("td").nth(1).locator("input").fill(action2What);
-  await pickSearchable(row2.locator("td").nth(2), page, orgAdmin.adminFullName);
+  await pickSearchable(row2.locator("td").nth(2), page, responsibleName);
   await row2
     .locator("td")
     .nth(3)
@@ -224,7 +235,7 @@ test("tratativas and actions on an action plan persist end to end", async ({
     action1What,
   );
   await expect(row1Reloaded.locator("td").nth(2)).toContainText(
-    orgAdmin.adminFullName,
+    responsibleName,
   );
   await expect(
     row1Reloaded.locator("td").nth(3).locator('input[type="date"]'),
@@ -235,7 +246,7 @@ test("tratativas and actions on an action plan persist end to end", async ({
     action2What,
   );
   await expect(row2Reloaded.locator("td").nth(2)).toContainText(
-    orgAdmin.adminFullName,
+    responsibleName,
   );
   await expect(
     row2Reloaded.locator("td").nth(3).locator('input[type="date"]'),
