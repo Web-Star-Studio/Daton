@@ -50,4 +50,11 @@ describe("describeChanges", () => {
   it("returns null when there is nothing to describe", () => {
     expect(describeChanges({ changes: null })).toBeNull();
   });
+
+  it("surfaces the snapshotted `what` for a plan-action entry", () => {
+    const text = describeChanges({
+      changes: { kind: "action", actionId: 7, what: "Trocar o filtro da bomba" },
+    });
+    expect(text).toBe("Trocar o filtro da bomba");
+  });
 });

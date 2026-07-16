@@ -128,6 +128,10 @@ export function AcoesDoPlano({
   // `formRef`/`dirtyRef` pair in `[id].tsx`.
   const draftsRef = useRef(drafts);
   draftsRef.current = drafts;
+  // Mirror of `actions` so the error-revert in `save()` reads the freshest
+  // server list, not the one captured when its timer was scheduled.
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
   const dirtyIdsRef = useRef<Set<number>>(new Set());
   const timersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -180,17 +184,31 @@ export function AcoesDoPlano({
     if (!draft) return;
     try {
       await updateAction.mutateAsync({ orgId, planId, actionId, data: draftToPayload(draft) });
-      dirtyIdsRef.current.delete(actionId);
+      // Só desmarca "suja" se nenhuma edição nova foi agendada enquanto o PATCH
+      // estava em voo. Se `timersRef.current[actionId]` existe, o usuário mexeu na
+      // linha durante o request — limpar a flag agora deixaria o resync (disparado
+      // pelo refetch do onSuccess) reconstruir a linha do servidor e apagar essa
+      // edição em voo; o timer pendente então salvaria o valor JÁ revertido. Manter
+      // a flag suja faz o resync pular a linha e o próximo save leva o valor certo.
+      clearDirtyIfSettled(actionId);
     } catch (err) {
       // E.g. concluding without "O quê" filled in — the server answers 400.
       // Revert the row to its last known-good server value so the UI never
       // keeps showing an edit the server rejected (a "Concluída" that never
-      // actually saved).
+      // actually saved) — a menos que o usuário já tenha começado a corrigir a
+      // linha (timer vivo): nesse caso a edição nova manda, não a reversão.
       toast({ title: "Erro ao salvar ação", description: apiErrorMessage(err), variant: "destructive" });
+      if (timersRef.current[actionId]) return;
       dirtyIdsRef.current.delete(actionId);
-      const server = actions.find((a) => a.id === actionId);
+      const server = actionsRef.current.find((a) => a.id === actionId);
       if (server) setDrafts((prev) => ({ ...prev, [actionId]: draftFromAction(server) }));
     }
+  }
+
+  /** Clears a row's dirty flag ONLY when no newer edit is pending (no live
+   * timer) — the guard that lets the resync effect skip a row still in flight. */
+  function clearDirtyIfSettled(actionId: number) {
+    if (!timersRef.current[actionId]) dirtyIdsRef.current.delete(actionId);
   }
 
   async function handleAdd() {
