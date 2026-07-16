@@ -141,6 +141,22 @@ O escopo tem que valer nos **três** lugares, senão vaza:
   atual; **não** recebe o escopo por papel do hub. (Fronteira explícita — ver §8.)
 - **"Atribuídas a mim"** — continua como sub-filtro dentro da visão já escopada.
 
+**Correção pós-revisão final (achado crítico):** a listagem (`GET .../action-plans`) aplicava a
+condição de papel **incondicionalmente**, sem a via de origem — mais restrita que o `requirePlanAccess`
+(§5.1). Resultado: o widget "Ações vinculadas" (item acima) devolvia `200 []` para quem só tinha o
+módulo de origem, mesmo a via de origem abrindo o plano pela URL direta. Corrigido: a listagem agora
+compõe `roleVisibility OR sourceModule ∈ (origens cujo módulo-dono o usuário tem, excluindo a família
+`actionPlans`)` — espelhando exatamente `requirePlanAccess`. Ver `accessibleOriginSourceModules` em
+`routes/action-plans.ts`.
+
+**Ponte externa (`external-actions`, ações corretivas de governança) — decisão pós-revisão:** essa
+ponte devolve TODAS as ações corretivas da org, sem filtro; `nonconformities`/`corrective_actions` não
+têm `unit_id` e o serializer só expõe o nome do responsável (não o id) — **não dá para escopá-la** por
+filial nem por vínculo pessoal como os planos do hub. Solução: ela só é visível para quem já enxerga a
+organização inteira de qualquer forma — **admin** e **analyst**. Para **manager** e **operator**, a
+rota devolve `[]` (antes, gated só por `requireModuleAccess("actionPlans")`, ela vazava para qualquer
+papel que tivesse o módulo — reabrindo a queixa original desta feature). Ver §8.
+
 ### 5.1 Interação com o `requirePlanAccess` atual
 
 Hoje: `pontoFocal || avaliador || hasModule(actionPlans) || hasModule(originOwner) || coResponsável`.
@@ -185,6 +201,13 @@ O `ON DELETE SET NULL`: se a filial for apagada, o plano vira corporativo (não 
   escalonamento mira só os responsáveis; estender para gestores é outra frente.
 - **Campo de filial editável na UI** — a filial é **derivada**, nunca escolhida pelo usuário.
 - **Novo papel/permissão** — reusa `manager`/`operator`/`analyst`/`admin` que já existem.
+- **Escopar a ponte externa (`external-actions`) por filial/vínculo pessoal** — os dados de origem
+  (`nonconformities`/`corrective_actions`) não têm `unit_id` nem expõem o id do responsável, então não
+  há como aplicar a mesma matriz de visibilidade dos planos do hub a ela. A correção pós-revisão final
+  foi um degrau grosso, não um escopo fino: **esconder a ponte inteira** de quem não vê a organização
+  toda de qualquer forma (manager/operator recebem `[]`; admin/analyst veem tudo). Se a cliente pedir
+  visibilidade fina aqui no futuro, precisa primeiro de `unit_id` (ou vínculo) nessas duas tabelas de
+  governança — fora de escopo desta feature.
 
 ## 9. Testes
 
@@ -212,6 +235,21 @@ O `ON DELETE SET NULL`: se a filial for apagada, o plano vira corporativo (não 
 
 ## 10. Espelhamento front/back
 
-Como no KPI (`kpi-access.ts` ↔ `services/kpi/access.ts`), o predicado vive nos dois lados e **deve ser
-mantido em sync**. O back é a fonte de verdade (barra de fato); o front usa para esconder/mostrar sem
-ida ao servidor. Um teste em cada lado com os mesmos casos garante a paridade.
+**Descartado na revisão final.** O plano original era espelhar como no KPI (`kpi-access.ts` ↔
+`services/kpi/access.ts`): o predicado nos dois lados, mantido em sync via teste espelhado.
+Implementamos `artifacts/web/src/lib/action-plans-access.ts` (+ teste), mas ele nunca teve
+importador — **zero consumidores** em `artifacts/web/src`, só o próprio teste. Pior: a API **não
+emite** o campo de que ele depende (`unitId`) — nem `serializePlan` (`services/action-plans/serializers.ts`)
+nem o schema `ActionPlan` do OpenAPI o expõem. Um consumidor futuro que confiasse nesse espelho
+receberia `plan.unitId === undefined`, `undefined === null` é `false`, e um gestor deixaria de ver
+silenciosamente os planos corporativos — um espelho que **parece testado** mas não guarda nada,
+porque nunca é alimentado com dado real.
+
+**Decisão:** apagados `artifacts/web/src/lib/action-plans-access.ts` e
+`artifacts/web/tests/lib/action-plans-access.unit.test.ts` (YAGNI). O back
+(`services/action-plans/access.ts` → `canViewActionPlan`) é a **única fonte de verdade** — barra de
+fato em três pontos (listagem, acesso por id, summary); nada no front precisa hoje de uma cópia local
+do predicado. Se um dia o front precisar esconder algo sem ida ao servidor (ex.: pré-filtrar uma view
+otimista), o espelho volta a fazer sentido — mas só junto com (a) `unitId` adicionado ao contrato
+(`ActionPlan` no OpenAPI + `serializePlan`) e (b) o consumidor real que o justifica. Não recriar o
+espelho sem os dois.
