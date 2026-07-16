@@ -22,6 +22,7 @@ import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -51,10 +52,12 @@ import {
   useAddActionPlanEvidenceWithInvalidation,
   useAllAnalysisMethods,
   buildAnalysisMethodLabelMap,
+  useCreateActionPlanActionWithInvalidation,
   useDeleteActionPlanEvidenceWithInvalidation,
   useDeleteActionPlanWithInvalidation,
   useSuggestActionPlanDraft,
   useUpdateActionPlanWithInvalidation,
+  type ActionPlan5W2H,
   type ActionPlanNormRef,
   type ActionPlanPriority,
   type ActionPlanStatus,
@@ -64,6 +67,7 @@ import {
 import { ActionPlanTimeline } from "./_components/timeline";
 import { GutInput } from "./_components/gut-input";
 import { Tratativas } from "./_components/tratativas";
+import { AcoesDoPlano } from "./_components/acoes-do-plano";
 import { AutoGrowTextarea } from "./_components/auto-grow-textarea";
 import type { ActionPlanAnalysis } from "./_components/analises/types";
 import { EficaciaPanel, type EficaciaValue } from "./_components/eficacia-panel";
@@ -75,6 +79,21 @@ const STATUS_OPTIONS: ActionPlanStatus[] = ["open", "in_progress", "completed", 
 const PRIORITY_OPTIONS: ActionPlanPriority[] = ["low", "medium", "high"];
 const TYPE_OPTIONS: ActionPlanType[] = ["corrective", "preventive", "improvement"];
 const MONTH_LABELS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+/** Soft guard shown when concluding a plan that still has open/in-progress actions
+ * (see `handleConclude`) — warns, but never blocks. */
+function pendingActionsMessage(pending: number): string {
+  const plural = pending !== 1;
+  return `Este plano tem ${pending} ${plural ? "ações" : "ação"} não ${plural ? "concluídas" : "concluída"}. Concluir mesmo assim?`;
+}
+
+/** Whether the AI's 5W2H draft has anything worth mapping onto the plan's first
+ * action (see `handleSuggest`). */
+function hasPlan5w2hContent(p: ActionPlan5W2H): boolean {
+  return Boolean(
+    p.what?.trim() || p.why?.trim() || p.where?.trim() || p.how?.trim() || p.howMuch?.trim() || p.who?.trim() || p.when?.trim(),
+  );
+}
 
 function Section({ id, title, action, children }: { id?: string; title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -122,6 +141,10 @@ export default function ActionPlanFichaPage() {
   const addEvidence = useAddActionPlanEvidenceWithInvalidation(orgId);
   const deleteEvidence = useDeleteActionPlanEvidenceWithInvalidation(orgId);
   const suggestDraft = useSuggestActionPlanDraft();
+  // Only used by `handleSuggest` to create the plan's first action from the AI's
+  // 5W2H draft — by the time that can fire, `planId` is guaranteed non-null (the
+  // "Sugerir plano" button only renders once the plan has loaded).
+  const createFirstAction = useCreateActionPlanActionWithInvalidation(orgId, planId ?? 0);
 
   // Catálogo de tratativas: displays (labelPorChave) usam o catálogo INTEIRO
   // (incl. inativas), pois um plano pode ter adotado uma tratativa antes de a
@@ -153,6 +176,7 @@ export default function ActionPlanFichaPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const planningVersionCount = usePlanningVersionCount(orgId, planId);
+  const [concludeConfirmOpen, setConcludeConfirmOpen] = useState(false);
 
   // Edit guard: an encerrado plan (or a read-only role) can't be edited/autosaved.
   const isLocked = !!plan && isActionPlanEncerrado(plan);
@@ -354,11 +378,8 @@ export default function ActionPlanFichaPage() {
           contextLabel: sourceContext?.label ?? null,
         },
       });
-      // plan5w2h fica de fora deste critério de propósito: a IA ainda o retorna, mas
-      // o form não tem onde colocá-lo até a Task 15 criar a seção de Ações (ver
-      // mergeDraftIntoForm). Contar plan5w2h aqui faria a IA "não ter nada a
-      // acrescentar" mesmo quando ela sugeriu 5W2H — o toast mentiria.
-      const filledNothing = !draft.rootCause && draft.rootCauseWhys.length === 0;
+      const has5w2h = hasPlan5w2hContent(draft.plan5w2h);
+      const filledNothing = !draft.rootCause && draft.rootCauseWhys.length === 0 && !has5w2h;
       if (filledNothing) {
         toast({ title: "A IA não retornou sugestões", variant: "destructive" });
         return;
@@ -367,19 +388,60 @@ export default function ActionPlanFichaPage() {
       // (always current) rather than inside a setForm updater — React runs updaters
       // during render, so a flag set in there is still false on the next line.
       const { changed, ...merged } = mergeDraftIntoForm(formRef.current, draft);
-      if (!changed) {
+
+      // draft.plan5w2h → primeira ação do plano. Só cria quando a IA sugeriu algo E
+      // o plano ainda não tem NENHUMA ação — nunca sobrescreve uma já existente (o
+      // usuário pode ter criado/editado ações manualmente entre duas sugestões).
+      // Falha ao criar é best-effort: o resto do rascunho (causa raiz / 5 porquês)
+      // já foi preenchido e não deve se perder por isso.
+      let actionCreated = false;
+      if (has5w2h && planId && (plan?.actionsTotal ?? 0) === 0) {
+        const w = draft.plan5w2h;
+        try {
+          await createFirstAction.mutateAsync({
+            orgId,
+            planId,
+            data: {
+              what: w.what?.trim() || null,
+              why: w.why?.trim() || null,
+              whereAt: w.where?.trim() || null,
+              how: w.how?.trim() || null,
+              howMuch: w.howMuch?.trim() || null,
+            },
+          });
+          actionCreated = true;
+        } catch (err) {
+          toast({ title: "Rascunho gerado, mas não foi possível criar a 1ª ação", description: apiErrorMessage(err), variant: "destructive" });
+        }
+      }
+
+      if (!changed && !actionCreated) {
         toast({ title: "Seus campos já estão preenchidos", description: "A IA não tinha o que adicionar." });
         return;
       }
-      setForm((f) => ({ ...f, ...merged }));
-      setDirty(true);
-      toast({ title: "Rascunho gerado — revise e salve" });
+      if (changed) {
+        setForm((f) => ({ ...f, ...merged }));
+        setDirty(true);
+      }
+      toast({ title: actionCreated ? "Rascunho gerado — 1ª ação criada a partir do 5W2H" : "Rascunho gerado — revise e salve" });
     } catch (err) {
       toast({ title: "Não foi possível gerar a sugestão", description: apiErrorMessage(err), variant: "destructive" });
     }
   }
 
   async function handleConclude() {
+    if (!planId) return;
+    // Soft guard: an open/in-progress action left behind is worth a second look,
+    // but never blocks the conclusion — the user may confirm and proceed anyway.
+    const pending = (plan?.actionsTotal ?? 0) - (plan?.actionsDone ?? 0);
+    if (pending > 0) {
+      setConcludeConfirmOpen(true);
+      return;
+    }
+    await doConclude();
+  }
+
+  async function doConclude() {
     if (!planId) return;
     const today = todayCalendarDate();
     // `persist` is serialized, so this runs AFTER any in-flight autosave and saves
@@ -680,6 +742,9 @@ export default function ActionPlanFichaPage() {
                   readOnly={!canEdit}
                 />
               </div>
+              {planId && (
+                <AcoesDoPlano orgId={orgId} planId={planId} orgUsers={orgUsers} canEdit={canEdit} />
+              )}
             </div>
           </Section>
 
@@ -693,6 +758,19 @@ export default function ActionPlanFichaPage() {
               onBeforeRestore={() => persist({ silent: true })}
             />
           )}
+
+          <ConfirmDialog
+            open={concludeConfirmOpen}
+            onOpenChange={setConcludeConfirmOpen}
+            title="Concluir com ações em aberto?"
+            description={pendingActionsMessage((plan.actionsTotal ?? 0) - (plan.actionsDone ?? 0))}
+            confirmLabel="Concluir mesmo assim"
+            destructive={false}
+            onConfirm={() => {
+              setConcludeConfirmOpen(false);
+              void doConclude();
+            }}
+          />
 
           <Section id="etapa-execucao" title="Comentários e histórico">
             <ComentariosHistorico orgId={orgId} planId={plan.id} canWrite={canWrite} />
