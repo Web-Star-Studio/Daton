@@ -93,6 +93,7 @@ import {
   type UploadedFileRef,
 } from "@/lib/uploads";
 import { cn } from "@/lib/utils";
+import { downloadTrainingCertificate } from "@/lib/training-certificate-pdf";
 import {
   ArrowLeft,
   Pencil,
@@ -107,6 +108,7 @@ import {
   Archive,
   CheckCircle2,
   CalendarCheck,
+  Download,
   XCircle,
   Building2,
   AlertTriangle,
@@ -2243,6 +2245,9 @@ function TreinamentosTab({
   orgId,
   empId,
   employeeName,
+  employeeCpf,
+  employeePosition,
+  orgName,
   editable = true,
   createOpen = false,
   onCreateOpenChange,
@@ -2252,6 +2257,9 @@ function TreinamentosTab({
   orgId: number;
   empId: number;
   employeeName?: string;
+  employeeCpf?: string | null;
+  employeePosition?: string | null;
+  orgName?: string;
   editable?: boolean;
   createOpen?: boolean;
   onCreateOpenChange?: (open: boolean) => void;
@@ -2716,6 +2724,49 @@ function TreinamentosTab({
                     {editable && (
                       <TooltipProvider delayDuration={200}>
                         <div className="flex items-center gap-1">
+                          {isConcluido && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className="inline-flex"
+                                  tabIndex={t.completionDate ? undefined : 0}
+                                >
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0"
+                                    aria-label="Baixar certificado"
+                                    disabled={!t.completionDate}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      downloadTrainingCertificate({
+                                      orgName: orgName ?? "",
+                                      employeeName: employeeName ?? "",
+                                      employeeCpf,
+                                      employeePosition,
+                                      title: t.title,
+                                      completionDate: t.completionDate,
+                                      workloadHours: t.workloadHours,
+                                      institution: t.institution,
+                                      expirationDate: t.expirationDate,
+                                      competencyName: t.targetCompetencyName,
+                                      evaluatorName:
+                                        t.latestEffectivenessReview?.evaluatorName,
+                                    });
+                                  }}
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {t.completionDate
+                                  ? "Baixar certificado"
+                                  : "Informe a data de conclusão para emitir o certificado"}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                           {isConcluido && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -3540,9 +3591,10 @@ function ConscientizacaoTab({
 }
 
 export default function ColaboradorDetailPage() {
-  const { user } = useAuth();
+  const { user, organization } = useAuth();
   const { canWriteModule, hasModuleAccess } = usePermissions();
   const orgId = user?.organizationId;
+  const orgName = organization?.tradeName || organization?.name || "";
   const canWriteEmployees = canWriteModule("employees");
   const canAccessGovernance = hasModuleAccess("governance");
   const params = useParams<{ id: string }>();
@@ -4022,6 +4074,9 @@ export default function ColaboradorDetailPage() {
             orgId={orgId}
             empId={empId}
             employeeName={employee.name}
+            employeeCpf={employee.cpf}
+            employeePosition={employee.position}
+            orgName={orgName}
             editable={canWriteEmployees}
             createOpen={trainingCreateOpen}
             onCreateOpenChange={handleTrainingCreateOpenChange}
