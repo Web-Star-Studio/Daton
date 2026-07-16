@@ -2,7 +2,13 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
+    // "../" (não "src"): action-plans-unit-backfill.ts importa
+    // deriveActionPlanUnit direto de artifacts/api-server (reuso deliberado,
+    // ver comentário no topo do script) — sem alargar rootDir o tsc rejeita
+    // esse arquivo com TS6059 (fora do rootDir). Não muda quais arquivos são
+    // checados (isso é o "include" abaixo); scripts/ não tem script de
+    // "build" (só "typecheck"), então o outDir nunca é exercido de verdade.
+    "rootDir": "..",
     "types": ["node"]
   },
   "include": ["src"]
