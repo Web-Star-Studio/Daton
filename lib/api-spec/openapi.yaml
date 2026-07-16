@@ -14010,6 +14010,14 @@ components:
         maxSalary:
           type: integer
           nullable: true
+        area:
+          type: string
+          nullable: true
+        principalNormId:
+          type: integer
+          nullable: true
+        competencyCount:
+          type: integer
         createdAt:
           type: string
         updatedAt:
@@ -14039,6 +14047,11 @@ components:
           type: integer
         maxSalary:
           type: integer
+        area:
+          type: string
+        principalNormId:
+          type: integer
+          nullable: true
       required:
         - name
 
@@ -14063,6 +14076,11 @@ components:
           type: integer
         maxSalary:
           type: integer
+        area:
+          type: string
+        principalNormId:
+          type: integer
+          nullable: true
 
     ImportPositionsBody:
       type: object

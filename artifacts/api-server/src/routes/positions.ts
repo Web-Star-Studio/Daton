@@ -1,6 +1,11 @@
 import { Router, type IRouter } from "express";
-import { and, eq, inArray } from "drizzle-orm";
-import { db, positionsTable } from "@workspace/db";
+import { and, eq, inArray, count } from "drizzle-orm";
+import {
+  db,
+  positionsTable,
+  positionCompetencyRequirementsTable,
+  regulatoryNormsTable,
+} from "@workspace/db";
 import {
   CreatePositionBody,
   CreatePositionParams,
@@ -30,9 +35,30 @@ function serializePosition(r: typeof positionsTable.$inferSelect) {
     level: r.level,
     minSalary: r.minSalary,
     maxSalary: r.maxSalary,
+    area: r.area,
+    principalNormId: r.principalNormId,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
+}
+
+// A norma principal do cargo tem que pertencer à mesma organização. `null`/ausente
+// é válido (campo opcional).
+async function assertNormBelongsToOrg(
+  normId: number | null | undefined,
+  orgId: number,
+): Promise<boolean> {
+  if (normId == null) return true;
+  const [norm] = await db
+    .select({ id: regulatoryNormsTable.id })
+    .from(regulatoryNormsTable)
+    .where(
+      and(
+        eq(regulatoryNormsTable.id, normId),
+        eq(regulatoryNormsTable.organizationId, orgId),
+      ),
+    );
+  return !!norm;
 }
 
 function normalizeRequirements(raw: string | undefined | null): string | null {
@@ -49,11 +75,26 @@ router.get("/organizations/:orgId/positions", requireAuth, async (req, res): Pro
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
-  const rows = await db.select().from(positionsTable)
+  const rows = await db
+    .select({
+      position: positionsTable,
+      competencyCount: count(positionCompetencyRequirementsTable.id),
+    })
+    .from(positionsTable)
+    .leftJoin(
+      positionCompetencyRequirementsTable,
+      eq(positionCompetencyRequirementsTable.positionId, positionsTable.id),
+    )
     .where(eq(positionsTable.organizationId, params.data.orgId))
+    .groupBy(positionsTable.id)
     .orderBy(positionsTable.name);
 
-  res.json(rows.map((r) => serializePosition(r)));
+  res.json(
+    rows.map((r) => ({
+      ...serializePosition(r.position),
+      competencyCount: r.competencyCount,
+    })),
+  );
 });
 
 router.post("/organizations/:orgId/positions", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -63,6 +104,11 @@ router.post("/organizations/:orgId/positions", requireAuth, requireWriteAccess()
 
   const body = CreatePositionBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  if (!(await assertNormBelongsToOrg(body.data.principalNormId, params.data.orgId))) {
+    res.status(400).json({ error: "Norma inválida para esta organização" });
+    return;
+  }
 
   const [row] = await db.insert(positionsTable).values({
     organizationId: params.data.orgId,
@@ -75,6 +121,8 @@ router.post("/organizations/:orgId/positions", requireAuth, requireWriteAccess()
     level: body.data.level,
     minSalary: body.data.minSalary,
     maxSalary: body.data.maxSalary,
+    area: body.data.area,
+    principalNormId: body.data.principalNormId,
   }).returning();
 
   res.status(201).json(serializePosition(row));
@@ -87,6 +135,11 @@ router.patch("/organizations/:orgId/positions/:posId", requireAuth, requireWrite
 
   const body = UpdatePositionBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  if (!(await assertNormBelongsToOrg(body.data.principalNormId, params.data.orgId))) {
+    res.status(400).json({ error: "Norma inválida para esta organização" });
+    return;
+  }
 
   const [row] = await db.update(positionsTable)
     .set(body.data)

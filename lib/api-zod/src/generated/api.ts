@@ -3814,6 +3814,9 @@ export const ListPositionsResponseItem = zod.object({
   level: zod.string().nullish(),
   minSalary: zod.number().nullish(),
   maxSalary: zod.number().nullish(),
+  area: zod.string().nullish(),
+  principalNormId: zod.number().nullish(),
+  competencyCount: zod.number().optional(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });
@@ -3836,6 +3839,8 @@ export const CreatePositionBody = zod.object({
   level: zod.string().optional(),
   minSalary: zod.number().optional(),
   maxSalary: zod.number().optional(),
+  area: zod.string().optional(),
+  principalNormId: zod.number().nullish(),
 });
 
 /**
@@ -3857,6 +3862,8 @@ export const ImportPositionsBody = zod.object({
       level: zod.string().optional(),
       minSalary: zod.number().optional(),
       maxSalary: zod.number().optional(),
+      area: zod.string().optional(),
+      principalNormId: zod.number().nullish(),
     }),
   ),
   conflictStrategy: zod
@@ -3883,6 +3890,8 @@ export const UpdatePositionBody = zod.object({
   level: zod.string().optional(),
   minSalary: zod.number().optional(),
   maxSalary: zod.number().optional(),
+  area: zod.string().optional(),
+  principalNormId: zod.number().nullish(),
 });
 
 export const UpdatePositionResponse = zod.object({
@@ -3897,6 +3906,9 @@ export const UpdatePositionResponse = zod.object({
   level: zod.string().nullish(),
   minSalary: zod.number().nullish(),
   maxSalary: zod.number().nullish(),
+  area: zod.string().nullish(),
+  principalNormId: zod.number().nullish(),
+  competencyCount: zod.number().optional(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });

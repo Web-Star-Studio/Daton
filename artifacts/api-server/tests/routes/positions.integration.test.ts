@@ -1,6 +1,6 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
-import { db, positionsTable } from "@workspace/db";
+import { db, positionsTable, regulatoryNormsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import app from "../../src/app";
 import {
@@ -18,6 +18,14 @@ afterEach(async () => {
     contexts.splice(0).map((context) => cleanupTestContext(context)),
   );
 });
+
+async function createNorm(orgId: number, label: string) {
+  const [norm] = await db
+    .insert(regulatoryNormsTable)
+    .values({ organizationId: orgId, label })
+    .returning();
+  return norm;
+}
 
 describe("positions routes", () => {
   it("creates, updates and bulk deletes positions", async () => {
@@ -138,5 +146,40 @@ describe("positions routes", () => {
 
     expect(response.status).toBe(403);
     expect(response.body.error).toContain("Sem acesso");
+  });
+
+  it("persists area/principalNormId and returns competencyCount in the list", async () => {
+    const context = await createTestContext({ seed: "positions-area" });
+    contexts.push(context);
+    const norm = await createNorm(context.organizationId, "ISO 9001:2015 §7.2");
+    const base = `/api/organizations/${context.organizationId}/positions`;
+
+    const created = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ name: `Motorista ${context.prefix}`, area: "Operações", principalNormId: norm.id });
+    expect(created.status).toBe(201);
+    expect(created.body.area).toBe("Operações");
+    expect(created.body.principalNormId).toBe(norm.id);
+
+    const list = await request(app).get(base).set(authHeader(context));
+    expect(list.status).toBe(200);
+    const row = list.body.find((p: { id: number }) => p.id === created.body.id);
+    expect(row.area).toBe("Operações");
+    expect(row.principalNormId).toBe(norm.id);
+    expect(row.competencyCount).toBe(0);
+  });
+
+  it("rejects a norm from another organization (400)", async () => {
+    const context = await createTestContext({ seed: "positions-norm-own" });
+    const other = await createTestContext({ seed: "positions-norm-foreign" });
+    contexts.push(context, other);
+    const foreignNorm = await createNorm(other.organizationId, "ISO 14001");
+
+    const res = await request(app)
+      .post(`/api/organizations/${context.organizationId}/positions`)
+      .set(authHeader(context))
+      .send({ name: `Ajudante ${context.prefix}`, principalNormId: foreignNorm.id });
+    expect(res.status).toBe(400);
   });
 });

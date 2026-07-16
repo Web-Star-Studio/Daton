@@ -2057,6 +2057,9 @@ export interface Position {
   level?: string | null;
   minSalary?: number | null;
   maxSalary?: number | null;
+  area?: string | null;
+  principalNormId?: number | null;
+  competencyCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -2071,6 +2074,8 @@ export interface CreatePositionBody {
   level?: string;
   minSalary?: number;
   maxSalary?: number;
+  area?: string;
+  principalNormId?: number | null;
 }
 
 export interface UpdatePositionBody {
@@ -2083,6 +2088,8 @@ export interface UpdatePositionBody {
   level?: string;
   minSalary?: number;
   maxSalary?: number;
+  area?: string;
+  principalNormId?: number | null;
 }
 
 /**
