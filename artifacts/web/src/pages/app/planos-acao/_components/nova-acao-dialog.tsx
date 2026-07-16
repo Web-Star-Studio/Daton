@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { getListOrgUsersQueryKey, useListOrgUsers } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,12 +18,15 @@ import {
   calendarDateToStorageIso,
   gutScore,
   priorityFromGut,
+  useActiveAnalysisMethods,
   useCreateActionPlanWithInvalidation,
   type ActionPlanPriority,
   type ActionPlanSourceModule,
   type ActionPlanSourceRef,
   type ActionPlanType,
 } from "@/lib/action-plans-client";
+import { emptyAnalysisData } from "./analises/registry";
+import type { ActionPlanAnalysis, AnalysisMethodKey } from "./analises/types";
 import { GutInput } from "./gut-input";
 
 const TYPE_OPTIONS: ActionPlanType[] = ["corrective", "preventive", "improvement"];
@@ -46,6 +50,7 @@ type FormState = {
   responsibleUserId: string;
   dueDate: string;
   gut: { gravity: number | null; urgency: number | null; tendency: number | null };
+  analysisKeys: AnalysisMethodKey[];
 };
 
 function initialForm(source?: ActionSource): FormState {
@@ -57,6 +62,7 @@ function initialForm(source?: ActionSource): FormState {
     responsibleUserId: "",
     dueDate: "",
     gut: { gravity: null, urgency: null, tendency: null },
+    analysisKeys: [],
   };
 }
 
@@ -77,6 +83,7 @@ export function NovaAcaoDialog({
     query: { queryKey: getListOrgUsersQueryKey(orgId), staleTime: 60_000 },
   });
   const orgUsers = orgUsersData?.users ?? [];
+  const { data: ativas = [] } = useActiveAnalysisMethods(orgId);
 
   const [form, setForm] = useState<FormState>(() => initialForm(source));
 
@@ -86,9 +93,23 @@ export function NovaAcaoDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Pré-marca as tratativas que o admin definiu como padrão da empresa. Reexecuta quando o
+  // catálogo chega (ele carrega depois do primeiro render do diálogo) — mas SÓ então, não a
+  // cada edição do form: `useActiveAnalysisMethods` refiltra (novo array) a cada render deste
+  // componente, então depender do array em si reaplicaria os defaults (apagando a escolha do
+  // usuário) a cada tecla digitada. Uma assinatura estável (join das chaves-padrão) é o que
+  // muda de verdade quando o catálogo chega/muda.
+  const defaultAnalysisKeys = ativas.filter((m) => m.isDefault).map((m) => m.key);
+  const defaultAnalysisKeysSignature = defaultAnalysisKeys.join(",");
+  useEffect(() => {
+    if (!open) return;
+    setForm((f) => ({ ...f, analysisKeys: defaultAnalysisKeys }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultAnalysisKeysSignature]);
+
   async function submit() {
     if (!form.title.trim()) {
-      toast({ title: "Informe o título da ação", variant: "destructive" });
+      toast({ title: "Informe o título do plano de ação", variant: "destructive" });
       return;
     }
     const sourceModule = source?.sourceModule ?? "manual";
@@ -109,21 +130,24 @@ export function NovaAcaoDialog({
           gutGravity: form.gut.gravity,
           gutUrgency: form.gut.urgency,
           gutTendency: form.gut.tendency,
+          // O cast é o mesmo (e inevitável) de `Tratativas.adicionar`: `.map` sobre chaves
+          // heterogêneas produz `{ key, data }[]` largo, não a união discriminada por elemento.
+          analyses: form.analysisKeys.map((key) => ({ key, data: emptyAnalysisData(key) }) as ActionPlanAnalysis),
           status: "open",
         },
       });
-      toast({ title: "Ação criada" });
+      toast({ title: "Plano de ação criado" });
       onOpenChange(false);
       setLocation(`/planos-acao/${created.id}`);
     } catch (err) {
-      toast({ title: "Erro ao criar ação", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
+      toast({ title: "Erro ao criar plano de ação", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
     }
   }
 
   const originName = source ? (source.originLabel ?? SOURCE_MODULE_LABELS[source.sourceModule] ?? source.sourceModule) : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title={source ? "Criar plano de ação" : "Nova ação"} description="Detalhe 5W2H, causa raiz e eficácia na ficha." size="lg">
+    <Dialog open={open} onOpenChange={onOpenChange} title={source ? "Criar plano de ação" : "Novo plano de ação"} description="Detalhe as tratativas, as ações e a eficácia na ficha." size="lg">
       <div className="max-h-[65vh] space-y-3 overflow-auto pr-1">
         {originName && (
           <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
@@ -181,12 +205,39 @@ export function NovaAcaoDialog({
             />
           </div>
         </div>
+        <div className="space-y-1.5">
+          <Label>Tratativas</Label>
+          <p className="text-xs text-muted-foreground">
+            Os métodos de análise que este plano vai usar. Dá para mudar depois na ficha.
+          </p>
+          <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/20 p-2">
+            {ativas.map((m) => (
+              <label
+                key={m.key}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/40"
+              >
+                <Checkbox
+                  checked={form.analysisKeys.includes(m.key)}
+                  onCheckedChange={(checked) =>
+                    setForm((f) => ({
+                      ...f,
+                      analysisKeys: checked
+                        ? [...f.analysisKeys, m.key]
+                        : f.analysisKeys.filter((key) => key !== m.key),
+                    }))
+                  }
+                />
+                <span className="text-sm">{m.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
       </div>
 
       <DialogFooter>
         <Button variant="outline" onClick={() => onOpenChange(false)} disabled={createPlan.isPending}>Cancelar</Button>
         <Button onClick={submit} disabled={createPlan.isPending || !form.title.trim()}>
-          {createPlan.isPending ? "Criando..." : "Criar ação"}
+          {createPlan.isPending ? "Criando..." : "Criar plano de ação"}
         </Button>
       </DialogFooter>
     </Dialog>
