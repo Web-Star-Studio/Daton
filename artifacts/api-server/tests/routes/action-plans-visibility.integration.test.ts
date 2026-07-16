@@ -22,7 +22,11 @@ afterEach(async () => {
  *  testar a condição de visibilidade da listagem com filial/responsável fixos. */
 async function seedPlan(
   ctx: Pick<TestOrgContext, "organizationId">,
-  fields: { unitId: number | null; responsibleUserId: number | null },
+  fields: {
+    unitId: number | null;
+    responsibleUserId: number | null;
+    effectivenessEvaluatorUserId?: number | null;
+  },
 ): Promise<number> {
   const [row] = await db
     .insert(actionPlansTable)
@@ -34,6 +38,7 @@ async function seedPlan(
       status: "open",
       unitId: fields.unitId,
       responsibleUserId: fields.responsibleUserId,
+      effectivenessEvaluatorUserId: fields.effectivenessEvaluatorUserId ?? null,
     })
     .returning({ id: actionPlansTable.id });
   return row.id;
@@ -133,5 +138,93 @@ describe("visibilidade por papel — filtro da listagem", () => {
     expect(res.body.map((p: { id: number }) => p.id).sort((a: number, b: number) => a - b)).toEqual(
       [p1, p2, p3].sort((a, b) => a - b),
     );
+  });
+
+  it("analista vê todos os planos na listagem, de qualquer filial", async () => {
+    const ctx = await createTestContext({ seed: "list-analyst", role: "org_admin" });
+    contexts.push(ctx);
+    const unitA = await createUnit(ctx, "A");
+    const unitB = await createUnit(ctx, "B");
+    // Diferente do admin, analista NÃO é bypass automático de módulo — precisa
+    // do registro explícito para passar do gate da listagem (userHasModuleAccess).
+    const analyst = await createTestUser(ctx, { suffix: "an", role: "analyst", modules: ["actionPlans"] });
+    const p1 = await seedPlan(ctx, { unitId: unitA.id, responsibleUserId: ctx.userId });
+    const p2 = await seedPlan(ctx, { unitId: unitB.id, responsibleUserId: null });
+    const p3 = await seedPlan(ctx, { unitId: null, responsibleUserId: null });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/action-plans`)
+      .set(authHeader({ token: analyst.token }));
+    expect(res.status).toBe(200);
+    expect(res.body.map((p: { id: number }) => p.id).sort((a: number, b: number) => a - b)).toEqual(
+      [p1, p2, p3].sort((a, b) => a - b),
+    );
+  });
+
+  it("gestor com unit_id NULO não vê planos de filial nenhuma (só corporativo + o pessoal dele)", async () => {
+    const ctx = await createTestContext({ seed: "list-mgr-null", role: "org_admin" });
+    contexts.push(ctx);
+    const unitA = await createUnit(ctx, "A");
+    // Gestor "solto": users.unit_id nunca foi setado (fica NULL).
+    const mgr = await createTestUser(ctx, { suffix: "mgr", role: "manager", modules: ["actionPlans"] });
+    const corporativo = await seedPlan(ctx, { unitId: null, responsibleUserId: ctx.userId });
+    const pessoal = await seedPlan(ctx, { unitId: unitA.id, responsibleUserId: mgr.id });
+    await seedPlan(ctx, { unitId: unitA.id, responsibleUserId: ctx.userId }); // filial alheia, sem vínculo pessoal
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/action-plans`)
+      .set(authHeader({ token: mgr.token }));
+    expect(res.status).toBe(200);
+    expect(res.body.map((p: { id: number }) => p.id).sort()).toEqual([corporativo, pessoal].sort());
+  });
+
+  it("avaliador de eficácia vê o plano na listagem mesmo sem ser responsável nem da filial", async () => {
+    const ctx = await createTestContext({ seed: "list-op-eval", role: "org_admin" });
+    contexts.push(ctx);
+    const unitA = await createUnit(ctx, "A");
+    const unitB = await createUnit(ctx, "B");
+    const op = await createTestUser(ctx, { suffix: "op", role: "operator", modules: ["actionPlans"] });
+    await db.update(usersTable).set({ unitId: unitB.id }).where(eq(usersTable.id, op.id));
+    const avaliado = await seedPlan(ctx, {
+      unitId: unitA.id,
+      responsibleUserId: ctx.userId,
+      effectivenessEvaluatorUserId: op.id,
+    });
+    await seedPlan(ctx, { unitId: unitA.id, responsibleUserId: ctx.userId }); // sem vínculo com op
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/action-plans`)
+      .set(authHeader({ token: op.token }));
+    expect(res.status).toBe(200);
+    expect(res.body.map((p: { id: number }) => p.id)).toEqual([avaliado]);
+  });
+});
+
+describe("visibilidade por papel — acesso direto por id (URL)", () => {
+  it("operador recebe 403 ao abrir por id um plano de outra filial em que não está vinculado", async () => {
+    const ctx = await createTestContext({ seed: "acc-op", role: "org_admin" });
+    contexts.push(ctx);
+    const unitB = await createUnit(ctx, "B");
+    const op = await createTestUser(ctx, { suffix: "op", role: "operator", modules: ["actionPlans"] });
+    const alheio = await seedPlan(ctx, { unitId: unitB.id, responsibleUserId: ctx.userId });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/action-plans/${alheio}`)
+      .set(authHeader({ token: op.token }));
+    expect(res.status).toBe(403);
+  });
+
+  it("gestor abre um plano da filial dele", async () => {
+    const ctx = await createTestContext({ seed: "acc-mgr", role: "org_admin" });
+    contexts.push(ctx);
+    const unitA = await createUnit(ctx, "A");
+    const mgr = await createTestUser(ctx, { suffix: "mgr", role: "manager", modules: ["actionPlans"] });
+    await db.update(usersTable).set({ unitId: unitA.id }).where(eq(usersTable.id, mgr.id));
+    const naFilial = await seedPlan(ctx, { unitId: unitA.id, responsibleUserId: ctx.userId });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/action-plans/${naFilial}`)
+      .set(authHeader({ token: mgr.token }));
+    expect(res.status).toBe(200);
   });
 });

@@ -44,9 +44,8 @@ import {
 } from "../middlewares/auth";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
 import { deriveActionPlanUnit } from "../services/action-plans/derive-unit";
-import type { ActionPlanRequesterScope } from "../services/action-plans/access";
+import { canViewActionPlan, type ActionPlanRequesterScope } from "../services/action-plans/access";
 import {
-  isPlanCoResponsible,
   listCoResponsibleIds,
   listCoResponsiblesByPlan,
   setPlanCoResponsibles,
@@ -133,14 +132,24 @@ const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
 };
 
 /**
- * Guards every `/:planId` route. Without it the hub gate would be bypassable by
- * anyone in the org who guesses a plan id. A plan belongs to whoever holds the
- * hub module, holds the module that owns its origin, or is personally assigned
- * to it — the responsible and the effectiveness evaluator reach their own plans
- * from "Suas Pendências" without ever holding `actionPlans`.
+ * Guarda toda rota `/:planId`. Sem isso, o gate da listagem seria burlável por
+ * qualquer um da org que adivinhasse o id do plano — a listagem só decide o que
+ * aparece NA LISTA, nunca o que abre pela URL direta. A visibilidade aqui é a
+ * MESMA matriz por papel da listagem (`canViewActionPlan`): admin/analista veem
+ * tudo; gestor, a filial dele + corporativo + o que está pessoalmente vinculado
+ * a ele; operador, só o que está pessoalmente vinculado (ponto focal,
+ * co-responsável ou avaliador de eficácia — como "Suas Pendências" chega aqui).
  *
- * Registered after `requireAuth`. Unknown ids and malformed params fall through
- * untouched so the routes keep answering 404/400 exactly as before.
+ * A via de origem (`SOURCE_MODULE_OWNER`) continua valendo à parte — é o que
+ * mantém o widget "Ações vinculadas" (embutido em KPI/governança/...) aberto
+ * para quem só tem o módulo de origem — mas só para origens GENUÍNAS. Para
+ * `manual` (e demais origens do próprio hub) o dono é `actionPlans`: incluir a
+ * via de origem sem essa ressalva reabriria o acesso irrestrito que este
+ * predicado fecha (`hasModule(actionPlans)` deixava de ser porta de entrada
+ * única para qualquer plano).
+ *
+ * Registrado depois de `requireAuth`. Ids desconhecidos e params malformados
+ * passam direto (`next()`) para as rotas responderem 404/400 como antes.
  */
 function requirePlanAccess() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -152,6 +161,7 @@ function requirePlanAccess() {
     const [plan] = await db
       .select({
         sourceModule: actionPlansTable.sourceModule,
+        unitId: actionPlansTable.unitId,
         responsibleUserId: actionPlansTable.responsibleUserId,
         effectivenessEvaluatorUserId: actionPlansTable.effectivenessEvaluatorUserId,
       })
@@ -159,15 +169,18 @@ function requirePlanAccess() {
       .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
     if (!plan) { next(); return; }
 
-    const userId = req.auth!.userId;
-    // Ordem importa: os checks de módulo saem do cache de auth (30s), então o
-    // curto-circuito evita a consulta à junção para quem já entra pelo módulo.
+    const scope = await getRequesterActionPlanScope(req);
+    const coResponsibleUserIds = await listCoResponsibleIds(planId);
+    const roleAllows = canViewActionPlan(scope, {
+      unitId: plan.unitId,
+      responsibleUserId: plan.responsibleUserId,
+      coResponsibleUserIds,
+      effectivenessEvaluatorUserId: plan.effectivenessEvaluatorUserId,
+    });
+    const originOwner = SOURCE_MODULE_OWNER[plan.sourceModule];
     const allowed =
-      plan.responsibleUserId === userId ||
-      plan.effectivenessEvaluatorUserId === userId ||
-      (await userHasModuleAccess(req.auth!, "actionPlans")) ||
-      (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule])) ||
-      (await isPlanCoResponsible(planId, userId));
+      roleAllows ||
+      (originOwner !== "actionPlans" && (await userHasModuleAccess(req.auth!, originOwner)));
     if (!allowed) { res.status(403).json({ error: "Sem acesso a este plano de ação" }); return; }
 
     next();
