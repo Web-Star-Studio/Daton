@@ -42,6 +42,7 @@ import {
   type AppModule,
 } from "../middlewares/auth";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
+import { deriveActionPlanUnit } from "../services/action-plans/derive-unit";
 import {
   isPlanCoResponsible,
   listCoResponsibleIds,
@@ -469,6 +470,10 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
   const derived = await deriveCreateDefaults(params.data.orgId, body.data.sourceModule, body.data.sourceRef);
   const code = await generateActionPlanCode(params.data.orgId, actionType, new Date().getFullYear());
   const status = body.data.status ?? "open";
+  // Filial do plano: derivada aqui e gravada como FIXA (não recalcula em updates).
+  const unitId = await deriveActionPlanUnit(
+    params.data.orgId, body.data.sourceModule, body.data.sourceRef, body.data.responsibleUserId ?? null,
+  );
 
   const [row] = await db.insert(actionPlansTable).values({
     organizationId: params.data.orgId,
@@ -487,6 +492,7 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     rootCause: body.data.rootCause ?? derived.rootCause ?? null,
     rootCauseWhys: body.data.rootCauseWhys ?? null,
     responsibleUserId: body.data.responsibleUserId ?? null,
+    unitId,
     dueDate: body.data.dueDate ? new Date(body.data.dueDate) : null,
     correctiveActionDescription: body.data.correctiveActionDescription ?? null,
     effectivenessMethodId: body.data.effectivenessMethodId ?? null,
