@@ -166,9 +166,14 @@ describe("action plans module access", () => {
 
 /**
  * The hub gate would be trivially bypassable if any authenticated member of the
- * org could read a plan by guessing its id. A plan is reachable by whoever holds
- * the hub module, the module that owns its origin, or is personally assigned to
- * it (responsible / effectiveness evaluator — how "Suas Pendências" links here).
+ * org could read a plan by guessing its id. Holding the hub module alone no
+ * longer grants blanket access — visibility follows the same role matrix as the
+ * listing (`canViewActionPlan`): admin/analyst see everything; manager, their
+ * own unit + corporate + whatever they're personally tied to; operator, only
+ * what they're personally tied to. A plan is also reachable through the module
+ * that owns its origin (e.g. `kpi` for a plan spawned from a RAC deviation), or
+ * because the requester is personally assigned to it (responsible / co-
+ * responsible / effectiveness evaluator — how "Suas Pendências" links here).
  */
 describe("action plan detail access", () => {
   it("denies a plan whose origin module the user does not hold", async () => {

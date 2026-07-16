@@ -169,14 +169,33 @@ function requirePlanAccess() {
       .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
     if (!plan) { next(); return; }
 
-    const scope = await getRequesterActionPlanScope(req);
-    const coResponsibleUserIds = await listCoResponsibleIds(planId);
-    const roleAllows = canViewActionPlan(scope, {
-      unitId: plan.unitId,
-      responsibleUserId: plan.responsibleUserId,
-      coResponsibleUserIds,
-      effectivenessEvaluatorUserId: plan.effectivenessEvaluatorUserId,
-    });
+    // Curto-circuito: decide com o que já está em mãos (role + campos do próprio
+    // `plan` acima) antes de consultar o banco. admin/analista e o vínculo direto
+    // (ponto focal/avaliador — já vieram no select do plano) dispensam qualquer
+    // query extra; só o caminho realmente indeciso (operador sem vínculo direto,
+    // ou gestor fora do ponto focal/avaliador) busca co-responsáveis e, se
+    // gestor, a filial — as duas em paralelo. A regra final é idêntica à de
+    // `canViewActionPlan`; só a ORDEM de avaliação muda.
+    const { userId, role } = req.auth!;
+    const personallyFocalOrEvaluator =
+      (plan.responsibleUserId !== null && plan.responsibleUserId === userId) ||
+      (plan.effectivenessEvaluatorUserId !== null && plan.effectivenessEvaluatorUserId === userId);
+    let roleAllows =
+      role === "org_admin" || role === "platform_admin" || role === "analyst" || personallyFocalOrEvaluator;
+
+    if (!roleAllows) {
+      const [coResponsibleUserIds, scope] = await Promise.all([
+        listCoResponsibleIds(planId),
+        getRequesterActionPlanScope(req),
+      ]);
+      roleAllows = canViewActionPlan(scope, {
+        unitId: plan.unitId,
+        responsibleUserId: plan.responsibleUserId,
+        coResponsibleUserIds,
+        effectivenessEvaluatorUserId: plan.effectivenessEvaluatorUserId,
+      });
+    }
+
     const originOwner = SOURCE_MODULE_OWNER[plan.sourceModule];
     const allowed =
       roleAllows ||
