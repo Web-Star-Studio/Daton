@@ -38,6 +38,8 @@ export interface UpdateActionPlanBody {
   rootCause?: string | null;
   rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
+  /** Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal. */
+  coResponsibleUserIds?: number[] | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
   correctiveActionCompletedAt?: string | null;

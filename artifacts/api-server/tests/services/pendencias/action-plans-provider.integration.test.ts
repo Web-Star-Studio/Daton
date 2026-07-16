@@ -3,9 +3,11 @@ import { db, actionPlansTable } from "@workspace/db";
 import {
   cleanupTestContext,
   createTestContext,
+  createTestUser,
   type TestOrgContext,
 } from "../../../../../tests/support/backend";
 import { actionPlanPendenciaProvider } from "../../../src/services/pendencias/providers/action-plans";
+import { setPlanCoResponsibles } from "../../../src/services/action-plans/responsibles";
 
 const contexts: TestOrgContext[] = [];
 afterEach(async () => {
@@ -96,5 +98,45 @@ describe("actionPlanPendenciaProvider", () => {
     expect(items[0].id).toBe(`action_plan:${done.id}`);
     expect(items[0].statusLabel).toBe("Encerrado hoje");
     expect(items[0].urgency).toBe("no_due");
+  });
+
+  it("plano com ponto focal + 2 co-responsáveis vira UMA pendência (não três)", async () => {
+    const ctx = await createTestContext({ seed: "pend-ap-co" });
+    contexts.push(ctx);
+    const ana = await createTestUser(ctx, { suffix: "ana", role: "operator" });
+    const bruno = await createTestUser(ctx, { suffix: "bruno", role: "operator" });
+    const planId = await seedPlan(ctx, { title: "Ação do time", status: "open", dueDate: new Date(2026, 5, 10) });
+    await setPlanCoResponsibles(ctx.organizationId, planId, [ana.id, bruno.id]);
+
+    // escopo unit/org: o solicitante enxerga os três
+    const items = await actionPlanPendenciaProvider.listPending({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId, ana.id, bruno.id],
+      now: NOW,
+      dueSoonDays: 7,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe(`action_plan:${planId}`);
+    expect(items[0].responsibleUserIds).toEqual([ctx.userId, ana.id, bruno.id].sort((a, b) => a - b));
+  });
+
+  it("no escopo 'mine', o co-responsável vê a ação mesmo sem ser o ponto focal", async () => {
+    const ctx = await createTestContext({ seed: "pend-ap-co-mine" });
+    contexts.push(ctx);
+    const ana = await createTestUser(ctx, { suffix: "ana", role: "operator" });
+    const planId = await seedPlan(ctx, { title: "Compartilhada", status: "open", dueDate: new Date(2026, 5, 10) });
+    await setPlanCoResponsibles(ctx.organizationId, planId, [ana.id]);
+
+    const items = await actionPlanPendenciaProvider.listPending({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ana.id], // escopo "mine" da co-responsável
+      now: NOW,
+      dueSoonDays: 7,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0].responsibleUserId).toBe(ana.id); // o id que EXPLICA a linha estar aqui
+    expect(items[0].responsibleUserIds).toEqual([ctx.userId, ana.id].sort((a, b) => a - b));
   });
 });

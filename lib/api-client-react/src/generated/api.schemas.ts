@@ -4564,6 +4564,9 @@ export const ActionPlanSourceModule = {
   kpi: "kpi",
   swot: "swot",
   manual: "manual",
+  improvement: "improvement",
+  corrective: "corrective",
+  norm_requirement: "norm_requirement",
   nonconformity: "nonconformity",
   audit_finding: "audit_finding",
   risk: "risk",
@@ -4604,6 +4607,23 @@ export const ActionPlanEffectivenessResult = {
   pending: "pending",
 } as const;
 
+export type ActionPlanEffectivenessFilter =
+  (typeof ActionPlanEffectivenessFilter)[keyof typeof ActionPlanEffectivenessFilter];
+
+export const ActionPlanEffectivenessFilter = {
+  effective: "effective",
+  ineffective: "ineffective",
+  pending: "pending",
+} as const;
+
+export type ActionPlanDueWindow =
+  (typeof ActionPlanDueWindow)[keyof typeof ActionPlanDueWindow];
+
+export const ActionPlanDueWindow = {
+  overdue: "overdue",
+  due_soon: "due_soon",
+} as const;
+
 /**
  * Structured 5W2H plan. howMuch carries estimated cost (free text).
  */
@@ -4624,7 +4644,7 @@ export interface ActionPlanNormRef {
 }
 
 /**
- * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.
+ * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.
  */
 export interface ActionPlanSourceRef {
   kpiMonthlyValueId?: number;
@@ -4690,6 +4710,14 @@ export interface ActionPlanEvidence {
   uploadedAt: string;
 }
 
+/**
+ * Co-responsável do plano — um dos "outros responsáveis", além do ponto focal.
+ */
+export interface ActionPlanCoResponsible {
+  userId: number;
+  name: string;
+}
+
 export interface ActionPlan {
   id: number;
   organizationId: number;
@@ -4736,6 +4764,8 @@ export interface ActionPlan {
   responsibleUserId?: number | null;
   /** @nullable */
   responsibleUserName?: string | null;
+  /** Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há. */
+  coResponsibles: ActionPlanCoResponsible[];
   /** @nullable */
   dueDate?: string | null;
   /** @nullable */
@@ -4805,6 +4835,8 @@ export interface ActionPlanListItem {
   responsibleUserId?: number | null;
   /** @nullable */
   responsibleUserName?: string | null;
+  /** Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há. */
+  coResponsibles: ActionPlanCoResponsible[];
   /** @nullable */
   dueDate?: string | null;
   /** @minimum 0 */
@@ -4841,6 +4873,8 @@ export interface CreateActionPlanBody {
   rootCause?: string | null;
   rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
+  /** Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal. */
+  coResponsibleUserIds?: number[] | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
   effectivenessMethodId?: number | null;
@@ -4878,6 +4912,8 @@ export interface UpdateActionPlanBody {
   rootCause?: string | null;
   rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
+  /** Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal. */
+  coResponsibleUserIds?: number[] | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
   correctiveActionCompletedAt?: string | null;
@@ -6891,6 +6927,9 @@ export type ListActionPlansParams = {
    * When sourceModule=kpi, filter by linked monthly value id
    */
   sourceKpiMonthlyValueId?: number;
+  actionType?: ActionPlanType;
+  effectiveness?: ActionPlanEffectivenessFilter;
+  dueWindow?: ActionPlanDueWindow;
 };
 
 export type RestoreActionPlanPlanningBody = {

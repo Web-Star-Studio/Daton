@@ -10,7 +10,14 @@ import { BarList, DashCard, MiniBars, type BarItem } from "./mini-charts";
 import { ODS_COLORS } from "./vinculos";
 
 const MONTH_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const SOURCE_COLORS: Record<string, string> = { kpi: "bg-blue-500", swot: "bg-violet-500", manual: "bg-slate-400" };
+const SOURCE_COLORS: Record<string, string> = {
+  kpi: "bg-blue-500",
+  swot: "bg-violet-500",
+  improvement: "bg-emerald-500",
+  corrective: "bg-amber-500",
+  norm_requirement: "bg-rose-500",
+  manual: "bg-slate-400",
+};
 
 function Metric({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return (

@@ -1,5 +1,5 @@
-import { and, eq, gte, isNotNull, isNull, lt, notInArray, or } from "drizzle-orm";
-import { actionPlansTable, db, notificationsTable, usersTable } from "@workspace/db";
+import { and, eq, gte, inArray, isNotNull, isNull, lt, notInArray, or } from "drizzle-orm";
+import { actionPlanResponsiblesTable, actionPlansTable, db, notificationsTable, usersTable } from "@workspace/db";
 import { getResendClient } from "../../lib/resend";
 import { logActionPlanActivity } from "./activity";
 
@@ -34,11 +34,10 @@ export async function runActionPlanEscalationPass(orgId?: number): Promise<Actio
     isNotNull(actionPlansTable.dueDate),
     lt(actionPlansTable.dueDate, todayStart),
     notInArray(actionPlansTable.status, ["completed", "cancelled"]),
-    isNotNull(actionPlansTable.responsibleUserId),
   ];
   if (typeof orgId === "number") conditions.push(eq(actionPlansTable.organizationId, orgId));
 
-  const plans = await db
+  const rows = await db
     .select({
       id: actionPlansTable.id,
       organizationId: actionPlansTable.organizationId,
@@ -50,6 +49,35 @@ export async function runActionPlanEscalationPass(orgId?: number): Promise<Actio
     .from(actionPlansTable)
     .where(and(...conditions));
 
+  // Destinatários = ponto focal + co-responsáveis. Um plano sem ninguém não é cobrável.
+  const coRows = rows.length === 0 ? [] : await db
+    .select({
+      planId: actionPlanResponsiblesTable.actionPlanId,
+      userId: actionPlanResponsiblesTable.userId,
+    })
+    .from(actionPlanResponsiblesTable)
+    .where(inArray(actionPlanResponsiblesTable.actionPlanId, rows.map((r) => r.id)));
+
+  const coByPlan = new Map<number, number[]>();
+  for (const c of coRows) {
+    const bucket = coByPlan.get(c.planId) ?? [];
+    bucket.push(c.userId);
+    coByPlan.set(c.planId, bucket);
+  }
+
+  const plans: PlanRow[] = [];
+  for (const r of rows) {
+    const recipients = [
+      ...new Set([
+        ...(r.responsibleUserId != null ? [r.responsibleUserId] : []),
+        ...(coByPlan.get(r.id) ?? []),
+      ]),
+    ].sort((a, b) => a - b);
+    if (recipients.length === 0) continue; // ninguém a cobrar
+    plans.push({ ...r, recipients });
+  }
+
+  // `scanned` conta PLANOS, não pares — senão um plano com 3 donos viraria 3.
   result.scanned = plans.length;
   if (plans.length === 0) return result;
 
@@ -82,6 +110,8 @@ type PlanRow = {
   title: string;
   dueDate: Date | null;
   responsibleUserId: number | null;
+  /** Ponto focal + co-responsáveis, deduplicados. Nunca vazio. */
+  recipients: number[];
 };
 
 async function processOrg(plans: PlanRow[], todayStart: Date): Promise<{ alertsCreated: number; emailsSent: number }> {
@@ -89,68 +119,70 @@ async function processOrg(plans: PlanRow[], todayStart: Date): Promise<{ alertsC
   const userCache = new Map<number, { id: number; name: string; email: string } | null>();
 
   for (const plan of plans) {
-    if (!plan.responsibleUserId || !plan.dueDate) continue;
+    if (!plan.dueDate) continue;
 
-    let user = userCache.get(plan.responsibleUserId);
-    if (user === undefined) {
-      const [u] = await db
-        .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
-        .from(usersTable)
-        .where(eq(usersTable.id, plan.responsibleUserId))
+    for (const recipientId of plan.recipients) {
+      let user = userCache.get(recipientId);
+      if (user === undefined) {
+        const [u] = await db
+          .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+          .from(usersTable)
+          .where(eq(usersTable.id, recipientId))
+          .limit(1);
+        user = u ?? null;
+        userCache.set(recipientId, user);
+      }
+      if (!user) continue;
+
+      const daysOverdue = Math.max(1, Math.floor((todayStart.getTime() - plan.dueDate.getTime()) / 86_400_000));
+      const ref = plan.code ? `${plan.code} — ` : "";
+      const title = `Ação vencida: ${ref}${plan.title}`;
+      const description = `Prazo expirado em ${formatDateBR(plan.dueDate)} (há ${daysOverdue} dia${daysOverdue === 1 ? "" : "s"}). Atualize o andamento ou conclua a ação.`;
+
+      // Dedupe within today (same plan + user + type).
+      const [existing] = await db
+        .select({ id: notificationsTable.id })
+        .from(notificationsTable)
+        .where(
+          and(
+            eq(notificationsTable.organizationId, plan.organizationId),
+            eq(notificationsTable.userId, user.id),
+            eq(notificationsTable.relatedEntityType, RELATED_ENTITY_TYPE),
+            eq(notificationsTable.relatedEntityId, plan.id),
+            eq(notificationsTable.type, NOTIFICATION_TYPE),
+            gte(notificationsTable.createdAt, todayStart),
+          ),
+        )
         .limit(1);
-      user = u ?? null;
-      userCache.set(plan.responsibleUserId, user);
-    }
-    if (!user) continue;
+      if (existing) continue;
 
-    const daysOverdue = Math.max(1, Math.floor((todayStart.getTime() - plan.dueDate.getTime()) / 86_400_000));
-    const ref = plan.code ? `${plan.code} — ` : "";
-    const title = `Ação vencida: ${ref}${plan.title}`;
-    const description = `Prazo expirado em ${formatDateBR(plan.dueDate)} (há ${daysOverdue} dia${daysOverdue === 1 ? "" : "s"}). Atualize o andamento ou conclua a ação.`;
+      await db.insert(notificationsTable).values({
+        organizationId: plan.organizationId,
+        userId: user.id,
+        type: NOTIFICATION_TYPE,
+        title,
+        description,
+        relatedEntityType: RELATED_ENTITY_TYPE,
+        relatedEntityId: plan.id,
+      });
+      result.alertsCreated += 1;
 
-    // Dedupe within today (same plan + user + type).
-    const [existing] = await db
-      .select({ id: notificationsTable.id })
-      .from(notificationsTable)
-      .where(
-        and(
-          eq(notificationsTable.organizationId, plan.organizationId),
-          eq(notificationsTable.userId, user.id),
-          eq(notificationsTable.relatedEntityType, RELATED_ENTITY_TYPE),
-          eq(notificationsTable.relatedEntityId, plan.id),
-          eq(notificationsTable.type, NOTIFICATION_TYPE),
-          gte(notificationsTable.createdAt, todayStart),
-        ),
-      )
-      .limit(1);
-    if (existing) continue;
+      // Record the escalation in the action's audit trail (once per day, tied to dedupe).
+      await logActionPlanActivity({
+        orgId: plan.organizationId,
+        actionPlanId: plan.id,
+        action: "escalated",
+        userId: null,
+        userName: "Sistema",
+        changes: { kind: "note", message: `Escalonamento automático — ${daysOverdue} dia(s) de atraso. Notificado: ${user.name}.` },
+      });
 
-    await db.insert(notificationsTable).values({
-      organizationId: plan.organizationId,
-      userId: user.id,
-      type: NOTIFICATION_TYPE,
-      title,
-      description,
-      relatedEntityType: RELATED_ENTITY_TYPE,
-      relatedEntityId: plan.id,
-    });
-    result.alertsCreated += 1;
-
-    // Record the escalation in the action's audit trail (once per day, tied to dedupe).
-    await logActionPlanActivity({
-      orgId: plan.organizationId,
-      actionPlanId: plan.id,
-      action: "escalated",
-      userId: null,
-      userName: "Sistema",
-      changes: { kind: "note", message: `Escalonamento automático — ${daysOverdue} dia(s) de atraso. Notificado: ${user.name}.` },
-    });
-
-    try {
-      await sendOverdueEmail({ to: user.email, responsibleName: user.name, title, description, planId: plan.id });
-      result.emailsSent += 1;
-    } catch (err) {
-      console.error("[action-plans] failed to send escalation e-mail", err);
+      try {
+        await sendOverdueEmail({ to: user.email, responsibleName: user.name, title, description, planId: plan.id });
+        result.emailsSent += 1;
+      } catch (err) {
+        console.error("[action-plans] failed to send escalation e-mail", err);
+      }
     }
   }
 
