@@ -391,7 +391,10 @@ router.get("/organizations/:orgId/action-plans/summary", requireAuth, requireMod
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
-  const summary = await computeActionPlanSummary(params.data.orgId);
+  // Mesmo recorte da listagem: sem isso, o operador via "vencidas: 12" no painel
+  // e só 1 plano na lista.
+  const scope = await getRequesterActionPlanScope(req);
+  const summary = await computeActionPlanSummary(params.data.orgId, actionPlanVisibilityCondition(scope));
   res.json(summary);
 });
 

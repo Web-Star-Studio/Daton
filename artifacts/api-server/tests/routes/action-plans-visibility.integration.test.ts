@@ -228,3 +228,54 @@ describe("visibilidade por papel — acesso direto por id (URL)", () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe("visibilidade por papel — summary/dashboards", () => {
+  it("summary do operador conta só os planos dele", async () => {
+    const ctx = await createTestContext({ seed: "sum-op", role: "org_admin" });
+    contexts.push(ctx);
+    const op = await createTestUser(ctx, { suffix: "op", role: "operator", modules: ["actionPlans"] });
+    await seedPlan(ctx, { unitId: null, responsibleUserId: op.id }); // dele
+    await seedPlan(ctx, { unitId: null, responsibleUserId: ctx.userId }); // de outro
+    await seedPlan(ctx, { unitId: null, responsibleUserId: ctx.userId }); // de outro
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/action-plans/summary`)
+      .set(authHeader({ token: op.token }));
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+  });
+
+  it("summary do gestor conta a filial dele + corporativo, não a filial alheia", async () => {
+    const ctx = await createTestContext({ seed: "sum-mgr", role: "org_admin" });
+    contexts.push(ctx);
+    const unitA = await createUnit(ctx, "A");
+    const unitB = await createUnit(ctx, "B");
+    const mgr = await createTestUser(ctx, { suffix: "mgr", role: "manager", modules: ["actionPlans"] });
+    await db.update(usersTable).set({ unitId: unitA.id }).where(eq(usersTable.id, mgr.id));
+    await seedPlan(ctx, { unitId: unitA.id, responsibleUserId: ctx.userId }); // na filial dele
+    await seedPlan(ctx, { unitId: null, responsibleUserId: ctx.userId }); // corporativo
+    await seedPlan(ctx, { unitId: unitB.id, responsibleUserId: ctx.userId }); // filial alheia
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/action-plans/summary`)
+      .set(authHeader({ token: mgr.token }));
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(2);
+  });
+
+  it("summary do admin continua contando a organização inteira", async () => {
+    const ctx = await createTestContext({ seed: "sum-admin", role: "org_admin" });
+    contexts.push(ctx);
+    const unitA = await createUnit(ctx, "A");
+    const op = await createTestUser(ctx, { suffix: "op", role: "operator" });
+    await seedPlan(ctx, { unitId: unitA.id, responsibleUserId: op.id });
+    await seedPlan(ctx, { unitId: null, responsibleUserId: ctx.userId });
+    await seedPlan(ctx, { unitId: null, responsibleUserId: null });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/action-plans/summary`)
+      .set(authHeader(ctx));
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(3);
+  });
+});
