@@ -278,11 +278,13 @@ export default function CatalogoPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<CatalogForm>(EMPTY_FORM);
   const [fichaItem, setFichaItem] = useState<TrainingCatalogItem | null>(null);
-  // Confirmação de exclusão em cascata: aberta quando o DELETE sem cascade
-  // volta 409 (item com obrigatoriedades/turmas/PAT vinculados).
-  const [cascadeConfirm, setCascadeConfirm] = useState<{
+  // Diálogo de exclusão (na interface, nunca window.confirm). Duas fases no
+  // mesmo diálogo: `dependencies: null` é a confirmação simples; quando o DELETE
+  // sem cascade volta 409 (item com obrigatoriedades/turmas/PAT), passa a exibir
+  // o impacto e o "excluir mesmo assim".
+  const [deleteDialog, setDeleteDialog] = useState<{
     item: TrainingCatalogItem;
-    dependencies: CatalogDeletionDependencies;
+    dependencies: CatalogDeletionDependencies | null;
   } | null>(null);
 
   // Normas ofertadas no seletor: as ativas + qualquer inativa já selecionada
@@ -339,27 +341,29 @@ export default function CatalogoPage() {
     setFormOpen(false);
   };
 
-  const handleDelete = async (item: TrainingCatalogItem) => {
-    if (!orgId) return;
-    if (
-      !window.confirm(
-        `Remover "${item.title}" do catálogo? Treinamentos já lançados são preservados.`,
-      )
-    )
-      return;
+  // Passo 1: abre o diálogo de confirmação na interface (nunca window.confirm).
+  const handleDelete = (item: TrainingCatalogItem) => {
+    setDeleteDialog({ item, dependencies: null });
+  };
+
+  // Passo 2: confirma a remoção simples. Tenta sem cascade; se o backend recusa
+  // (409, item com obrigatoriedades/turmas/PAT), passa o MESMO diálogo para a
+  // fase de cascata (mostra o impacto) em vez de mostrar um toast de erro.
+  const confirmDelete = async () => {
+    if (!orgId || !deleteDialog) return;
+    const { item } = deleteDialog;
     try {
       await deleteMutation.mutateAsync({ orgId, itemId: item.id });
       invalidate();
+      setDeleteDialog(null);
       toast({ title: "Treinamento removido do catálogo" });
     } catch (error) {
-      // 409: item tem obrigatoriedades/turmas/PAT vinculados — fluxo
-      // esperado, não é erro. Abre o diálogo de confirmação de cascata em
-      // vez de mostrar um toast de falha.
       const dependencies = readCatalogDeletionDependencies(error);
       if (dependencies) {
-        setCascadeConfirm({ item, dependencies });
+        setDeleteDialog({ item, dependencies });
         return;
       }
+      setDeleteDialog(null);
       toast({
         title: "Não foi possível remover",
         description: apiErrorMessage(error),
@@ -368,21 +372,20 @@ export default function CatalogoPage() {
     }
   };
 
-  // Confirmação de "excluir mesmo assim": apaga o item junto com as
-  // dependências (?cascade=true) — o backend some com as obrigatoriedades,
-  // turmas, PAT e pendências ainda não realizadas, e preserva o registro de
-  // quem já concluiu (histórico).
-  const handleCascadeDelete = async () => {
-    if (!orgId || !cascadeConfirm) return;
+  // Passo 3 (fase cascata): apaga com ?cascade=true — o backend some com as
+  // obrigatoriedades, turmas, PAT e pendências ainda não realizadas, e preserva
+  // o registro de quem já concluiu (histórico).
+  const confirmCascadeDelete = async () => {
+    if (!orgId || !deleteDialog) return;
     try {
       await deleteMutation.mutateAsync({
         orgId,
-        itemId: cascadeConfirm.item.id,
+        itemId: deleteDialog.item.id,
         params: { cascade: true },
       });
       invalidate();
+      setDeleteDialog(null);
       toast({ title: "Treinamento removido do catálogo" });
-      setCascadeConfirm(null);
     } catch (error) {
       toast({
         title: "Não foi possível remover",
@@ -685,29 +688,35 @@ export default function CatalogoPage() {
         ) : null}
       </Dialog>
 
-      {/* Confirmação de exclusão em cascata: aberta quando o DELETE simples
-          volta 409 (item com obrigatoriedades/turmas/PAT vinculados). */}
+      {/* Confirmação de exclusão (na interface). Fase simples até o DELETE voltar
+          409; então mostra o impacto e o "excluir mesmo assim" (cascata). */}
       <Dialog
-        open={!!cascadeConfirm}
-        onOpenChange={(o) => !o && setCascadeConfirm(null)}
-        title={cascadeConfirm ? `Excluir "${cascadeConfirm.item.title}"?` : ""}
+        open={!!deleteDialog}
+        onOpenChange={(o) => !o && setDeleteDialog(null)}
+        title={deleteDialog ? `Remover "${deleteDialog.item.title}"?` : ""}
         size="sm"
       >
-        {cascadeConfirm ? (
+        {deleteDialog ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              {describeCatalogDeletionImpact(cascadeConfirm.dependencies)}
+              {deleteDialog.dependencies
+                ? describeCatalogDeletionImpact(deleteDialog.dependencies)
+                : "Treinamentos já lançados para os colaboradores são preservados."}
             </p>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setCascadeConfirm(null)}>
+              <Button variant="outline" onClick={() => setDeleteDialog(null)}>
                 Cancelar
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => void handleCascadeDelete()}
+                onClick={() =>
+                  void (deleteDialog.dependencies
+                    ? confirmCascadeDelete()
+                    : confirmDelete())
+                }
                 disabled={deleteMutation.isPending}
               >
-                Excluir mesmo assim
+                {deleteDialog.dependencies ? "Excluir mesmo assim" : "Remover"}
               </Button>
             </DialogFooter>
           </div>
