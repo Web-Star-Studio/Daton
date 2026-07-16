@@ -87,12 +87,13 @@ manter as demais como `null`.
 Espelhando `canActOnKpiIndicator`, um predicado puro (sem DB), **compartilhado front/back**:
 
 ```ts
-// services/action-plans/access.ts (back) + lib/action-plans-access.ts (front) — manter em sync
+// services/action-plans/access.ts (back) + lib/action-plans-access.ts (front) — manter em sync.
+// Espelha KpiRequesterScope: o gestor tem UMA filial (users.unit_id), como no KPI.
 interface ActionPlanRequesterScope {
   role: UserRole;
   userId: number;
-  /** Filiais que o gestor administra (via unit_managers). Vazio para não-gestores. */
-  unitIds: number[];
+  /** Filial do gestor (users.unit_id); null para os demais perfis. */
+  unitId: number | null;
 }
 interface ActionPlanAccessFields {
   unitId: number | null;            // null = corporativo
@@ -101,15 +102,16 @@ interface ActionPlanAccessFields {
   effectivenessEvaluatorUserId: number | null;
 }
 function canViewActionPlan(scope, plan): boolean {
-  if (isAdmin(scope.role)) return true;
-  if (scope.role === "analyst") return true; // leitura; a escrita é barrada por requireWriteAccess
+  if (isAdmin(scope.role)) return true;             // org_admin / platform_admin
+  if (scope.role === "analyst") return true;        // leitura; a escrita é barrada por requireWriteAccess
   const personallyInvolved =
     plan.responsibleUserId === scope.userId ||
     plan.coResponsibleUserIds.includes(scope.userId) ||
     plan.effectivenessEvaluatorUserId === scope.userId;
   if (personallyInvolved) return true;
   if (scope.role === "manager") {
-    return plan.unitId === null || scope.unitIds.includes(plan.unitId); // corporativo OU minha filial
+    // corporativo (unit nulo) OU a filial do gestor
+    return plan.unitId === null || (scope.unitId !== null && plan.unitId === scope.unitId);
   }
   return false; // operator: só pessoalmente vinculado
 }
@@ -117,6 +119,9 @@ function canViewActionPlan(scope, plan): boolean {
 
 O analista vê tudo mas nunca escreve — a escrita já é barrada pelo `requireWriteAccess` existente
 (analyst é read-only). O predicado só governa **visibilidade**.
+
+**Divergência deliberada do KPI (decisão da cliente):** no KPI o analista vê só o que é dele + LMS;
+aqui o analista vê **tudo** (perfil auditor). É a única diferença de matriz entre os dois módulos.
 
 ## 5. Onde o escopo se aplica
 
@@ -153,11 +158,13 @@ allowed =
 complexa. A via de origem só sobra para origens **não-manuais** (para manual, `originOwner` é o próprio
 `actionPlans`, que agora é role-scoped — é exatamente o buraco que fechamos).
 
-## 6. Como o gestor obtém suas filiais
+## 6. Como o gestor obtém a filial
 
-Via `unit_managers` (N:N `userId ↔ unitId`) — um gestor pode administrar várias filiais. O `scope`
-do solicitante é montado no início da rota (como o KPI monta `KpiRequesterScope`): `{ role, userId,
-unitIds }`, onde `unitIds` vem de `unit_managers` quando `role === "manager"`, senão `[]`.
+**Exatamente como o KPI** (`getRequesterKpiScope`, `routes/kpi/index.ts:143`): o gestor tem UMA
+filial, `users.unit_id` (obrigatória na camada de app para o papel `manager`). O `scope` é montado no
+início da rota: `{ role, userId, unitId }`, onde `unitId = users.unit_id` quando `role === "manager"`,
+senão `null`. **Não** usa `unit_managers` — para manter paridade com o KPI (a tabela `unit_managers`
+existe para outra finalidade; se um dia a visibilidade virar multi-filial, muda-se KPI e Ações juntos).
 
 ## 7. Migração (produção)
 
