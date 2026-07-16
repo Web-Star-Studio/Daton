@@ -218,7 +218,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/aprendizagem/minha-area", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
-      { prefix: "/organizacao/cargos", module: "positions" },
       { prefix: "/organizacao/swot", module: "swot" },
       { prefix: "/governanca", module: "governance" },
       { prefix: "/ambiental", module: "environmental" },
@@ -464,9 +463,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       : []),
     ...(hasModuleAccess("departments")
       ? [{ href: "/organizacao/departamentos", label: "Departamentos" }]
-      : []),
-    ...(hasModuleAccess("positions")
-      ? [{ href: "/organizacao/cargos", label: "Cargos" }]
       : []),
     ...(hasModuleAccess("swot")
       ? [{ href: "/organizacao/swot", label: "SWOT" }]
