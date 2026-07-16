@@ -41,6 +41,7 @@ import {
   requireWriteAccess,
   userHasModuleAccess,
   type AppModule,
+  type AuthPayload,
 } from "../middlewares/auth";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
 import { deriveActionPlanUnit } from "../services/action-plans/derive-unit";
@@ -130,6 +131,27 @@ const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
   corrective: "actionPlans",
   norm_requirement: "actionPlans",
 };
+
+/**
+ * Origens (`sourceModule`) cujo módulo-dono (`SOURCE_MODULE_OWNER`) o usuário TEM,
+ * excluindo a família `actionPlans` (manual/improvement/corrective/norm_requirement).
+ * É a via de origem da LISTAGEM — espelha em lote a cláusula extra do
+ * `requirePlanAccess` (`originOwner !== "actionPlans" && hasModule(originOwner)`),
+ * usada para compor um `inArray` em vez de checar plano a plano. A exclusão da
+ * família manual é o que impede `hasModule(actionPlans)` de virar, de novo, porta
+ * de entrada única para qualquer plano — exatamente o buraco que a visibilidade
+ * por papel fechou (ver `actionPlanVisibilityCondition`).
+ */
+async function accessibleOriginSourceModules(auth: AuthPayload): Promise<ActionPlanSourceModule[]> {
+  const ownerModules = [...new Set(
+    Object.values(SOURCE_MODULE_OWNER).filter((owner): owner is AppModule => owner !== "actionPlans"),
+  )];
+  const hasAccess = await Promise.all(ownerModules.map((owner) => userHasModuleAccess(auth, owner)));
+  const grantedOwners = new Set(ownerModules.filter((_, i) => hasAccess[i]));
+  return (Object.entries(SOURCE_MODULE_OWNER) as [ActionPlanSourceModule, AppModule][])
+    .filter(([, owner]) => grantedOwners.has(owner))
+    .map(([sourceModule]) => sourceModule);
+}
 
 /**
  * Guarda toda rota `/:planId`. Sem isso, o gate da listagem seria burlável por
@@ -326,10 +348,22 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
 
   // Visibilidade por papel: o gate acima só decide se o hub ABRE; esta condição
   // decide QUAIS planos aparecem dentro dele (operador só os seus, gestor a
-  // filial+corporativo). admin/analista não têm restrição (undefined).
+  // filial+corporativo). admin/analista não têm restrição (undefined). Espelha
+  // EXATAMENTE o `requirePlanAccess` (mesma regra do acesso direto por id): papel
+  // OU via de origem genuína. Sem a via de origem aqui, a listagem ficava mais
+  // restrita que o `requirePlanAccess` e o widget "Ações vinculadas" (embutido nas
+  // telas de KPI/governança/...) devolvia 200 [] para quem só tinha o módulo de
+  // origem — achado da revisão final de branch.
   const scope = await getRequesterActionPlanScope(req);
-  const visibility = actionPlanVisibilityCondition(scope);
-  if (visibility) conditions.push(visibility);
+  const roleVisibility = actionPlanVisibilityCondition(scope);
+  if (roleVisibility) {
+    const originModules = await accessibleOriginSourceModules(req.auth!);
+    conditions.push(
+      originModules.length > 0
+        ? or(roleVisibility, inArray(actionPlansTable.sourceModule, originModules))!
+        : roleVisibility,
+    );
+  }
 
   const plans = await db
     .select()
@@ -405,6 +439,17 @@ router.get("/organizations/:orgId/action-plans/external-actions", requireAuth, r
   const params = ListExternalActionsParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  // A ponte devolve TODAS as ações corretivas de governança da org: nem
+  // `nonconformities` nem `corrective_actions` têm filial (`unit_id`), e o
+  // serializer só expõe o NOME do responsável (não o id) — não dá pra escopar por
+  // filial nem por vínculo pessoal como fazemos com os planos do hub. Só quem já
+  // enxerga a organização inteira de qualquer jeito (admin/analista) pode ver a
+  // ponte; gestor e operador recebem lista vazia (achado da revisão final —
+  // senão o operador continuava vendo ações que não são dele, a queixa original).
+  const scope = await getRequesterActionPlanScope(req);
+  const seesOrgWide = scope.role === "org_admin" || scope.role === "platform_admin" || scope.role === "analyst";
+  if (!seesOrgWide) { res.json([]); return; }
 
   const items = await listExternalActions(params.data.orgId);
   res.json(items);

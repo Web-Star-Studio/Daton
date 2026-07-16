@@ -1,6 +1,6 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
-import { actionPlansTable, db } from "@workspace/db";
+import { actionPlansTable, correctiveActionsTable, db, nonconformitiesTable } from "@workspace/db";
 import type { ActionPlanSourceModule } from "@workspace/db";
 import app from "../../src/app";
 import {
@@ -34,6 +34,35 @@ async function createPlan(
     })
     .returning({ id: actionPlansTable.id });
   return plan.id;
+}
+
+/** Semeia uma NC + ação corretiva de governança — a fonte da ponte read-only
+ *  `external-actions`. */
+async function seedGovernanceCorrectiveAction(ctx: TestOrgContext): Promise<void> {
+  const [nc] = await db
+    .insert(nonconformitiesTable)
+    .values({
+      organizationId: ctx.organizationId,
+      originType: "process",
+      title: `NC ${ctx.prefix}`,
+      description: "desc",
+      status: "open",
+      responsibleUserId: ctx.userId,
+      createdById: ctx.userId,
+      updatedById: ctx.userId,
+    })
+    .returning({ id: nonconformitiesTable.id });
+
+  await db.insert(correctiveActionsTable).values({
+    organizationId: ctx.organizationId,
+    nonconformityId: nc.id,
+    title: `Ação corretiva ${ctx.prefix}`,
+    description: "desc",
+    status: "pending",
+    responsibleUserId: ctx.userId,
+    createdById: ctx.userId,
+    updatedById: ctx.userId,
+  });
 }
 
 afterEach(async () => {
@@ -104,10 +133,44 @@ describe("action plans module access", () => {
       modules: ["kpi"],
     });
     contexts.push(context);
+    // Ponto focal é OUTRA pessoa: o usuário do teste não tem vínculo pessoal
+    // nenhum com o plano — só o módulo de origem (kpi, dono de "rac"). Sem a via
+    // de origem NA LISTAGEM (achado da revisão final), esta consulta devolvia
+    // [] mesmo o widget "Ações vinculadas" tendo acesso à tela de origem.
+    const outro = await createTestUser(context, { suffix: "focal", role: "operator" });
+    const planId = await createPlan(context.organizationId, {
+      sourceModule: "rac",
+      responsibleUserId: outro.id,
+    });
 
     const response = await request(app)
       .get(`/api/organizations/${context.organizationId}/action-plans`)
       .query({ sourceModule: "rac" })
+      .set(authHeader(context));
+
+    expect(response.status).toBe(200);
+    expect(response.body.map((p: { id: number }) => p.id)).toEqual([planId]);
+  });
+
+  it("does NOT extend the origin route to the manual family, even for an actionPlans holder with no personal link", async () => {
+    // O dono de manual/improvement/corrective/norm_requirement é o próprio
+    // `actionPlans` — incluir essa família na via de origem reabriria o acesso
+    // irrestrito que a visibilidade por papel fechou (hasModule(actionPlans)
+    // virando, de novo, porta única para qualquer plano).
+    const context = await createTestContext({
+      seed: "ap-embed-manual",
+      role: "operator",
+      modules: ["actionPlans"],
+    });
+    contexts.push(context);
+    const outro = await createTestUser(context, { suffix: "focal", role: "operator" });
+    await createPlan(context.organizationId, {
+      sourceModule: "manual",
+      responsibleUserId: outro.id,
+    });
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans`)
       .set(authHeader(context));
 
     expect(response.status).toBe(200);
@@ -319,5 +382,82 @@ describe("action plan detail access", () => {
       .set(authHeader(context));
 
     expect(response.status).toBe(200);
+  });
+});
+
+/**
+ * A ponte `external-actions` (ações corretivas de governança) é org-wide por
+ * construção: nem `nonconformities` nem `corrective_actions` têm filial, e o
+ * serializer não expõe o id do responsável — não dá pra escopar por filial nem
+ * por vínculo pessoal como os planos do hub. Só quem já enxerga a organização
+ * inteira de qualquer forma (admin/analista) pode vê-la; gestor e operador
+ * recebem lista vazia, mesmo segurando o módulo `actionPlans`.
+ */
+describe("external actions bridge scoped by role", () => {
+  it("returns an empty list to an operator holding actionPlans", async () => {
+    const context = await createTestContext({
+      seed: "ap-ext-operator",
+      role: "operator",
+      modules: ["actionPlans"],
+    });
+    contexts.push(context);
+    await seedGovernanceCorrectiveAction(context);
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/external-actions`)
+      .set(authHeader(context));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([]);
+  });
+
+  it("returns an empty list to a manager holding actionPlans", async () => {
+    const context = await createTestContext({
+      seed: "ap-ext-manager",
+      role: "manager",
+      modules: ["actionPlans"],
+    });
+    contexts.push(context);
+    await seedGovernanceCorrectiveAction(context);
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/external-actions`)
+      .set(authHeader(context));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([]);
+  });
+
+  it("returns the corrective actions to an org admin", async () => {
+    const context = await createTestContext({
+      seed: "ap-ext-admin",
+      role: "org_admin",
+    });
+    contexts.push(context);
+    await seedGovernanceCorrectiveAction(context);
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/external-actions`)
+      .set(authHeader(context));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(1);
+  });
+
+  it("returns the corrective actions to an analyst holding actionPlans", async () => {
+    const context = await createTestContext({
+      seed: "ap-ext-analyst",
+      role: "analyst",
+      modules: ["actionPlans"],
+    });
+    contexts.push(context);
+    await seedGovernanceCorrectiveAction(context);
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/external-actions`)
+      .set(authHeader(context));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(1);
   });
 });
