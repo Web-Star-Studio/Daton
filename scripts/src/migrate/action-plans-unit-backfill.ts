@@ -25,8 +25,14 @@
  * null de novo para o mesmo trio (org, origem, sourceRef/ponto focal) — nada
  * é escrito, nada muda. É isso que torna o script idempotente.
  *
+ * SEM --commit: dry-run — calcula e imprime as contagens, não grava nada.
+ * COM --commit: aplica de verdade (mesma convenção de
+ * backfill-action-plans-module.ts, effectiveness-methods-backfill.ts e
+ * norms-catalog-backfill.ts, os outros backfills de produção deste diretório).
+ *
  * Uso:
- *   TEST_ENV=integration pnpm exec tsx scripts/src/migrate/action-plans-unit-backfill.ts
+ *   TEST_ENV=integration pnpm exec tsx scripts/src/migrate/action-plans-unit-backfill.ts             → dry-run
+ *   TEST_ENV=integration pnpm exec tsx scripts/src/migrate/action-plans-unit-backfill.ts --commit     → aplica
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -71,11 +77,17 @@ const { db, pool, actionPlansTable } = await import("@workspace/db");
 const { deriveActionPlanUnit } =
   await import("../../../artifacts/api-server/src/services/action-plans/derive-unit");
 
+const COMMIT = process.argv.includes("--commit");
+
 // HOST do banco alvo, sempre impresso primeiro — antes de qualquer SELECT ou
 // UPDATE — para quem rodar o script ver de imediato onde está batendo.
 const dbHost = new URL(process.env.DATABASE_URL).host;
 console.log(`Banco alvo: ${dbHost}`);
-console.log(`TEST_ENV:   ${testEnv ?? "(não definido)"}\n`);
+console.log(`TEST_ENV:   ${testEnv ?? "(não definido)"}`);
+console.log(
+  COMMIT ? "=== APLICANDO (--commit) ===" : "=== DRY-RUN (sem --commit) ===",
+);
+console.log();
 
 async function main() {
   const plans = await db
@@ -108,10 +120,13 @@ async function main() {
       corporate: 0,
     };
     if (unitId != null) {
-      await db
-        .update(actionPlansTable)
-        .set({ unitId })
-        .where(eq(actionPlansTable.id, plan.id));
+      // Em dry-run não grava — só simula a contagem que o --commit produziria.
+      if (COMMIT) {
+        await db
+          .update(actionPlansTable)
+          .set({ unitId })
+          .where(eq(actionPlansTable.id, plan.id));
+      }
       assignedToUnit++;
       orgStats.unit++;
     } else {
@@ -124,7 +139,11 @@ async function main() {
 
   console.log(`\nResumo:`);
   console.log(`  Processados:                 ${plans.length}`);
-  console.log(`  Atribuídos a uma filial:     ${assignedToUnit}`);
+  console.log(
+    COMMIT
+      ? `  Atribuídos a uma filial:     ${assignedToUnit}`
+      : `  Seriam atribuídos a uma filial: ${assignedToUnit}`,
+  );
   console.log(`  Corporativo (unit_id=null):  ${corporate}`);
 
   if (byOrg.size > 0) {
@@ -136,6 +155,12 @@ async function main() {
         `  org ${orgId}: ${stats.unit} filial, ${stats.corporate} corporativo`,
       );
     }
+  }
+
+  if (!COMMIT) {
+    console.log(
+      "\n*** DRY-RUN — nada foi gravado. Rode novamente com --commit para aplicar. ***",
+    );
   }
 }
 
