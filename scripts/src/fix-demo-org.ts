@@ -315,6 +315,48 @@ async function corrigirDocumentos(orgId: number, tx: typeof db): Promise<void> {
   console.log(`  [7] documentos: ${ajustados} com norma aplicável preenchida (o filtro exige o rótulo exato)`);
 }
 
+/**
+ * CAUSA 8 — nenhum indicador tinha filial.
+ *
+ * O seed de KPI põe a filial no NOME ("% de Avaria - Sede Principal") e deixa
+ * `unit_id` NULL: 151 de 151 assim. O filtro por filial da tela de Indicadores
+ * não funcionava para nenhum. Como o nome carrega a informação, dá para religar
+ * por parsing — e de quebra resolve os indicadores que ficaram órfãos quando as
+ * filiais fantasma foram removidas.
+ */
+async function religarIndicadoresAFilial(orgId: number, tx: typeof db): Promise<number> {
+  const units = await tx
+    .select({ id: unitsTable.id, name: unitsTable.name })
+    .from(unitsTable)
+    .where(eq(unitsTable.organizationId, orgId));
+  if (units.length === 0) return 0;
+
+  const indicadores = await tx
+    .select({ id: kpiIndicatorsTable.id, name: kpiIndicatorsTable.name })
+    .from(kpiIndicatorsTable)
+    .where(and(eq(kpiIndicatorsTable.organizationId, orgId), isNull(kpiIndicatorsTable.unitId)));
+
+  // Casa o nome da filial dentro do nome do indicador; a mais longa primeiro,
+  // senão "Sede Principal" perde para um match parcial.
+  const ordenadas = [...units].sort((a, b) => b.name.length - a.name.length);
+  const semFilial = units[0].id;
+
+  let religados = 0;
+  for (const [i, ind] of indicadores.entries()) {
+    const alvo = ordenadas.find((u) => ind.name.toLowerCase().includes(u.name.toLowerCase()));
+    // Indicador corporativo/sem filial no nome: distribui para não deixar o
+    // filtro por filial com uma única opção povoada.
+    const unitId = alvo?.id ?? units[i % units.length].id;
+    await tx
+      .update(kpiIndicatorsTable)
+      .set({ unitId })
+      .where(and(eq(kpiIndicatorsTable.organizationId, orgId), eq(kpiIndicatorsTable.id, ind.id)));
+    religados += 1;
+  }
+  console.log(`  [8] indicadores religados a filial: ${religados}`);
+  return religados;
+}
+
 /** Fatores de desempenho sem responsável não geram pendência nem aparecem como "meus". */
 async function atribuirFatores(orgId: number, tx: typeof db, alvoUserId: number): Promise<void> {
   const r = await tx
@@ -350,6 +392,8 @@ async function main(): Promise<void> {
     await removerFiliaisFantasma(orgId, tx as unknown as typeof db);
     await atribuirResponsaveis(orgId, tx as unknown as typeof db, alvo.id);
     await atribuirFiliais(orgId, tx as unknown as typeof db);
+    // Depois de remover as fantasma: religa contra as filiais que sobraram.
+    await religarIndicadoresAFilial(orgId, tx as unknown as typeof db);
     await reancorarDatas(orgId, tx as unknown as typeof db);
     await atribuirFatores(orgId, tx as unknown as typeof db, alvo.id);
     await corrigirGutETextos(orgId, tx as unknown as typeof db);
