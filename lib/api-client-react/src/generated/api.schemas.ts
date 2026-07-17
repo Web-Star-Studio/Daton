@@ -1362,6 +1362,7 @@ export interface EmployeeTraining {
   description?: string | null;
   objective?: string | null;
   institution?: string | null;
+  instructor?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: EmployeeTrainingTargetCompetencyType;
   targetCompetencyLevel?: number | null;
@@ -1434,6 +1435,7 @@ export interface OrganizationTraining {
   description?: string | null;
   objective?: string | null;
   institution?: string | null;
+  instructor?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: OrganizationTrainingTargetCompetencyType;
   targetCompetencyLevel?: number | null;
@@ -1818,6 +1820,7 @@ export interface CreateTrainingBody {
   description?: string;
   objective?: string;
   institution?: string;
+  instructor?: string;
   targetCompetencyName?: string;
   targetCompetencyType?: CreateTrainingBodyTargetCompetencyType;
   /**
@@ -1901,6 +1904,7 @@ export interface UpdateTrainingBody {
   description?: string;
   objective?: string;
   institution?: string;
+  instructor?: string;
   targetCompetencyName?: string;
   targetCompetencyType?: UpdateTrainingBodyTargetCompetencyType;
   /**
@@ -2057,6 +2061,9 @@ export interface Position {
   level?: string | null;
   minSalary?: number | null;
   maxSalary?: number | null;
+  area?: string | null;
+  principalNormId?: number | null;
+  competencyCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -2071,6 +2078,8 @@ export interface CreatePositionBody {
   level?: string;
   minSalary?: number;
   maxSalary?: number;
+  area?: string;
+  principalNormId?: number | null;
 }
 
 export interface UpdatePositionBody {
@@ -2083,6 +2092,8 @@ export interface UpdatePositionBody {
   level?: string;
   minSalary?: number;
   maxSalary?: number;
+  area?: string;
+  principalNormId?: number | null;
 }
 
 /**

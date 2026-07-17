@@ -16,4 +16,6 @@ export interface UpdatePositionBody {
   level?: string;
   minSalary?: number;
   maxSalary?: number;
+  area?: string;
+  principalNormId?: number | null;
 }

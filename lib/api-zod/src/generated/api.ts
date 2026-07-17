@@ -1761,6 +1761,7 @@ export const ListOrganizationTrainingsResponse = zod.object({
       description: zod.string().nullish(),
       objective: zod.string().nullish(),
       institution: zod.string().nullish(),
+      instructor: zod.string().nullish(),
       targetCompetencyName: zod.string().nullish(),
       targetCompetencyType: zod
         .enum(["formacao", "experiencia", "habilidade"])
@@ -2267,6 +2268,7 @@ export const GetEmployeeResponse = zod
             description: zod.string().nullish(),
             objective: zod.string().nullish(),
             institution: zod.string().nullish(),
+            instructor: zod.string().nullish(),
             targetCompetencyName: zod.string().nullish(),
             targetCompetencyType: zod
               .enum(["formacao", "experiencia", "habilidade"])
@@ -2807,6 +2809,7 @@ export const ListTrainingsResponseItem = zod.object({
   description: zod.string().nullish(),
   objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -2940,6 +2943,7 @@ export const CreateTrainingBody = zod.object({
   description: zod.string().optional(),
   objective: zod.string().optional(),
   institution: zod.string().optional(),
+  instructor: zod.string().optional(),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -2996,6 +3000,7 @@ export const UpdateTrainingBody = zod.object({
   description: zod.string().optional(),
   objective: zod.string().optional(),
   institution: zod.string().optional(),
+  instructor: zod.string().optional(),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -3063,6 +3068,7 @@ export const UpdateTrainingResponse = zod.object({
   description: zod.string().nullish(),
   objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -3219,6 +3225,7 @@ export const AssignTrainingEffectivenessResponse = zod.object({
   description: zod.string().nullish(),
   objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -3814,6 +3821,9 @@ export const ListPositionsResponseItem = zod.object({
   level: zod.string().nullish(),
   minSalary: zod.number().nullish(),
   maxSalary: zod.number().nullish(),
+  area: zod.string().nullish(),
+  principalNormId: zod.number().nullish(),
+  competencyCount: zod.number().optional(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });
@@ -3836,6 +3846,8 @@ export const CreatePositionBody = zod.object({
   level: zod.string().optional(),
   minSalary: zod.number().optional(),
   maxSalary: zod.number().optional(),
+  area: zod.string().optional(),
+  principalNormId: zod.number().nullish(),
 });
 
 /**
@@ -3857,6 +3869,8 @@ export const ImportPositionsBody = zod.object({
       level: zod.string().optional(),
       minSalary: zod.number().optional(),
       maxSalary: zod.number().optional(),
+      area: zod.string().optional(),
+      principalNormId: zod.number().nullish(),
     }),
   ),
   conflictStrategy: zod
@@ -3883,6 +3897,8 @@ export const UpdatePositionBody = zod.object({
   level: zod.string().optional(),
   minSalary: zod.number().optional(),
   maxSalary: zod.number().optional(),
+  area: zod.string().optional(),
+  principalNormId: zod.number().nullish(),
 });
 
 export const UpdatePositionResponse = zod.object({
@@ -3897,6 +3913,9 @@ export const UpdatePositionResponse = zod.object({
   level: zod.string().nullish(),
   minSalary: zod.number().nullish(),
   maxSalary: zod.number().nullish(),
+  area: zod.string().nullish(),
+  principalNormId: zod.number().nullish(),
+  competencyCount: zod.number().optional(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });

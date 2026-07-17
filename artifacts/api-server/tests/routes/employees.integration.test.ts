@@ -308,10 +308,12 @@ describe("employees routes", () => {
         targetCompetencyType: "habilidade",
         targetCompetencyLevel: 5,
         evaluationMethod: "Observacao em auditoria real",
+        instructor: "Ana Instrutora",
         status: "concluido",
       });
 
     expect(training.status).toBe(201);
+    expect(training.body.instructor).toBe("Ana Instrutora");
 
     const review = await request(app)
       .post(

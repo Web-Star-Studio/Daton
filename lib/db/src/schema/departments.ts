@@ -24,6 +24,13 @@ export const positionsTable = pgTable("positions", {
   level: text("level"),
   minSalary: integer("min_salary"),
   maxSalary: integer("max_salary"),
+  // Setor do cargo (Operações/Logística/...). Texto livre; o filtro da tela deriva
+  // as áreas distintas presentes.
+  area: text("area"),
+  // Norma ISO principal do cargo (regulatory_norms.id). Integer simples aqui — a FK
+  // (ON DELETE SET NULL) é adicionada por DDL, seguindo a convenção do repo de evitar
+  // referência no schema Drizzle.
+  principalNormId: integer("principal_norm_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

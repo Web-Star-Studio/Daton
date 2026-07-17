@@ -16,4 +16,6 @@ export interface CreatePositionBody {
   level?: string;
   minSalary?: number;
   maxSalary?: number;
+  area?: string;
+  principalNormId?: number | null;
 }

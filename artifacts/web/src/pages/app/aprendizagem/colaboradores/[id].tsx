@@ -32,6 +32,7 @@ import {
   getStrategicPlan,
   getGetEmployeeQueryKey,
   getListEmployeesQueryKey,
+  useListEmployees,
   getListDepartmentsQueryKey,
   getListPositionsQueryKey,
   CreateCompetencyBodyType as CreateCompetencyBodyTypeValues,
@@ -70,6 +71,7 @@ import { ProfileItemAttachmentsField } from "@/components/employees/profile-item
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -93,6 +95,7 @@ import {
   type UploadedFileRef,
 } from "@/lib/uploads";
 import { cn } from "@/lib/utils";
+import { downloadTrainingCertificate } from "@/lib/training-certificate-pdf";
 import {
   ArrowLeft,
   Pencil,
@@ -107,6 +110,7 @@ import {
   Archive,
   CheckCircle2,
   CalendarCheck,
+  Download,
   XCircle,
   Building2,
   AlertTriangle,
@@ -2204,6 +2208,7 @@ type TrainingForm = {
   description: string;
   objective: string;
   institution: string;
+  instructor: string;
   targetCompetencyName: string;
   targetCompetencyType: CreateTrainingBodyTargetCompetencyType;
   targetCompetencyLevel: number;
@@ -2243,6 +2248,9 @@ function TreinamentosTab({
   orgId,
   empId,
   employeeName,
+  employeeCpf,
+  employeePosition,
+  orgName,
   editable = true,
   createOpen = false,
   onCreateOpenChange,
@@ -2252,6 +2260,9 @@ function TreinamentosTab({
   orgId: number;
   empId: number;
   employeeName?: string;
+  employeeCpf?: string | null;
+  employeePosition?: string | null;
+  orgName?: string;
   editable?: boolean;
   createOpen?: boolean;
   onCreateOpenChange?: (open: boolean) => void;
@@ -2301,6 +2312,7 @@ function TreinamentosTab({
     description: "",
     objective: "",
     institution: "",
+    instructor: "",
     targetCompetencyName: "",
     targetCompetencyType:
       CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
@@ -2325,6 +2337,37 @@ function TreinamentosTab({
     queryClient.invalidateQueries({
       queryKey: getGetEmployeeQueryKey(orgId, empId),
     });
+
+  // Instrutor: busca server-side na lista de funcionários (escala p/ empresas
+  // grandes) + permite texto livre (palestrante de fora) via onCreateOption.
+  const [instructorSearch, setInstructorSearch] = useState("");
+  const instructorEmpParams = {
+    search: instructorSearch || undefined,
+    pageSize: 50,
+  };
+  const { data: instructorEmployeesResult } = useListEmployees(
+    orgId,
+    instructorEmpParams,
+    {
+      query: {
+        enabled: !!orgId && !!editingTraining,
+        queryKey: getListEmployeesQueryKey(orgId, instructorEmpParams),
+      },
+    },
+  );
+  const instructorOptions = (instructorEmployeesResult?.data ?? []).map((e) => ({
+    value: e.name,
+    label: e.name,
+  }));
+  if (
+    form.instructor &&
+    !instructorOptions.some((o) => o.value === form.instructor)
+  ) {
+    instructorOptions.unshift({
+      value: form.instructor,
+      label: form.instructor,
+    });
+  }
 
   useEffect(() => {
     if (!isCreateOpen || !prefillTraining) return;
@@ -2402,6 +2445,7 @@ function TreinamentosTab({
       description: t.description || "",
       objective: t.objective || "",
       institution: t.institution || "",
+      instructor: t.instructor || "",
       targetCompetencyName: t.targetCompetencyName || "",
       targetCompetencyType:
         t.targetCompetencyType ||
@@ -2428,6 +2472,7 @@ function TreinamentosTab({
         description: form.description || undefined,
         objective: form.objective || undefined,
         institution: form.institution || undefined,
+        instructor: form.instructor || undefined,
         targetCompetencyName: form.targetCompetencyName || undefined,
         targetCompetencyType: form.targetCompetencyName
           ? form.targetCompetencyType
@@ -2599,6 +2644,7 @@ function TreinamentosTab({
                       )}
                       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                         {t.institution && <span>{t.institution}</span>}
+                        {t.instructor && <span>Instrutor: {t.instructor}</span>}
                         <TrainingWorkloadCell hours={t.workloadHours} />
                         {t.completionDate && (
                           <span>Concluído: {t.completionDate}</span>
@@ -2716,6 +2762,48 @@ function TreinamentosTab({
                     {editable && (
                       <TooltipProvider delayDuration={200}>
                         <div className="flex items-center gap-1">
+                          {isConcluido && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className="inline-flex"
+                                  tabIndex={t.completionDate ? undefined : 0}
+                                >
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0"
+                                    aria-label="Baixar certificado"
+                                    disabled={!t.completionDate}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void downloadTrainingCertificate({
+                                      orgName: orgName ?? "",
+                                      employeeName: employeeName ?? "",
+                                      employeeCpf,
+                                      employeePosition,
+                                      title: t.title,
+                                      completionDate: t.completionDate,
+                                      workloadHours: t.workloadHours,
+                                      institution: t.institution,
+                                      instructor: t.instructor,
+                                      expirationDate: t.expirationDate,
+                                      competencyName: t.targetCompetencyName,
+                                    });
+                                  }}
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {t.completionDate
+                                  ? "Baixar certificado"
+                                  : "Informe a data de conclusão para emitir o certificado"}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                           {isConcluido && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -2912,6 +3000,28 @@ function TreinamentosTab({
                 className="mt-1"
               />
             </div>
+          </div>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground">
+              Instrutor
+            </Label>
+            <SearchableSelect
+              value={form.instructor}
+              options={instructorOptions}
+              placeholder="Escolha um funcionário ou digite um nome..."
+              searchValue={instructorSearch}
+              onSearchChange={setInstructorSearch}
+              onChange={(name) =>
+                setForm((current) => ({ ...current, instructor: name }))
+              }
+              onCreateOption={(name) =>
+                setForm((current) => ({ ...current, instructor: name }))
+              }
+              createOptionLabel={(input) => `Usar “${input}” (externo)`}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Funcionário da lista ou o nome de um palestrante externo.
+            </p>
           </div>
           <ProfileItemAttachmentsField
             attachments={mapRecordAttachmentItems(
@@ -3540,9 +3650,10 @@ function ConscientizacaoTab({
 }
 
 export default function ColaboradorDetailPage() {
-  const { user } = useAuth();
+  const { user, organization } = useAuth();
   const { canWriteModule, hasModuleAccess } = usePermissions();
   const orgId = user?.organizationId;
+  const orgName = organization?.tradeName || organization?.name || "";
   const canWriteEmployees = canWriteModule("employees");
   const canAccessGovernance = hasModuleAccess("governance");
   const params = useParams<{ id: string }>();
@@ -4022,6 +4133,9 @@ export default function ColaboradorDetailPage() {
             orgId={orgId}
             empId={empId}
             employeeName={employee.name}
+            employeeCpf={employee.cpf}
+            employeePosition={employee.position}
+            orgName={orgName}
             editable={canWriteEmployees}
             createOpen={trainingCreateOpen}
             onCreateOpenChange={handleTrainingCreateOpenChange}
