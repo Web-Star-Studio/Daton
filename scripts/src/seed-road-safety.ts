@@ -315,6 +315,53 @@ function referenceDate(month: number): string {
   return `${YEAR}-${String(month).padStart(2, "0")}-15`;
 }
 
+/**
+ * Diagnóstico do fator (ISO 39001 · 6.3): a leitura qualitativa que acompanha a
+ * série de medições. Preenchido só onde está NULL — nunca sobrescreve o que a
+ * organização já escreveu.
+ */
+const DIAGNOSES: Record<string, string> = {
+  FD01: "Média de km por jornada estável e dentro do limite planejado. A roteirização por janela de entrega segurou o indicador mesmo com o aumento de volume no trimestre. Monitorar picos de sazonalidade.",
+  FD02: "Rotas críticas mapeadas e sinalização revisada nos acessos à unidade. Permanecem dois trechos urbanos com sinalização deficiente sob responsabilidade do município — comunicados formalmente e mitigados por orientação de rota.",
+  FD03: "Processo de inspeção consolidado: veículo reprovado é removido da operação no mesmo dia. Não houve reincidência de veículo reprovado em circulação no período.",
+  FD04: "Tempo de resposta dentro da meta nos acionamentos registrados. O fluxo de comunicação com a central foi revisado após o último simulado e reduziu o tempo de acionamento inicial.",
+  FD05: "Condução noturna concentrada em rotas de longa distância. Indicador em atenção: a escala foi ajustada para diluir a exposição entre condutores e a pausa obrigatória passou a ser verificada por telemetria.",
+  FD06: "Taxa de acidentes com afastamento em queda frente ao ano anterior. Os eventos registrados foram de baixa severidade e a análise de causa apontou fatores de terceiros na maior parte dos casos.",
+  FD07: "Adesão ao cinto e ao EPI verificada por telemetria e inspeção de campo, com índice alto e estável. Desvios pontuais tratados por orientação individual e reforço em DDS.",
+  FD08: "Excessos de velocidade em tendência de queda após a ativação do alerta em cabine. Os condutores com reincidência foram incluídos em acompanhamento individual.",
+  FD09: "Exames periódicos em dia e programa de saúde ocupacional ativo. Nenhum afastamento por causa relacionada à condução no período.",
+  FD10: "Planejamento de percurso padronizado, com validação prévia de restrições de circulação. O indicador respondeu bem à revisão do procedimento no início do ciclo.",
+  FD11: "Frota com manutenção preventiva em dia e idade média dentro do previsto. As não conformidades de checklist caíram após a digitalização da inspeção diária.",
+  FD12: "Condutores habilitados e reciclagem em dia. O vínculo com o Programa Anual de Treinamento garante a renovação antes do vencimento da capacitação.",
+  FD13: "Nenhuma lesão fatal registrada no período — meta zero mantida. O fator segue em monitoramento permanente por ser o desfecho crítico da norma.",
+  FD14: "Cumprimento das pausas verificado por telemetria, com índice dentro da meta. Os desvios identificados concentram-se em rotas com janela de entrega apertada, em revisão junto ao Comercial.",
+};
+
+async function backfillDiagnoses(orgId: number): Promise<number> {
+  const factors = await db
+    .select({
+      id: roadSafetyFactorsTable.id,
+      code: roadSafetyFactorsTable.code,
+      currentDiagnosis: roadSafetyFactorsTable.currentDiagnosis,
+    })
+    .from(roadSafetyFactorsTable)
+    .where(eq(roadSafetyFactorsTable.organizationId, orgId));
+
+  let filled = 0;
+  for (const factor of factors) {
+    if (factor.currentDiagnosis) continue;
+    const text = DIAGNOSES[factor.code];
+    if (!text) continue;
+
+    await db
+      .update(roadSafetyFactorsTable)
+      .set({ currentDiagnosis: text })
+      .where(eq(roadSafetyFactorsTable.id, factor.id));
+    filled += 1;
+  }
+  return filled;
+}
+
 async function main() {
   // Target org — CLI arg (e.g. `seed-road-safety 3`) or the first org.
   const orgArg = process.argv[2];
@@ -401,7 +448,11 @@ async function main() {
     console.log(`  + Factor created: ${fd.code} — ${fd.name} (${measurementRows.length} lançamentos)`);
   }
 
-  console.log(`\nDone! ${created} factors created, ${skipped} already existed.`);
+  const diagnosed = await backfillDiagnoses(orgId);
+
+  console.log(
+    `\nDone! ${created} factors created, ${skipped} already existed, ${diagnosed} diagnósticos preenchidos.`,
+  );
   process.exit(0);
 }
 
