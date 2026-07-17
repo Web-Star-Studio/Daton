@@ -32,6 +32,7 @@ import {
   getStrategicPlan,
   getGetEmployeeQueryKey,
   getListEmployeesQueryKey,
+  useListEmployees,
   getListDepartmentsQueryKey,
   getListPositionsQueryKey,
   CreateCompetencyBodyType as CreateCompetencyBodyTypeValues,
@@ -70,6 +71,7 @@ import { ProfileItemAttachmentsField } from "@/components/employees/profile-item
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -2206,6 +2208,7 @@ type TrainingForm = {
   description: string;
   objective: string;
   institution: string;
+  instructor: string;
   targetCompetencyName: string;
   targetCompetencyType: CreateTrainingBodyTargetCompetencyType;
   targetCompetencyLevel: number;
@@ -2309,6 +2312,7 @@ function TreinamentosTab({
     description: "",
     objective: "",
     institution: "",
+    instructor: "",
     targetCompetencyName: "",
     targetCompetencyType:
       CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
@@ -2333,6 +2337,37 @@ function TreinamentosTab({
     queryClient.invalidateQueries({
       queryKey: getGetEmployeeQueryKey(orgId, empId),
     });
+
+  // Instrutor: busca server-side na lista de funcionários (escala p/ empresas
+  // grandes) + permite texto livre (palestrante de fora) via onCreateOption.
+  const [instructorSearch, setInstructorSearch] = useState("");
+  const instructorEmpParams = {
+    search: instructorSearch || undefined,
+    pageSize: 50,
+  };
+  const { data: instructorEmployeesResult } = useListEmployees(
+    orgId,
+    instructorEmpParams,
+    {
+      query: {
+        enabled: !!orgId && !!editingTraining,
+        queryKey: getListEmployeesQueryKey(orgId, instructorEmpParams),
+      },
+    },
+  );
+  const instructorOptions = (instructorEmployeesResult?.data ?? []).map((e) => ({
+    value: e.name,
+    label: e.name,
+  }));
+  if (
+    form.instructor &&
+    !instructorOptions.some((o) => o.value === form.instructor)
+  ) {
+    instructorOptions.unshift({
+      value: form.instructor,
+      label: form.instructor,
+    });
+  }
 
   useEffect(() => {
     if (!isCreateOpen || !prefillTraining) return;
@@ -2410,6 +2445,7 @@ function TreinamentosTab({
       description: t.description || "",
       objective: t.objective || "",
       institution: t.institution || "",
+      instructor: t.instructor || "",
       targetCompetencyName: t.targetCompetencyName || "",
       targetCompetencyType:
         t.targetCompetencyType ||
@@ -2436,6 +2472,7 @@ function TreinamentosTab({
         description: form.description || undefined,
         objective: form.objective || undefined,
         institution: form.institution || undefined,
+        instructor: form.instructor || undefined,
         targetCompetencyName: form.targetCompetencyName || undefined,
         targetCompetencyType: form.targetCompetencyName
           ? form.targetCompetencyType
@@ -2607,6 +2644,7 @@ function TreinamentosTab({
                       )}
                       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                         {t.institution && <span>{t.institution}</span>}
+                        {t.instructor && <span>Instrutor: {t.instructor}</span>}
                         <TrainingWorkloadCell hours={t.workloadHours} />
                         {t.completionDate && (
                           <span>Concluído: {t.completionDate}</span>
@@ -2740,7 +2778,7 @@ function TreinamentosTab({
                                     disabled={!t.completionDate}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      downloadTrainingCertificate({
+                                      void downloadTrainingCertificate({
                                       orgName: orgName ?? "",
                                       employeeName: employeeName ?? "",
                                       employeeCpf,
@@ -2749,10 +2787,9 @@ function TreinamentosTab({
                                       completionDate: t.completionDate,
                                       workloadHours: t.workloadHours,
                                       institution: t.institution,
+                                      instructor: t.instructor,
                                       expirationDate: t.expirationDate,
                                       competencyName: t.targetCompetencyName,
-                                      evaluatorName:
-                                        t.latestEffectivenessReview?.evaluatorName,
                                     });
                                   }}
                                 >
@@ -2963,6 +3000,28 @@ function TreinamentosTab({
                 className="mt-1"
               />
             </div>
+          </div>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground">
+              Instrutor
+            </Label>
+            <SearchableSelect
+              value={form.instructor}
+              options={instructorOptions}
+              placeholder="Escolha um funcionário ou digite um nome..."
+              searchValue={instructorSearch}
+              onSearchChange={setInstructorSearch}
+              onChange={(name) =>
+                setForm((current) => ({ ...current, instructor: name }))
+              }
+              onCreateOption={(name) =>
+                setForm((current) => ({ ...current, instructor: name }))
+              }
+              createOptionLabel={(input) => `Usar “${input}” (externo)`}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Funcionário da lista ou o nome de um palestrante externo.
+            </p>
           </div>
           <ProfileItemAttachmentsField
             attachments={mapRecordAttachmentItems(

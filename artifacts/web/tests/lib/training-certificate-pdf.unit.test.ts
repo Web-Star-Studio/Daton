@@ -21,7 +21,7 @@ function input(overrides: Partial<CertificateInput> = {}): CertificateInput {
     institution: "SENAI",
     expirationDate: "2028-01-10",
     competencyName: "Trabalho em altura",
-    evaluatorName: "Ana Souza",
+    instructor: "Ana Souza",
     ...overrides,
   };
 }
@@ -86,6 +86,7 @@ describe("buildCertificateContent", () => {
       "Competência: Trabalho em altura",
     ]);
     expect(c.signerName).toBe("Ana Souza");
+    expect(c.signerRole).toBe("Instrutor");
     expect(c.issueLine).toBe("Emitido em 16/07/2026");
     expect(c.footer).toContain("ISO 9001:2015 §7.2");
   });
@@ -127,10 +128,19 @@ describe("buildCertificateContent", () => {
     expect(c.completionLine).toBe("em 10/01/2026");
   });
 
-  it("assinatura em branco (null) quando não há avaliador", () => {
-    const c = buildCertificateContent(input({ evaluatorName: null }), ISSUE);
+  it("assinatura em branco (null) quando não há instrutor", () => {
+    const c = buildCertificateContent(input({ instructor: null }), ISSUE);
     expect(c.signerName).toBeNull();
-    expect(c.signerRole).toBe("Responsável");
+    expect(c.signerRole).toBe("Instrutor");
+  });
+
+  it("o instrutor vira o assinante e NÃO aparece nos extras (é a assinatura)", () => {
+    const c = buildCertificateContent(
+      input({ instructor: "Carlos Mendes" }),
+      ISSUE,
+    );
+    expect(c.signerName).toBe("Carlos Mendes");
+    expect(c.extraLines.join(" ")).not.toContain("Instrutor");
   });
 
   it("nome com espaços nas pontas é trimado para exibição", () => {

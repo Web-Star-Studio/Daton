@@ -12865,6 +12865,9 @@ components:
         institution:
           type: string
           nullable: true
+        instructor:
+          type: string
+          nullable: true
         targetCompetencyName:
           type: string
           nullable: true
@@ -12958,6 +12961,9 @@ components:
           type: string
           nullable: true
         institution:
+          type: string
+          nullable: true
+        instructor:
           type: string
           nullable: true
         targetCompetencyName:
@@ -13682,6 +13688,8 @@ components:
           type: string
         institution:
           type: string
+        instructor:
+          type: string
         targetCompetencyName:
           type: string
         targetCompetencyType:
@@ -13781,6 +13789,8 @@ components:
         objective:
           type: string
         institution:
+          type: string
+        instructor:
           type: string
         targetCompetencyName:
           type: string

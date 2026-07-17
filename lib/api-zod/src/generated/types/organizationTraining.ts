@@ -27,6 +27,7 @@ export interface OrganizationTraining {
   description?: string | null;
   objective?: string | null;
   institution?: string | null;
+  instructor?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: OrganizationTrainingTargetCompetencyType;
   targetCompetencyLevel?: number | null;

@@ -19,6 +19,7 @@ export interface EmployeeTraining {
   description?: string | null;
   objective?: string | null;
   institution?: string | null;
+  instructor?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: EmployeeTrainingTargetCompetencyType;
   targetCompetencyLevel?: number | null;

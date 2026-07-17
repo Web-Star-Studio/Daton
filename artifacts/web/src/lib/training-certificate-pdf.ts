@@ -22,11 +22,11 @@ export interface CertificateInput {
   completionDate?: string | null;
   workloadHours?: number | null;
   institution?: string | null;
+  /** Instrutor (funcionário ou palestrante externo). */
+  instructor?: string | null;
   /** Validade, `YYYY-MM-DD`. */
   expirationDate?: string | null;
   competencyName?: string | null;
-  /** Nome do avaliador da eficácia; vira o assinante quando presente. */
-  evaluatorName?: string | null;
 }
 
 export interface CertificateContent {
@@ -121,8 +121,8 @@ export function buildCertificateContent(
     trainingTitle: input.title,
     completionLine: completionParts.join(" · "),
     extraLines,
-    signerName: input.evaluatorName?.trim() || null,
-    signerRole: "Responsável",
+    signerName: input.instructor?.trim() || null,
+    signerRole: "Instrutor",
     issueLine: `Emitido em ${formatDateBr(issueDate) ?? issueDate}`,
     footer: "Registro conforme ISO 9001:2015 §7.2",
     filename: `Certificado - ${title} - ${name}.pdf`,
@@ -130,11 +130,30 @@ export function buildCertificateContent(
 }
 
 /** Desenha o certificado (A4 paisagem, borda dupla, centralizado) e baixa. */
-export function downloadTrainingCertificate(input: CertificateInput): void {
+export async function downloadTrainingCertificate(
+  input: CertificateInput,
+): Promise<void> {
   const issueDate = new Date().toISOString().split("T")[0];
   const content = buildCertificateContent(input, issueDate);
 
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+
+  // Fonte de assinatura (cursiva), carregada sob demanda para não pesar o bundle
+  // principal. Se falhar, cai numa serifada em itálico (não quebra a geração).
+  let signatureFont = "times";
+  let signatureStyle: "normal" | "italic" = "italic";
+  try {
+    const { SIGNATURE_FONT_NAME, SIGNATURE_FONT_BASE64 } = await import(
+      "./training-certificate-signature-font"
+    );
+    doc.addFileToVFS(`${SIGNATURE_FONT_NAME}.ttf`, SIGNATURE_FONT_BASE64);
+    doc.addFont(`${SIGNATURE_FONT_NAME}.ttf`, SIGNATURE_FONT_NAME, "normal");
+    signatureFont = SIGNATURE_FONT_NAME;
+    signatureStyle = "normal";
+  } catch {
+    // mantém o fallback (times/italic)
+  }
+
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const cx = pageW / 2;
@@ -199,17 +218,27 @@ export function downloadTrainingCertificate(input: CertificateInput): void {
     y += 18;
   }
 
-  // Assinatura, fixada perto da base.
-  const sigY = pageH - 118;
+  // Assinatura, fixada perto da base. O nome do instrutor sai em fonte cursiva
+  // SOBRE a linha (como uma assinatura à mão); o rótulo "Instrutor" fica abaixo.
+  const sigY = pageH - 108;
+  if (content.signerName) {
+    doc.setFont(signatureFont, signatureStyle);
+    let sigSize = 28;
+    doc.setFontSize(sigSize);
+    while (
+      sigSize > 12 &&
+      doc.getTextWidth(content.signerName) > maxTextWidth
+    ) {
+      sigSize -= 1;
+      doc.setFontSize(sigSize);
+    }
+    doc.setTextColor(30);
+    doc.text(content.signerName, cx, sigY - 8, { align: "center" });
+  }
   doc.setDrawColor(120);
   doc.setLineWidth(0.8);
-  doc.line(cx - 110, sigY, cx + 110, sigY);
-  if (content.signerName) {
-    center(content.signerName, sigY + 16, 12, "bold", 40);
-    center(content.signerRole, sigY + 32, 10, "normal", 110);
-  } else {
-    center(content.signerRole, sigY + 16, 10, "normal", 110);
-  }
+  doc.line(cx - 120, sigY, cx + 120, sigY);
+  center(content.signerRole, sigY + 14, 10, "normal", 110);
 
   center(content.issueLine, pageH - 60, 10, "normal", 110);
   center(content.footer, pageH - 44, 9, "italic", 140);

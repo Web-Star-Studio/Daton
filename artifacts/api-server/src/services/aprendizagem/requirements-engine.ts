@@ -141,7 +141,7 @@ export async function applyTrainingRequirements(args: {
       title: item.title,
       description: item.programContent ?? null,
       objective: item.objective ?? null,
-      institution: item.defaultInstructor ?? null,
+      instructor: item.defaultInstructor ?? null,
       targetCompetencyName: item.targetCompetencyName ?? null,
       targetCompetencyType: item.targetCompetencyType ?? null,
       targetCompetencyLevel: item.targetCompetencyLevel ?? null,

@@ -1362,6 +1362,7 @@ export interface EmployeeTraining {
   description?: string | null;
   objective?: string | null;
   institution?: string | null;
+  instructor?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: EmployeeTrainingTargetCompetencyType;
   targetCompetencyLevel?: number | null;
@@ -1434,6 +1435,7 @@ export interface OrganizationTraining {
   description?: string | null;
   objective?: string | null;
   institution?: string | null;
+  instructor?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: OrganizationTrainingTargetCompetencyType;
   targetCompetencyLevel?: number | null;
@@ -1818,6 +1820,7 @@ export interface CreateTrainingBody {
   description?: string;
   objective?: string;
   institution?: string;
+  instructor?: string;
   targetCompetencyName?: string;
   targetCompetencyType?: CreateTrainingBodyTargetCompetencyType;
   /**
@@ -1901,6 +1904,7 @@ export interface UpdateTrainingBody {
   description?: string;
   objective?: string;
   institution?: string;
+  instructor?: string;
   targetCompetencyName?: string;
   targetCompetencyType?: UpdateTrainingBodyTargetCompetencyType;
   /**
