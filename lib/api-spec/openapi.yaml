@@ -10024,9 +10024,17 @@ paths:
           required: true
           schema:
             type: integer
+        - name: cascade
+          in: query
+          description: When true, also deletes linked requirements/classes/PAT items and not-yet-completed employee trainings. Completed employee trainings are preserved (unlinked, not deleted).
+          schema:
+            type: boolean
+            default: false
       responses:
         "204":
           description: Catalog item removed
+        "409":
+          description: Blocked — has linked requirements, classes or PAT items; retry with cascade=true to confirm
 
   /organizations/{orgId}/competency-catalog:
     get:

@@ -20182,6 +20182,17 @@ export const DeleteTrainingCatalogItemParams = zod.object({
   itemId: zod.coerce.number(),
 });
 
+export const deleteTrainingCatalogItemQueryCascadeDefault = false;
+
+export const DeleteTrainingCatalogItemQueryParams = zod.object({
+  cascade: zod.coerce
+    .boolean()
+    .default(deleteTrainingCatalogItemQueryCascadeDefault)
+    .describe(
+      "When true, also deletes linked requirements\/classes\/PAT items and not-yet-completed employee trainings. Completed employee trainings are preserved (unlinked, not deleted).",
+    ),
+});
+
 /**
  * @summary List the organization's competency catalog
  */

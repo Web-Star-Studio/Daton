@@ -1,9 +1,13 @@
 import request from "supertest";
+import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
+import { db, employeeTrainingsTable } from "@workspace/db";
 import app from "../../src/app";
 import {
   authHeader,
   cleanupTestContext,
+  createEmployee,
+  createPosition,
   createTestContext,
   type TestOrgContext,
 } from "../../../../tests/support/backend";
@@ -191,5 +195,289 @@ describe("training-catalog routes", () => {
       .get(`${base}/${res.body.id}`)
       .set(authHeader(context));
     expect(get.body.workloadHours).toBe(0.33);
+  });
+});
+
+// Se o treinamento não existe mais, "cargo X deve fazer Y" deixa de fazer
+// sentido: excluir o item deve levar a obrigatoriedade e as pendências ainda
+// não realizadas junto — mas preservar o registro de quem já concluiu
+// (histórico), só desvinculando o catalog_item_id (ON DELETE SET NULL).
+describe("DELETE /training-catalog/:itemId — exclusão em cascata", () => {
+  it("sem cascade, recusa com 409 e informa as contagens de dependências", async () => {
+    const context = await createTestContext({ seed: "catalog-cascade-409" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-catalog`;
+
+    const item = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ title: `Com obrigatoriedade ${context.prefix}` });
+    const itemId = item.body.id as number;
+
+    const position = await createPosition(context, { name: "Operador" });
+    await request(app)
+      .post(`/api/organizations/${context.organizationId}/training-requirements`)
+      .set(authHeader(context))
+      .send({
+        positionId: position.id,
+        catalogItemId: itemId,
+        deadlineType: "rh",
+      });
+
+    const blocked = await request(app)
+      .delete(`${base}/${itemId}`)
+      .set(authHeader(context));
+
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.dependencies).toEqual({
+      obrigatoriedades: 1,
+      turmas: 0,
+      pat: 0,
+      pendencias: 0,
+      concluidos: 0,
+    });
+  });
+
+  it("sem cascade e sem dependências, exclui direto (204)", async () => {
+    const context = await createTestContext({ seed: "catalog-cascade-free" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-catalog`;
+
+    const item = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ title: `Sem vínculo ${context.prefix}` });
+    const itemId = item.body.id as number;
+
+    const removed = await request(app)
+      .delete(`${base}/${itemId}`)
+      .set(authHeader(context));
+    expect(removed.status).toBe(204);
+
+    const missing = await request(app)
+      .get(`${base}/${itemId}`)
+      .set(authHeader(context));
+    expect(missing.status).toBe(404);
+  });
+
+  it("com cascade=true, apaga o item + obrigatoriedade + pendência, mas preserva o concluído (histórico)", async () => {
+    const context = await createTestContext({ seed: "catalog-cascade-true" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-catalog`;
+
+    const item = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ title: `Cascata ${context.prefix}` });
+    const itemId = item.body.id as number;
+
+    const position = await createPosition(context, { name: "Motorista" });
+    const requirement = await request(app)
+      .post(`/api/organizations/${context.organizationId}/training-requirements`)
+      .set(authHeader(context))
+      .send({
+        positionId: position.id,
+        catalogItemId: itemId,
+        deadlineType: "rh",
+      });
+    const requirementId = requirement.body.id as number;
+
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+    });
+
+    const [pendingTraining] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: `Cascata ${context.prefix}`,
+        status: "pendente",
+        catalogItemId: itemId,
+        requirementId,
+      })
+      .returning();
+
+    const [doneTraining] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: `Cascata ${context.prefix}`,
+        status: "concluido",
+        completionDate: "2026-01-10",
+        catalogItemId: itemId,
+        requirementId,
+      })
+      .returning();
+
+    const removed = await request(app)
+      .delete(`${base}/${itemId}`)
+      .query({ cascade: "true" })
+      .set(authHeader(context));
+    expect(removed.status).toBe(204);
+
+    // item some
+    const missing = await request(app)
+      .get(`${base}/${itemId}`)
+      .set(authHeader(context));
+    expect(missing.status).toBe(404);
+
+    // obrigatoriedade some (cascade FK do banco)
+    const reqCheck = await request(app)
+      .get(`/api/organizations/${context.organizationId}/training-requirements`)
+      .set(authHeader(context));
+    expect(
+      reqCheck.body.data.some((r: { id: number }) => r.id === requirementId),
+    ).toBe(false);
+
+    // pendência some
+    const [pendingAfter] = await db
+      .select()
+      .from(employeeTrainingsTable)
+      .where(eq(employeeTrainingsTable.id, pendingTraining.id));
+    expect(pendingAfter).toBeUndefined();
+
+    // concluído permanece, só perde o vínculo com o catálogo (histórico preservado)
+    const [doneAfter] = await db
+      .select()
+      .from(employeeTrainingsTable)
+      .where(eq(employeeTrainingsTable.id, doneTraining.id));
+    expect(doneAfter).toBeDefined();
+    expect(doneAfter.status).toBe("concluido");
+    expect(doneAfter.catalogItemId).toBeNull();
+  });
+
+  it("cascade não apaga employee_trainings concluídos de OUTRO item do catálogo", async () => {
+    const context = await createTestContext({ seed: "catalog-cascade-scope" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-catalog`;
+
+    const itemA = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ title: `Item A ${context.prefix}` });
+    const itemB = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ title: `Item B ${context.prefix}` });
+
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+    });
+
+    // pendência no item A (será removida pela cascata do item A)
+    const [pendingA] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: `Item A ${context.prefix}`,
+        status: "pendente",
+        catalogItemId: itemA.body.id,
+      })
+      .returning();
+
+    // concluído no item B (não deve ser tocado pela exclusão do item A)
+    const [doneB] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: `Item B ${context.prefix}`,
+        status: "concluido",
+        completionDate: "2026-01-10",
+        catalogItemId: itemB.body.id,
+      })
+      .returning();
+
+    const removed = await request(app)
+      .delete(`${base}/${itemA.body.id}`)
+      .query({ cascade: "true" })
+      .set(authHeader(context));
+    expect(removed.status).toBe(204);
+
+    const [pendingAAfter] = await db
+      .select()
+      .from(employeeTrainingsTable)
+      .where(eq(employeeTrainingsTable.id, pendingA.id));
+    expect(pendingAAfter).toBeUndefined();
+
+    const [doneBAfter] = await db
+      .select()
+      .from(employeeTrainingsTable)
+      .where(eq(employeeTrainingsTable.id, doneB.id));
+    expect(doneBAfter).toBeDefined();
+    expect(doneBAfter.catalogItemId).toBe(itemB.body.id);
+
+    // item B continua existindo (só o A foi excluído)
+    const itemBCheck = await request(app)
+      .get(`${base}/${itemB.body.id}`)
+      .set(authHeader(context));
+    expect(itemBCheck.status).toBe(200);
+  });
+
+  it("respeita o escopo por organização: não apaga item de outra org", async () => {
+    const contextA = await createTestContext({ seed: "catalog-cascade-org-a" });
+    contexts.push(contextA);
+    const contextB = await createTestContext({ seed: "catalog-cascade-org-b" });
+    contexts.push(contextB);
+
+    const item = await request(app)
+      .post(`/api/organizations/${contextA.organizationId}/training-catalog`)
+      .set(authHeader(contextA))
+      .send({ title: `Org A ${contextA.prefix}` });
+    const itemId = item.body.id as number;
+
+    // A org A tem uma pendência e um concluído ligados a esse item. A cascata da
+    // org B NÃO pode tocar em nenhum deles (guard de tenant antes das mutações).
+    const employeeA = await createEmployee(contextA, {
+      name: `Colab A ${contextA.prefix}`,
+    });
+    const [pendingA] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employeeA.id,
+        title: `Org A ${contextA.prefix}`,
+        status: "pendente",
+        catalogItemId: itemId,
+      })
+      .returning();
+    const [doneA] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employeeA.id,
+        title: `Org A ${contextA.prefix}`,
+        status: "concluido",
+        completionDate: "2026-01-10",
+        catalogItemId: itemId,
+      })
+      .returning();
+
+    // usuário da org B tenta excluir usando a própria org no path — o item não
+    // pertence a ela, então a query com organizationId=orgB não encontra nada.
+    const attempt = await request(app)
+      .delete(
+        `/api/organizations/${contextB.organizationId}/training-catalog/${itemId}`,
+      )
+      .query({ cascade: "true" })
+      .set(authHeader(contextB));
+    expect(attempt.status).toBe(404);
+
+    // item continua intacto na org A
+    const stillThere = await request(app)
+      .get(`/api/organizations/${contextA.organizationId}/training-catalog/${itemId}`)
+      .set(authHeader(contextA));
+    expect(stillThere.status).toBe(200);
+
+    // e — o ponto central — os employee_trainings da org A ficam INTACTOS:
+    // a pendência não foi apagada e o concluído não foi desvinculado.
+    const [pendingAfter] = await db
+      .select()
+      .from(employeeTrainingsTable)
+      .where(eq(employeeTrainingsTable.id, pendingA.id));
+    expect(pendingAfter).toBeDefined();
+    expect(pendingAfter.catalogItemId).toBe(itemId);
+    const [doneAfter] = await db
+      .select()
+      .from(employeeTrainingsTable)
+      .where(eq(employeeTrainingsTable.id, doneA.id));
+    expect(doneAfter.catalogItemId).toBe(itemId);
   });
 });

@@ -12,18 +12,23 @@ import {
 } from "@workspace/api-client-react";
 import {
   buildCatalogParams,
+  describeCatalogDeletionImpact,
+  readCatalogDeletionDependencies,
   useAllTrainingCatalog,
+  type CatalogDeletionDependencies,
 } from "@/lib/training-catalog-client";
 import {
   useActiveNorms,
   useAllNorms,
   buildNormLabelMap,
 } from "@/lib/norms-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { paginateList } from "@/lib/paginate";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { formatKpiNumber } from "@/lib/kpi-client";
 import { TrainingWorkloadInput } from "@/pages/app/aprendizagem/_components/carga-horaria";
+import { useToast } from "@/hooks/use-toast";
 
 const CATALOG_PAGE_SIZE = 24;
 import type {
@@ -194,6 +199,7 @@ export default function CatalogoPage() {
   const { canWriteModule } = usePermissions();
   const canWrite = canWriteModule("employees");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [search, setSearch] = useState("");
   // Debounced before it reaches the query: each keystroke would otherwise refetch
@@ -272,6 +278,14 @@ export default function CatalogoPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<CatalogForm>(EMPTY_FORM);
   const [fichaItem, setFichaItem] = useState<TrainingCatalogItem | null>(null);
+  // Diálogo de exclusão (na interface, nunca window.confirm). Duas fases no
+  // mesmo diálogo: `dependencies: null` é a confirmação simples; quando o DELETE
+  // sem cascade volta 409 (item com obrigatoriedades/turmas/PAT), passa a exibir
+  // o impacto e o "excluir mesmo assim".
+  const [deleteDialog, setDeleteDialog] = useState<{
+    item: TrainingCatalogItem;
+    dependencies: CatalogDeletionDependencies | null;
+  } | null>(null);
 
   // Normas ofertadas no seletor: as ativas + qualquer inativa já selecionada
   // (editar um item cuja norma foi desativada não pode esconder o marcado).
@@ -327,16 +341,58 @@ export default function CatalogoPage() {
     setFormOpen(false);
   };
 
-  const handleDelete = async (item: TrainingCatalogItem) => {
-    if (!orgId) return;
-    if (
-      !window.confirm(
-        `Remover "${item.title}" do catálogo? Treinamentos já lançados são preservados.`,
-      )
-    )
-      return;
-    await deleteMutation.mutateAsync({ orgId, itemId: item.id });
-    invalidate();
+  // Passo 1: abre o diálogo de confirmação na interface (nunca window.confirm).
+  const handleDelete = (item: TrainingCatalogItem) => {
+    setDeleteDialog({ item, dependencies: null });
+  };
+
+  // Passo 2: confirma a remoção simples. Tenta sem cascade; se o backend recusa
+  // (409, item com obrigatoriedades/turmas/PAT), passa o MESMO diálogo para a
+  // fase de cascata (mostra o impacto) em vez de mostrar um toast de erro.
+  const confirmDelete = async () => {
+    if (!orgId || !deleteDialog) return;
+    const { item } = deleteDialog;
+    try {
+      await deleteMutation.mutateAsync({ orgId, itemId: item.id });
+      invalidate();
+      setDeleteDialog(null);
+      toast({ title: "Treinamento removido do catálogo" });
+    } catch (error) {
+      const dependencies = readCatalogDeletionDependencies(error);
+      if (dependencies) {
+        setDeleteDialog({ item, dependencies });
+        return;
+      }
+      setDeleteDialog(null);
+      toast({
+        title: "Não foi possível remover",
+        description: apiErrorMessage(error),
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Passo 3 (fase cascata): apaga com ?cascade=true — o backend some com as
+  // obrigatoriedades, turmas, PAT e pendências ainda não realizadas, e preserva
+  // o registro de quem já concluiu (histórico).
+  const confirmCascadeDelete = async () => {
+    if (!orgId || !deleteDialog) return;
+    try {
+      await deleteMutation.mutateAsync({
+        orgId,
+        itemId: deleteDialog.item.id,
+        params: { cascade: true },
+      });
+      invalidate();
+      setDeleteDialog(null);
+      toast({ title: "Treinamento removido do catálogo" });
+    } catch (error) {
+      toast({
+        title: "Não foi possível remover",
+        description: apiErrorMessage(error),
+        variant: "destructive",
+      });
+    }
   };
 
   // Com o filtro de status default ("ativo"), items já é só ativos e
@@ -429,8 +485,9 @@ export default function CatalogoPage() {
             // pode haver itens arquivados. Avisa antes que o usuário recrie um
             // treinamento que já existe (inativo).
             <>
-              Nenhum treinamento ativo{isCatalogFiltered ? " no filtro atual" : ""}.
-              Troque o filtro para “Inativos” ou “Todos” para ver os arquivados
+              Nenhum treinamento ativo
+              {isCatalogFiltered ? " no filtro atual" : ""}. Troque o filtro
+              para “Inativos” ou “Todos” para ver os arquivados
               {canWrite ? ", ou clique em “Novo treinamento”." : "."}
             </>
           ) : (
@@ -627,6 +684,41 @@ export default function CatalogoPage() {
                 <span>· Instrutor: {fichaItem.defaultInstructor}</span>
               ) : null}
             </div>
+          </div>
+        ) : null}
+      </Dialog>
+
+      {/* Confirmação de exclusão (na interface). Fase simples até o DELETE voltar
+          409; então mostra o impacto e o "excluir mesmo assim" (cascata). */}
+      <Dialog
+        open={!!deleteDialog}
+        onOpenChange={(o) => !o && setDeleteDialog(null)}
+        title={deleteDialog ? `Remover "${deleteDialog.item.title}"?` : ""}
+        size="sm"
+      >
+        {deleteDialog ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {deleteDialog.dependencies
+                ? describeCatalogDeletionImpact(deleteDialog.dependencies)
+                : "Treinamentos já lançados para os colaboradores são preservados."}
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteDialog(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  void (deleteDialog.dependencies
+                    ? confirmCascadeDelete()
+                    : confirmDelete())
+                }
+                disabled={deleteMutation.isPending}
+              >
+                {deleteDialog.dependencies ? "Excluir mesmo assim" : "Remover"}
+              </Button>
+            </DialogFooter>
           </div>
         ) : null}
       </Dialog>
