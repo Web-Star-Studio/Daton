@@ -12,6 +12,8 @@
     "seed-operational-planning": "tsx --env-file ../.env ./src/seed-operational-planning.ts",
     "seed-regulatory-documents": "tsx --env-file ../.env ./src/seed-regulatory-documents.ts",
     "seed-datondemo-kpi-demo": "tsx --env-file ../.env ./src/seed-datondemo-kpi-demo.ts",
+    "seed-training-demo": "tsx --env-file ../.env ./src/seed-training-demo.ts",
+    "fix-demo-org": "tsx --env-file ../.env ./src/fix-demo-org.ts",
     "list-orgs": "tsx --env-file ../.env ./src/list-orgs.ts",
     "create-platform-admin": "tsx --env-file ../.env ./src/create-platform-admin.ts",
     "create-org-admin": "tsx --env-file ../.env ./src/create-org-admin.ts",

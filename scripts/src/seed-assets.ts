@@ -19,7 +19,7 @@ import {
   unitsTable,
   employeesTable,
 } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 const DEMO_ORGANIZATION_LEGAL_IDENTIFIER =
   process.env.SEED_ORG_LEGAL_IDENTIFIER ?? "12.345.678/0001-90";
@@ -95,35 +95,50 @@ async function seedAssets() {
   // measurement_resources → cascade deletes calibrations
   // work_environment_controls → cascade deletes verifications
 
+  // Every cleanup below is scoped to `orgId`: these demo names are generic
+  // ("Veículo Operacional VH-01", "Empilhadeira EL-01") and a real tenant may
+  // well have an asset with the same name — deleting by name alone would wipe
+  // another organization's data, cascading into its maintenance plans/records.
+  const assetsScope = and(
+    eq(assetsTable.organizationId, orgId),
+    inArray(assetsTable.name, DEMO_ASSET_NAMES),
+  );
+
   const existingAssets = await db
     .select({ id: assetsTable.id })
     .from(assetsTable)
-    .where(inArray(assetsTable.name, DEMO_ASSET_NAMES));
+    .where(assetsScope);
 
   if (existingAssets.length > 0) {
-    await db.delete(assetsTable).where(inArray(assetsTable.name, DEMO_ASSET_NAMES));
+    await db.delete(assetsTable).where(assetsScope);
   }
+
+  const resourcesScope = and(
+    eq(measurementResourcesTable.organizationId, orgId),
+    inArray(measurementResourcesTable.name, DEMO_MEASUREMENT_RESOURCE_NAMES),
+  );
 
   const existingResources = await db
     .select({ id: measurementResourcesTable.id })
     .from(measurementResourcesTable)
-    .where(inArray(measurementResourcesTable.name, DEMO_MEASUREMENT_RESOURCE_NAMES));
+    .where(resourcesScope);
 
   if (existingResources.length > 0) {
-    await db.delete(measurementResourcesTable).where(
-      inArray(measurementResourcesTable.name, DEMO_MEASUREMENT_RESOURCE_NAMES),
-    );
+    await db.delete(measurementResourcesTable).where(resourcesScope);
   }
+
+  const controlsScope = and(
+    eq(workEnvironmentControlsTable.organizationId, orgId),
+    inArray(workEnvironmentControlsTable.title, DEMO_WORK_ENVIRONMENT_TITLES),
+  );
 
   const existingControls = await db
     .select({ id: workEnvironmentControlsTable.id })
     .from(workEnvironmentControlsTable)
-    .where(inArray(workEnvironmentControlsTable.title, DEMO_WORK_ENVIRONMENT_TITLES));
+    .where(controlsScope);
 
   if (existingControls.length > 0) {
-    await db.delete(workEnvironmentControlsTable).where(
-      inArray(workEnvironmentControlsTable.title, DEMO_WORK_ENVIRONMENT_TITLES),
-    );
+    await db.delete(workEnvironmentControlsTable).where(controlsScope);
   }
 
   // ── 1. Assets (C1) ───────────────────────────────────────────────────────
