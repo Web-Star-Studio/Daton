@@ -266,7 +266,52 @@ async function resetDemoSeedState(db: SeedDatabase) {
     .where(inArray(organizationsTable.id, orgIds));
 }
 
+// Hosts aceitos como banco descartável: docker compose (`postgres`) e acesso
+// direto pela porta publicada. Qualquer outro host é tratado como remoto.
+const LOCAL_DB_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "postgres", "db"]);
+
+/**
+ * `resetDemoSeedState()` apaga organizações inteiras — e ainda deleta os
+ * questionários, que são tabelas globais sem `organization_id`. Isso é o
+ * comportamento desejado num banco local descartável, e uma catástrofe em
+ * qualquer banco compartilhado.
+ *
+ * `SEED_DEMO=true` só prova intenção; não prova que o alvo é descartável. O
+ * `.env` do projeto aponta para produção, então o gesto mais natural possível
+ * (`pnpm --filter @workspace/scripts seed`) miraria a produção. Daí a trava ser
+ * por ambiente, sem escape: se o alvo não é local, o script não roda.
+ */
+function assertLocalDatabase(): void {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL não definida — seed.ts não sabe qual banco seria apagado.");
+  }
+
+  let hostname: string;
+  try {
+    hostname = new URL(databaseUrl).hostname;
+  } catch {
+    throw new Error("DATABASE_URL inválida — não foi possível extrair o host.");
+  }
+
+  // URLs trazem IPv6 entre colchetes ("[::1]").
+  const host = hostname.replace(/^\[|\]$/g, "");
+
+  if (!LOCAL_DB_HOSTS.has(host)) {
+    throw new Error(
+      `seed.ts recusou rodar: DATABASE_URL aponta para "${host}", que não é um banco local.\n` +
+        `Este script APAGA organizações inteiras (incluindo usuários e filiais) antes de recriar\n` +
+        `os dados de demonstração, e deleta questionários, que são globais a todos os tenants.\n` +
+        `Ele só roda contra o Postgres local (docker compose up -d).\n` +
+        `Para popular uma organização existente, use os seeds específicos (ex.: seed-kpi <orgId>).`,
+    );
+  }
+}
+
 async function seed() {
+  assertLocalDatabase();
+
   if (process.env.SEED_DEMO !== "true") {
     throw new Error(
       "Seed demo data is disabled. Set SEED_DEMO=true to run scripts/src/seed.ts.",
