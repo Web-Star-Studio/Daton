@@ -47,9 +47,30 @@ export const trainingCatalogTable = pgTable("training_catalog", {
   validityMonths: integer("validity_months"),
   isMandatory: boolean("is_mandatory").notNull().default(false),
   status: text("status").notNull().default("ativo"),
+  /**
+   * O que este item do catálogo COMPROVA quando concluído e válido:
+   *
+   *   'capacitacao'     → prova a competência-alvo
+   *   'habilitacao'     → prova a competência-alvo; validade é obrigatória (CNH, MOPP)
+   *   'conscientizacao' → NÃO prova competência (DDS, reunião matinal) — ISO 9001 §7.3
+   *   null              → não classificado; não prova nem desprova nada
+   *
+   * `null` é o estado inicial de todos os itens e é um estado válido e permanente
+   * para a cauda longa (itens com pouquíssimo uso). Um requisito que só poderia
+   * ser provado por itens não classificados fica "nao_classificado", NUNCA "gap".
+   */
+  evidenceType: text("evidence_type"),
   targetCompetencyName: text("target_competency_name"),
   targetCompetencyType: text("target_competency_type"),
   targetCompetencyLevel: integer("target_competency_level"),
+  // Um treino pode comprovar VÁRIAS competências (ISO 10015). Lista canônica de
+  // {name, type, level}. As colunas target_competency_* singulares ficam como
+  // legado (espelham o 1º item p/ quem ainda lê singular). Segue o padrão de
+  // norm_ids (#160): jsonb array, notNull default [].
+  targetCompetencies: jsonb("target_competencies")
+    .$type<{ name: string; type: string; level: number }[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   defaultInstructor: text("default_instructor"),
   objective: text("objective"),
   programContent: text("program_content"),

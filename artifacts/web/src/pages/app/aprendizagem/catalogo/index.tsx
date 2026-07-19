@@ -48,6 +48,7 @@ import {
   SearchableSelect,
   toNameOptions,
 } from "@/components/ui/searchable-select";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Copy, Pencil, Trash2 } from "lucide-react";
 
@@ -92,7 +93,11 @@ type CatalogForm = {
   validityMonths: string;
   isMandatory: boolean;
   status: string;
-  targetCompetencyName: string;
+  // O que este treino comprova. evidenceType classifica (capacitação/habilitação
+  // provam competência; conscientização não). targetCompetencies é a lista de
+  // competências comprovadas — um treino pode provar várias.
+  evidenceType: string;
+  targetCompetencies: { name: string; type: string; level: number }[];
   defaultInstructor: string;
   objective: string;
   programContent: string;
@@ -107,7 +112,8 @@ const EMPTY_FORM: CatalogForm = {
   validityMonths: "",
   isMandatory: false,
   status: "ativo",
-  targetCompetencyName: "",
+  evidenceType: "",
+  targetCompetencies: [],
   defaultInstructor: "",
   objective: "",
   programContent: "",
@@ -124,7 +130,8 @@ function itemToForm(item: TrainingCatalogItem): CatalogForm {
       item.validityMonths != null ? String(item.validityMonths) : "",
     isMandatory: item.isMandatory,
     status: item.status,
-    targetCompetencyName: item.targetCompetencyName ?? "",
+    evidenceType: item.evidenceType ?? "",
+    targetCompetencies: item.targetCompetencies ?? [],
     defaultInstructor: item.defaultInstructor ?? "",
     objective: item.objective ?? "",
     programContent: item.programContent ?? "",
@@ -142,7 +149,12 @@ function formToBody(form: CatalogForm): CreateTrainingCatalogItemBody {
       form.validityMonths === "" ? null : Number(form.validityMonths),
     isMandatory: form.isMandatory,
     status: form.status,
-    targetCompetencyName: form.targetCompetencyName || undefined,
+    evidenceType: form.evidenceType
+      ? (form.evidenceType as NonNullable<
+          CreateTrainingCatalogItemBody["evidenceType"]
+        >)
+      : undefined,
+    targetCompetencies: form.targetCompetencies,
     defaultInstructor: form.defaultInstructor || undefined,
     objective: form.objective || undefined,
     programContent: form.programContent || undefined,
@@ -187,8 +199,18 @@ export default function CatalogoPage() {
       queryKey: getListCompetencyCatalogQueryKey(orgId ?? 0),
     },
   });
-  const competencyNames = useMemo(
-    () => (competencyQuery.data?.data ?? []).map((c) => c.name),
+  // Banco de competências → opções do multi-select (por id) + mapa por id.
+  const competencyOptions = useMemo(
+    () =>
+      (competencyQuery.data?.data ?? []).map((c) => ({
+        value: c.id,
+        label: c.name,
+        keywords: [c.name],
+      })),
+    [competencyQuery.data],
+  );
+  const competencyById = useMemo(
+    () => new Map((competencyQuery.data?.data ?? []).map((c) => [c.id, c])),
     [competencyQuery.data],
   );
   // Catálogo de normas gerenciável (Configurações → Normas). Pickers usam as
@@ -277,6 +299,31 @@ export default function CatalogoPage() {
   }, [formOpen]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<CatalogForm>(EMPTY_FORM);
+  // Ids selecionados = itens do banco cujo nome está na lista do form (a lista
+  // guarda {name,type,level}; casamos pelo nome).
+  const selectedCompetencyIds = useMemo(
+    () =>
+      (competencyQuery.data?.data ?? [])
+        .filter((c) => form.targetCompetencies.some((t) => t.name === c.name))
+        .map((c) => c.id),
+    [competencyQuery.data, form.targetCompetencies],
+  );
+  const toggleCompetency = (id: number) => {
+    const c = competencyById.get(id);
+    if (!c) return;
+    setForm((f) => {
+      const exists = f.targetCompetencies.some((t) => t.name === c.name);
+      return {
+        ...f,
+        targetCompetencies: exists
+          ? f.targetCompetencies.filter((t) => t.name !== c.name)
+          : [
+              ...f.targetCompetencies,
+              { name: c.name, type: c.competencyType ?? "habilidade", level: 1 },
+            ],
+      };
+    });
+  };
   const [fichaItem, setFichaItem] = useState<TrainingCatalogItem | null>(null);
   // Diálogo de exclusão (na interface, nunca window.confirm). Duas fases no
   // mesmo diálogo: `dependencies: null` é a confirmação simples; quando o DELETE
@@ -677,8 +724,18 @@ export default function CatalogoPage() {
                   : {normLabelsForItem(fichaItem, normLabelMap).join(", ")}
                 </span>
               ) : null}
-              {fichaItem.targetCompetencyName ? (
-                <span>· Competência: {fichaItem.targetCompetencyName}</span>
+              {/* Só capacitação/habilitação comprovam competência — não exibir
+                  vínculos de um item que não comprova (ex.: conscientização com
+                  lista gravada por outra via), para não enganar. */}
+              {(fichaItem.evidenceType === "capacitacao" ||
+                fichaItem.evidenceType === "habilitacao") &&
+              fichaItem.targetCompetencies &&
+              fichaItem.targetCompetencies.length > 0 ? (
+                <span>
+                  · Competência
+                  {fichaItem.targetCompetencies.length > 1 ? "s" : ""}:{" "}
+                  {fichaItem.targetCompetencies.map((c) => c.name).join(", ")}
+                </span>
               ) : null}
               {fichaItem.defaultInstructor ? (
                 <span>· Instrutor: {fichaItem.defaultInstructor}</span>
@@ -817,22 +874,56 @@ export default function CatalogoPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Competência vinculada">
-            <SearchableSelect
-              value={form.targetCompetencyName}
-              onChange={(v) => setForm({ ...form, targetCompetencyName: v })}
-              options={toNameOptions(
-                competencyNames,
-                form.targetCompetencyName,
-              )}
-              onCreateOption={(v) =>
-                setForm({ ...form, targetCompetencyName: v })
+          <Field label="Tipo de evidência">
+            <Select
+              value={form.evidenceType}
+              onChange={(e) => {
+                const v = e.target.value;
+                // Só capacitação/habilitação comprovam competência. Ao mudar
+                // para conscientização (ou nenhum), limpa as competências.
+                setForm((f) => ({
+                  ...f,
+                  evidenceType: v,
+                  targetCompetencies:
+                    v === "capacitacao" || v === "habilitacao"
+                      ? f.targetCompetencies
+                      : [],
+                }));
+              }}
+            >
+              <option value="">Não classificado</option>
+              <option value="capacitacao">
+                Capacitação — comprova competência
+              </option>
+              <option value="habilitacao">
+                Habilitação — comprova competência (com validade)
+              </option>
+              <option value="conscientizacao">
+                Conscientização — não comprova competência
+              </option>
+            </Select>
+          </Field>
+          <Field label="Competências comprovadas" className="md:col-span-2">
+            <SearchableMultiSelect
+              options={competencyOptions}
+              selected={selectedCompetencyIds}
+              onToggle={toggleCompetency}
+              placeholder="Selecione as competências que este treino comprova…"
+              searchPlaceholder="Buscar competência…"
+              emptyMessage="Nenhuma competência no banco. Cadastre em Cargos e competências."
+              disabled={
+                form.evidenceType !== "capacitacao" &&
+                form.evidenceType !== "habilitacao"
               }
-              isLoading={competencyQuery.isLoading}
-              placeholder="Selecione uma competência…"
-              searchPlaceholder="Buscar ou digitar competência…"
-              createOptionLabel={(input) => `Usar “${input}”`}
             />
+            {form.evidenceType !== "capacitacao" &&
+            form.evidenceType !== "habilitacao" ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {form.evidenceType === "conscientizacao"
+                  ? "Conscientização não comprova competência — o vínculo fica desabilitado."
+                  : "Escolha capacitação ou habilitação para vincular competências que este treino comprova."}
+              </p>
+            ) : null}
           </Field>
           <Field label="Status">
             <Select

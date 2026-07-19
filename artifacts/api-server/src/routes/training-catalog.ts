@@ -137,6 +137,12 @@ router.post(
         .json({ error: "Norma(s) inválida(s) para esta organização" });
       return;
     }
+    // Um item pode comprovar VÁRIAS competências (ISO 10015): targetCompetencies
+    // é a lista canônica. As colunas singulares (targetCompetencyName/Type/Level)
+    // são legado e espelham o 1º item da lista — quem envia só o singular
+    // (chamadores antigos) continua funcionando, mas não popula a lista.
+    const targetCompetencies = body.data.targetCompetencies ?? [];
+    const firstCompetency = targetCompetencies[0] ?? null;
     const [row] = await db
       .insert(trainingCatalogTable)
       .values({
@@ -151,9 +157,14 @@ router.post(
         validityMonths: body.data.validityMonths ?? null,
         isMandatory: body.data.isMandatory ?? false,
         status: body.data.status ?? "ativo",
-        targetCompetencyName: body.data.targetCompetencyName ?? null,
-        targetCompetencyType: body.data.targetCompetencyType ?? null,
-        targetCompetencyLevel: body.data.targetCompetencyLevel ?? null,
+        evidenceType: body.data.evidenceType ?? null,
+        targetCompetencies,
+        targetCompetencyName:
+          firstCompetency?.name ?? body.data.targetCompetencyName ?? null,
+        targetCompetencyType:
+          firstCompetency?.type ?? body.data.targetCompetencyType ?? null,
+        targetCompetencyLevel:
+          firstCompetency?.level ?? body.data.targetCompetencyLevel ?? null,
         defaultInstructor: body.data.defaultInstructor ?? null,
         objective: body.data.objective ?? null,
         programContent: body.data.programContent ?? null,
@@ -244,12 +255,22 @@ router.patch(
       updates.validityMonths = b.validityMonths;
     if (b.isMandatory !== undefined) updates.isMandatory = b.isMandatory;
     if (b.status !== undefined) updates.status = b.status;
+    if (b.evidenceType !== undefined) updates.evidenceType = b.evidenceType;
     if (b.targetCompetencyName !== undefined)
       updates.targetCompetencyName = b.targetCompetencyName;
     if (b.targetCompetencyType !== undefined)
       updates.targetCompetencyType = b.targetCompetencyType;
     if (b.targetCompetencyLevel !== undefined)
       updates.targetCompetencyLevel = b.targetCompetencyLevel;
+    // Lista canônica de competências comprovadas (multi). Espelha o 1º item nas
+    // colunas singulares legadas — depois dos handlers acima, então a lista vence.
+    if (b.targetCompetencies !== undefined) {
+      updates.targetCompetencies = b.targetCompetencies;
+      const first = b.targetCompetencies[0] ?? null;
+      updates.targetCompetencyName = first?.name ?? null;
+      updates.targetCompetencyType = first?.type ?? null;
+      updates.targetCompetencyLevel = first?.level ?? null;
+    }
     if (b.defaultInstructor !== undefined)
       updates.defaultInstructor = b.defaultInstructor;
     if (b.objective !== undefined) updates.objective = b.objective;

@@ -107,6 +107,11 @@ const COMPETENCY_BADGE: Record<
       "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
     help: "Lacuna crítica: nível 2+ abaixo do requerido, ou qualquer lacuna em competência de nível requerido alto (≥ 4).",
   },
+  indeterminado: {
+    label: "Não avaliável",
+    className: "bg-muted text-muted-foreground border-border",
+    help: "O cargo exige competências, mas nenhum treinamento do catálogo foi classificado como comprovação delas. Classifique o catálogo em Aprendizagem → Catálogo → Classificar.",
+  },
 };
 
 function trainingBarColor(pct: number): string {
@@ -409,9 +414,13 @@ export default function ColaboradoresPage() {
   // Preview de obrigatoriedades que serão auto-vinculadas conforme cargo + filial.
   const watchedPosition = watch("position");
   const watchedUnitId = watch("unitId");
-  const { data: catalogPreviewResult } = useAllTrainingCatalog(orgId ?? 0, undefined, {
-    query: { enabled: !!orgId },
-  });
+  const { data: catalogPreviewResult } = useAllTrainingCatalog(
+    orgId ?? 0,
+    undefined,
+    {
+      query: { enabled: !!orgId },
+    },
+  );
   const catalogTitleById = new Map(
     (catalogPreviewResult?.data ?? []).map((c) => [c.id, c.title]),
   );

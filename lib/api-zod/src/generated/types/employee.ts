@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EmployeeAutoLinkedTrainings } from "./employeeAutoLinkedTrainings";
+import type { EmployeeCompetencyConformance } from "./employeeCompetencyConformance";
 import type { EmployeeCompetencyGapStatus } from "./employeeCompetencyGapStatus";
 import type { EmployeeContractType } from "./employeeContractType";
 import type { EmployeeStatus } from "./employeeStatus";
@@ -31,7 +32,10 @@ export interface Employee {
   status: EmployeeStatus;
   unitName?: string | null;
   trainingCompletionPercent?: number | null;
+  /** `indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado. */
   competencyGapStatus?: EmployeeCompetencyGapStatus;
+  /** Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por /competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET /employees/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado. */
+  competencyConformance?: EmployeeCompetencyConformance | null;
   createdAt: string;
   updatedAt: string;
 }

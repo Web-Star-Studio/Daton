@@ -1,14 +1,12 @@
-import { and, count, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, isNotNull, lte, sql } from "drizzle-orm";
 import {
   annualTrainingProgramTable,
   db,
-  employeeCompetenciesTable,
   employeesTable,
   employeeTrainingsTable,
-  positionCompetencyRequirementsTable,
-  positionsTable,
   trainingEffectivenessReviewsTable,
 } from "@workspace/db";
+import { resolveEmployeeCompetencies } from "../aprendizagem/competency-resolver";
 
 export type LmsMetricKey =
   | "pat_completion"
@@ -103,25 +101,17 @@ function pct(numer: number, denom: number): number | null {
   return Math.round((numer / denom) * 1000) / 10; // 1 casa
 }
 
-// Replica buildCompetencyKey de employees.ts:175
-function normalizeText(v: string | null | undefined): string {
-  return (v || "").trim().toLocaleLowerCase("pt-BR");
-}
-function competencyKey(
-  name: string | null | undefined,
-  type: string | null | undefined,
-): string {
-  return `${normalizeText(name)}::${normalizeText(type) || "habilidade"}`;
-}
-
 /**
  * Computes a Map of unitId → count of employees with at least one critical gap.
  * Employees with null unitId are recorded under key -1.
  * Shared by countCriticalGapEmployees (cards) and learning-summary (byUnit table).
  *
- * NOTE: duplica a regra de gap crítico do endpoint GET /employees/competency-gaps
- * (employees.ts ~1583–1804). Uma futura refatoração poderá extrair para um serviço
- * compartilhado, mas está fora do escopo desta task para evitar risco na rota existente.
+ * A regra de gap vive só no resolvedor (`resolveEmployeeCompetencies`) — este
+ * helper apenas agrega os `gapStatus === "critical"` por filial.
+ * `indeterminado` NÃO conta como crítico: cargo com requisito sem item de
+ * catálogo que o comprove é ausência de dado, não lacuna — contá-lo infla o
+ * KPI de lacunas críticas por falta de classificação do catálogo, exatamente
+ * o bug que o resolvedor corrige.
  */
 export async function computeCriticalGapCountsByUnit(
   orgId: number,
@@ -140,100 +130,18 @@ export async function computeCriticalGapCountsByUnit(
 
   if (employees.length === 0) return gapsByUnit;
 
-  const positionNames = [
-    ...new Set(
-      employees
-        .map((e) => e.position)
-        .filter((v): v is string => !!v),
-    ),
-  ];
-
-  if (positionNames.length === 0) return gapsByUnit;
-
-  const positions = await database
-    .select()
-    .from(positionsTable)
-    .where(
-      and(
-        eq(positionsTable.organizationId, orgId),
-        inArray(positionsTable.name, positionNames),
-      ),
-    );
-
-  if (positions.length === 0) return gapsByUnit;
-
-  const positionByName = new Map(positions.map((p) => [p.name, p]));
-  const positionIds = positions.map((p) => p.id);
-
-  const requirements = await database
-    .select()
-    .from(positionCompetencyRequirementsTable)
-    .where(inArray(positionCompetencyRequirementsTable.positionId, positionIds));
-
-  const requirementsByPositionId = new Map<
-    number,
-    (typeof positionCompetencyRequirementsTable.$inferSelect)[]
-  >();
-  for (const req of requirements) {
-    const items = requirementsByPositionId.get(req.positionId) || [];
-    items.push(req);
-    requirementsByPositionId.set(req.positionId, items);
-  }
-
-  const employeeIds = employees.map((e) => e.id);
-  const competencies = await database
-    .select()
-    .from(employeeCompetenciesTable)
-    .where(inArray(employeeCompetenciesTable.employeeId, employeeIds));
-
-  const competenciesByEmployeeId = new Map<
-    number,
-    (typeof employeeCompetenciesTable.$inferSelect)[]
-  >();
-  for (const comp of competencies) {
-    const items = competenciesByEmployeeId.get(comp.employeeId) || [];
-    items.push(comp);
-    competenciesByEmployeeId.set(comp.employeeId, items);
-  }
+  const conformanceByEmployee = await resolveEmployeeCompetencies(
+    database,
+    orgId,
+    employees.map((e) => ({ id: e.id, position: e.position })),
+  );
 
   for (const employee of employees) {
-    const position = employee.position
-      ? positionByName.get(employee.position)
-      : null;
-    if (!position) continue;
+    const conformance = conformanceByEmployee.get(employee.id);
+    if (conformance?.gapStatus !== "critical") continue;
 
-    const posReqs = requirementsByPositionId.get(position.id) || [];
-    const empComps = competenciesByEmployeeId.get(employee.id) || [];
-
-    // MAX acquiredLevel por chave de competência (replica a lógica do endpoint)
-    const compByKey = new Map<
-      string,
-      typeof employeeCompetenciesTable.$inferSelect
-    >();
-    for (const comp of empComps) {
-      const key = competencyKey(comp.name, comp.type);
-      const existing = compByKey.get(key);
-      if (!existing || comp.acquiredLevel > existing.acquiredLevel) {
-        compByKey.set(key, comp);
-      }
-    }
-
-    let hasCriticalGap = false;
-    for (const req of posReqs) {
-      const key = competencyKey(req.competencyName, req.competencyType);
-      const acquired = compByKey.get(key)?.acquiredLevel ?? 0;
-      const gapLevel = Math.max(req.requiredLevel - acquired, 0);
-      const critical = gapLevel >= 2 || req.requiredLevel >= 4;
-      if (gapLevel > 0 && critical) {
-        hasCriticalGap = true;
-        break; // basta 1 gap crítico para contar o colaborador
-      }
-    }
-
-    if (hasCriticalGap) {
-      const key = employee.unitId ?? -1;
-      gapsByUnit.set(key, (gapsByUnit.get(key) ?? 0) + 1);
-    }
+    const key = employee.unitId ?? -1;
+    gapsByUnit.set(key, (gapsByUnit.get(key) ?? 0) + 1);
   }
 
   return gapsByUnit;
@@ -287,7 +195,10 @@ export async function computeLmsMetric(args: {
       .from(trainingEffectivenessReviewsTable)
       .innerJoin(
         employeeTrainingsTable,
-        eq(trainingEffectivenessReviewsTable.trainingId, employeeTrainingsTable.id),
+        eq(
+          trainingEffectivenessReviewsTable.trainingId,
+          employeeTrainingsTable.id,
+        ),
       )
       .innerJoin(
         employeesTable,

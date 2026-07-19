@@ -102,6 +102,7 @@ import {
   computeCompetencyGapStatusByEmployee,
   computeTrainingCompletionByEmployee,
 } from "../services/aprendizagem/employee-learning-aggregates";
+import { resolveEmployeeCompetencies } from "../services/aprendizagem/competency-resolver";
 import {
   ObjectNotFoundError,
   ObjectStorageService,
@@ -2127,6 +2128,8 @@ router.get(
           .filter((value): value is string => !!value),
       ),
     ];
+    // Só para enriquecer a resposta com `positionId` — a regra de gap em si
+    // vem inteira do resolvedor logo abaixo (nunca reimplementada aqui).
     const positions =
       positionNames.length === 0
         ? []
@@ -2142,46 +2145,6 @@ router.get(
     const positionByName = new Map(
       positions.map((position) => [position.name, position]),
     );
-    const positionIds = positions.map((position) => position.id);
-    const requirements =
-      positionIds.length === 0
-        ? []
-        : await db
-            .select()
-            .from(positionCompetencyRequirementsTable)
-            .where(
-              inArray(
-                positionCompetencyRequirementsTable.positionId,
-                positionIds,
-              ),
-            )
-            .orderBy(
-              positionCompetencyRequirementsTable.sortOrder,
-              positionCompetencyRequirementsTable.competencyName,
-            );
-    const requirementsByPositionId = new Map<
-      number,
-      PositionCompetencyRequirementRow[]
-    >();
-    for (const requirement of requirements) {
-      const items = requirementsByPositionId.get(requirement.positionId) || [];
-      items.push(requirement);
-      requirementsByPositionId.set(requirement.positionId, items);
-    }
-
-    const competencies = await db
-      .select()
-      .from(employeeCompetenciesTable)
-      .where(inArray(employeeCompetenciesTable.employeeId, employeeIds));
-    const competenciesByEmployeeId = new Map<
-      number,
-      (typeof employeeCompetenciesTable.$inferSelect)[]
-    >();
-    for (const competency of competencies) {
-      const items = competenciesByEmployeeId.get(competency.employeeId) || [];
-      items.push(competency);
-      competenciesByEmployeeId.set(competency.employeeId, items);
-    }
 
     const trainingRows = await db
       .select({
@@ -2198,64 +2161,51 @@ router.get(
       relatedTrainingCount.set(key, (relatedTrainingCount.get(key) || 0) + 1);
     }
 
+    const conformanceByEmployee = await resolveEmployeeCompetencies(
+      db,
+      params.data.orgId,
+      employees.map((employee) => ({
+        id: employee.id,
+        position: employee.position,
+      })),
+    );
+
     const gaps = employees
       .flatMap((employee) => {
         const position = employee.position
           ? positionByName.get(employee.position)
           : null;
-        if (!position) return [];
+        const conformance = conformanceByEmployee.get(employee.id);
+        if (!conformance) return [];
 
-        const positionRequirements =
-          requirementsByPositionId.get(position.id) || [];
-        const employeeCompetencies =
-          competenciesByEmployeeId.get(employee.id) || [];
-        const competencyByKey = new Map<
-          string,
-          typeof employeeCompetenciesTable.$inferSelect
-        >();
-        for (const competency of employeeCompetencies) {
-          const key = buildCompetencyKey(competency.name, competency.type);
-          const existing = competencyByKey.get(key);
-          if (!existing || competency.acquiredLevel > existing.acquiredLevel) {
-            competencyByKey.set(key, competency);
-          }
-        }
-
-        return positionRequirements
+        // Só requisitos com status "gap" viram lacuna acionável aqui.
+        // "nao_classificado" (sem manual e sem catálogo classificado que prove)
+        // não é lacuna — é ausência de dado, e não deve aparecer nesta lista.
+        return conformance.requirements
+          .filter((requirement) => requirement.status === "gap")
           .map((requirement) => {
             const key = buildCompetencyKey(
               requirement.competencyName,
               requirement.competencyType,
             );
-            const current = competencyByKey.get(key);
-            const acquiredLevel = current?.acquiredLevel || 0;
-            const gapLevel = Math.max(
-              requirement.requiredLevel - acquiredLevel,
-              0,
-            );
-            const critical = gapLevel >= 2 || requirement.requiredLevel >= 4;
-
-            return gapLevel > 0
-              ? {
-                  employeeId: employee.id,
-                  employeeName: employee.name,
-                  employeePosition: employee.position,
-                  employeeDepartment: employee.department,
-                  unitId: employee.unitId,
-                  unitName: employee.unitName,
-                  positionId: position.id,
-                  competencyName: requirement.competencyName,
-                  competencyType: requirement.competencyType,
-                  requiredLevel: requirement.requiredLevel,
-                  acquiredLevel,
-                  gapLevel,
-                  critical,
-                  relatedTrainingCount:
-                    relatedTrainingCount.get(`${employee.id}::${key}`) || 0,
-                }
-              : null;
-          })
-          .filter((item): item is NonNullable<typeof item> => item !== null);
+            return {
+              employeeId: employee.id,
+              employeeName: employee.name,
+              employeePosition: employee.position,
+              employeeDepartment: employee.department,
+              unitId: employee.unitId,
+              unitName: employee.unitName,
+              positionId: position?.id ?? null,
+              competencyName: requirement.competencyName,
+              competencyType: requirement.competencyType,
+              requiredLevel: requirement.requiredLevel,
+              acquiredLevel: requirement.acquiredLevel,
+              gapLevel: requirement.gapLevel,
+              critical: requirement.critical,
+              relatedTrainingCount:
+                relatedTrainingCount.get(`${employee.id}::${key}`) || 0,
+            };
+          });
       })
       .filter((item) => !query.data.criticalOnly || item.critical);
 
@@ -2656,6 +2606,27 @@ router.get(
       .innerJoin(unitsTable, eq(employeeUnitsTable.unitId, unitsTable.id))
       .where(eq(employeeUnitsTable.employeeId, params.data.empId));
 
+    // Task 4 — a ficha lê o MESMO motor de conformidade da listagem/KPIs
+    // (resolveEmployeeCompetencies), em vez do matching de texto livre que o
+    // front usava (position-requirements.ts, aposentado nesta task).
+    // `positionName: null` no resultado do resolvedor significa "o texto de
+    // `employee.position` não bateu com nenhum cargo cadastrado" — nesse caso
+    // devolvemos `null` em vez de um objeto com requirements vazio.
+    const conformanceByEmployee = await resolveEmployeeCompetencies(
+      db,
+      params.data.orgId,
+      [{ id: rows[0].id, position: rows[0].position }],
+    );
+    const resolvedConformance = conformanceByEmployee.get(rows[0].id) ?? null;
+    const competencyConformance =
+      resolvedConformance && resolvedConformance.positionName !== null
+        ? {
+            positionName: resolvedConformance.positionName,
+            requirements: resolvedConformance.requirements,
+            gapStatus: resolvedConformance.gapStatus,
+          }
+        : null;
+
     res.json({
       ...formatEmployee(rows[0]),
       units: linkedUnits,
@@ -2670,6 +2641,7 @@ router.get(
       ),
       professionalExperiences: profileItems.professionalExperiences,
       educationCertifications: profileItems.educationCertifications,
+      competencyConformance,
     });
   },
 );
@@ -3602,42 +3574,95 @@ router.post(
         })
         .returning();
 
-      if (body.data.isEffective && training.targetCompetencyName) {
-        const targetType = training.targetCompetencyType || "habilidade";
-        const targetLevel =
-          body.data.resultLevel ?? training.targetCompetencyLevel ?? 1;
-        const existingCompetencies = await tx
-          .select()
-          .from(employeeCompetenciesTable)
-          .where(eq(employeeCompetenciesTable.employeeId, params.data.empId));
-        const existingCompetency = existingCompetencies.find(
-          (competency) =>
-            buildCompetencyKey(competency.name, competency.type) ===
-            buildCompetencyKey(training.targetCompetencyName, targetType),
-        );
+      if (body.data.isEffective) {
+        // Um item do catálogo pode comprovar VÁRIAS competências
+        // (training_catalog.target_competencies). Carrega a lista completa
+        // do item (uma vez, fora de qualquer loop) quando o treino vem de
+        // catálogo; as colunas singulares de employee_trainings só espelham
+        // a 1ª competência da lista e não bastam para o atestado durável.
+        let competenciesToGrant: {
+          name: string;
+          type: string;
+          level: number | null;
+        }[] = [];
 
-        if (existingCompetency) {
-          await tx
-            .update(employeeCompetenciesTable)
-            .set({
-              acquiredLevel: Math.max(
+        if (training.catalogItemId != null) {
+          const [catalogItem] = await tx
+            .select()
+            .from(trainingCatalogTable)
+            .where(
+              and(
+                eq(trainingCatalogTable.id, training.catalogItemId),
+                eq(trainingCatalogTable.organizationId, params.data.orgId),
+              ),
+            );
+          competenciesToGrant = (catalogItem?.targetCompetencies ?? [])
+            .filter((comp) => !!comp?.name)
+            .map((comp) => ({
+              name: comp.name,
+              type: comp.type || "habilidade",
+              level: comp.level ?? null,
+            }));
+        }
+
+        // Fallback para a competência singular do próprio treino: nem todo
+        // treino vem de catálogo (avulsos), e um item de catálogo pode não
+        // ter a lista populada (legado). Preserva o comportamento anterior.
+        if (competenciesToGrant.length === 0 && training.targetCompetencyName) {
+          competenciesToGrant = [
+            {
+              name: training.targetCompetencyName,
+              type: training.targetCompetencyType || "habilidade",
+              level: training.targetCompetencyLevel ?? null,
+            },
+          ];
+        }
+
+        if (competenciesToGrant.length > 0) {
+          const existingCompetencies = await tx
+            .select()
+            .from(employeeCompetenciesTable)
+            .where(eq(employeeCompetenciesTable.employeeId, params.data.empId));
+
+          for (const comp of competenciesToGrant) {
+            const targetLevel = body.data.resultLevel ?? comp.level ?? 1;
+            const key = buildCompetencyKey(comp.name, comp.type);
+            const existingCompetency = existingCompetencies.find(
+              (competency) =>
+                buildCompetencyKey(competency.name, competency.type) === key,
+            );
+
+            if (existingCompetency) {
+              const nextLevel = Math.max(
                 existingCompetency.acquiredLevel || 0,
                 targetLevel,
-              ),
-              type: existingCompetency.type || targetType,
-            })
-            .where(eq(employeeCompetenciesTable.id, existingCompetency.id));
-        } else {
-          await tx.insert(employeeCompetenciesTable).values({
-            employeeId: params.data.empId,
-            name: training.targetCompetencyName,
-            type: targetType,
-            requiredLevel: training.targetCompetencyLevel ?? targetLevel,
-            acquiredLevel: targetLevel,
-            description: training.objective || training.description || null,
-            evidence: `Atualizada via eficácia do treinamento "${training.title}"`,
-            attachments: [],
-          });
+              );
+              await tx
+                .update(employeeCompetenciesTable)
+                .set({
+                  acquiredLevel: nextLevel,
+                  type: existingCompetency.type || comp.type,
+                })
+                .where(eq(employeeCompetenciesTable.id, existingCompetency.id));
+              existingCompetency.acquiredLevel = nextLevel;
+            } else {
+              const [inserted] = await tx
+                .insert(employeeCompetenciesTable)
+                .values({
+                  employeeId: params.data.empId,
+                  name: comp.name,
+                  type: comp.type,
+                  requiredLevel: comp.level ?? targetLevel,
+                  acquiredLevel: targetLevel,
+                  description:
+                    training.objective || training.description || null,
+                  evidence: `Atualizada via eficácia do treinamento "${training.title}"`,
+                  attachments: [],
+                })
+                .returning();
+              existingCompetencies.push(inserted);
+            }
+          }
         }
       }
 

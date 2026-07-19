@@ -52,18 +52,12 @@ import type {
   EmployeeTraining,
   EmployeeAwareness,
   EmployeeDetail,
+  EmployeeCompetencyConformance,
   LinkedUnit,
-  Position,
   TrainingEffectivenessReview,
   DocumentSummary,
   StrategicPlanObjective,
 } from "@workspace/api-client-react";
-import {
-  findPositionByName,
-  getRequirementsList,
-  matchRequirementsToCompetencies,
-  type ComplianceItem,
-} from "@/lib/position-requirements";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { EmployeeProfileItemDialog } from "@/components/employees/employee-profile-item-dialog";
@@ -115,7 +109,7 @@ import {
   XCircle,
   Building2,
   AlertTriangle,
-  Paperclip,
+  HelpCircle,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -1667,7 +1661,7 @@ function CompetenciasTab({
   createOpen = false,
   onCreateOpenChange,
   employeePosition,
-  positions,
+  competencyConformance,
 }: {
   competencies: EmployeeCompetency[];
   orgId: number;
@@ -1676,7 +1670,7 @@ function CompetenciasTab({
   createOpen?: boolean;
   onCreateOpenChange?: (open: boolean) => void;
   employeePosition?: string | null;
-  positions?: Position[];
+  competencyConformance?: EmployeeCompetencyConformance | null;
 }) {
   const queryClient = useQueryClient();
   const [internalCreateOpen, setInternalCreateOpen] = useState(false);
@@ -1718,21 +1712,23 @@ function CompetenciasTab({
   };
   const [form, setForm] = useState<CompetencyForm>(emptyForm);
 
-  // Compliance matching
-  const matchedPosition = positions
-    ? findPositionByName(positions, employeePosition)
-    : null;
-  const requirementsList = matchedPosition
-    ? getRequirementsList(matchedPosition.requirements)
-    : [];
-  const complianceItems =
-    requirementsList.length > 0
-      ? matchRequirementsToCompetencies(requirementsList, competencies)
-      : [];
-  const matchedCount = complianceItems.filter((c) => c.matched).length;
-  const totalReqs = complianceItems.length;
+  // Conformidade do Cargo — lê o mesmo motor relacional (resolveEmployeeCompetencies)
+  // usado pela listagem e por /competency-gaps, em vez do antigo matching de
+  // texto livre (position-requirements.ts, aposentado). Três estados por
+  // requisito: "atende" (✓), "gap" (✗) e "nao_classificado" (cinza, "não
+  // avaliável" — NUNCA conta como lacuna nem entra na barra de progresso).
+  const requirements = competencyConformance?.requirements ?? [];
+  const atendeItems = requirements.filter((r) => r.status === "atende");
+  const gapItems = requirements.filter((r) => r.status === "gap");
+  const naoClassificadoItems = requirements.filter(
+    (r) => r.status === "nao_classificado",
+  );
+  const totalReqs = requirements.length;
+  const progressDenom = atendeItems.length + gapItems.length;
   const compliancePercent =
-    totalReqs > 0 ? Math.round((matchedCount / totalReqs) * 100) : 0;
+    progressDenom > 0
+      ? Math.round((atendeItems.length / progressDenom) * 100)
+      : 0;
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -1746,25 +1742,6 @@ function CompetenciasTab({
     setCreateAttachments([]);
     setIsUploadingCreateAttachments(false);
     setPrefillName("");
-  };
-
-  // Rola até o cartão da competência (onde ficam os certificados anexados) e
-  // destaca-o brevemente. Usado pelo indicador de anexo na Conformidade do Cargo.
-  const scrollToCompetency = (competencyId: number) => {
-    const el = document.getElementById(`comp-card-${competencyId}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("ring-2", "ring-emerald-400");
-    // Cancela um destaque anterior do mesmo cartão para não apagá-lo cedo em
-    // cliques repetidos (o timeout fica guardado no próprio elemento).
-    const prev = Number(el.dataset.highlightTimeout);
-    if (prev) window.clearTimeout(prev);
-    el.dataset.highlightTimeout = String(
-      window.setTimeout(() => {
-        el.classList.remove("ring-2", "ring-emerald-400");
-        delete el.dataset.highlightTimeout;
-      }, 1600),
-    );
   };
 
   const openCreateFromRequirement = (requirementName: string) => {
@@ -1853,7 +1830,7 @@ function CompetenciasTab({
       </p>
 
       {/* Compliance section */}
-      {employeePosition && matchedPosition && totalReqs > 0 && (
+      {employeePosition && competencyConformance && totalReqs > 0 && (
         <div className="bg-muted/30 border border-border/60 rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1863,15 +1840,15 @@ function CompetenciasTab({
               </h3>
             </div>
             <span className="text-xs text-muted-foreground font-medium">
-              {matchedPosition.name}
+              {competencyConformance.positionName ?? employeePosition}
             </span>
           </div>
 
-          {/* Progress bar */}
+          {/* Progress bar — atende / (atende + gap); "não classificado" não conta */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">
-                {matchedCount}/{totalReqs} requisitos atendidos
+                {atendeItems.length}/{progressDenom} requisitos atendidos
               </span>
               <span
                 className={cn(
@@ -1901,86 +1878,101 @@ function CompetenciasTab({
             </div>
           </div>
 
-          {/* Requirement items */}
+          {/* Requirement items — três estados: atende (✓), gap (✗) e
+              nao_classificado (cinza neutro, não é lacuna). */}
           <div className="space-y-1.5">
-            {complianceItems.map((item, idx) => (
-              <div
-                key={idx}
-                className={cn(
-                  "flex items-center justify-between px-3 py-2 rounded-lg text-[12px]",
-                  item.matched
-                    ? "bg-emerald-50 border border-emerald-200/60 dark:bg-emerald-500/10 dark:border-emerald-500/30"
-                    : "bg-red-50 border border-red-200/60 dark:bg-red-500/10 dark:border-red-500/30",
-                )}
-              >
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  {item.matched ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                  ) : (
-                    <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                  )}
-                  <span
-                    className={cn(
-                      "truncate",
-                      item.matched
-                        ? "text-emerald-900 dark:text-emerald-200"
-                        : "text-red-900 dark:text-red-200",
-                    )}
+            {requirements.map((item, idx) => {
+              if (item.status === "nao_classificado") {
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between px-3 py-2 rounded-lg text-[12px] bg-muted/40 border border-border/50"
                   >
-                    {item.requirement}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 ml-3">
-                  {item.matched && item.competency && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-emerald-700 dark:text-emerald-300">
-                        Nível: {item.competency.acquiredLevel}/
-                        {item.competency.requiredLevel}
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate text-muted-foreground">
+                        {item.competencyName}
                       </span>
-                      {(item.competency.acquiredLevel ?? 0) <
-                        (item.competency.requiredLevel ?? 0) && (
-                        <span className="text-[10px] font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded dark:text-amber-300 dark:bg-amber-500/20">
-                          Gap
-                        </span>
-                      )}
-                      {item.competency.attachments.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => scrollToCompetency(item.competency!.id)}
-                          title="Ver certificado(s) anexado(s)"
-                          className="flex items-center gap-0.5 text-[11px] font-medium text-emerald-700 hover:text-emerald-900 dark:text-emerald-300 transition-colors cursor-pointer"
-                        >
-                          <Paperclip className="h-3 w-3" />
-                          {item.competency.attachments.length}
-                        </button>
-                      )}
                     </div>
+                    <span className="text-[11px] text-muted-foreground shrink-0 ml-3">
+                      Não avaliável — treinamento não classificado
+                    </span>
+                  </div>
+                );
+              }
+              const matched = item.status === "atende";
+              return (
+                <div
+                  key={idx}
+                  className={cn(
+                    "flex items-center justify-between px-3 py-2 rounded-lg text-[12px]",
+                    matched
+                      ? "bg-emerald-50 border border-emerald-200/60 dark:bg-emerald-500/10 dark:border-emerald-500/30"
+                      : "bg-red-50 border border-red-200/60 dark:bg-red-500/10 dark:border-red-500/30",
                   )}
-                  {!item.matched && editable && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openCreateFromRequirement(item.requirement)
-                      }
-                      className="flex items-center gap-1 text-[11px] font-medium text-red-700 hover:text-red-900 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    {matched ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                    )}
+                    <span
+                      className={cn(
+                        "truncate",
+                        matched
+                          ? "text-emerald-900 dark:text-emerald-200"
+                          : "text-red-900 dark:text-red-200",
+                      )}
                     >
-                      <Plus className="h-3 w-3" />
-                      Adicionar
-                    </button>
-                  )}
+                      {item.competencyName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                    {matched && (
+                      <span className="text-emerald-700 dark:text-emerald-300">
+                        Nível: {item.acquiredLevel}/{item.requiredLevel}
+                      </span>
+                    )}
+                    {!matched && editable && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openCreateFromRequirement(item.competencyName)
+                        }
+                        className="flex items-center gap-1 text-[11px] font-medium text-red-700 hover:text-red-900 transition-colors cursor-pointer"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Adicionar
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+
+          {naoClassificadoItems.length > 0 && (
+            <p className="text-[11px] text-muted-foreground pt-1">
+              {naoClassificadoItems.length}{" "}
+              {naoClassificadoItems.length === 1
+                ? "requisito ainda não avaliável"
+                : "requisitos ainda não avaliáveis"}
+              .
+            </p>
+          )}
         </div>
       )}
 
-      {employeePosition && matchedPosition && totalReqs === 0 && (
+      {employeePosition && competencyConformance && totalReqs === 0 && (
         <div className="bg-muted/20 border border-border/40 rounded-xl p-4 flex items-center gap-2 text-xs text-muted-foreground">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           <span>
-            O cargo <strong>{matchedPosition.name}</strong> não possui
-            requisitos definidos.
+            O cargo{" "}
+            <strong>
+              {competencyConformance.positionName ?? employeePosition}
+            </strong>{" "}
+            não possui requisitos definidos.
           </span>
         </div>
       )}
@@ -4144,7 +4136,7 @@ export default function ColaboradorDetailPage() {
             createOpen={compCreateOpen}
             onCreateOpenChange={setCompCreateOpen}
             employeePosition={employee.position}
-            positions={positions}
+            competencyConformance={employee.competencyConformance ?? null}
           />
         )}
 

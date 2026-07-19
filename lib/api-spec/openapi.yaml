@@ -10676,6 +10676,24 @@ paths:
 
 components:
   schemas:
+    CompetencyTarget:
+      type: object
+      description: >-
+        Uma competência-alvo comprovada por um item do catálogo (ISO 10015).
+        Um item pode comprovar várias — a lista canônica é
+        `TrainingCatalogItem.targetCompetencies`.
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        level:
+          type: integer
+      required:
+        - name
+        - type
+        - level
+
     TrainingCatalogItem:
       type: object
       description: "Item do catálogo de treinamentos (definição reutilizável)."
@@ -10716,6 +10734,14 @@ components:
           type: boolean
         status:
           type: string
+        evidenceType:
+          type: string
+          enum: [capacitacao, habilitacao, conscientizacao]
+          nullable: true
+          description: >-
+            O que este item comprova quando concluído e válido. `capacitacao` e
+            `habilitacao` provam a competência-alvo; `conscientizacao` não prova
+            (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
         targetCompetencyName:
           type: string
           nullable: true
@@ -10725,6 +10751,15 @@ components:
         targetCompetencyLevel:
           type: integer
           nullable: true
+        targetCompetencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetencyTarget"
+          description: >-
+            Lista canônica de competências que este item comprova (ISO 10015)
+            — um treino pode comprovar várias. As colunas
+            targetCompetencyName/Type/Level (singulares) são legado e
+            espelham o primeiro item desta lista.
         defaultInstructor:
           type: string
           nullable: true
@@ -10750,6 +10785,7 @@ components:
         - normIds
         - isMandatory
         - status
+        - targetCompetencies
         - createdAt
         - updatedAt
 
@@ -10782,12 +10818,28 @@ components:
           type: boolean
         status:
           type: string
+        evidenceType:
+          type: string
+          enum: [capacitacao, habilitacao, conscientizacao]
+          nullable: true
+          description: >-
+            O que este item comprova quando concluído e válido. `capacitacao` e
+            `habilitacao` provam a competência-alvo; `conscientizacao` não prova
+            (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
         targetCompetencyName:
           type: string
         targetCompetencyType:
           type: string
         targetCompetencyLevel:
           type: integer
+        targetCompetencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetencyTarget"
+          description: >-
+            Lista canônica de competências que este item comprova (ISO 10015).
+            Quando informada, o servidor espelha o primeiro item nas colunas
+            targetCompetencyName/Type/Level (legado).
         defaultInstructor:
           type: string
         objective:
@@ -10828,12 +10880,28 @@ components:
           type: boolean
         status:
           type: string
+        evidenceType:
+          type: string
+          enum: [capacitacao, habilitacao, conscientizacao]
+          nullable: true
+          description: >-
+            O que este item comprova quando concluído e válido. `capacitacao` e
+            `habilitacao` provam a competência-alvo; `conscientizacao` não prova
+            (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
         targetCompetencyName:
           type: string
         targetCompetencyType:
           type: string
         targetCompetencyLevel:
           type: integer
+        targetCompetencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetencyTarget"
+          description: >-
+            Lista canônica de competências que este item comprova (ISO 10015).
+            Quando informada, o servidor espelha o primeiro item nas colunas
+            targetCompetencyName/Type/Level (legado).
         defaultInstructor:
           type: string
         objective:
@@ -12709,7 +12777,22 @@ components:
           nullable: true
         competencyGapStatus:
           type: string
-          enum: [ok, gap, critical]
+          enum: [ok, gap, critical, indeterminado]
+          nullable: true
+          description: >-
+            `indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo
+            classificado poderia comprová-los. Não é lacuna — é ausência de dado.
+        competencyConformance:
+          allOf:
+            - $ref: "#/components/schemas/EmployeeCompetencyConformance"
+          nullable: true
+          description: >-
+            Conformidade de competência do colaborador contra os requisitos do
+            cargo, vinda do mesmo resolvedor usado pela listagem e por
+            /competency-gaps (resolveEmployeeCompetencies). Presente apenas na
+            resposta de GET /employees/:empId (detalhe); `null` quando o
+            colaborador não tem cargo (texto livre) casado com um Position
+            cadastrado.
         createdAt:
           type: string
           format: date-time
@@ -12724,6 +12807,83 @@ components:
         - status
         - createdAt
         - updatedAt
+
+    EmployeeCompetencyConformance:
+      type: object
+      description: >-
+        Espelha `EmployeeConformance` do resolvedor de competência
+        (resolveEmployeeCompetencies, artifacts/api-server/src/services/aprendizagem/competency-resolver.ts) —
+        o mesmo motor que produz `competencyGapStatus` na listagem e os itens
+        de /competency-gaps.
+      properties:
+        positionName:
+          type: string
+          nullable: true
+        requirements:
+          type: array
+          items:
+            type: object
+            properties:
+              competencyName:
+                type: string
+              competencyType:
+                type: string
+                enum: [formacao, experiencia, habilidade]
+              requiredLevel:
+                type: integer
+              acquiredLevel:
+                type: integer
+              status:
+                type: string
+                enum: [atende, gap, nao_classificado]
+                description: >-
+                  `nao_classificado` = não há atestado manual nem item de
+                  catálogo classificado que possa provar a competência. Não é
+                  lacuna — é ausência de dado (nunca deve ser tratado como ✗).
+              source:
+                type: string
+                enum: [manual, treinamento]
+                nullable: true
+              evidence:
+                type: object
+                nullable: true
+                properties:
+                  trainingId:
+                    type: integer
+                  title:
+                    type: string
+                  completionDate:
+                    type: string
+                    nullable: true
+                  expirationDate:
+                    type: string
+                    nullable: true
+                required:
+                  - trainingId
+                  - title
+                  - completionDate
+                  - expirationDate
+              gapLevel:
+                type: integer
+              critical:
+                type: boolean
+            required:
+              - competencyName
+              - competencyType
+              - requiredLevel
+              - acquiredLevel
+              - status
+              - source
+              - evidence
+              - gapLevel
+              - critical
+        gapStatus:
+          type: string
+          enum: [ok, gap, critical, indeterminado]
+      required:
+        - positionName
+        - requirements
+        - gapStatus
 
     EmployeeProfileItemAttachment:
       type: object

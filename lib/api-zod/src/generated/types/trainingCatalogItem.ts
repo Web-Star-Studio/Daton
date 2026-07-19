@@ -5,6 +5,8 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CompetencyTarget } from "./competencyTarget";
+import type { TrainingCatalogItemEvidenceType } from "./trainingCatalogItemEvidenceType";
 
 /**
  * Item do catálogo de treinamentos (definição reutilizável).
@@ -30,9 +32,13 @@ export interface TrainingCatalogItem {
   validityMonths?: number | null;
   isMandatory: boolean;
   status: string;
+  /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
+  evidenceType?: TrainingCatalogItemEvidenceType;
   targetCompetencyName?: string | null;
   targetCompetencyType?: string | null;
   targetCompetencyLevel?: number | null;
+  /** Lista canônica de competências que este item comprova (ISO 10015) — um treino pode comprovar várias. As colunas targetCompetencyName/Type/Level (singulares) são legado e espelham o primeiro item desta lista. */
+  targetCompetencies: CompetencyTarget[];
   defaultInstructor?: string | null;
   objective?: string | null;
   programContent?: string | null;
