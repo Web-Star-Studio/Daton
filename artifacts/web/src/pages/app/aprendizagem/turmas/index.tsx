@@ -12,7 +12,10 @@ import {
   useListUserOptions,
   getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
-import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import {
+  useAllTrainingCatalog,
+  selectPickerCatalogItems,
+} from "@/lib/training-catalog-client";
 import type { TrainingClass } from "@workspace/api-client-react";
 import { formatKpiNumber } from "@/lib/kpi-client";
 import { TrainingWorkloadInput } from "@/pages/app/aprendizagem/_components/carga-horaria";
@@ -159,6 +162,13 @@ export default function TurmasPage() {
   // Preview do treinamento selecionado no passo 1 (fidelidade ao mockup)
   const selectedCatalogItem = useMemo(
     () => catalogItems.find((c) => String(c.id) === form.catalogItemId) ?? null,
+    [catalogItems, form.catalogItemId],
+  );
+  // Opções do picker: só ativos + o item já selecionado no form. O
+  // catalogTitle (acima) continua com a lista inteira — é ele quem exibe o
+  // nome do treinamento nas turmas já criadas (mesmo as de treinos arquivados).
+  const catalogPickerOptions = useMemo(
+    () => selectPickerCatalogItems(catalogItems, form.catalogItemId),
     [catalogItems, form.catalogItemId],
   );
   const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
@@ -345,7 +355,7 @@ export default function TurmasPage() {
             <SearchableSelect
               value={form.catalogItemId}
               onChange={(v) => setForm({ ...form, catalogItemId: v })}
-              options={catalogItems.map((c) => ({
+              options={catalogPickerOptions.map((c) => ({
                 value: String(c.id),
                 label: c.title,
               }))}

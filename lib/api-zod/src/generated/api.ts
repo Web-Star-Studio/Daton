@@ -1707,7 +1707,16 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
     .optional(),
   scope: zod.enum(["needs_evaluation", "all"]).optional(),
   year: zod.coerce.number().optional(),
-  norm: zod.coerce.string().optional(),
+  norm: zod.coerce
+    .string()
+    .optional()
+    .describe("Deprecated — use normId. Kept for backward compatibility."),
+  normId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "Filtro por id da norma do catálogo (norm_ids do item vinculado).",
+    ),
   evaluatorRole: zod
     .enum(["gestor", "rh", "instrutor", "colaborador"])
     .optional(),
@@ -1752,6 +1761,7 @@ export const ListOrganizationTrainingsResponse = zod.object({
       description: zod.string().nullish(),
       objective: zod.string().nullish(),
       institution: zod.string().nullish(),
+      instructor: zod.string().nullish(),
       targetCompetencyName: zod.string().nullish(),
       targetCompetencyType: zod
         .enum(["formacao", "experiencia", "habilidade"])
@@ -2258,6 +2268,7 @@ export const GetEmployeeResponse = zod
             description: zod.string().nullish(),
             objective: zod.string().nullish(),
             institution: zod.string().nullish(),
+            instructor: zod.string().nullish(),
             targetCompetencyName: zod.string().nullish(),
             targetCompetencyType: zod
               .enum(["formacao", "experiencia", "habilidade"])
@@ -2798,6 +2809,7 @@ export const ListTrainingsResponseItem = zod.object({
   description: zod.string().nullish(),
   objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -2931,6 +2943,7 @@ export const CreateTrainingBody = zod.object({
   description: zod.string().optional(),
   objective: zod.string().optional(),
   institution: zod.string().optional(),
+  instructor: zod.string().optional(),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -2987,6 +3000,7 @@ export const UpdateTrainingBody = zod.object({
   description: zod.string().optional(),
   objective: zod.string().optional(),
   institution: zod.string().optional(),
+  instructor: zod.string().optional(),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -3054,6 +3068,7 @@ export const UpdateTrainingResponse = zod.object({
   description: zod.string().nullish(),
   objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -3210,6 +3225,7 @@ export const AssignTrainingEffectivenessResponse = zod.object({
   description: zod.string().nullish(),
   objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -3805,6 +3821,9 @@ export const ListPositionsResponseItem = zod.object({
   level: zod.string().nullish(),
   minSalary: zod.number().nullish(),
   maxSalary: zod.number().nullish(),
+  area: zod.string().nullish(),
+  principalNormId: zod.number().nullish(),
+  competencyCount: zod.number().optional(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });
@@ -3827,6 +3846,8 @@ export const CreatePositionBody = zod.object({
   level: zod.string().optional(),
   minSalary: zod.number().optional(),
   maxSalary: zod.number().optional(),
+  area: zod.string().optional(),
+  principalNormId: zod.number().nullish(),
 });
 
 /**
@@ -3848,6 +3869,8 @@ export const ImportPositionsBody = zod.object({
       level: zod.string().optional(),
       minSalary: zod.number().optional(),
       maxSalary: zod.number().optional(),
+      area: zod.string().optional(),
+      principalNormId: zod.number().nullish(),
     }),
   ),
   conflictStrategy: zod
@@ -3874,6 +3897,8 @@ export const UpdatePositionBody = zod.object({
   level: zod.string().optional(),
   minSalary: zod.number().optional(),
   maxSalary: zod.number().optional(),
+  area: zod.string().optional(),
+  principalNormId: zod.number().nullish(),
 });
 
 export const UpdatePositionResponse = zod.object({
@@ -3888,6 +3913,9 @@ export const UpdatePositionResponse = zod.object({
   level: zod.string().nullish(),
   minSalary: zod.number().nullish(),
   maxSalary: zod.number().nullish(),
+  area: zod.string().nullish(),
+  principalNormId: zod.number().nullish(),
+  competencyCount: zod.number().optional(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });
@@ -18353,6 +18381,77 @@ export const UpdateNormResponse = zod
   );
 
 /**
+ * @summary List the organization's effectiveness verification method catalog
+ */
+export const ListEffectivenessMethodsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListEffectivenessMethodsResponseItem = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+export const ListEffectivenessMethodsResponse = zod.array(
+  ListEffectivenessMethodsResponseItem,
+);
+
+/**
+ * @summary Add a method to the organization's effectiveness verification method catalog
+ */
+export const CreateEffectivenessMethodParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateEffectivenessMethodBody = zod.object({
+  label: zod.string().min(1),
+});
+
+export const CreateEffectivenessMethodResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+
+/**
+ * @summary Update an effectiveness verification method (label, active flag or sort order)
+ */
+export const UpdateEffectivenessMethodParams = zod.object({
+  orgId: zod.coerce.number(),
+  methodId: zod.coerce.number(),
+});
+
+export const UpdateEffectivenessMethodBody = zod.object({
+  label: zod.string().min(1).optional(),
+  active: zod.boolean().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateEffectivenessMethodResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+
+/**
  * @summary List action plans in the organization with filters
  */
 export const ListActionPlansParams = zod.object({
@@ -18369,6 +18468,9 @@ export const ListActionPlansQueryParams = zod.object({
       "kpi",
       "swot",
       "manual",
+      "improvement",
+      "corrective",
+      "norm_requirement",
       "nonconformity",
       "audit_finding",
       "risk",
@@ -18384,6 +18486,9 @@ export const ListActionPlansQueryParams = zod.object({
     .number()
     .optional()
     .describe("When sourceModule=kpi, filter by linked monthly value id"),
+  actionType: zod.enum(["corrective", "preventive", "improvement"]).optional(),
+  effectiveness: zod.enum(["effective", "ineffective", "pending"]).optional(),
+  dueWindow: zod.enum(["overdue", "due_soon"]).optional(),
 });
 
 export const listActionPlansResponseSourceRefKpiMonthMax = 12;
@@ -18398,6 +18503,9 @@ export const ListActionPlansResponseItem = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18431,7 +18539,7 @@ export const ListActionPlansResponseItem = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -18468,6 +18576,20 @@ export const ListActionPlansResponseItem = zod.object({
     .optional(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   evidencesCount: zod.number().min(listActionPlansResponseEvidencesCountMin),
   createdAt: zod.string().datetime({}),
@@ -18495,6 +18617,9 @@ export const CreateActionPlanBody = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18528,7 +18653,7 @@ export const CreateActionPlanBody = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   actionType: zod.enum(["corrective", "preventive", "improvement"]).optional(),
   title: zod.string().min(1),
@@ -18573,21 +18698,15 @@ export const CreateActionPlanBody = zod.object({
   rootCause: zod.string().nullish(),
   rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
+  coResponsibleUserIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe(
+      "Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
-  effectivenessMethod: zod
-    .union([
-      zod.enum([
-        "indicator",
-        "internal_audit",
-        "field_inspection",
-        "training",
-        "sampling",
-        "risk_reduction",
-      ]),
-      zod.null(),
-    ])
-    .optional(),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   odsNumbers: zod.array(zod.number()).nullish(),
@@ -18628,6 +18747,9 @@ export const GetActionPlanResponse = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18661,7 +18783,7 @@ export const GetActionPlanResponse = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -18731,6 +18853,20 @@ export const GetActionPlanResponse = zod.object({
   rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
@@ -18746,7 +18882,11 @@ export const GetActionPlanResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -18849,22 +18989,16 @@ export const UpdateActionPlanBody = zod.object({
   rootCause: zod.string().nullish(),
   rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
+  coResponsibleUserIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe(
+      "Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
-  effectivenessMethod: zod
-    .union([
-      zod.enum([
-        "indicator",
-        "internal_audit",
-        "field_inspection",
-        "training",
-        "sampling",
-        "risk_reduction",
-      ]),
-      zod.null(),
-    ])
-    .optional(),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessResult: zod
@@ -18903,6 +19037,9 @@ export const UpdateActionPlanResponse = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18936,7 +19073,7 @@ export const UpdateActionPlanResponse = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -19006,6 +19143,20 @@ export const UpdateActionPlanResponse = zod.object({
   rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
@@ -19021,7 +19172,11 @@ export const UpdateActionPlanResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -19308,6 +19463,9 @@ export const RestoreActionPlanPlanningResponse = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -19341,7 +19499,7 @@ export const RestoreActionPlanPlanningResponse = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -19411,6 +19569,20 @@ export const RestoreActionPlanPlanningResponse = zod.object({
   rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
@@ -19426,7 +19598,11 @@ export const RestoreActionPlanPlanningResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -19495,6 +19671,9 @@ export const SuggestActionPlanDraftBody = zod
         "kpi",
         "swot",
         "manual",
+        "improvement",
+        "corrective",
+        "norm_requirement",
         "nonconformity",
         "audit_finding",
         "risk",
@@ -19820,7 +19999,16 @@ export const ListTrainingCatalogParams = zod.object({
 
 export const ListTrainingCatalogQueryParams = zod.object({
   search: zod.coerce.string().optional(),
-  norm: zod.coerce.string().optional(),
+  norm: zod.coerce
+    .string()
+    .optional()
+    .describe("Deprecated — use normId. Kept for backward compatibility."),
+  normId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "Filter by a regulatory norm id (matches items whose normIds contains it).",
+    ),
   category: zod.coerce.string().optional(),
   modality: zod.coerce.string().optional(),
   status: zod.coerce.string().optional(),
@@ -19837,8 +20025,19 @@ export const ListTrainingCatalogResponse = zod.object({
         title: zod.string(),
         category: zod.string().nullish(),
         modality: zod.string().nullish(),
-        norm: zod.string().nullish(),
-        clause: zod.string().nullish(),
+        norm: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — use normIds. Kept for backward compatibility.",
+          ),
+        clause: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — clause moved into the managed norm catalog label.",
+          ),
+        normIds: zod.array(zod.number()),
         workloadHours: zod.number().nullish(),
         validityMonths: zod.number().nullish(),
         isMandatory: zod.boolean(),
@@ -19876,6 +20075,7 @@ export const CreateTrainingCatalogItemBody = zod.object({
   modality: zod.string().optional(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
+  normIds: zod.array(zod.number()).optional(),
   workloadHours: zod.number().optional(),
   validityMonths: zod.number().nullish(),
   isMandatory: zod.boolean().optional(),
@@ -19904,8 +20104,17 @@ export const GetTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
-    norm: zod.string().nullish(),
-    clause: zod.string().nullish(),
+    norm: zod
+      .string()
+      .nullish()
+      .describe("Deprecated — use normIds. Kept for backward compatibility."),
+    clause: zod
+      .string()
+      .nullish()
+      .describe(
+        "Deprecated — clause moved into the managed norm catalog label.",
+      ),
+    normIds: zod.array(zod.number()),
     workloadHours: zod.number().nullish(),
     validityMonths: zod.number().nullish(),
     isMandatory: zod.boolean(),
@@ -19936,6 +20145,7 @@ export const UpdateTrainingCatalogItemBody = zod.object({
   modality: zod.string().optional(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
+  normIds: zod.array(zod.number()).optional(),
   workloadHours: zod.number().optional(),
   validityMonths: zod.number().nullish(),
   isMandatory: zod.boolean().optional(),
@@ -19956,8 +20166,17 @@ export const UpdateTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
-    norm: zod.string().nullish(),
-    clause: zod.string().nullish(),
+    norm: zod
+      .string()
+      .nullish()
+      .describe("Deprecated — use normIds. Kept for backward compatibility."),
+    clause: zod
+      .string()
+      .nullish()
+      .describe(
+        "Deprecated — clause moved into the managed norm catalog label.",
+      ),
+    normIds: zod.array(zod.number()),
     workloadHours: zod.number().nullish(),
     validityMonths: zod.number().nullish(),
     isMandatory: zod.boolean(),
@@ -19980,6 +20199,17 @@ export const UpdateTrainingCatalogItemResponse = zod
 export const DeleteTrainingCatalogItemParams = zod.object({
   orgId: zod.coerce.number(),
   itemId: zod.coerce.number(),
+});
+
+export const deleteTrainingCatalogItemQueryCascadeDefault = false;
+
+export const DeleteTrainingCatalogItemQueryParams = zod.object({
+  cascade: zod.coerce
+    .boolean()
+    .default(deleteTrainingCatalogItemQueryCascadeDefault)
+    .describe(
+      "When true, also deletes linked requirements\/classes\/PAT items and not-yet-completed employee trainings. Completed employee trainings are preserved (unlinked, not deleted).",
+    ),
 });
 
 /**

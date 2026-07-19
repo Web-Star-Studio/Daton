@@ -7,16 +7,18 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useMemo } from "react";
+import type { EffectivenessMethod } from "@workspace/api-client-react";
+import { pickerMethodOptions } from "@/lib/effectiveness-methods-client";
 import {
-  EFFECTIVENESS_METHOD_LABELS,
   EFFECTIVENESS_RESULT_LABELS,
   effectivenessResultColor,
-  type ActionPlanEffectivenessMethod,
   type ActionPlanEffectivenessResult,
 } from "@/lib/action-plans-client";
 
 export type EficaciaValue = {
-  method: ActionPlanEffectivenessMethod | "";
+  /** id do método no catálogo da organização; "" = não definido. */
+  methodId: string;
   dueDate: string;
   evaluatorUserId: string;
   before: string;
@@ -24,8 +26,6 @@ export type EficaciaValue = {
   result: ActionPlanEffectivenessResult | "";
   comment: string;
 };
-
-const METHOD_OPTIONS = Object.entries(EFFECTIVENESS_METHOD_LABELS) as [ActionPlanEffectivenessMethod, string][];
 
 function num(s: string): number | null {
   const v = Number.parseFloat(s.replace(",", "."));
@@ -38,14 +38,21 @@ export function EficaciaPanel({
   value,
   onChange,
   orgUsers,
+  methods,
+  legacyMethodLabel = null,
   readOnly = false,
   canEvaluate = true,
   canAssignEvaluator = true,
   responsibleUserId = "",
+  coResponsibleUserIds = [],
 }: {
   value: EficaciaValue;
   onChange: (next: EficaciaValue) => void;
   orgUsers: { id: number; name: string; role?: string }[];
+  /** Catálogo completo da org (ativos + inativos). */
+  methods: EffectivenessMethod[];
+  /** Rótulo do método legado, quando o plano é anterior ao catálogo. */
+  legacyMethodLabel?: string | null;
   readOnly?: boolean;
   /** Only the designated evaluator (or an admin) may issue the verdict. */
   canEvaluate?: boolean;
@@ -53,8 +60,16 @@ export function EficaciaPanel({
   canAssignEvaluator?: boolean;
   /** The action's responsible — excluded from evaluator options (must differ). */
   responsibleUserId?: string;
+  /** Co-responsáveis — também não podem avaliar a própria eficácia (ISO). */
+  coResponsibleUserIds?: number[];
 }) {
   const set = <K extends keyof EficaciaValue>(key: K, v: EficaciaValue[K]) => onChange({ ...value, [key]: v });
+
+  const selectedId = value.methodId ? Number(value.methodId) : null;
+  const methodOptions = useMemo(
+    () => pickerMethodOptions(methods, selectedId),
+    [methods, selectedId],
+  );
 
   const before = num(value.before);
   const after = num(value.after);
@@ -67,15 +82,20 @@ export function EficaciaPanel({
         <div className="space-y-1.5">
           <Label>Método de verificação</Label>
           <Select
-            value={value.method}
-            onChange={(e) => set("method", e.target.value as ActionPlanEffectivenessMethod | "")}
+            value={value.methodId}
+            onChange={(e) => set("methodId", e.target.value)}
             disabled={readOnly}
           >
             <option value="">Selecione…</option>
-            {METHOD_OPTIONS.map(([k, label]) => (
-              <option key={k} value={k}>{label}</option>
+            {methodOptions.map((m) => (
+              <option key={m.id} value={String(m.id)}>{m.label}</option>
             ))}
           </Select>
+          {!value.methodId && legacyMethodLabel && (
+            <p className="text-[11px] text-muted-foreground">
+              Registrado antes do catálogo: {legacyMethodLabel}. Selecione o método equivalente para atualizar.
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label>Prazo de verificação</Label>
@@ -87,7 +107,12 @@ export function EficaciaPanel({
             value={value.evaluatorUserId}
             onChange={(v) => set("evaluatorUserId", v)}
             options={orgUsers
-              .filter((u) => String(u.id) !== responsibleUserId && u.role !== "analyst")
+              .filter(
+                (u) =>
+                  String(u.id) !== responsibleUserId &&
+                  !coResponsibleUserIds.includes(u.id) &&
+                  u.role !== "analyst",
+              )
               .map((u) => ({ value: String(u.id), label: u.name }))}
             placeholder="Quem confirma a eficácia"
             searchPlaceholder="Buscar usuário..."

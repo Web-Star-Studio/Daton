@@ -190,7 +190,8 @@ See `DEPLOYMENT.md` for full operational details.
 ## User Preferences
 
 - I prefer iterative development, focusing on one feature or bug fix at a time. Please explain your thought process and proposed changes clearly before implementation. I value clean, readable code and comprehensive tests.
-- Never stage, commit or push without being explicitly asked for
+- Never stage, commit or push without being explicitly asked for — **exceção:** em worktree isolado (`.claude/worktrees/*`), pode commitar, dar push do branch e abrir PR em **draft** sem perguntar. Nunca na `main`, nunca force-push, nunca merge.
+- O repositório é **público**: nada de dados de produção em mensagens de commit, corpo de PR ou issues (contagens/consultas do banco, dados de cliente). Detalhe técnico (schema, DDL, ordem de deploy) pode.
 - Never start dev servers (frontend or backend) without being explicitly asked for
 
 ## Diário de bordo (registro diário para auditoria)

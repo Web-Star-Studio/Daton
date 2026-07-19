@@ -218,7 +218,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/aprendizagem/minha-area", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
-      { prefix: "/organizacao/cargos", module: "positions" },
       { prefix: "/organizacao/swot", module: "swot" },
       { prefix: "/governanca", module: "governance" },
       { prefix: "/ambiental", module: "environmental" },
@@ -436,7 +435,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     } else if (normalizedLocation.startsWith("/fatores-desempenho")) {
       crumbs.push({ label: "Fatores de Desempenho" });
     } else if (normalizedLocation.startsWith("/planos-acao")) {
-      crumbs.push({ label: "Planos de Ação", href: "/planos-acao" });
+      crumbs.push({ label: "Gestão de Ações", href: "/planos-acao" });
       if (pageTitle && normalizedLocation !== "/planos-acao") {
         crumbs.push({ label: pageTitle });
       }
@@ -464,9 +463,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       : []),
     ...(hasModuleAccess("departments")
       ? [{ href: "/organizacao/departamentos", label: "Departamentos" }]
-      : []),
-    ...(hasModuleAccess("positions")
-      ? [{ href: "/organizacao/cargos", label: "Cargos" }]
       : []),
     ...(hasModuleAccess("swot")
       ? [{ href: "/organizacao/swot", label: "SWOT" }]
@@ -971,7 +967,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     isSidebarOpen && "mr-2.5",
                   )}
                 />
-                {isSidebarOpen && <span>Planos de Ação</span>}
+                {isSidebarOpen && <span>Gestão de Ações</span>}
               </div>
             </Link>
           )}

@@ -6,12 +6,13 @@ import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrganizationUsersSettingsSection } from "@/components/settings/OrganizationUsersSettingsSection";
 import { OrganizationNormsSettingsSection } from "@/components/settings/OrganizationNormsSettingsSection";
+import { EffectivenessMethodsSettingsSection } from "@/components/settings/EffectivenessMethodsSettingsSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUpdateMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type SystemTab = "users" | "norms" | "appearance";
+type SystemTab = "users" | "norms" | "effectiveness-methods" | "appearance";
 type ThemePreference = "light" | "dark" | "system";
 
 export default function SystemSettingsPage() {
@@ -66,6 +67,9 @@ export default function SystemSettingsPage() {
         <TabsList>
           {isOrgAdmin && <TabsTrigger value="users">Usuários</TabsTrigger>}
           {isOrgAdmin && <TabsTrigger value="norms">Normas</TabsTrigger>}
+          {isOrgAdmin && (
+            <TabsTrigger value="effectiveness-methods">Métodos de verificação</TabsTrigger>
+          )}
           <TabsTrigger value="appearance">Aparência</TabsTrigger>
         </TabsList>
 
@@ -78,6 +82,12 @@ export default function SystemSettingsPage() {
         {isOrgAdmin && (
           <TabsContent value="norms">
             <OrganizationNormsSettingsSection />
+          </TabsContent>
+        )}
+
+        {isOrgAdmin && (
+          <TabsContent value="effectiveness-methods">
+            <EffectivenessMethodsSettingsSection />
           </TabsContent>
         )}
 

@@ -25,7 +25,7 @@ import {
   operationalChangeRiskLinksTable,
 } from "@workspace/db";
 import type { OperationalPlanRevisionSnapshot } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 const DEMO_ORGANIZATION_LEGAL_IDENTIFIER =
   process.env.SEED_ORG_LEGAL_IDENTIFIER ?? "12.345.678/0001-90";
@@ -132,10 +132,18 @@ async function seedOperationalPlanning() {
   }
 
   // ── Clean previous demo data ─────────────────────────────────────────────
+  // Scoped to `orgId`: "Manutenção Preventiva de Frota" is a plausible plan
+  // title for a real tenant, so matching on title alone would delete another
+  // organization's plan (and cascade into its stages/tasks).
   const existing = await db
     .select({ id: operationalPlansTable.id })
     .from(operationalPlansTable)
-    .where(inArray(operationalPlansTable.title, DEMO_PLAN_TITLES));
+    .where(
+      and(
+        eq(operationalPlansTable.organizationId, orgId),
+        inArray(operationalPlansTable.title, DEMO_PLAN_TITLES),
+      ),
+    );
 
   if (existing.length > 0) {
     const ids = existing.map((r) => r.id);

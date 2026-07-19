@@ -16,6 +16,7 @@ export interface CreateTrainingBody {
   description?: string;
   objective?: string;
   institution?: string;
+  instructor?: string;
   targetCompetencyName?: string;
   targetCompetencyType?: CreateTrainingBodyTargetCompetencyType;
   /**

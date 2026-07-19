@@ -442,7 +442,7 @@ export default function OrganizacaoSwotPage() {
         },
       });
       setActionFactor(null);
-      toast({ title: "Ação criada", description: "Disponível em Planos de Ação (origem: SWOT)." });
+      toast({ title: "Ação criada", description: "Disponível em Gestão de Ações (origem: SWOT)." });
     } catch {
       toast({ title: "Não foi possível criar a ação", variant: "destructive" });
     }
@@ -703,7 +703,7 @@ export default function OrganizacaoSwotPage() {
         open={actionFactor !== null}
         onOpenChange={(o) => { if (!o) setActionFactor(null); }}
         title="Nova ação para o fator"
-        description="A ação será registrada no módulo Planos de Ação com origem SWOT."
+        description="A ação será registrada no módulo Gestão de Ações com origem SWOT."
       >
         {actionFactor && (
           <div className="mb-3 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">

@@ -106,10 +106,7 @@ import {
   ObjectNotFoundError,
   ObjectStorageService,
 } from "../lib/objectStorage";
-import {
-  lookupCpfReceitaFederal,
-  InfosimplesError,
-} from "../lib/infosimples";
+import { lookupCpfReceitaFederal, InfosimplesError } from "../lib/infosimples";
 
 // ─── Board de Eficácia — fragmentos SQL reutilizáveis (T1) ──────────────────
 // Usados nas tasks T2 (filtro por coluna) e T3 (contagens das colunas do board).
@@ -1369,7 +1366,10 @@ const LookupCpfBody = z.object({
     .pipe(z.string().length(11, "CPF deve conter 11 dígitos")),
   birthdate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data de nascimento deve estar em ISO 8601 (YYYY-MM-DD)"),
+    .regex(
+      /^\d{4}-\d{2}-\d{2}$/,
+      "Data de nascimento deve estar em ISO 8601 (YYYY-MM-DD)",
+    ),
 });
 
 // Fase 6: histórico de mudanças de cargo (exibido no Cronograma). Sob o prefixo
@@ -1465,7 +1465,9 @@ router.post(
         return;
       }
       console.error("[employees:lookup-cpf]", error);
-      res.status(500).json({ error: "Erro interno ao consultar a Receita Federal" });
+      res
+        .status(500)
+        .json({ error: "Erro interno ao consultar a Receita Federal" });
     }
   },
 );
@@ -1608,8 +1610,10 @@ router.get(
       evaluatorRole: z
         .enum(["gestor", "rh", "instrutor", "colaborador"])
         .optional(),
-      /** Filtro por norma do item do catálogo vinculado ao treinamento. */
+      /** Filtro por norma do item do catálogo vinculado (texto legado). */
       norm: z.string().optional(),
+      /** Filtro por id da norma do catálogo (norm_ids do item vinculado). */
+      normId: z.coerce.number().int().optional(),
       /** Coluna do board: aplica condição de coluna à query de dados e ao COUNT
        *  de paginação. As stats (boardCounts, eficazes…) sempre cobrem o
        *  conjunto filtrado inteiro, independente desta coluna. */
@@ -1714,7 +1718,28 @@ router.get(
         ),
       );
     }
-    if (query.data.norm) {
+    // Filtro por norma: `normId` (id do catálogo, dentro do array jsonb
+    // norm_ids do item vinculado) tem precedência; `norm` (texto legado) é
+    // mantido por compatibilidade.
+    if (query.data.normId) {
+      const normId = query.data.normId;
+      conditions.push(
+        exists(
+          db
+            .select({ one: sql<number>`1` })
+            .from(trainingCatalogTable)
+            .where(
+              and(
+                eq(
+                  trainingCatalogTable.id,
+                  sql`${employeeTrainingsTable.catalogItemId}`,
+                ),
+                sql`${trainingCatalogTable.normIds} @> ${JSON.stringify([normId])}::jsonb`,
+              ),
+            ),
+        ),
+      );
+    } else if (query.data.norm) {
       const normValue = query.data.norm;
       conditions.push(
         exists(
@@ -1802,6 +1827,7 @@ router.get(
         description: employeeTrainingsTable.description,
         objective: employeeTrainingsTable.objective,
         institution: employeeTrainingsTable.institution,
+        instructor: employeeTrainingsTable.instructor,
         targetCompetencyName: employeeTrainingsTable.targetCompetencyName,
         targetCompetencyType: employeeTrainingsTable.targetCompetencyType,
         targetCompetencyLevel: employeeTrainingsTable.targetCompetencyLevel,
@@ -1940,58 +1966,58 @@ router.get(
     );
 
     // ── Formatar linha (efectivenessStatus e expiringWithinDays já estão no SQL) ─
-    const pageData = rows
-      .map((row) => {
-        const reviews = reviewsByTrainingId.get(row.id) || [];
-        const derivedStatus = deriveTrainingStatus(
-          row.status,
-          row.expirationDate,
-        );
-        const effectivenessStatus = getEffectivenessStatus(reviews, row);
+    const pageData = rows.map((row) => {
+      const reviews = reviewsByTrainingId.get(row.id) || [];
+      const derivedStatus = deriveTrainingStatus(
+        row.status,
+        row.expirationDate,
+      );
+      const effectivenessStatus = getEffectivenessStatus(reviews, row);
 
-        return {
-          id: row.id,
-          employeeId: row.employeeId,
-          employeeName: row.employeeName,
-          employeePosition: row.employeePosition,
-          employeeDepartment: row.employeeDepartment,
-          unitId: row.unitId,
-          unitName: row.unitName,
-          title: row.title,
-          description: row.description,
-          objective: row.objective,
-          institution: row.institution,
-          targetCompetencyName: row.targetCompetencyName,
-          targetCompetencyType: row.targetCompetencyType,
-          targetCompetencyLevel: row.targetCompetencyLevel,
-          evaluationMethod: row.evaluationMethod,
-          renewalMonths: row.renewalMonths,
-          workloadHours: row.workloadHours,
-          completionDate: row.completionDate,
-          expirationDate: row.expirationDate,
-          status: derivedStatus,
-          effectivenessStatus,
-          effectivenessDueDate: row.effectivenessDueDate || null,
-          effectivenessAssignedRole:
-            (row.effectivenessAssignedRole as
-              | "gestor"
-              | "rh"
-              | "instrutor"
-              | "colaborador"
-              | null) || null,
-          reviewerCount: new Set(reviews.map((r) => r.evaluatorUserId)).size,
-          effectivenessScorePercent:
-            reviews[0] != null && reviews[0].score != null
-              ? reviews[0].score * 10
-              : null,
-          attachments: formatEmployeeRecordAttachments(row.attachments),
-          latestEffectivenessReview: reviews[0]
-            ? formatTrainingEffectivenessReview(reviews[0])
+      return {
+        id: row.id,
+        employeeId: row.employeeId,
+        employeeName: row.employeeName,
+        employeePosition: row.employeePosition,
+        employeeDepartment: row.employeeDepartment,
+        unitId: row.unitId,
+        unitName: row.unitName,
+        title: row.title,
+        description: row.description,
+        objective: row.objective,
+        institution: row.institution,
+        instructor: row.instructor,
+        targetCompetencyName: row.targetCompetencyName,
+        targetCompetencyType: row.targetCompetencyType,
+        targetCompetencyLevel: row.targetCompetencyLevel,
+        evaluationMethod: row.evaluationMethod,
+        renewalMonths: row.renewalMonths,
+        workloadHours: row.workloadHours,
+        completionDate: row.completionDate,
+        expirationDate: row.expirationDate,
+        status: derivedStatus,
+        effectivenessStatus,
+        effectivenessDueDate: row.effectivenessDueDate || null,
+        effectivenessAssignedRole:
+          (row.effectivenessAssignedRole as
+            | "gestor"
+            | "rh"
+            | "instrutor"
+            | "colaborador"
+            | null) || null,
+        reviewerCount: new Set(reviews.map((r) => r.evaluatorUserId)).size,
+        effectivenessScorePercent:
+          reviews[0] != null && reviews[0].score != null
+            ? reviews[0].score * 10
             : null,
-          createdAt: toIsoDateTime(row.createdAt),
-          updatedAt: toIsoDateTime(row.updatedAt),
-        };
-      });
+        attachments: formatEmployeeRecordAttachments(row.attachments),
+        latestEffectivenessReview: reviews[0]
+          ? formatTrainingEffectivenessReview(reviews[0])
+          : null,
+        createdAt: toIsoDateTime(row.createdAt),
+        updatedAt: toIsoDateTime(row.updatedAt),
+      };
+    });
 
     res.json({
       data: pageData,
@@ -2708,7 +2734,10 @@ router.patch(
     }
 
     const [before] = await db
-      .select({ position: employeesTable.position, unitId: employeesTable.unitId })
+      .select({
+        position: employeesTable.position,
+        unitId: employeesTable.unitId,
+      })
       .from(employeesTable)
       .where(
         and(
@@ -2767,10 +2796,7 @@ router.patch(
           trainingsReused: autoLinked.reused,
         });
       } catch (err) {
-        console.error(
-          "Falha ao registrar histórico de mudança de cargo:",
-          err,
-        );
+        console.error("Falha ao registrar histórico de mudança de cargo:", err);
       }
     }
     res.json({ ...formatEmployee(emp), autoLinkedTrainings: autoLinked });
@@ -3097,8 +3123,11 @@ router.post(
 
     // Snapshot do catálogo: se veio catalogItemId, copia os campos template do
     // item (ausentes no body) e calcula a validade. O body tem precedência.
-    const { catalogItemId, attachments: _bodyAttachments, ...bodyFields } =
-      body.data;
+    const {
+      catalogItemId,
+      attachments: _bodyAttachments,
+      ...bodyFields
+    } = body.data;
     const values: Partial<typeof employeeTrainingsTable.$inferInsert> = {};
     let resolvedCatalogItemId: number | null = null;
 
@@ -3121,7 +3150,7 @@ router.post(
         title: item.title,
         description: item.programContent ?? undefined,
         objective: item.objective ?? undefined,
-        institution: item.defaultInstructor ?? undefined,
+        instructor: item.defaultInstructor ?? undefined,
         targetCompetencyName: item.targetCompetencyName ?? undefined,
         targetCompetencyType: item.targetCompetencyType ?? undefined,
         targetCompetencyLevel: item.targetCompetencyLevel ?? undefined,
@@ -3146,14 +3175,18 @@ router.post(
       values.completionDate &&
       values.renewalMonths
     ) {
-      const expDate = addMonthsClamped(values.completionDate, values.renewalMonths);
+      const expDate = addMonthsClamped(
+        values.completionDate,
+        values.renewalMonths,
+      );
       if (expDate) values.expirationDate = expDate;
     }
 
     const finalTitle = values.title?.trim();
     if (!finalTitle) {
       res.status(400).json({
-        error: "Informe o título do treinamento ou selecione um item do catálogo",
+        error:
+          "Informe o título do treinamento ou selecione um item do catálogo",
       });
       return;
     }
@@ -3353,6 +3386,7 @@ router.post(
         description: employeeTrainingsTable.description,
         objective: employeeTrainingsTable.objective,
         institution: employeeTrainingsTable.institution,
+        instructor: employeeTrainingsTable.instructor,
         targetCompetencyName: employeeTrainingsTable.targetCompetencyName,
         targetCompetencyType: employeeTrainingsTable.targetCompetencyType,
         targetCompetencyLevel: employeeTrainingsTable.targetCompetencyLevel,
@@ -3409,6 +3443,7 @@ router.post(
       description: updatedRow.description,
       objective: updatedRow.objective,
       institution: updatedRow.institution,
+      instructor: updatedRow.instructor,
       targetCompetencyName: updatedRow.targetCompetencyName,
       targetCompetencyType: updatedRow.targetCompetencyType,
       targetCompetencyLevel: updatedRow.targetCompetencyLevel,
@@ -3541,14 +3576,14 @@ router.post(
 
     // evaluatorRole: use body value if provided; otherwise inherit from training
     const evaluatorRole =
-      (body.data.evaluatorRole ??
-        (training.effectivenessAssignedRole as
-          | "gestor"
-          | "rh"
-          | "instrutor"
-          | "colaborador"
-          | null
-          | undefined)) ??
+      body.data.evaluatorRole ??
+      (training.effectivenessAssignedRole as
+        | "gestor"
+        | "rh"
+        | "instrutor"
+        | "colaborador"
+        | null
+        | undefined) ??
       null;
 
     const review = await db.transaction(async (tx) => {

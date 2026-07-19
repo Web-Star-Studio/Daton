@@ -34,3 +34,4 @@ export * from "./critical-reviews";
 export * from "./regulatory-documents";
 export * from "./regulatory-documents-audit";
 export * from "./regulatory-norms";
+export * from "./effectiveness-methods";

@@ -12,7 +12,10 @@ import {
   useListEmployeePositionChanges,
   getListEmployeePositionChangesQueryKey,
 } from "@workspace/api-client-react";
-import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import {
+  useAllTrainingCatalog,
+  selectPickerCatalogItems,
+} from "@/lib/training-catalog-client";
 import {
   useActiveNorms,
   useAllNorms,
@@ -159,6 +162,14 @@ export default function ObrigatoriedadesPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<RequirementForm>(EMPTY_FORM);
+  // Opções do picker: só ativos + o item já selecionado no form (não some ao
+  // editar uma obrigatoriedade cujo treino foi arquivado depois). O mapa
+  // catalogTitle (acima) continua recebendo a lista inteira — é ele quem
+  // exibe o nome nas regras já cadastradas.
+  const catalogPickerOptions = useMemo(
+    () => selectPickerCatalogItems(catalogItems, form.catalogItemId),
+    [catalogItems, form.catalogItemId],
+  );
   // Editar uma obrigatoriedade cuja norma foi desativada não pode mostrar o
   // seletor em branco — inclui a norma referenciada (mesmo inativa) nas opções.
   const normOptions = useMemo(() => {
@@ -600,7 +611,7 @@ export default function ObrigatoriedadesPage() {
             <SearchableSelect
               value={form.catalogItemId}
               onChange={(v) => setForm({ ...form, catalogItemId: v })}
-              options={catalogItems.map((c) => ({
+              options={catalogPickerOptions.map((c) => ({
                 value: String(c.id),
                 label: c.title,
               }))}

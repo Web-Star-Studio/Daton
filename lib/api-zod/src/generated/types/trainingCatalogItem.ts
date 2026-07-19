@@ -15,8 +15,17 @@ export interface TrainingCatalogItem {
   title: string;
   category?: string | null;
   modality?: string | null;
+  /**
+   * Deprecated — use normIds. Kept for backward compatibility.
+   * @deprecated
+   */
   norm?: string | null;
+  /**
+   * Deprecated — clause moved into the managed norm catalog label.
+   * @deprecated
+   */
   clause?: string | null;
+  normIds: number[];
   workloadHours?: number | null;
   validityMonths?: number | null;
   isMandatory: boolean;

@@ -166,6 +166,9 @@ export const employeeTrainingsTable = pgTable(
     description: text("description"),
     objective: text("objective"),
     institution: text("institution"),
+    // Instrutor do treinamento: nome (texto). Pode ser um funcionário escolhido
+    // da lista OU um palestrante externo digitado livremente.
+    instructor: text("instructor"),
     targetCompetencyName: text("target_competency_name"),
     targetCompetencyType: text("target_competency_type"),
     targetCompetencyLevel: integer("target_competency_level"),

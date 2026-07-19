@@ -69,6 +69,8 @@ tags:
     description: Programa Anual de Treinamento (PAT) — itens planejados por ano/filial
   - name: norms
     description: Catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento)
+  - name: effectiveness-methods
+    description: Catálogo de métodos de verificação de eficácia da organização (usado na avaliação de eficácia dos planos de ação)
 
 paths:
   /healthz:
@@ -1128,8 +1130,16 @@ paths:
         - name: norm
           in: query
           required: false
+          deprecated: true
+          description: "Deprecated — use normId. Kept for backward compatibility."
           schema:
             type: string
+        - name: normId
+          in: query
+          required: false
+          description: "Filtro por id da norma do catálogo (norm_ids do item vinculado)."
+          schema:
+            type: integer
         - name: evaluatorRole
           in: query
           required: false
@@ -9225,6 +9235,86 @@ paths:
               schema:
                 $ref: "#/components/schemas/RegulatoryNorm"
 
+  /organizations/{orgId}/effectiveness-methods:
+    get:
+      operationId: listEffectivenessMethods
+      tags: [effectiveness-methods]
+      summary: List the organization's effectiveness verification method catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Effectiveness verification methods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EffectivenessMethod"
+    post:
+      operationId: createEffectivenessMethod
+      tags: [effectiveness-methods]
+      summary: Add a method to the organization's effectiveness verification method catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEffectivenessMethodBody"
+      responses:
+        "201":
+          description: Method created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectivenessMethod"
+        "200":
+          description: Existing method returned (idempotent hit on the same label)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectivenessMethod"
+
+  /organizations/{orgId}/effectiveness-methods/{methodId}:
+    patch:
+      operationId: updateEffectivenessMethod
+      tags: [effectiveness-methods]
+      summary: Update an effectiveness verification method (label, active flag or sort order)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: methodId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEffectivenessMethodBody"
+      responses:
+        "200":
+          description: Method updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectivenessMethod"
+
   /organizations/{orgId}/action-plans:
     get:
       operationId: listActionPlans
@@ -9257,6 +9347,18 @@ paths:
           description: When sourceModule=kpi, filter by linked monthly value id
           schema:
             type: integer
+        - name: actionType
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanType"
+        - name: effectiveness
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanEffectivenessFilter"
+        - name: dueWindow
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanDueWindow"
       responses:
         "200":
           description: Action plans
@@ -9790,8 +9892,16 @@ paths:
         - name: norm
           in: query
           required: false
+          deprecated: true
+          description: "Deprecated — use normId. Kept for backward compatibility."
           schema:
             type: string
+        - name: normId
+          in: query
+          required: false
+          description: "Filter by a regulatory norm id (matches items whose normIds contains it)."
+          schema:
+            type: integer
         - name: category
           in: query
           required: false
@@ -9914,9 +10024,17 @@ paths:
           required: true
           schema:
             type: integer
+        - name: cascade
+          in: query
+          description: When true, also deletes linked requirements/classes/PAT items and not-yet-completed employee trainings. Completed employee trainings are preserved (unlinked, not deleted).
+          schema:
+            type: boolean
+            default: false
       responses:
         "204":
           description: Catalog item removed
+        "409":
+          description: Blocked — has linked requirements, classes or PAT items; retry with cascade=true to confirm
 
   /organizations/{orgId}/competency-catalog:
     get:
@@ -10577,9 +10695,17 @@ components:
         norm:
           type: string
           nullable: true
+          deprecated: true
+          description: "Deprecated — use normIds. Kept for backward compatibility."
         clause:
           type: string
           nullable: true
+          deprecated: true
+          description: "Deprecated — clause moved into the managed norm catalog label."
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
           nullable: true
@@ -10621,6 +10747,7 @@ components:
         - id
         - organizationId
         - title
+        - normIds
         - isMandatory
         - status
         - createdAt
@@ -10638,8 +10765,14 @@ components:
           type: string
         norm:
           type: string
+          deprecated: true
         clause:
           type: string
+          deprecated: true
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
         validityMonths:
@@ -10678,8 +10811,14 @@ components:
           type: string
         norm:
           type: string
+          deprecated: true
         clause:
           type: string
+          deprecated: true
+        normIds:
+          type: array
+          items:
+            type: integer
         workloadHours:
           type: number
         validityMonths:
@@ -12734,6 +12873,9 @@ components:
         institution:
           type: string
           nullable: true
+        instructor:
+          type: string
+          nullable: true
         targetCompetencyName:
           type: string
           nullable: true
@@ -12827,6 +12969,9 @@ components:
           type: string
           nullable: true
         institution:
+          type: string
+          nullable: true
+        instructor:
           type: string
           nullable: true
         targetCompetencyName:
@@ -13551,6 +13696,8 @@ components:
           type: string
         institution:
           type: string
+        instructor:
+          type: string
         targetCompetencyName:
           type: string
         targetCompetencyType:
@@ -13650,6 +13797,8 @@ components:
         objective:
           type: string
         institution:
+          type: string
+        instructor:
           type: string
         targetCompetencyName:
           type: string
@@ -13879,6 +14028,14 @@ components:
         maxSalary:
           type: integer
           nullable: true
+        area:
+          type: string
+          nullable: true
+        principalNormId:
+          type: integer
+          nullable: true
+        competencyCount:
+          type: integer
         createdAt:
           type: string
         updatedAt:
@@ -13908,6 +14065,11 @@ components:
           type: integer
         maxSalary:
           type: integer
+        area:
+          type: string
+        principalNormId:
+          type: integer
+          nullable: true
       required:
         - name
 
@@ -13932,6 +14094,11 @@ components:
           type: integer
         maxSalary:
           type: integer
+        area:
+          type: string
+        principalNormId:
+          type: integer
+          nullable: true
 
     ImportPositionsBody:
       type: object
@@ -18758,9 +18925,44 @@ components:
         sortOrder:
           type: integer
 
+    EffectivenessMethod:
+      type: object
+      description: "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação)."
+      required: [id, organizationId, label, active, sortOrder]
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        label:
+          type: string
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    CreateEffectivenessMethodBody:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+
+    UpdateEffectivenessMethodBody:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
+
     ActionPlanSourceModule:
       type: string
-      enum: [kpi, swot, manual, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
+      enum: [kpi, swot, manual, improvement, corrective, norm_requirement, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
 
     ActionPlanType:
       type: string
@@ -18773,6 +18975,14 @@ components:
     ActionPlanEffectivenessResult:
       type: string
       enum: [effective, ineffective, pending]
+
+    ActionPlanEffectivenessFilter:
+      type: string
+      enum: [effective, ineffective, pending]
+
+    ActionPlanDueWindow:
+      type: string
+      enum: [overdue, due_soon]
 
     ActionPlan5W2H:
       type: object
@@ -18799,8 +19009,11 @@ components:
       description: >-
         Polymorphic reference to the entity that originated the action plan. The
         relevant fields depend on sourceModule (enforced server-side): for kpi,
-        kpiMonthlyValueId is required; for swot, swotFactorId is required; for
-        manual, none are required.
+        kpiMonthlyValueId is required; for swot, swotFactorId is required. The
+        free-form origins — manual, incident, rac, improvement, corrective and
+        norm_requirement — require no upstream entity; the three created inside
+        the action-plans module itself (improvement, corrective,
+        norm_requirement) may carry manualContext as free-text context instead.
       properties:
         kpiMonthlyValueId:
           type: integer
@@ -18907,6 +19120,18 @@ components:
         - objectPath
         - uploadedAt
 
+    ActionPlanCoResponsible:
+      type: object
+      description: Co-responsável do plano — um dos "outros responsáveis", além do ponto focal.
+      properties:
+        userId:
+          type: integer
+        name:
+          type: string
+      required:
+        - userId
+        - name
+
     ActionPlan:
       type: object
       properties:
@@ -18961,6 +19186,11 @@ components:
           type: ["integer", "null"]
         responsibleUserName:
           type: ["string", "null"]
+        coResponsibles:
+          type: array
+          description: Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.
+          items:
+            $ref: "#/components/schemas/ActionPlanCoResponsible"
         dueDate:
           type: ["string", "null"]
           format: date-time
@@ -18970,9 +19200,13 @@ components:
           type: ["string", "null"]
           format: date-time
         effectivenessMethod:
+          deprecated: true
+          description: "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId."
           oneOf:
             - $ref: "#/components/schemas/ActionPlanEffectivenessMethod"
             - type: "null"
+        effectivenessMethodId:
+          type: ["integer", "null"]
         effectivenessDueDate:
           type: ["string", "null"]
           format: date-time
@@ -19036,6 +19270,7 @@ components:
         - title
         - status
         - priority
+        - coResponsibles
         - createdAt
         - updatedAt
 
@@ -19073,6 +19308,11 @@ components:
           type: ["integer", "null"]
         responsibleUserName:
           type: ["string", "null"]
+        coResponsibles:
+          type: array
+          description: Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.
+          items:
+            $ref: "#/components/schemas/ActionPlanCoResponsible"
         dueDate:
           type: ["string", "null"]
           format: date-time
@@ -19095,6 +19335,7 @@ components:
         - title
         - status
         - priority
+        - coResponsibles
         - evidencesCount
         - createdAt
         - updatedAt
@@ -19148,6 +19389,12 @@ components:
         responsibleUserId:
           type: integer
           nullable: true
+        coResponsibleUserIds:
+          type: array
+          nullable: true
+          description: Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal.
+          items:
+            type: integer
         dueDate:
           type: string
           format: date-time
@@ -19155,10 +19402,9 @@ components:
         correctiveActionDescription:
           type: string
           nullable: true
-        effectivenessMethod:
-          oneOf:
-            - $ref: "#/components/schemas/ActionPlanEffectivenessMethod"
-            - type: "null"
+        effectivenessMethodId:
+          type: integer
+          nullable: true
         effectivenessDueDate:
           type: string
           format: date-time
@@ -19236,6 +19482,12 @@ components:
         responsibleUserId:
           type: integer
           nullable: true
+        coResponsibleUserIds:
+          type: array
+          nullable: true
+          description: Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal.
+          items:
+            type: integer
         dueDate:
           type: string
           format: date-time
@@ -19247,10 +19499,9 @@ components:
           type: string
           format: date-time
           nullable: true
-        effectivenessMethod:
-          oneOf:
-            - $ref: "#/components/schemas/ActionPlanEffectivenessMethod"
-            - type: "null"
+        effectivenessMethodId:
+          type: integer
+          nullable: true
         effectivenessDueDate:
           type: string
           format: date-time

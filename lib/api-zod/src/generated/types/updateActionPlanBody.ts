@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ActionPlan5W2H } from "./actionPlan5W2H";
-import type { ActionPlanEffectivenessMethod } from "./actionPlanEffectivenessMethod";
 import type { ActionPlanEffectivenessResult } from "./actionPlanEffectivenessResult";
 import type { ActionPlanNormRef } from "./actionPlanNormRef";
 import type { ActionPlanPriority } from "./actionPlanPriority";
@@ -39,10 +38,12 @@ export interface UpdateActionPlanBody {
   rootCause?: string | null;
   rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
+  /** Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal. */
+  coResponsibleUserIds?: number[] | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
   correctiveActionCompletedAt?: string | null;
-  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessMethodId?: number | null;
   effectivenessDueDate?: string | null;
   effectivenessEvaluatorUserId?: number | null;
   effectivenessResult?: ActionPlanEffectivenessResult | null;

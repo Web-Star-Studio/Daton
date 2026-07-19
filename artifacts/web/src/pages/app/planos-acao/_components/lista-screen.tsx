@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { AlertTriangle, CheckCircle2, ClipboardList, Clock, ExternalLink, Plus, Search, ShieldCheck, UserCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Clock, ExternalLink, Plus, Search, ShieldCheck, UserCheck, X } from "lucide-react";
 import { getListOrgUsersQueryKey, useListOrgUsers } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
@@ -10,53 +10,102 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import {
+  ACTION_PLAN_PRIORITY_LABELS,
   ACTION_PLAN_STATUS_LABELS,
+  ACTION_TYPE_LABELS,
   EFFECTIVENESS_RESULT_LABELS,
   SOURCE_MODULE_LABELS,
   SOURCE_MODULE_OPTIONS,
   actionPlanStatusColor,
   effectivenessResultColor,
   formatCalendarDateBR,
+  formatResponsibles,
   gutScoreColor,
   todayCalendarDate,
   useActionPlans,
   useActionPlansSummary,
   useExternalActions,
+  type ActionPlanPriority,
   type ActionPlanStatus,
+  type ActionPlanType,
 } from "@/lib/action-plans-client";
+import { EMPTY_FILTERS, buildActionPlanQuery, hasActiveFilters, type ListFilters } from "./list-filters";
 
 const STATUS_OPTIONS: ActionPlanStatus[] = ["open", "in_progress", "completed", "cancelled"];
 
-function StatCard({ label, value, tone, hint, icon: Icon }: { label: string; value: number | string; tone?: string; hint?: string; icon: typeof ClipboardList }) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+function StatCard({ label, value, tone, hint, icon: Icon, onClick, active }: { label: string; value: number | string; tone?: string; hint?: string; icon: typeof ClipboardList; onClick?: () => void; active?: boolean }) {
+  const content = (
+    <>
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <Icon className="h-3.5 w-3.5" aria-hidden /> {label}
       </div>
       <div className={cn("mt-1 text-xl font-semibold tabular-nums", tone)}>{value}</div>
       {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
-    </div>
+    </>
+  );
+  const base = "rounded-xl border px-4 py-3 backdrop-blur-md text-left";
+  return onClick ? (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        base,
+        "transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border/60 bg-card/42 hover:bg-card/70",
+      )}
+    >
+      {content}
+    </button>
+  ) : (
+    <div className={cn(base, "border-border/60 bg-card/42")}>{content}</div>
   );
 }
 
-export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWrite: boolean; onNova: () => void }) {
+export function ListaScreen({
+  orgId,
+  canWrite,
+  onNova,
+  initialFilters,
+  onInitialFiltersApplied,
+}: {
+  orgId: number;
+  canWrite: boolean;
+  onNova: () => void;
+  initialFilters?: Partial<ListFilters>;
+  onInitialFiltersApplied?: () => void;
+}) {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"" | ActionPlanStatus>("");
-  const [responsibleFilter, setResponsibleFilter] = useState<string>("");
-  const [sourceFilter, setSourceFilter] = useState<string>("");
+  const [filters, setFilters] = useState<ListFilters>(EMPTY_FILTERS);
   const [mineOnly, setMineOnly] = useState(false);
 
-  const queryParams = useMemo(() => {
-    const p: Record<string, string | number> = {};
-    if (statusFilter) p.status = statusFilter;
-    // "Atribuídas a mim" forces the responsible to the current user, overriding the dropdown.
-    if (mineOnly && user?.id) p.responsibleUserId = user.id;
-    else if (responsibleFilter) p.responsibleUserId = Number(responsibleFilter);
-    if (sourceFilter) p.sourceModule = sourceFilter;
-    return Object.keys(p).length > 0 ? p : undefined;
-  }, [statusFilter, responsibleFilter, sourceFilter, mineOnly, user?.id]);
+  // Aplica (uma vez) o filtro trazido por um drill-down de painel.
+  useEffect(() => {
+    if (!initialFilters) return;
+    setFilters({ ...EMPTY_FILTERS, ...initialFilters });
+    setMineOnly(false);
+    onInitialFiltersApplied?.();
+  }, [initialFilters, onInitialFiltersApplied]);
+
+  const queryParams = useMemo(
+    () => buildActionPlanQuery(filters, { mineUserId: mineOnly && user?.id ? user.id : undefined }),
+    [filters, mineOnly, user?.id],
+  );
+
+  const clearFilters = () => {
+    setFilters(EMPTY_FILTERS);
+    setMineOnly(false);
+  };
+
+  // Card de prazo funciona como toggle: clicar no que já está ativo volta à
+  // lista cheia; caso contrário, aplica só aquele prazo (zerando os demais).
+  const setDueWindowCard = (window: "overdue" | "due_soon") => {
+    setMineOnly(false);
+    setSearch("");
+    setFilters((f) => (f.dueWindow === window ? EMPTY_FILTERS : { ...EMPTY_FILTERS, dueWindow: window }));
+  };
 
   const { data: plans = [], isLoading } = useActionPlans(orgId, queryParams);
   const { data: summary } = useActionPlansSummary(orgId);
@@ -71,7 +120,7 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
     const q = search.trim().toLowerCase();
     if (!q) return plans;
     return plans.filter((p) =>
-      [p.title, p.code, p.responsibleUserName, p.sourceContext?.label]
+      [p.title, p.code, p.responsibleUserName, ...p.coResponsibles.map((r) => r.name), p.sourceContext?.label]
         .filter(Boolean)
         .some((s) => String(s).toLowerCase().includes(q)),
     );
@@ -84,21 +133,24 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
   const filteredExternal = useMemo(() => {
     // The governance bridge doesn't expose a responsible user id, so it can't be
     // reliably narrowed to the current user — hide it under "Atribuídas a mim".
-    if (sourceFilter || mineOnly) return [];
+    // O bridge da Governança não carrega tipo/prioridade/eficácia/prazo, então
+    // esconde-se sob qualquer filtro que ele não saiba honrar (evita mostrar
+    // itens que contradizem o filtro ativo).
+    if (filters.sourceModule || mineOnly || filters.actionType || filters.priority || filters.effectiveness || filters.dueWindow) return [];
     const q = search.trim().toLowerCase();
     return externalActions.filter((e) => {
-      if (statusFilter && e.status !== statusFilter) return false;
+      if (filters.status && e.status !== filters.status) return false;
       if (!q) return true;
       return [e.title, e.nonconformityTitle, e.responsibleUserName].filter(Boolean).some((s) => String(s).toLowerCase().includes(q));
     });
-  }, [externalActions, search, sourceFilter, statusFilter, mineOnly]);
+  }, [externalActions, search, filters.sourceModule, filters.status, mineOnly]);
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Ativas" value={active} icon={ClipboardList} hint="abertas + em andamento" />
-        <StatCard label="Vencidas" value={summary?.overdue ?? 0} tone="text-red-600 dark:text-red-400" icon={AlertTriangle} hint="requer atenção" />
-        <StatCard label="Vencendo (7d)" value={summary?.dueSoon ?? 0} tone="text-amber-600 dark:text-amber-400" icon={Clock} hint="próximos 7 dias" />
+        <StatCard label="Ativas" value={active} icon={ClipboardList} hint="abertas + em andamento" active={!hasActiveFilters(filters) && !mineOnly && !search} onClick={() => { setFilters(EMPTY_FILTERS); setMineOnly(false); setSearch(""); }} />
+        <StatCard label="Vencidas" value={summary?.overdue ?? 0} tone="text-red-600 dark:text-red-400" icon={AlertTriangle} hint="requer atenção" active={filters.dueWindow === "overdue"} onClick={() => setDueWindowCard("overdue")} />
+        <StatCard label="Vencendo (7d)" value={summary?.dueSoon ?? 0} tone="text-amber-600 dark:text-amber-400" icon={Clock} hint="próximos 7 dias" active={filters.dueWindow === "due_soon"} onClick={() => setDueWindowCard("due_soon")} />
         <StatCard label="Concluídas no mês" value={summary?.completedThisMonth ?? 0} tone="text-emerald-600 dark:text-emerald-400" icon={CheckCircle2} />
       </div>
 
@@ -107,13 +159,36 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar ação, código, responsável..." className="h-9 w-72 pl-8" />
         </div>
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "" | ActionPlanStatus)} className="w-44">
+        <Select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as "" | ActionPlanStatus }))} className="w-44">
           <option value="">Todos os status</option>
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{ACTION_PLAN_STATUS_LABELS[s]}</option>)}
         </Select>
-        <Select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="w-44">
+        <Select value={filters.sourceModule} onChange={(e) => setFilters((f) => ({ ...f, sourceModule: e.target.value }))} className="w-44">
           <option value="">Todas as origens</option>
           {SOURCE_MODULE_OPTIONS.map((s) => <option key={s} value={s}>{SOURCE_MODULE_LABELS[s]}</option>)}
+        </Select>
+        <Select value={filters.actionType} onChange={(e) => setFilters((f) => ({ ...f, actionType: e.target.value as "" | ActionPlanType }))} className="w-40">
+          <option value="">Todos os tipos</option>
+          {(["corrective", "preventive", "improvement"] as ActionPlanType[]).map((t) => (
+            <option key={t} value={t}>{ACTION_TYPE_LABELS[t]}</option>
+          ))}
+        </Select>
+        <Select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value as "" | ActionPlanPriority }))} className="w-40">
+          <option value="">Todas as prioridades</option>
+          {(["high", "medium", "low"] as ActionPlanPriority[]).map((p) => (
+            <option key={p} value={p}>{ACTION_PLAN_PRIORITY_LABELS[p]}</option>
+          ))}
+        </Select>
+        <Select value={filters.effectiveness} onChange={(e) => setFilters((f) => ({ ...f, effectiveness: e.target.value as ListFilters["effectiveness"] }))} className="w-48">
+          <option value="">Toda eficácia</option>
+          <option value="effective">{EFFECTIVENESS_RESULT_LABELS.effective}</option>
+          <option value="ineffective">{EFFECTIVENESS_RESULT_LABELS.ineffective}</option>
+          <option value="pending">Aguardando verificação</option>
+        </Select>
+        <Select value={filters.dueWindow} onChange={(e) => setFilters((f) => ({ ...f, dueWindow: e.target.value as ListFilters["dueWindow"] }))} className="w-40">
+          <option value="">Qualquer prazo</option>
+          <option value="overdue">Vencidas</option>
+          <option value="due_soon">Vencendo em 7 dias</option>
         </Select>
         {user?.id && (
           <Button
@@ -128,15 +203,22 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
           </Button>
         )}
         <Select
-          value={responsibleFilter}
-          onChange={(e) => setResponsibleFilter(e.target.value)}
+          value={filters.responsibleUserId}
+          onChange={(e) => setFilters((f) => ({ ...f, responsibleUserId: e.target.value }))}
           className="w-52"
           disabled={mineOnly}
         >
           <option value="">Todos os responsáveis</option>
           {orgUsers.map((u) => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
         </Select>
-        <span className="ml-auto text-sm text-muted-foreground">{filtered.length} açõe{filtered.length !== 1 ? "s" : ""}</span>
+        <div className="ml-auto flex items-center gap-2">
+          {hasActiveFilters(filters) && (
+            <Button type="button" variant="ghost" size="sm" className="h-9 px-2 text-xs" onClick={clearFilters}>
+              <X className="mr-1 h-3.5 w-3.5" /> Limpar filtros
+            </Button>
+          )}
+          <span className="text-sm text-muted-foreground">{filtered.length} açõe{filtered.length !== 1 ? "s" : ""}</span>
+        </div>
       </div>
 
       {isLoading ? (
@@ -145,7 +227,12 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
         <div className="space-y-2 rounded-lg border border-dashed p-12 text-center">
           <ClipboardList className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>
-          <p className="text-xs text-muted-foreground">Crie uma ação manual, ou elas surgem de células vermelhas em Indicadores e de fatores SWOT que exigem ação.</p>
+          <p className="text-xs text-muted-foreground">Crie uma ação e escolha a origem, ou elas surgem de células vermelhas em Indicadores e de fatores SWOT que exigem ação.</p>
+          {hasActiveFilters(filters) && (
+            <Button variant="outline" size="sm" className="mt-1" onClick={clearFilters}>
+              <X className="mr-1.5 h-4 w-4" /> Limpar filtros
+            </Button>
+          )}
           {canWrite && <Button size="sm" className="mt-1" onClick={onNova}><Plus className="mr-1.5 h-4 w-4" /> Nova ação</Button>}
         </div>
       ) : (
@@ -156,7 +243,7 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
                 <TableHead className="w-14">GUT</TableHead>
                 <TableHead>Ação</TableHead>
                 <TableHead>Origem</TableHead>
-                <TableHead>Responsável</TableHead>
+                <TableHead>Responsáveis</TableHead>
                 <TableHead>Prazo</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Eficácia</TableHead>
@@ -179,7 +266,11 @@ export function ListaScreen({ orgId, canWrite, onNova }: { orgId: number; canWri
                     <TableCell>
                       <Badge variant="outline" className="text-[10px] text-muted-foreground">{SOURCE_MODULE_LABELS[p.sourceModule] ?? p.sourceModule}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{p.responsibleUserName ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-sm">
+                      {formatResponsibles(p.responsibleUserName, p.coResponsibles) ?? (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className={cn("text-sm tabular-nums whitespace-nowrap", overdue && "text-red-600 dark:text-red-400")}>
                       {p.dueDate ? formatCalendarDateBR(p.dueDate) : <span className="text-muted-foreground">—</span>}
                     </TableCell>

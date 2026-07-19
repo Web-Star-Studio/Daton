@@ -7,8 +7,10 @@ import {
   authHeader,
   cleanupTestContext,
   createTestContext,
+  createTestUser,
   type TestOrgContext,
 } from "../../../../tests/support/backend";
+import { setPlanCoResponsibles } from "../../src/services/action-plans/responsibles";
 
 const contexts: TestOrgContext[] = [];
 
@@ -291,5 +293,26 @@ describe("action plan detail access", () => {
       .set(authHeader(context));
 
     expect(response.status).toBe(404);
+  });
+
+  it("allows a CO-RESPONSIBLE user even with no module at all", async () => {
+    const context = await createTestContext({
+      seed: "ap-detail-coresponsible",
+      role: "operator",
+    });
+    contexts.push(context);
+    const outro = await createTestUser(context, { suffix: "focal", role: "operator" });
+    // o ponto focal é OUTRA pessoa; o usuário do contexto é só co-responsável
+    const planId = await createPlan(context.organizationId, {
+      sourceModule: "manual",
+      responsibleUserId: outro.id,
+    });
+    await setPlanCoResponsibles(context.organizationId, planId, [context.userId]);
+
+    const response = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}`)
+      .set(authHeader(context));
+
+    expect(response.status).toBe(200);
   });
 });

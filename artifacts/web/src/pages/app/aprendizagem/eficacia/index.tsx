@@ -8,7 +8,7 @@ import {
   getListOrganizationTrainingsQueryKey,
   getListUnitsQueryKey,
 } from "@workspace/api-client-react";
-import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import { useActiveNorms } from "@/lib/norms-client";
 import type {
   OrganizationTraining,
   ListOrganizationTrainingsEvaluatorRole,
@@ -68,12 +68,22 @@ function UrgencyBadge({ dueDate }: { dueDate?: string | null }) {
   if (!dueDate) return null;
   const d = daysUntil(dueDate);
   if (d < 0)
-    return <Badge className="bg-red-50 text-red-700 border-red-200">Atrasado</Badge>;
+    return (
+      <Badge className="bg-red-50 text-red-700 border-red-200">Atrasado</Badge>
+    );
   if (d <= 7)
-    return <Badge className="bg-red-50 text-red-700 border-red-200">Urgente</Badge>;
+    return (
+      <Badge className="bg-red-50 text-red-700 border-red-200">Urgente</Badge>
+    );
   if (d <= 15)
-    return <Badge className="bg-amber-50 text-amber-700 border-amber-200">Em prazo</Badge>;
-  return <Badge className="bg-blue-50 text-blue-700 border-blue-200">No prazo</Badge>;
+    return (
+      <Badge className="bg-amber-50 text-amber-700 border-amber-200">
+        Em prazo
+      </Badge>
+    );
+  return (
+    <Badge className="bg-blue-50 text-blue-700 border-blue-200">No prazo</Badge>
+  );
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -103,8 +113,14 @@ function RoleBadge({ role }: { role?: string | null }) {
 
 const CRITERIA = [
   { key: "behavior", label: "Aplica no dia a dia (comportamento · L3)" },
-  { key: "result", label: "Melhorou o desempenho / reduziu incidentes (resultado · L4)" },
-  { key: "transfer", label: "Multiplica o conhecimento para a equipe (transferência)" },
+  {
+    key: "result",
+    label: "Melhorou o desempenho / reduziu incidentes (resultado · L4)",
+  },
+  {
+    key: "transfer",
+    label: "Multiplica o conhecimento para a equipe (transferência)",
+  },
 ] as const;
 
 type CriteriaKey = (typeof CRITERIA)[number]["key"];
@@ -133,14 +149,15 @@ export default function EficaciaPage() {
 
   const [unitId, setUnitId] = useState<string>("");
   const [year, setYear] = useState<string>("");
-  const [norm, setNorm] = useState<string>("");
+  const [normId, setNormId] = useState<string>("");
   const [evaluatorRole, setEvaluatorRole] = useState<string>("");
-  const [scope, setScope] = useState<"needs_evaluation" | "all">("needs_evaluation");
 
   // Per-column page sizes (grow-pageSize pagination — each column independent)
   const [pageSizePendentes, setPageSizePendentes] = useState(DEFAULT_PAGE_SIZE);
-  const [pageSizeEmAvaliacao, setPageSizeEmAvaliacao] = useState(DEFAULT_PAGE_SIZE);
-  const [pageSizeConcluidas, setPageSizeConcluidas] = useState(DEFAULT_PAGE_SIZE);
+  const [pageSizeEmAvaliacao, setPageSizeEmAvaliacao] =
+    useState(DEFAULT_PAGE_SIZE);
+  const [pageSizeConcluidas, setPageSizeConcluidas] =
+    useState(DEFAULT_PAGE_SIZE);
 
   function resetPageSizes() {
     setPageSizePendentes(DEFAULT_PAGE_SIZE);
@@ -157,16 +174,12 @@ export default function EficaciaPage() {
     setYear(v);
     resetPageSizes();
   }
-  function handleSetNorm(v: string) {
-    setNorm(v);
+  function handleSetNormId(v: string) {
+    setNormId(v);
     resetPageSizes();
   }
   function handleSetEvaluatorRole(v: string) {
     setEvaluatorRole(v);
-    resetPageSizes();
-  }
-  function handleSetScope(v: "needs_evaluation" | "all") {
-    setScope(v);
     resetPageSizes();
   }
 
@@ -176,9 +189,7 @@ export default function EficaciaPage() {
     query: { enabled: !!orgId, queryKey: getListUnitsQueryKey(orgId ?? 0) },
   });
 
-  const { data: catalog } = useAllTrainingCatalog(orgId ?? 0, undefined, {
-    query: { enabled: !!orgId },
-  });
+  const { data: activeNorms = [] } = useActiveNorms(orgId ?? 0);
 
   const unitOptions = useMemo(
     () =>
@@ -189,17 +200,10 @@ export default function EficaciaPage() {
     [units],
   );
 
-  const normOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const opts: Array<{ value: string; label: string }> = [];
-    for (const item of catalog?.data ?? []) {
-      if (item.norm && !seen.has(item.norm)) {
-        seen.add(item.norm);
-        opts.push({ value: item.norm, label: item.norm });
-      }
-    }
-    return opts;
-  }, [catalog]);
+  const normOptions = useMemo(
+    () => activeNorms.map((n) => ({ value: String(n.id), label: n.label })),
+    [activeNorms],
+  );
 
   const yearOptions = useMemo(() => {
     const opts: Array<{ value: string; label: string }> = [];
@@ -213,50 +217,71 @@ export default function EficaciaPage() {
 
   const sharedParams = {
     status: "concluido" as const,
-    scope,
+    // Escopo fixo: o board de eficácia nunca mostra o histórico puro
+    // (reuniões/orientações que nunca entram no fluxo de eficácia). A
+    // cliente pediu para remover o toggle "Ver todos" — a única diferença
+    // entre "all" e "needs_evaluation" é justamente esse histórico.
+    scope: "needs_evaluation" as const,
     unitId: unitId ? Number(unitId) : undefined,
     year: year ? Number(year) : undefined,
-    norm: norm || undefined,
-    evaluatorRole: (evaluatorRole || undefined) as ListOrganizationTrainingsEvaluatorRole | undefined,
+    normId: normId ? Number(normId) : undefined,
+    evaluatorRole: (evaluatorRole || undefined) as
+      | ListOrganizationTrainingsEvaluatorRole
+      | undefined,
   };
 
   // ── Three column queries ──────────────────────────────────────────────────
 
-  const paramsPendentes = { ...sharedParams, boardColumn: "pendentes" as const, page: 1, pageSize: pageSizePendentes };
-  const { data: resultPendentes, isLoading: loadingPendentes } = useListOrganizationTrainings(
-    orgId ?? 0,
-    paramsPendentes,
-    {
+  const paramsPendentes = {
+    ...sharedParams,
+    boardColumn: "pendentes" as const,
+    page: 1,
+    pageSize: pageSizePendentes,
+  };
+  const { data: resultPendentes, isLoading: loadingPendentes } =
+    useListOrganizationTrainings(orgId ?? 0, paramsPendentes, {
       query: {
         enabled: !!orgId,
-        queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, paramsPendentes),
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId ?? 0,
+          paramsPendentes,
+        ),
       },
-    },
-  );
+    });
 
-  const paramsEmAvaliacao = { ...sharedParams, boardColumn: "em_avaliacao" as const, page: 1, pageSize: pageSizeEmAvaliacao };
-  const { data: resultEmAvaliacao, isLoading: loadingEmAvaliacao } = useListOrganizationTrainings(
-    orgId ?? 0,
-    paramsEmAvaliacao,
-    {
+  const paramsEmAvaliacao = {
+    ...sharedParams,
+    boardColumn: "em_avaliacao" as const,
+    page: 1,
+    pageSize: pageSizeEmAvaliacao,
+  };
+  const { data: resultEmAvaliacao, isLoading: loadingEmAvaliacao } =
+    useListOrganizationTrainings(orgId ?? 0, paramsEmAvaliacao, {
       query: {
         enabled: !!orgId,
-        queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, paramsEmAvaliacao),
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId ?? 0,
+          paramsEmAvaliacao,
+        ),
       },
-    },
-  );
+    });
 
-  const paramsConcluidas = { ...sharedParams, boardColumn: "concluidas" as const, page: 1, pageSize: pageSizeConcluidas };
-  const { data: resultConcluidas, isLoading: loadingConcluidas } = useListOrganizationTrainings(
-    orgId ?? 0,
-    paramsConcluidas,
-    {
+  const paramsConcluidas = {
+    ...sharedParams,
+    boardColumn: "concluidas" as const,
+    page: 1,
+    pageSize: pageSizeConcluidas,
+  };
+  const { data: resultConcluidas, isLoading: loadingConcluidas } =
+    useListOrganizationTrainings(orgId ?? 0, paramsConcluidas, {
       query: {
         enabled: !!orgId,
-        queryKey: getListOrganizationTrainingsQueryKey(orgId ?? 0, paramsConcluidas),
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId ?? 0,
+          paramsConcluidas,
+        ),
       },
-    },
-  );
+    });
 
   const isLoading = loadingPendentes || loadingEmAvaliacao || loadingConcluidas;
 
@@ -271,9 +296,11 @@ export default function EficaciaPage() {
   // ── Metric values from server stats ──────────────────────────────────────
 
   const metricPendentes = boardCounts?.pendentes ?? 0;
-  const metricEficazPct = stats?.eficazPercent != null ? `${stats.eficazPercent}%` : "—";
+  const metricEficazPct =
+    stats?.eficazPercent != null ? `${stats.eficazPercent}%` : "—";
   const metricNaoEficazes = stats?.naoEficazes ?? 0;
-  const metricOnTimePct = stats?.onTimePercent != null ? `${stats.onTimePercent}%` : "—";
+  const metricOnTimePct =
+    stats?.onTimePercent != null ? `${stats.onTimePercent}%` : "—";
 
   // ── Invalidate ────────────────────────────────────────────────────────────
 
@@ -332,7 +359,9 @@ export default function EficaciaPage() {
       setTarget(null);
       toast({
         title: "Avaliação registrada",
-        description: isEffective ? "Resultado: Eficaz" : "Resultado: Não eficaz",
+        description: isEffective
+          ? "Resultado: Eficaz"
+          : "Resultado: Não eficaz",
       });
     } catch {
       toast({
@@ -346,7 +375,9 @@ export default function EficaciaPage() {
   // ── Assign dialog ("Iniciar avaliação") ───────────────────────────────────
 
   const assignMutation = useAssignTrainingEffectiveness();
-  const [assignTarget, setAssignTarget] = useState<OrganizationTraining | null>(null);
+  const [assignTarget, setAssignTarget] = useState<OrganizationTraining | null>(
+    null,
+  );
   const [assignRole, setAssignRole] = useState<string>("gestor");
   const [assignDueDate, setAssignDueDate] = useState<string>("");
 
@@ -367,13 +398,20 @@ export default function EficaciaPage() {
         empId: assignTarget.employeeId,
         trainId: assignTarget.id,
         data: {
-          evaluatorRole: assignRole as "gestor" | "rh" | "instrutor" | "colaborador",
+          evaluatorRole: assignRole as
+            | "gestor"
+            | "rh"
+            | "instrutor"
+            | "colaborador",
           dueDate: assignDueDate,
         },
       });
       invalidate();
       setAssignTarget(null);
-      toast({ title: "Avaliação iniciada", description: "Card movido para Em avaliação." });
+      toast({
+        title: "Avaliação iniciada",
+        description: "Card movido para Em avaliação.",
+      });
     } catch {
       toast({
         title: "Erro ao iniciar avaliação",
@@ -407,7 +445,11 @@ export default function EficaciaPage() {
           subtitle="ação corretiva aberta"
           accent="text-red-700"
         />
-        <Metric label="Realizadas no prazo" value={metricOnTimePct} subtitle="" />
+        <Metric
+          label="Realizadas no prazo"
+          value={metricOnTimePct}
+          subtitle=""
+        />
       </div>
 
       {/* Filter bar */}
@@ -445,8 +487,8 @@ export default function EficaciaPage() {
         <div className="flex flex-col gap-1 min-w-[160px]">
           <Label className="text-xs text-muted-foreground">Norma</Label>
           <SearchableSelect
-            value={norm}
-            onChange={handleSetNorm}
+            value={normId}
+            onChange={handleSetNormId}
             options={normOptions}
             placeholder="Todas as normas"
             searchPlaceholder="Buscar norma..."
@@ -469,20 +511,6 @@ export default function EficaciaPage() {
             ))}
           </Select>
         </div>
-
-        {/* Scope toggle */}
-        <div className="flex items-center gap-2 pb-1">
-          <input
-            id="scope-all"
-            type="checkbox"
-            checked={scope === "all"}
-            onChange={(e) => handleSetScope(e.target.checked ? "all" : "needs_evaluation")}
-            className="h-4 w-4 rounded border-input accent-primary"
-          />
-          <Label htmlFor="scope-all" className="text-xs text-muted-foreground cursor-pointer">
-            Ver todos (inclui histórico)
-          </Label>
-        </div>
       </div>
 
       {isLoading ? (
@@ -495,11 +523,16 @@ export default function EficaciaPage() {
               <p className="text-xs text-muted-foreground">Nada pendente.</p>
             ) : null}
             {pendentes.map((t) => (
-              <div key={t.id} className="rounded-xl border bg-card p-3 shadow-sm">
+              <div
+                key={t.id}
+                className="rounded-xl border bg-card p-3 shadow-sm"
+              >
                 <div className="text-sm font-medium">{t.employeeName}</div>
                 <div className="text-xs text-muted-foreground">{t.title}</div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <Badge className="bg-amber-50 text-amber-700 border-amber-200">A avaliar</Badge>
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200">
+                    A avaliar
+                  </Badge>
                 </div>
                 {canWrite ? (
                   <div className="mt-2 flex flex-col gap-1.5">
@@ -528,7 +561,9 @@ export default function EficaciaPage() {
                 size="sm"
                 variant="ghost"
                 className="w-full text-xs text-muted-foreground"
-                onClick={() => setPageSizePendentes((n) => n + DEFAULT_PAGE_SIZE)}
+                onClick={() =>
+                  setPageSizePendentes((n) => n + DEFAULT_PAGE_SIZE)
+                }
               >
                 Carregar mais
               </Button>
@@ -538,12 +573,19 @@ export default function EficaciaPage() {
           {/* Column: Em avaliação */}
           <Column title="Em avaliação" count={boardCounts?.emAvaliacao ?? 0}>
             {emAvaliacao.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhum em avaliação.</p>
+              <p className="text-xs text-muted-foreground">
+                Nenhum em avaliação.
+              </p>
             ) : null}
             {emAvaliacao.map((t) => {
-              const days = t.effectivenessDueDate ? daysUntil(t.effectivenessDueDate) : null;
+              const days = t.effectivenessDueDate
+                ? daysUntil(t.effectivenessDueDate)
+                : null;
               return (
-                <div key={t.id} className="rounded-xl border bg-card p-3 shadow-sm">
+                <div
+                  key={t.id}
+                  className="rounded-xl border bg-card p-3 shadow-sm"
+                >
                   <div className="text-sm font-medium">{t.employeeName}</div>
                   <div className="text-xs text-muted-foreground">{t.title}</div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -551,7 +593,9 @@ export default function EficaciaPage() {
                     <UrgencyBadge dueDate={t.effectivenessDueDate} />
                   </div>
                   {days != null && days >= 0 ? (
-                    <p className="mt-1 text-xs text-muted-foreground">Vence em {days} dias</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Vence em {days} dias
+                    </p>
                   ) : null}
                   {canWrite ? (
                     <Button
@@ -571,7 +615,9 @@ export default function EficaciaPage() {
                 size="sm"
                 variant="ghost"
                 className="w-full text-xs text-muted-foreground"
-                onClick={() => setPageSizeEmAvaliacao((n) => n + DEFAULT_PAGE_SIZE)}
+                onClick={() =>
+                  setPageSizeEmAvaliacao((n) => n + DEFAULT_PAGE_SIZE)
+                }
               >
                 Carregar mais
               </Button>
@@ -581,19 +627,28 @@ export default function EficaciaPage() {
           {/* Column: Concluídas */}
           <Column title="Concluídas" count={boardCounts?.concluidas ?? 0}>
             {concluidas.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhuma avaliação ainda.</p>
+              <p className="text-xs text-muted-foreground">
+                Nenhuma avaliação ainda.
+              </p>
             ) : null}
             {concluidas.map((t) => {
               const ineffective = t.effectivenessStatus === "ineffective";
               return (
-                <div key={t.id} className="rounded-xl border bg-card p-3 shadow-sm">
+                <div
+                  key={t.id}
+                  className="rounded-xl border bg-card p-3 shadow-sm"
+                >
                   <div className="text-sm font-medium">{t.employeeName}</div>
                   <div className="text-xs text-muted-foreground">{t.title}</div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {t.effectivenessStatus === "effective" ? (
-                      <Badge className="bg-green-50 text-green-700 border-green-200">Eficaz</Badge>
+                      <Badge className="bg-green-50 text-green-700 border-green-200">
+                        Eficaz
+                      </Badge>
                     ) : (
-                      <Badge className="bg-red-50 text-red-700 border-red-200">Não eficaz</Badge>
+                      <Badge className="bg-red-50 text-red-700 border-red-200">
+                        Não eficaz
+                      </Badge>
                     )}
                     {t.effectivenessScorePercent != null ? (
                       <span className="text-xs text-muted-foreground">
@@ -604,7 +659,10 @@ export default function EficaciaPage() {
                       </span>
                     ) : t.latestEffectivenessReview?.evaluationDate ? (
                       <span className="text-xs text-muted-foreground">
-                        Concluída {fmtDateShort(t.latestEffectivenessReview.evaluationDate)}
+                        Concluída{" "}
+                        {fmtDateShort(
+                          t.latestEffectivenessReview.evaluationDate,
+                        )}
                       </span>
                     ) : null}
                     {(t.reviewerCount ?? 0) > 1 ? (
@@ -615,11 +673,18 @@ export default function EficaciaPage() {
                   </div>
                   {ineffective && orgId ? (
                     <div className="mt-2 flex flex-col gap-1.5 border-t pt-2">
-                      <AcoesVinculadas orgId={orgId} sourceModule="training" refId={t.id} />
+                      <AcoesVinculadas
+                        orgId={orgId}
+                        sourceModule="training"
+                        refId={t.id}
+                      />
                       {canWrite ? (
                         <CriarAcaoButton
                           orgId={orgId}
-                          source={{ sourceModule: "training", sourceRef: { trainingId: t.id } }}
+                          source={{
+                            sourceModule: "training",
+                            sourceRef: { trainingId: t.id },
+                          }}
                         />
                       ) : null}
                     </div>
@@ -632,7 +697,9 @@ export default function EficaciaPage() {
                 size="sm"
                 variant="ghost"
                 className="w-full text-xs text-muted-foreground"
-                onClick={() => setPageSizeConcluidas((n) => n + DEFAULT_PAGE_SIZE)}
+                onClick={() =>
+                  setPageSizeConcluidas((n) => n + DEFAULT_PAGE_SIZE)
+                }
               >
                 Carregar mais
               </Button>
@@ -647,7 +714,9 @@ export default function EficaciaPage() {
         onOpenChange={(o) => !o && setAssignTarget(null)}
         title="Iniciar avaliação"
         description={
-          assignTarget ? `${assignTarget.employeeName} · ${assignTarget.title}` : ""
+          assignTarget
+            ? `${assignTarget.employeeName} · ${assignTarget.title}`
+            : ""
         }
       >
         <div className="space-y-4">
@@ -736,7 +805,9 @@ export default function EficaciaPage() {
           <div
             className={cn(
               "rounded-lg px-3 py-2 text-sm",
-              isEffective ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800",
+              isEffective
+                ? "bg-green-50 text-green-800"
+                : "bg-red-50 text-red-800",
             )}
           >
             Média atual: <strong>{avg.toFixed(1)}/5</strong> · Resultado:{" "}
@@ -795,7 +866,9 @@ function Column({
   return (
     <div className="rounded-xl border bg-muted/20 p-3">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase text-muted-foreground">{title}</h3>
+        <h3 className="text-xs font-semibold uppercase text-muted-foreground">
+          {title}
+        </h3>
         <Badge className="bg-muted text-muted-foreground">{count}</Badge>
       </div>
       <div className="space-y-2">{children}</div>

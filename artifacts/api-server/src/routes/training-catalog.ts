@@ -3,6 +3,7 @@ import { and, asc, eq, ilike, sql, type SQL } from "drizzle-orm";
 import {
   db,
   annualTrainingProgramTable,
+  employeeTrainingsTable,
   trainingCatalogTable,
   trainingClassesTable,
   trainingRequirementsTable,
@@ -18,6 +19,7 @@ import {
   UpdateTrainingCatalogItemParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
+import { assertNormsBelongToOrg } from "../services/norms/validate";
 
 const router: IRouter = Router();
 
@@ -48,7 +50,7 @@ router.get(
       res.status(400).json({ error: query.error.message });
       return;
     }
-    const { search, norm, category, modality, status } = query.data;
+    const { search, norm, normId, category, modality, status } = query.data;
     const page = query.data.page && query.data.page > 0 ? query.data.page : 1;
     const pageSize =
       query.data.pageSize && query.data.pageSize > 0 ? query.data.pageSize : 50;
@@ -56,8 +58,15 @@ router.get(
     const conditions: SQL[] = [
       eq(trainingCatalogTable.organizationId, params.data.orgId),
     ];
-    if (search) conditions.push(ilike(trainingCatalogTable.title, `%${search}%`));
-    if (norm) conditions.push(eq(trainingCatalogTable.norm, norm));
+    if (search)
+      conditions.push(ilike(trainingCatalogTable.title, `%${search}%`));
+    // `norm` (texto livre) é legado; `normId` filtra pelo id do catálogo dentro do
+    // array jsonb norm_ids (containment). Ambos aceitos p/ compatibilidade.
+    if (normId)
+      conditions.push(
+        sql`${trainingCatalogTable.normIds} @> ${JSON.stringify([normId])}::jsonb`,
+      );
+    else if (norm) conditions.push(eq(trainingCatalogTable.norm, norm));
     if (category) conditions.push(eq(trainingCatalogTable.category, category));
     if (modality) conditions.push(eq(trainingCatalogTable.modality, modality));
     if (status) conditions.push(eq(trainingCatalogTable.status, status));
@@ -117,6 +126,17 @@ router.post(
       res.status(400).json({ error: "Informe o título do treinamento" });
       return;
     }
+    if (
+      !(await assertNormsBelongToOrg(
+        params.data.orgId,
+        body.data.normIds ?? [],
+      ))
+    ) {
+      res
+        .status(400)
+        .json({ error: "Norma(s) inválida(s) para esta organização" });
+      return;
+    }
     const [row] = await db
       .insert(trainingCatalogTable)
       .values({
@@ -126,6 +146,7 @@ router.post(
         modality: body.data.modality ?? null,
         norm: body.data.norm ?? null,
         clause: body.data.clause ?? null,
+        normIds: body.data.normIds ?? [],
         workloadHours: body.data.workloadHours ?? null,
         validityMonths: body.data.validityMonths ?? null,
         isMandatory: body.data.isMandatory ?? false,
@@ -209,8 +230,18 @@ router.patch(
     if (b.modality !== undefined) updates.modality = b.modality;
     if (b.norm !== undefined) updates.norm = b.norm;
     if (b.clause !== undefined) updates.clause = b.clause;
+    if (b.normIds !== undefined) {
+      if (!(await assertNormsBelongToOrg(params.data.orgId, b.normIds))) {
+        res
+          .status(400)
+          .json({ error: "Norma(s) inválida(s) para esta organização" });
+        return;
+      }
+      updates.normIds = b.normIds;
+    }
     if (b.workloadHours !== undefined) updates.workloadHours = b.workloadHours;
-    if (b.validityMonths !== undefined) updates.validityMonths = b.validityMonths;
+    if (b.validityMonths !== undefined)
+      updates.validityMonths = b.validityMonths;
     if (b.isMandatory !== undefined) updates.isMandatory = b.isMandatory;
     if (b.status !== undefined) updates.status = b.status;
     if (b.targetCompetencyName !== undefined)
@@ -222,7 +253,8 @@ router.patch(
     if (b.defaultInstructor !== undefined)
       updates.defaultInstructor = b.defaultInstructor;
     if (b.objective !== undefined) updates.objective = b.objective;
-    if (b.programContent !== undefined) updates.programContent = b.programContent;
+    if (b.programContent !== undefined)
+      updates.programContent = b.programContent;
     if (b.evaluationMethod !== undefined)
       updates.evaluationMethod = b.evaluationMethod;
 
@@ -259,52 +291,143 @@ router.delete(
       res.status(403).json({ error: "Acesso negado" });
       return;
     }
-    // Não excluir item ainda referenciado por turmas, obrigatoriedades ou PAT:
-    // isso apagaria histórico de execução (turmas → participantes/evidências).
-    // Nesses casos o correto é inativar o item (status), não excluir.
-    const [refClass] = await db
-      .select({ id: trainingClassesTable.id })
-      .from(trainingClassesTable)
-      .where(
-        and(
-          eq(trainingClassesTable.organizationId, params.data.orgId),
-          eq(trainingClassesTable.catalogItemId, params.data.itemId),
-        ),
-      )
-      .limit(1);
-    const [refReq] = await db
-      .select({ id: trainingRequirementsTable.id })
-      .from(trainingRequirementsTable)
-      .where(
-        and(
-          eq(trainingRequirementsTable.organizationId, params.data.orgId),
-          eq(trainingRequirementsTable.catalogItemId, params.data.itemId),
-        ),
-      )
-      .limit(1);
-    const [refPat] = await db
-      .select({ id: annualTrainingProgramTable.id })
-      .from(annualTrainingProgramTable)
-      .where(
-        and(
-          eq(annualTrainingProgramTable.organizationId, params.data.orgId),
-          eq(annualTrainingProgramTable.catalogItemId, params.data.itemId),
-        ),
-      )
-      .limit(1);
-    if (refClass || refReq || refPat) {
+    const { orgId, itemId } = params.data;
+    // cascade=true confirma a exclusão junto das dependências (fluxo de
+    // confirmação no frontend); qualquer outro valor/ausência = false.
+    const cascade = req.query.cascade === "true";
+
+    if (cascade) {
+      // Se o treinamento não existe mais, "cargo X deve fazer Y" deixa de
+      // fazer sentido: apaga a obrigatoriedade e as pendências ainda não
+      // realizadas. Quem já concluiu é histórico — preservado, só perde o
+      // vínculo com o catálogo.
+      const [row] = await db.transaction(async (tx) => {
+        // Confirma que o item é DESTA organização ANTES de qualquer mutação.
+        // As operações abaixo em employee_trainings filtram só por
+        // catalog_item_id; sem este guard, um tenant poderia passar o itemId de
+        // outra org e destruir os dados dela (o DELETE do item no fim é
+        // org-scoped, mas casaria 0 linhas e a transação ainda faria COMMIT).
+        const [owned] = await tx
+          .select({ id: trainingCatalogTable.id })
+          .from(trainingCatalogTable)
+          .where(
+            and(
+              eq(trainingCatalogTable.id, itemId),
+              eq(trainingCatalogTable.organizationId, orgId),
+            ),
+          )
+          .limit(1);
+        if (!owned) return [] as { id: number }[]; // 404, sem tocar em nada
+        // Pendências (não concluídas) somem: ninguém dali em diante é esperado.
+        await tx
+          .delete(employeeTrainingsTable)
+          .where(
+            and(
+              eq(employeeTrainingsTable.catalogItemId, itemId),
+              sql`${employeeTrainingsTable.status} <> 'concluido'`,
+            ),
+          );
+        // Concluídos são preservados como histórico, mas desvinculados do
+        // catálogo. Zeramos explicitamente: a FK ON DELETE SET NULL de
+        // catalog_item_id/requirement_id foi criada por DDL só na produção e
+        // não existe em todo ambiente — sem isto, o registro ficaria com um
+        // ponteiro pendente após o item ser apagado.
+        await tx
+          .update(employeeTrainingsTable)
+          .set({ catalogItemId: null, requirementId: null })
+          .where(
+            and(
+              eq(employeeTrainingsTable.catalogItemId, itemId),
+              sql`${employeeTrainingsTable.status} = 'concluido'`,
+            ),
+          );
+        // ON DELETE CASCADE cuida de obrigatoriedades/turmas/PAT vinculados.
+        return tx
+          .delete(trainingCatalogTable)
+          .where(
+            and(
+              eq(trainingCatalogTable.id, itemId),
+              eq(trainingCatalogTable.organizationId, orgId),
+            ),
+          )
+          .returning();
+      });
+      if (!row) {
+        res.status(404).json({ error: "Item do catálogo não encontrado" });
+        return;
+      }
+      res.status(204).send();
+      return;
+    }
+
+    // Sem cascade: não excluir item ainda referenciado por turmas,
+    // obrigatoriedades ou PAT — isso apagaria histórico de execução. Conta as
+    // dependências para o frontend oferecer "excluir mesmo assim" (cascade).
+    const [[reqCount], [classCount], [patCount], [trainingCounts]] =
+      await Promise.all([
+        db
+          .select({ count: sql<number>`cast(count(*) as int)` })
+          .from(trainingRequirementsTable)
+          .where(
+            and(
+              eq(trainingRequirementsTable.organizationId, orgId),
+              eq(trainingRequirementsTable.catalogItemId, itemId),
+            ),
+          ),
+        db
+          .select({ count: sql<number>`cast(count(*) as int)` })
+          .from(trainingClassesTable)
+          .where(
+            and(
+              eq(trainingClassesTable.organizationId, orgId),
+              eq(trainingClassesTable.catalogItemId, itemId),
+            ),
+          ),
+        db
+          .select({ count: sql<number>`cast(count(*) as int)` })
+          .from(annualTrainingProgramTable)
+          .where(
+            and(
+              eq(annualTrainingProgramTable.organizationId, orgId),
+              eq(annualTrainingProgramTable.catalogItemId, itemId),
+            ),
+          ),
+        db
+          .select({
+            pendencias: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} <> 'concluido')::int`,
+            concluidos: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'concluido')::int`,
+          })
+          .from(employeeTrainingsTable)
+          .where(eq(employeeTrainingsTable.catalogItemId, itemId)),
+      ]);
+
+    const dependencies = {
+      obrigatoriedades: reqCount.count,
+      turmas: classCount.count,
+      pat: patCount.count,
+      pendencias: trainingCounts.pendencias,
+      concluidos: trainingCounts.concluidos,
+    };
+
+    if (
+      dependencies.obrigatoriedades > 0 ||
+      dependencies.turmas > 0 ||
+      dependencies.pat > 0
+    ) {
       res.status(409).json({
         error:
-          "Não é possível excluir: há turmas, obrigatoriedades ou itens do PAT vinculados. Inative o item em vez de excluir.",
+          "Não é possível excluir: há obrigatoriedades, turmas ou itens do PAT vinculados. Confirme para excluir junto.",
+        dependencies,
       });
       return;
     }
+
     const [row] = await db
       .delete(trainingCatalogTable)
       .where(
         and(
-          eq(trainingCatalogTable.id, params.data.itemId),
-          eq(trainingCatalogTable.organizationId, params.data.orgId),
+          eq(trainingCatalogTable.id, itemId),
+          eq(trainingCatalogTable.organizationId, orgId),
         ),
       )
       .returning();
