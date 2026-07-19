@@ -11160,8 +11160,10 @@ components:
           type: string
           nullable: true
         score:
-          type: integer
+          type: number
           nullable: true
+          minimum: 0
+          maximum: 10
         result:
           type: string
           nullable: true
@@ -11214,6 +11216,8 @@ components:
           type: integer
         minScore:
           type: integer
+          minimum: 0
+          maximum: 10
         status:
           type: string
         notes:
@@ -11251,6 +11255,8 @@ components:
           type: integer
         minScore:
           type: integer
+          minimum: 0
+          maximum: 10
         status:
           type: string
         notes:
@@ -11278,8 +11284,10 @@ components:
           type: string
           nullable: true
         score:
-          type: integer
+          type: number
           nullable: true
+          minimum: 0
+          maximum: 10
         result:
           type: string
           nullable: true
@@ -13111,7 +13119,7 @@ components:
           type: string
           format: date
         score:
-          type: integer
+          type: number
           nullable: true
           minimum: 0
           maximum: 10
@@ -13859,7 +13867,7 @@ components:
           type: string
           format: date
         score:
-          type: integer
+          type: number
           minimum: 0
           maximum: 10
         isEffective:

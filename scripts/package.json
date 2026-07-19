@@ -35,6 +35,7 @@
     "backfill-kpi-unit-id": "tsx --env-file ../.env ./src/migrate/backfill-kpi-unit-id.ts",
     "add-training-catalog-norm-ids": "tsx --env-file ../.env ./src/migrate/add-training-catalog-norm-ids.ts",
     "backfill-norms-catalog": "tsx --env-file ../.env ./src/migrate/norms-catalog-backfill.ts",
+    "ddl-score-numeric": "tsx --env-file ../.env ./src/migrate/ddl-score-numeric.ts",
     "backfill-effectiveness-methods": "tsx --env-file ../.env ./src/migrate/effectiveness-methods-backfill.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

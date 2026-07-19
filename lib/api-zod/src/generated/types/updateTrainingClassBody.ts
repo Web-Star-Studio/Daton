@@ -17,6 +17,10 @@ export interface UpdateTrainingClassBody {
   modality?: string;
   workloadHours?: number;
   capacity?: number;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
   minScore?: number;
   status?: string;
   notes?: string;

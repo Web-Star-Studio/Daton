@@ -237,6 +237,10 @@ export interface TrainingClassParticipant {
   employeeId: number;
   employeeName?: string | null;
   attendance?: string | null;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
   score?: number | null;
   result?: string | null;
   employeeTrainingId?: number | null;
@@ -258,6 +262,10 @@ export interface CreateTrainingClassBody {
   modality?: string;
   workloadHours?: number;
   capacity?: number;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
   minScore?: number;
   status?: string;
   notes?: string;
@@ -275,6 +283,10 @@ export interface UpdateTrainingClassBody {
   modality?: string;
   workloadHours?: number;
   capacity?: number;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
   minScore?: number;
   status?: string;
   notes?: string;
@@ -288,6 +300,10 @@ export interface AddTrainingClassParticipantsBody {
 
 export interface UpdateTrainingClassParticipantBody {
   attendance?: string | null;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
   score?: number | null;
   result?: string | null;
 }

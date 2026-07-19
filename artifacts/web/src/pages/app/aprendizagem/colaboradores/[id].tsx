@@ -81,6 +81,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
+import { formatKpiNumber } from "@/lib/kpi-client";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
 import {
@@ -2325,9 +2326,13 @@ function TreinamentosTab({
     status: CreateTrainingBodyStatusValues.pendente,
   };
   const [form, setForm] = useState(emptyForm);
+  // score fica como string enquanto o usuário digita (estado controlado) —
+  // convertê-lo a Number a cada tecla, como antes, impede digitar "7.5"
+  // (o "." vira "7" e o dígito seguinte é perdido; mesma armadilha do PR
+  // #150). A conversão pra número só acontece no blur/submit.
   const [reviewForm, setReviewForm] = useState({
     evaluationDate: new Date().toISOString().split("T")[0],
-    score: 0,
+    score: "",
     isEffective: true,
     resultLevel: 0,
     comments: "",
@@ -2404,7 +2409,7 @@ function TreinamentosTab({
     setIsUploadingReviewAttachments(false);
     setReviewForm({
       evaluationDate: new Date().toISOString().split("T")[0],
-      score: 0,
+      score: "",
       isEffective: true,
       resultLevel: 0,
       comments: "",
@@ -2518,7 +2523,7 @@ function TreinamentosTab({
     setReviewForm({
       evaluationDate:
         latestReview?.evaluationDate || new Date().toISOString().split("T")[0],
-      score: latestReview?.score || 0,
+      score: latestReview?.score != null ? String(latestReview.score) : "",
       isEffective: latestReview?.isEffective ?? true,
       resultLevel:
         latestReview?.resultLevel || training.targetCompetencyLevel || 0,
@@ -2530,13 +2535,27 @@ function TreinamentosTab({
   const handleCreateReview = async () => {
     if (!reviewTraining) return;
 
+    const parsedScore =
+      reviewForm.score.trim() === "" ? undefined : Number(reviewForm.score);
+    if (
+      parsedScore !== undefined &&
+      (!Number.isFinite(parsedScore) || parsedScore < 0 || parsedScore > 10)
+    ) {
+      toast({
+        title: "Nota inválida",
+        description: "A nota deve estar entre 0 e 10.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     await reviewMutation.mutateAsync({
       orgId,
       empId,
       trainId: reviewTraining.id,
       data: {
         evaluationDate: reviewForm.evaluationDate,
-        score: reviewForm.score || undefined,
+        score: parsedScore,
         isEffective: reviewForm.isEffective,
         resultLevel: reviewForm.resultLevel || undefined,
         comments: reviewForm.comments || undefined,
@@ -2664,7 +2683,7 @@ function TreinamentosTab({
                               : "Ineficaz"}{" "}
                             em {t.latestEffectivenessReview.evaluationDate}
                             {t.latestEffectivenessReview.score != null
-                              ? ` · nota ${t.latestEffectivenessReview.score}`
+                              ? ` · nota ${formatKpiNumber(t.latestEffectivenessReview.score)}`
                               : ""}
                             {t.latestEffectivenessReview.resultLevel != null
                               ? ` · nível ${t.latestEffectivenessReview.resultLevel}`
@@ -2728,7 +2747,7 @@ function TreinamentosTab({
                                   ) : null}
                                   {review.score != null ? (
                                     <span className="text-muted-foreground">
-                                      · nota {review.score}
+                                      · nota {formatKpiNumber(review.score)}
                                     </span>
                                   ) : null}
                                   {review.resultLevel != null ? (
@@ -3106,13 +3125,15 @@ function TreinamentosTab({
               </Label>
               <Input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 max={10}
+                step={0.5}
                 value={reviewForm.score}
                 onChange={(e) =>
                   setReviewForm((current) => ({
                     ...current,
-                    score: Number(e.target.value),
+                    score: e.target.value,
                   }))
                 }
                 className="mt-1"
