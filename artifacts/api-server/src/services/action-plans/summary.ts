@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, type SQL } from "drizzle-orm";
 import { actionPlansTable, db } from "@workspace/db";
 import { gutScore } from "./gut";
 
@@ -27,8 +27,16 @@ function bump(map: Record<string, number>, key: string | null | undefined) {
 
 /** Aggregate the org's action plans into dashboard metrics. Computed in JS over
  * the org-scoped rows (hundreds at most), mirroring how KPI dashboards aggregate
- * from a list response rather than via bespoke SQL. */
-export async function computeActionPlanSummary(orgId: number): Promise<ActionPlanSummary> {
+ * from a list response rather than via bespoke SQL.
+ *
+ * `visibility` (opcional) é a condição de escopo por papel do solicitante — as
+ * contagens têm de refletir o MESMO recorte da listagem, senão o operador vê
+ * "vencidas: 12" e só 1 plano na lista. undefined = sem restrição (admin/analista).
+ */
+export async function computeActionPlanSummary(
+  orgId: number,
+  visibility?: SQL,
+): Promise<ActionPlanSummary> {
   const rows = await db
     .select({
       status: actionPlansTable.status,
@@ -47,7 +55,7 @@ export async function computeActionPlanSummary(orgId: number): Promise<ActionPla
       odsNumbers: actionPlansTable.odsNumbers,
     })
     .from(actionPlansTable)
-    .where(eq(actionPlansTable.organizationId, orgId));
+    .where(visibility ? and(eq(actionPlansTable.organizationId, orgId), visibility) : eq(actionPlansTable.organizationId, orgId));
 
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());

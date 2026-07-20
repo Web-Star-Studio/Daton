@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { effectivenessMethodsTable } from "./effectiveness-methods";
 import { organizationsTable } from "./organizations";
+import { unitsTable } from "./units";
 import { usersTable } from "./users";
 
 export type ActionPlanStatus = "open" | "in_progress" | "completed" | "cancelled";
@@ -214,6 +215,13 @@ export const actionPlansTable = pgTable(
      * `action_plan_responsibles` — esta coluna NÃO os inclui.
      */
     responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    /**
+     * Filial do plano, para a visibilidade por papel (gestor vê a sua filial).
+     * **Derivada e fixa na criação** (ver services/action-plans/derive-unit.ts):
+     * origem → filial da origem; manual → filial do ponto focal; sem filial
+     * derivável → null = **corporativo** (todos os gestores veem). Não recalcula.
+     */
+    unitId: integer("unit_id").references(() => unitsTable.id, { onDelete: "set null" }),
     dueDate: timestamp("due_date", { withTimezone: true }),
     correctiveActionDescription: text("corrective_action_description"),
     correctiveActionCompletedAt: timestamp("corrective_action_completed_at", { withTimezone: true }),
@@ -246,6 +254,7 @@ export const actionPlansTable = pgTable(
     index("action_plans_org_source_idx").on(table.organizationId, table.sourceModule),
     index("action_plans_org_status_idx").on(table.organizationId, table.status),
     index("action_plans_org_code_idx").on(table.organizationId, table.code),
+    index("action_plans_org_unit_idx").on(table.organizationId, table.unitId),
   ],
 );
 

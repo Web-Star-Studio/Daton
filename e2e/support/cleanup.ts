@@ -54,6 +54,7 @@ import {
   strategicPlansTable,
   strategicPlanRevisionsTable,
   strategicPlanSwotItemsTable,
+  swotFactorsTable,
   trainingEffectivenessReviewsTable,
   unitLegislationsTable,
   unitsTable,
@@ -87,6 +88,7 @@ import {
   kpiYearConfigsTable,
   actionPlansTable,
   regulatoryDocumentsTable,
+  laiaAssessmentsTable,
 } from "@workspace/db";
 
 type CleanupTransaction = Pick<typeof db, "delete">;
@@ -758,6 +760,20 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(actionPlansTable)
         .where(inArray(actionPlansTable.organizationId, orgIds));
+
+      // swot_factors: leaf table, FKs to org/unit only (no cascade on org FK).
+      await tx
+        .delete(swotFactorsTable)
+        .where(inArray(swotFactorsTable.organizationId, orgIds));
+
+      // laia_assessments: created_by_id/updated_by_id FKs a users SEM cascade
+      // (a organizationId até tem cascade, mas isso só dispararia no delete da
+      // org, depois dos usuários já removidos). Precisa apagar antes dos
+      // usuários, senão FK violation. Filhas (monitoring_plans, ods_alignments,
+      // requirement_links) cascadeiam via assessment_id.
+      await tx
+        .delete(laiaAssessmentsTable)
+        .where(inArray(laiaAssessmentsTable.organizationId, orgIds));
     }
 
     if (userIds.length > 0) {

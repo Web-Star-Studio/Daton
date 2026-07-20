@@ -8,6 +8,7 @@ import {
   actionPlansTable,
   db,
   isActionPlanEncerrado,
+  usersTable,
   type ActionPlanActivityChanges,
   type ActionPlanSourceModule,
 } from "@workspace/db";
@@ -40,10 +41,12 @@ import {
   requireWriteAccess,
   userHasModuleAccess,
   type AppModule,
+  type AuthPayload,
 } from "../middlewares/auth";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
+import { deriveActionPlanUnit } from "../services/action-plans/derive-unit";
+import { canViewActionPlan, type ActionPlanRequesterScope } from "../services/action-plans/access";
 import {
-  isPlanCoResponsible,
   listCoResponsibleIds,
   listCoResponsiblesByPlan,
   setPlanCoResponsibles,
@@ -130,14 +133,45 @@ const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
 };
 
 /**
- * Guards every `/:planId` route. Without it the hub gate would be bypassable by
- * anyone in the org who guesses a plan id. A plan belongs to whoever holds the
- * hub module, holds the module that owns its origin, or is personally assigned
- * to it — the responsible and the effectiveness evaluator reach their own plans
- * from "Suas Pendências" without ever holding `actionPlans`.
+ * Origens (`sourceModule`) cujo módulo-dono (`SOURCE_MODULE_OWNER`) o usuário TEM,
+ * excluindo a família `actionPlans` (manual/improvement/corrective/norm_requirement).
+ * É a via de origem da LISTAGEM — espelha em lote a cláusula extra do
+ * `requirePlanAccess` (`originOwner !== "actionPlans" && hasModule(originOwner)`),
+ * usada para compor um `inArray` em vez de checar plano a plano. A exclusão da
+ * família manual é o que impede `hasModule(actionPlans)` de virar, de novo, porta
+ * de entrada única para qualquer plano — exatamente o buraco que a visibilidade
+ * por papel fechou (ver `actionPlanVisibilityCondition`).
+ */
+async function accessibleOriginSourceModules(auth: AuthPayload): Promise<ActionPlanSourceModule[]> {
+  const ownerModules = [...new Set(
+    Object.values(SOURCE_MODULE_OWNER).filter((owner): owner is AppModule => owner !== "actionPlans"),
+  )];
+  const hasAccess = await Promise.all(ownerModules.map((owner) => userHasModuleAccess(auth, owner)));
+  const grantedOwners = new Set(ownerModules.filter((_, i) => hasAccess[i]));
+  return (Object.entries(SOURCE_MODULE_OWNER) as [ActionPlanSourceModule, AppModule][])
+    .filter(([, owner]) => grantedOwners.has(owner))
+    .map(([sourceModule]) => sourceModule);
+}
+
+/**
+ * Guarda toda rota `/:planId`. Sem isso, o gate da listagem seria burlável por
+ * qualquer um da org que adivinhasse o id do plano — a listagem só decide o que
+ * aparece NA LISTA, nunca o que abre pela URL direta. A visibilidade aqui é a
+ * MESMA matriz por papel da listagem (`canViewActionPlan`): admin/analista veem
+ * tudo; gestor, a filial dele + corporativo + o que está pessoalmente vinculado
+ * a ele; operador, só o que está pessoalmente vinculado (ponto focal,
+ * co-responsável ou avaliador de eficácia — como "Suas Pendências" chega aqui).
  *
- * Registered after `requireAuth`. Unknown ids and malformed params fall through
- * untouched so the routes keep answering 404/400 exactly as before.
+ * A via de origem (`SOURCE_MODULE_OWNER`) continua valendo à parte — é o que
+ * mantém o widget "Ações vinculadas" (embutido em KPI/governança/...) aberto
+ * para quem só tem o módulo de origem — mas só para origens GENUÍNAS. Para
+ * `manual` (e demais origens do próprio hub) o dono é `actionPlans`: incluir a
+ * via de origem sem essa ressalva reabriria o acesso irrestrito que este
+ * predicado fecha (`hasModule(actionPlans)` deixava de ser porta de entrada
+ * única para qualquer plano).
+ *
+ * Registrado depois de `requireAuth`. Ids desconhecidos e params malformados
+ * passam direto (`next()`) para as rotas responderem 404/400 como antes.
  */
 function requirePlanAccess() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -149,6 +183,7 @@ function requirePlanAccess() {
     const [plan] = await db
       .select({
         sourceModule: actionPlansTable.sourceModule,
+        unitId: actionPlansTable.unitId,
         responsibleUserId: actionPlansTable.responsibleUserId,
         effectivenessEvaluatorUserId: actionPlansTable.effectivenessEvaluatorUserId,
       })
@@ -156,19 +191,89 @@ function requirePlanAccess() {
       .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
     if (!plan) { next(); return; }
 
-    const userId = req.auth!.userId;
-    // Ordem importa: os checks de módulo saem do cache de auth (30s), então o
-    // curto-circuito evita a consulta à junção para quem já entra pelo módulo.
+    // Curto-circuito: decide com o que já está em mãos (role + campos do próprio
+    // `plan` acima) antes de consultar o banco. admin/analista e o vínculo direto
+    // (ponto focal/avaliador — já vieram no select do plano) dispensam qualquer
+    // query extra; só o caminho realmente indeciso (operador sem vínculo direto,
+    // ou gestor fora do ponto focal/avaliador) busca co-responsáveis e, se
+    // gestor, a filial — as duas em paralelo. A regra final é idêntica à de
+    // `canViewActionPlan`; só a ORDEM de avaliação muda.
+    const { userId, role } = req.auth!;
+    const personallyFocalOrEvaluator =
+      (plan.responsibleUserId !== null && plan.responsibleUserId === userId) ||
+      (plan.effectivenessEvaluatorUserId !== null && plan.effectivenessEvaluatorUserId === userId);
+    let roleAllows =
+      role === "org_admin" || role === "platform_admin" || role === "analyst" || personallyFocalOrEvaluator;
+
+    if (!roleAllows) {
+      const [coResponsibleUserIds, scope] = await Promise.all([
+        listCoResponsibleIds(planId),
+        getRequesterActionPlanScope(req),
+      ]);
+      roleAllows = canViewActionPlan(scope, {
+        unitId: plan.unitId,
+        responsibleUserId: plan.responsibleUserId,
+        coResponsibleUserIds,
+        effectivenessEvaluatorUserId: plan.effectivenessEvaluatorUserId,
+      });
+    }
+
+    const originOwner = SOURCE_MODULE_OWNER[plan.sourceModule];
     const allowed =
-      plan.responsibleUserId === userId ||
-      plan.effectivenessEvaluatorUserId === userId ||
-      (await userHasModuleAccess(req.auth!, "actionPlans")) ||
-      (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule])) ||
-      (await isPlanCoResponsible(planId, userId));
+      roleAllows ||
+      (originOwner !== "actionPlans" && (await userHasModuleAccess(req.auth!, originOwner)));
     if (!allowed) { res.status(403).json({ error: "Sem acesso a este plano de ação" }); return; }
 
     next();
   };
+}
+
+/**
+ * Resolve o escopo do solicitante para o hub de Ações. Faz lookup do unitId só
+ * quando role=manager (fonte sempre fresca, sem depender do token). Espelha
+ * `getRequesterKpiScope` (routes/kpi/index.ts).
+ */
+async function getRequesterActionPlanScope(
+  req: { auth?: { userId: number; role: ActionPlanRequesterScope["role"] } },
+): Promise<ActionPlanRequesterScope> {
+  const { userId, role } = req.auth!;
+  let unitId: number | null = null;
+  if (role === "manager") {
+    const [u] = await db.select({ unitId: usersTable.unitId }).from(usersTable).where(eq(usersTable.id, userId));
+    unitId = u?.unitId ?? null;
+  }
+  return { role, userId, unitId };
+}
+
+/**
+ * Condição SQL de visibilidade por papel na listagem. undefined = sem
+ * restrição (admin/analista, que veem tudo). Espelha `kpiVisibilityCondition`.
+ */
+function actionPlanVisibilityCondition(scope: ActionPlanRequesterScope): SQL | undefined {
+  if (scope.role === "org_admin" || scope.role === "platform_admin" || scope.role === "analyst") return undefined;
+
+  // "Pessoalmente vinculado": ponto focal, avaliador, ou co-responsável (EXISTS na junção).
+  const personal = or(
+    eq(actionPlansTable.responsibleUserId, scope.userId),
+    eq(actionPlansTable.effectivenessEvaluatorUserId, scope.userId),
+    exists(
+      db.select({ one: sql`1` }).from(actionPlanResponsiblesTable).where(
+        and(
+          eq(actionPlanResponsiblesTable.actionPlanId, actionPlansTable.id),
+          eq(actionPlanResponsiblesTable.userId, scope.userId),
+        ),
+      ),
+    ),
+  )!; // seguro: sempre 3 argumentos definidos, or() nunca devolve undefined aqui.
+
+  if (scope.role === "manager") {
+    return or(
+      personal,
+      isNull(actionPlansTable.unitId), // corporativo
+      scope.unitId !== null ? eq(actionPlansTable.unitId, scope.unitId) : sql`false`,
+    );
+  }
+  return personal; // operator
 }
 
 // ─── List ──────────────────────────────────────────────────────────────────
@@ -241,6 +346,25 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
     }
   }
 
+  // Visibilidade por papel: o gate acima só decide se o hub ABRE; esta condição
+  // decide QUAIS planos aparecem dentro dele (operador só os seus, gestor a
+  // filial+corporativo). admin/analista não têm restrição (undefined). Espelha
+  // EXATAMENTE o `requirePlanAccess` (mesma regra do acesso direto por id): papel
+  // OU via de origem genuína. Sem a via de origem aqui, a listagem ficava mais
+  // restrita que o `requirePlanAccess` e o widget "Ações vinculadas" (embutido nas
+  // telas de KPI/governança/...) devolvia 200 [] para quem só tinha o módulo de
+  // origem — achado da revisão final de branch.
+  const scope = await getRequesterActionPlanScope(req);
+  const roleVisibility = actionPlanVisibilityCondition(scope);
+  if (roleVisibility) {
+    const originModules = await accessibleOriginSourceModules(req.auth!);
+    conditions.push(
+      originModules.length > 0
+        ? or(roleVisibility, inArray(actionPlansTable.sourceModule, originModules))!
+        : roleVisibility,
+    );
+  }
+
   const plans = await db
     .select()
     .from(actionPlansTable)
@@ -301,7 +425,10 @@ router.get("/organizations/:orgId/action-plans/summary", requireAuth, requireMod
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
-  const summary = await computeActionPlanSummary(params.data.orgId);
+  // Mesmo recorte da listagem: sem isso, o operador via "vencidas: 12" no painel
+  // e só 1 plano na lista.
+  const scope = await getRequesterActionPlanScope(req);
+  const summary = await computeActionPlanSummary(params.data.orgId, actionPlanVisibilityCondition(scope));
   res.json(summary);
 });
 
@@ -312,6 +439,17 @@ router.get("/organizations/:orgId/action-plans/external-actions", requireAuth, r
   const params = ListExternalActionsParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  // A ponte devolve TODAS as ações corretivas de governança da org: nem
+  // `nonconformities` nem `corrective_actions` têm filial (`unit_id`), e o
+  // serializer só expõe o NOME do responsável (não o id) — não dá pra escopar por
+  // filial nem por vínculo pessoal como fazemos com os planos do hub. Só quem já
+  // enxerga a organização inteira de qualquer jeito (admin/analista) pode ver a
+  // ponte; gestor e operador recebem lista vazia (achado da revisão final —
+  // senão o operador continuava vendo ações que não são dele, a queixa original).
+  const scope = await getRequesterActionPlanScope(req);
+  const seesOrgWide = scope.role === "org_admin" || scope.role === "platform_admin" || scope.role === "analyst";
+  if (!seesOrgWide) { res.json([]); return; }
 
   const items = await listExternalActions(params.data.orgId);
   res.json(items);
@@ -469,6 +607,10 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
   const derived = await deriveCreateDefaults(params.data.orgId, body.data.sourceModule, body.data.sourceRef);
   const code = await generateActionPlanCode(params.data.orgId, actionType, new Date().getFullYear());
   const status = body.data.status ?? "open";
+  // Filial do plano: derivada aqui e gravada como FIXA (não recalcula em updates).
+  const unitId = await deriveActionPlanUnit(
+    params.data.orgId, body.data.sourceModule, body.data.sourceRef, body.data.responsibleUserId ?? null,
+  );
 
   const [row] = await db.insert(actionPlansTable).values({
     organizationId: params.data.orgId,
@@ -487,6 +629,7 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     rootCause: body.data.rootCause ?? derived.rootCause ?? null,
     rootCauseWhys: body.data.rootCauseWhys ?? null,
     responsibleUserId: body.data.responsibleUserId ?? null,
+    unitId,
     dueDate: body.data.dueDate ? new Date(body.data.dueDate) : null,
     correctiveActionDescription: body.data.correctiveActionDescription ?? null,
     effectivenessMethodId: body.data.effectivenessMethodId ?? null,
