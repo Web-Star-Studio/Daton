@@ -730,4 +730,78 @@ describe("Treinamento status nao_aplicavel — motivo obrigatório", () => {
     expect(board.body.stats.boardCounts.emAvaliacao).toBe(0);
     expect(board.body.stats.boardCounts.concluidas).toBe(0);
   });
+
+  // Achado do revisor (PR #182, P2): getEffectivenessStatus só suprimia NA no
+  // ramo `pending` — um treino que JÁ tem review final continuava devolvendo
+  // "effective"/"ineffective" mesmo depois de marcado NA (é alcançável: nada
+  // impede marcar NA um treino já concluído e avaliado). A ficha mostrava
+  // "Não aplicável" junto de "Eficaz"/"Não eficaz" — contraditório. O mesmo
+  // valia para eficazesCount/naoEficazesCount do statsRow, que olham só a
+  // review (latestIsEffective) sem saber que o treino virou NA depois dela.
+  it("NA marcado DEPOIS de concluído e avaliado não mantém effectivenessStatus nem entra nas contagens de eficácia", async () => {
+    const ctx = await createTestContext({ seed: "na-depois-da-review" });
+    contexts.push(ctx);
+    const emp = await createEmployee(ctx, { name: `${ctx.prefix} PosReview` });
+
+    const criado = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({
+        title: `${ctx.prefix} NR-35 pos review`,
+        status: "concluido",
+        completionDate: "2026-01-10",
+      });
+    expect(criado.status).toBe(201);
+    const trainingId = criado.body.id as number;
+
+    const review = await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings/${trainingId}/effectiveness-reviews`,
+      )
+      .set(authHeader(ctx))
+      .send({ evaluationDate: "2026-01-20", isEffective: true, score: 8 });
+    expect(review.status).toBe(201);
+
+    // Antes de marcar NA: eficácia registrada normalmente — confirma que o
+    // cenário de teste realmente passa pelo ramo `effective`.
+    const antes = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings?pageSize=50`)
+      .set(authHeader(ctx));
+    expect(antes.status).toBe(200);
+    const antesRow = antes.body.data.find(
+      (t: { id: number }) => t.id === trainingId,
+    );
+    expect(antesRow?.effectivenessStatus).toBe("effective");
+    expect(antes.body.stats.eficazes).toBe(1);
+    expect(antes.body.stats.naoEficazes).toBe(0);
+
+    // RH marca o treino como não aplicável DEPOIS da avaliação já registrada
+    // — a review continua existindo no banco (o PATCH não a apaga), que é
+    // exatamente o cenário do achado do revisor.
+    const patch = await request(app)
+      .patch(
+        `/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings/${trainingId}`,
+      )
+      .set(authHeader(ctx))
+      .send({
+        status: "nao_aplicavel",
+        notApplicableReason: "Função foi extinta após a avaliação",
+      });
+    expect(patch.status).toBe(200);
+    expect(patch.body.status).toBe("nao_aplicavel");
+
+    const depois = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings?pageSize=50`)
+      .set(authHeader(ctx));
+    expect(depois.status).toBe(200);
+    const depoisRow = depois.body.data.find(
+      (t: { id: number }) => t.id === trainingId,
+    );
+    // Nenhum dos três estados de avaliação — nem effective, nem ineffective,
+    // nem in_review — pode sobreviver à marcação NA.
+    expect(depoisRow?.effectivenessStatus).toBeNull();
+    expect(depois.body.stats.eficazes).toBe(0);
+    expect(depois.body.stats.naoEficazes).toBe(0);
+    expect(depois.body.stats.effectivenessPending).toBe(0);
+  });
 });

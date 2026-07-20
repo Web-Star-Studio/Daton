@@ -400,6 +400,18 @@ function getEffectivenessStatus(
   training: typeof employeeTrainingsTable.$inferSelect,
   hasAnyDraft = false,
 ): "pending" | "in_review" | "effective" | "ineffective" | null {
+  // NA nunca é "realizado" — eficácia não se aplica — curto-circuita ANTES de
+  // qualquer outro ramo (review final, rascunho/atribuição e critério
+  // herdado). É alcançável marcar como NA um treino que já tem review final
+  // ou rascunho registrados; sem este guard no topo, o treino continuava
+  // voltando "effective"/"ineffective"/"in_review" (só o ramo `pending` tinha
+  // a exclusão), e a ficha mostrava "Não aplicável" lado a lado com um
+  // resultado de eficácia — contraditório. Mesma exclusão do lado SQL em
+  // `boardPendentes` (notNaoAplicavel); ver P2 do PR #182.
+  if (training.status === "nao_aplicavel") {
+    return null;
+  }
+
   if (reviews.length > 0) {
     return reviews[0]?.isEffective ? "effective" : "ineffective";
   }
@@ -420,14 +432,7 @@ function getEffectivenessStatus(
   // "pending": critério de eficácia presente. O `||` trata string vazia como
   // ausente (falsy) — a contraparte SQL é `boardHasPendingCriteria` (não-nulo E
   // não-vazio), mantida idêntica a esta regra. Ver #115.
-  // NA nunca é "realizado" — eficácia não se aplica — mesma exclusão do lado
-  // SQL em `boardPendentes` (notNaoAplicavel). Sem isto, um treino marcado
-  // Não aplicável mas com evaluationMethod/targetCompetencyName herdados do
-  // catálogo serializava "pending" e entrava em stats.effectivenessPending.
-  if (
-    training.status !== "nao_aplicavel" &&
-    (training.evaluationMethod || training.targetCompetencyName)
-  ) {
+  if (training.evaluationMethod || training.targetCompetencyName) {
     return "pending";
   }
 
@@ -2181,16 +2186,23 @@ router.get(
         // effectivenessPending: boardPendentes (sem review/atribuição) + critério
         // de eficácia presente (fragmento único, alinhado ao JS — #115)
         effectivenessPendingCount: sql<number>`count(*) filter (where ${boardPendentes} and ${boardHasPendingCriteria})::int`,
-        // eficazes / naoEficazes: última review por treinamento
-        eficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = true)::int`,
-        naoEficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = false)::int`,
+        // eficazes / naoEficazes: última review por treinamento.
+        // `latestIsEffective`/`boardConcluidas` olham só para
+        // training_effectiveness_reviews — não sabem que o treino foi
+        // marcado NA depois da review. É alcançável (nada impede marcar NA
+        // um treino já avaliado), então sem ${notNaoAplicavel} aqui esses
+        // agregados continuavam somando um treino dispensado que carrega
+        // review antiga. Mesma exclusão do lado JS em getEffectivenessStatus.
+        eficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = true and ${notNaoAplicavel})::int`,
+        naoEficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = false and ${notNaoAplicavel})::int`,
         // onTime: concluídas com dueDate onde latestEvalDate <= dueDate
         onTimeCount: sql<number>`count(*) filter (where
           ${boardConcluidas}
+          and ${notNaoAplicavel}
           and ${employeeTrainingsTable.effectivenessDueDate} is not null
           and ${latestEvalDate} <= ${employeeTrainingsTable.effectivenessDueDate}
         )::int`,
-        withDueDateCount: sql<number>`count(*) filter (where ${boardConcluidas} and ${employeeTrainingsTable.effectivenessDueDate} is not null)::int`,
+        withDueDateCount: sql<number>`count(*) filter (where ${boardConcluidas} and ${notNaoAplicavel} and ${employeeTrainingsTable.effectivenessDueDate} is not null)::int`,
         // NB: `programadoCount` foi removido deste agregado — `isProgramado` é um
         // EXISTS correlacionado e, dentro de um `count(*) filter` (SELECT list),
         // o planner não consegue achatá-lo em semi-join; vira SubPlan por linha
