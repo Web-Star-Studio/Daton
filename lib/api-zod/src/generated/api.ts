@@ -21307,6 +21307,12 @@ export const ListTrainingClassesResponse = zod.object({
           }),
         ),
         participantCount: zod.number().optional(),
+        approvedCount: zod
+          .number()
+          .optional()
+          .describe(
+            'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       })
@@ -21410,6 +21416,12 @@ export const GetTrainingClassResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
+    approvedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -21522,6 +21534,12 @@ export const UpdateTrainingClassResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
+    approvedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -21588,6 +21606,12 @@ export const AddTrainingClassParticipantsResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
+    approvedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })

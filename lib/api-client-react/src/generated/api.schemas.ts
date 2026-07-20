@@ -287,6 +287,8 @@ export interface TrainingClass {
   notes?: string | null;
   attachments: EmployeeRecordAttachment[];
   participantCount?: number;
+  /** Participantes aprovados (result = "aprovado"). Exibido como "Realizados" na ficha do catálogo. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um. */
+  approvedCount?: number;
   createdAt: string;
   updatedAt: string;
 }
