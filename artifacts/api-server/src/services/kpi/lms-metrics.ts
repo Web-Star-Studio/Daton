@@ -233,6 +233,10 @@ export async function computeLmsMetric(args: {
       .where(
         and(
           eq(employeesTable.organizationId, orgId),
+          // Só avaliação finalizada entra na métrica — rascunho é preenchimento
+          // em andamento (#176) e não pode mexer no indicador de eficácia, que
+          // também é lançado como KPI da organização.
+          eq(trainingEffectivenessReviewsTable.status, "final"),
           gte(trainingEffectivenessReviewsTable.evaluationDate, start),
           lte(trainingEffectivenessReviewsTable.evaluationDate, end),
           employeeUnitFilter,
