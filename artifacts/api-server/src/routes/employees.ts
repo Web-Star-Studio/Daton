@@ -122,6 +122,7 @@ import {
   boardHasReviewExists,
   boardNeedsEvaluationScope,
   boardPendentes,
+  boardStatusConcluidoVigente,
   notNaoAplicavel,
 } from "../services/aprendizagem/effectiveness-board";
 
@@ -133,6 +134,7 @@ export {
   boardHasReviewExists,
   boardNeedsEvaluationScope,
   boardPendentes,
+  boardStatusConcluidoVigente,
   notNaoAplicavel,
 } from "../services/aprendizagem/effectiveness-board";
 
@@ -1810,15 +1812,8 @@ router.get(
     if (query.data.status) {
       const st = query.data.status;
       if (st === "concluido") {
-        conditions.push(
-          and(
-            eq(employeeTrainingsTable.status, "concluido"),
-            or(
-              isNull(employeeTrainingsTable.expirationDate),
-              sql`${employeeTrainingsTable.expirationDate} >= current_date`,
-            )!,
-          )!,
-        );
+        // Fonte única com o provider de pendências — ver effectiveness-board.ts.
+        conditions.push(boardStatusConcluidoVigente);
       } else if (st === "vencido") {
         conditions.push(
           and(

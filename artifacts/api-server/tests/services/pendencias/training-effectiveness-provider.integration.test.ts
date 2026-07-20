@@ -33,7 +33,10 @@ async function seedTraining(
     .values({
       employeeId,
       title: "NR-35 Trabalho em altura",
+      // Eficácia só se avalia sobre treino realizado e válido — o provider
+      // aplica o mesmo recorte da tela do board.
       status: "concluido",
+      completionDate: "2026-01-10",
       ...values,
     })
     .returning({ id: employeeTrainingsTable.id });
@@ -45,7 +48,7 @@ describe("trainingEffectivenessPendenciaProvider", () => {
     const ctx = await createTestContext({ seed: "pend-ef-gestor" });
     contexts.push(ctx);
     const unit = await createUnit(ctx, `Filial ${ctx.prefix}`);
-    const gestor = await createTestUser(ctx, { role: "operator", suffix: "gestor" });
+    const gestor = await createTestUser(ctx, { role: "operator", suffix: "gestor", modules: ["employees"] });
     await db.insert(unitManagersTable).values({
       organizationId: ctx.organizationId,
       unitId: unit.id,
@@ -91,7 +94,7 @@ describe("trainingEffectivenessPendenciaProvider", () => {
     const ctx = await createTestContext({ seed: "pend-ef-colab" });
     contexts.push(ctx);
     const employee = await createEmployee(ctx, { name: `Colab ${ctx.prefix}` });
-    const colabUser = await createTestUser(ctx, { role: "operator", suffix: "colab" });
+    const colabUser = await createTestUser(ctx, { role: "operator", suffix: "colab", modules: ["employees"] });
     await db
       .update(usersTable)
       .set({ employeeId: employee.id })
@@ -224,7 +227,7 @@ describe("trainingEffectivenessPendenciaProvider", () => {
   it("não-admin não recebe o agregado de não atribuídos", async () => {
     const ctx = await createTestContext({ seed: "pend-ef-agg-nonadmin" });
     contexts.push(ctx);
-    const operator = await createTestUser(ctx, { role: "operator", suffix: "op" });
+    const operator = await createTestUser(ctx, { role: "operator", suffix: "op", modules: ["employees"] });
     const employee = await createEmployee(ctx, { name: `Colab ${ctx.prefix}` });
     await seedTraining(employee.id, { evaluationMethod: "Prova prática" });
 
@@ -300,6 +303,84 @@ describe("trainingEffectivenessPendenciaProvider", () => {
     );
   });
 
+  it("sem o módulo 'employees' não vira dono: cai para o admin (403 no endpoint)", async () => {
+    const ctx = await createTestContext({ seed: "pend-ef-modulo" });
+    contexts.push(ctx);
+    const unit = await createUnit(ctx, `Filial ${ctx.prefix}`);
+    // Operador (pode escrever) mas SEM o módulo employees.
+    const semModulo = await createTestUser(ctx, {
+      role: "operator",
+      suffix: "sem-modulo",
+    });
+    await db.insert(unitManagersTable).values({
+      organizationId: ctx.organizationId,
+      unitId: unit.id,
+      userId: semModulo.id,
+    });
+    const employee = await createEmployee(ctx, {
+      name: `Colab ${ctx.prefix}`,
+      unitId: unit.id,
+    });
+    const trainingId = await seedTraining(employee.id, {
+      effectivenessAssignedRole: "gestor",
+      effectivenessDueDate: "2026-06-20",
+    });
+
+    const forGestorSemModulo =
+      await trainingEffectivenessPendenciaProvider.listPending({
+        orgId: ctx.organizationId,
+        responsibleUserIds: [semModulo.id],
+        now: NOW,
+        dueSoonDays: 7,
+      });
+    expect(forGestorSemModulo).toHaveLength(0);
+
+    const forAdmin = await trainingEffectivenessPendenciaProvider.listPending({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId],
+      now: NOW,
+      dueSoonDays: 7,
+    });
+    const item = forAdmin.find(
+      (i) => i.id === `training_effectiveness:${trainingId}`,
+    );
+    expect(item?.meta?.resolvedVia).toBe("fallback_admin");
+  });
+
+  it("treino não realizado (ou vencido) não gera pendência de eficácia", async () => {
+    const ctx = await createTestContext({ seed: "pend-ef-naorealizado" });
+    contexts.push(ctx);
+    const employee = await createEmployee(ctx, { name: `Colab ${ctx.prefix}` });
+    // Atribuído, mas o treinamento ainda não aconteceu.
+    await seedTraining(employee.id, {
+      status: "pendente",
+      completionDate: null,
+      effectivenessAssignedRole: "rh",
+      effectivenessDueDate: "2026-06-20",
+    });
+    // Ainda não realizado, com critério herdado do catálogo: não pode inflar
+    // o agregado de "aguardando atribuição de avaliador".
+    await seedTraining(employee.id, {
+      status: "pendente",
+      completionDate: null,
+      evaluationMethod: "Prova prática",
+    });
+    // Realizado porém vencido: saiu do escopo do board.
+    await seedTraining(employee.id, {
+      expirationDate: "2026-05-01",
+      evaluationMethod: "Prova prática",
+    });
+
+    const items = await trainingEffectivenessPendenciaProvider.listPending({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId],
+      now: NOW,
+      dueSoonDays: 7,
+    });
+
+    expect(items).toHaveLength(0);
+  });
+
   it("treino 'Não aplicável' não gera pendência — nem atribuído, nem no agregado", async () => {
     const ctx = await createTestContext({ seed: "pend-ef-na" });
     contexts.push(ctx);
@@ -334,22 +415,25 @@ describe("trainingEffectivenessPendenciaProvider", () => {
     const finalId = await seedTraining(employee.id, { title: "Final de hoje" });
     const draftId = await seedTraining(employee.id, { title: "Rascunho de hoje" });
 
-    await db.insert(trainingEffectivenessReviewsTable).values([
-      {
-        trainingId: finalId,
-        evaluatorUserId: ctx.userId,
-        evaluationDate: "2026-06-15",
-        status: "final",
-        createdAt: new Date(2026, 5, 15, 9, 0, 0),
-      },
-      {
-        trainingId: draftId,
-        evaluatorUserId: ctx.userId,
-        evaluationDate: "2026-06-15",
-        status: "draft",
-        createdAt: new Date(2026, 5, 15, 9, 30, 0),
-      },
-    ]);
+    const reviewIds = await db
+      .insert(trainingEffectivenessReviewsTable)
+      .values([
+        {
+          trainingId: finalId,
+          evaluatorUserId: ctx.userId,
+          evaluationDate: "2026-06-15",
+          status: "final",
+          createdAt: new Date(2026, 5, 15, 9, 0, 0),
+        },
+        {
+          trainingId: draftId,
+          evaluatorUserId: ctx.userId,
+          evaluationDate: "2026-06-15",
+          status: "draft",
+          createdAt: new Date(2026, 5, 15, 9, 30, 0),
+        },
+      ])
+      .returning({ id: trainingEffectivenessReviewsTable.id });
 
     const done = await trainingEffectivenessPendenciaProvider.listCompletedToday!({
       orgId: ctx.organizationId,
@@ -359,7 +443,47 @@ describe("trainingEffectivenessPendenciaProvider", () => {
     });
 
     expect(done).toHaveLength(1);
-    expect(done[0].id).toBe(`training_effectiveness:${finalId}`);
+    expect(done[0].id).toBe(`training_effectiveness:${finalId}:review:${reviewIds[0].id}`);
     expect(done[0].statusLabel).toBe("Avaliada hoje");
+  });
+
+  it("dois avaliadores no mesmo treino no mesmo dia geram ids distintos", async () => {
+    const ctx = await createTestContext({ seed: "pend-ef-dup" });
+    contexts.push(ctx);
+    const outroAvaliador = await createTestUser(ctx, {
+      role: "operator",
+      suffix: "avaliador2",
+      modules: ["employees"],
+    });
+    const employee = await createEmployee(ctx, { name: `Colab ${ctx.prefix}` });
+    const now = new Date(2026, 5, 15, 10, 0, 0);
+    const trainingId = await seedTraining(employee.id);
+
+    await db.insert(trainingEffectivenessReviewsTable).values([
+      {
+        trainingId,
+        evaluatorUserId: ctx.userId,
+        evaluationDate: "2026-06-15",
+        status: "final",
+        createdAt: new Date(2026, 5, 15, 9, 0, 0),
+      },
+      {
+        trainingId,
+        evaluatorUserId: outroAvaliador.id,
+        evaluationDate: "2026-06-15",
+        status: "final",
+        createdAt: new Date(2026, 5, 15, 9, 30, 0),
+      },
+    ]);
+
+    const done = await trainingEffectivenessPendenciaProvider.listCompletedToday!({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId, outroAvaliador.id],
+      now,
+      dueSoonDays: 7,
+    });
+
+    expect(done).toHaveLength(2);
+    expect(new Set(done.map((d) => d.id)).size).toBe(2);
   });
 });

@@ -6,6 +6,7 @@ import {
   trainingEffectivenessReviewsTable,
   unitManagersTable,
   unitsTable,
+  userModulePermissionsTable,
   usersTable,
 } from "@workspace/db";
 import {
@@ -19,6 +20,7 @@ import {
   boardEmAvaliacao,
   boardHasPendingCriteria,
   boardPendentes,
+  boardStatusConcluidoVigente,
 } from "../../aprendizagem/effectiveness-board";
 import { dayBounds } from "./action-plans";
 
@@ -35,6 +37,9 @@ const ROLE_LABELS: Record<string, string> = {
 /** Perfis que assumem a pendência quando o papel atribuído não resolve em gente. */
 const ADMIN_ROLES = ["org_admin", "platform_admin"];
 
+/** Módulo que guarda as rotas de treinamento/eficácia (routes/index.ts). */
+const EMPLOYEES_MODULE = "employees";
+
 /**
  * Como uma linha achou dono — vai no `meta` porque a resolução é indireta e,
  * quando o painel "esquece" um item, esta é a primeira coisa a olhar.
@@ -49,11 +54,14 @@ interface OrgDirectory {
   /** unit_id → usuários gestores da filial (unit_managers). */
   managersByUnitId: Map<number, number[]>;
   /**
-   * Analistas: `requireWriteAccess()` os rejeita com 403 no POST de
-   * effectiveness-reviews, então atribuir a pendência a eles produziria um card
-   * visível e impossível de resolver. Nunca são donos — ver resolveOwners.
+   * Quem realmente consegue registrar a avaliação. O POST de
+   * effectiveness-reviews passa por DOIS portões: `requireWriteAccess()`
+   * (rejeita `analyst` com 403) e `requireModuleAccessForPaths("employees")`
+   * (rejeita quem não tem o módulo). O painel /pendencias não tem nenhum dos
+   * dois, então sem este conjunto o card apareceria para quem toma 403 ao
+   * tentar resolvê-lo. Ver resolveOwners.
    */
-  readOnlyUserIds: Set<number>;
+  canEvaluateUserIds: Set<number>;
 }
 
 /**
@@ -74,7 +82,7 @@ interface OrgDirectory {
  * pendência sem dono é uma pendência que ninguém cobra.
  */
 async function loadOrgDirectory(orgId: number): Promise<OrgDirectory> {
-  const [orgUsers, managers] = await Promise.all([
+  const [orgUsers, managers, modulePerms] = await Promise.all([
     db
       .select({
         id: usersTable.id,
@@ -87,14 +95,30 @@ async function loadOrgDirectory(orgId: number): Promise<OrgDirectory> {
       .select({ unitId: unitManagersTable.unitId, userId: unitManagersTable.userId })
       .from(unitManagersTable)
       .where(eq(unitManagersTable.organizationId, orgId)),
+    db
+      .select({ userId: userModulePermissionsTable.userId })
+      .from(userModulePermissionsTable)
+      .innerJoin(usersTable, eq(usersTable.id, userModulePermissionsTable.userId))
+      .where(
+        and(
+          eq(usersTable.organizationId, orgId),
+          eq(userModulePermissionsTable.module, EMPLOYEES_MODULE),
+        ),
+      ),
   ]);
 
+  const withEmployeesModule = new Set(modulePerms.map((p) => p.userId));
   const adminIds: number[] = [];
-  const readOnlyUserIds = new Set<number>();
+  const canEvaluateUserIds = new Set<number>();
   const usersByEmployeeId = new Map<number, number[]>();
   for (const u of orgUsers) {
-    if (ADMIN_ROLES.includes(u.role)) adminIds.push(u.id);
-    if (u.role === "analyst") readOnlyUserIds.add(u.id);
+    const isAdmin = ADMIN_ROLES.includes(u.role);
+    if (isAdmin) adminIds.push(u.id);
+    // Espelha userHasModuleAccess + requireWriteAccess: admin passa direto,
+    // analista nunca passa, os demais precisam do módulo `employees`.
+    if (u.role !== "analyst" && (isAdmin || withEmployeesModule.has(u.id))) {
+      canEvaluateUserIds.add(u.id);
+    }
     if (u.employeeId == null) continue;
     const list = usersByEmployeeId.get(u.employeeId);
     if (list) list.push(u.id);
@@ -108,24 +132,25 @@ async function loadOrgDirectory(orgId: number): Promise<OrgDirectory> {
     else managersByUnitId.set(m.unitId, [m.userId]);
   }
 
-  return { adminIds, usersByEmployeeId, managersByUnitId, readOnlyUserIds };
+  return { adminIds, usersByEmployeeId, managersByUnitId, canEvaluateUserIds };
 }
 
 function resolveOwners(
   row: { assignedRole: string | null; employeeId: number; unitId: number | null },
   dir: OrgDirectory,
 ): { owners: number[]; via: ResolvedVia } {
-  // Analista é filtrado ANTES do teste de "resolveu": uma filial cujo único
-  // gestor é analista conta como filial sem gestor e cai para os admins, senão
-  // o card ficaria visível para quem toma 403 ao tentar resolvê-lo.
-  const writable = (ids: number[]) => ids.filter((id) => !dir.readOnlyUserIds.has(id));
+  // Quem não consegue avaliar é filtrado ANTES do teste de "resolveu": uma
+  // filial cujo único gestor é analista (ou não tem o módulo) conta como filial
+  // sem gestor e cai para os admins — senão o card ficaria visível justamente
+  // para quem toma 403 ao tentar resolvê-lo.
+  const evaluable = (ids: number[]) => ids.filter((id) => dir.canEvaluateUserIds.has(id));
 
   if (row.assignedRole === "colaborador") {
-    const owners = writable(dir.usersByEmployeeId.get(row.employeeId) ?? []);
+    const owners = evaluable(dir.usersByEmployeeId.get(row.employeeId) ?? []);
     if (owners.length > 0) return { owners, via: "colaborador" };
   }
   if (row.assignedRole === "gestor" && row.unitId !== null) {
-    const owners = writable(dir.managersByUnitId.get(row.unitId) ?? []);
+    const owners = evaluable(dir.managersByUnitId.get(row.unitId) ?? []);
     if (owners.length > 0) return { owners, via: "gestor" };
   }
   return { owners: dir.adminIds, via: "fallback_admin" };
@@ -157,7 +182,15 @@ export const trainingEffectivenessPendenciaProvider: PendenciaProvider = {
       .from(employeeTrainingsTable)
       .innerJoin(employeesTable, eq(employeesTable.id, employeeTrainingsTable.employeeId))
       .leftJoin(unitsTable, eq(unitsTable.id, employeesTable.unitId))
-      .where(and(eq(employeesTable.organizationId, ctx.orgId), boardEmAvaliacao));
+      .where(
+        and(
+          eq(employeesTable.organizationId, ctx.orgId),
+          // Mesmo recorte da tela do board: eficácia só se avalia sobre
+          // treinamento realizado e ainda válido.
+          boardStatusConcluidoVigente,
+          boardEmAvaliacao,
+        ),
+      );
 
     for (const r of rows) {
       const { owners, via } = resolveOwners(r, dir);
@@ -204,6 +237,10 @@ export const trainingEffectivenessPendenciaProvider: PendenciaProvider = {
         .where(
           and(
             eq(employeesTable.organizationId, ctx.orgId),
+            // Sem este recorte a contagem incluía treinamento ainda NÃO
+            // realizado que herdou evaluationMethod/targetCompetencyName do
+            // catálogo — inflando o número e divergindo da tela do board.
+            boardStatusConcluidoVigente,
             boardPendentes,
             // Mesma regra do stat `effectivenessPending`: sem critério de
             // eficácia definido não há o que avaliar.
@@ -240,6 +277,10 @@ export const trainingEffectivenessPendenciaProvider: PendenciaProvider = {
     const { start, end } = dayBounds(ctx.now);
     const rows = await db
       .select({
+        // O id precisa do reviewId: dois avaliadores podem finalizar o MESMO
+        // treinamento no mesmo dia, e chavear só por trainingId produziria duas
+        // Pendencias com o mesmo id (contrato de unicidade + key do React).
+        reviewId: trainingEffectivenessReviewsTable.id,
         trainingId: employeeTrainingsTable.id,
         title: employeeTrainingsTable.title,
         employeeName: employeesTable.name,
@@ -266,7 +307,7 @@ export const trainingEffectivenessPendenciaProvider: PendenciaProvider = {
       );
 
     return rows.map((r): Pendencia => ({
-      id: `training_effectiveness:${r.trainingId}`,
+      id: `training_effectiveness:${r.trainingId}:review:${r.reviewId}`,
       source: "training_effectiveness",
       sourceLabel: SOURCE_LABELS.training_effectiveness,
       title: r.title,

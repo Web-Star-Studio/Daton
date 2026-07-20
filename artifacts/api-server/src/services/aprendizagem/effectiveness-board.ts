@@ -65,6 +65,27 @@ export const boardHasDraftExists = exists(
 export const notNaoAplicavel = sql`${employeeTrainingsTable.status} <> 'nao_aplicavel'`;
 
 /**
+ * "Realizado e ainda válido": `status = 'concluido'` e não vencido.
+ * SQL: status = 'concluido'
+ *      AND (expiration_date IS NULL OR expiration_date >= current_date)
+ *
+ * O board de eficácia SEMPRE consulta com este recorte (a tela manda
+ * `status=concluido` fixo), porque eficácia só faz sentido depois que o
+ * treinamento aconteceu — não se avalia o efeito de algo que ainda não
+ * ocorreu, nem de um certificado já vencido. Extraído para cá para que a rota
+ * do board e o provider de pendências usem literalmente o MESMO predicado:
+ * sem isso, o painel contava treinos ainda pendentes (com critério herdado do
+ * catálogo) e divergia do número que a própria tela do board mostra.
+ */
+export const boardStatusConcluidoVigente = and(
+  eq(employeeTrainingsTable.status, "concluido"),
+  or(
+    isNull(employeeTrainingsTable.expirationDate),
+    sql`${employeeTrainingsTable.expirationDate} >= current_date`,
+  )!,
+)!;
+
+/**
  * Coluna "Concluídas": treinamentos com review registrado.
  * SQL: hasReview AND status <> 'nao_aplicavel'
  *
