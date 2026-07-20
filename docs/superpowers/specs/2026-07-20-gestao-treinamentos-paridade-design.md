@@ -36,7 +36,7 @@ Fonte de dados:
 - **"Programado"** = treino com `status='pendente'` cujo colaborador é **participante de uma turma ativa** (`training_class_participants` numa `training_classes` com status `agendada` ou `em_andamento`) do **mesmo item de catálogo** (`catalog_item_id`). Turma `realizada`/`cancelada` não conta.
 - **"Realizado no mês"** = `status='concluido'` com `completion_date` dentro do **mês corrente** (`date_trunc('month', current_date)`).
 - **"Pendentes sem turma"** (coluna do "Por prazo") = `pendente` ∧ **não** programado.
-- **Norma / Crítico** na tabela: resolvidos **client-side** do catálogo já carregado (`catalogItemId → normIds`/`isCritical`). Treino sem `catalogItemId` (legado) exibe "—" (Norma) e não-crítico.
+- **Norma / Crítico** na tabela: resolvidos **client-side**. **Norma** = `catalogItemId → training_catalog.normIds → rótulos` (catálogo já carregado). **Crítico** = `requirementId → training_requirements.isCritical` (obrigatoriedade; `training_catalog` NÃO tem `isCritical`), via `useListTrainingRequirements`. Treino sem `catalogItemId` (legado) exibe "—" na Norma; treino sem `requirementId` (ou obrigatoriedade não-crítica) é não-crítico.
 
 ## Semântica dos 6 estados (buckets) — fonte única
 

@@ -1034,6 +1034,14 @@ git commit -m "feat(aprendizagem): colunas Confirmados e Realizados na tabela Po
 
 ## Task 7: Frontend — Exportação .xlsx
 
+> **CORREÇÃO (aplicada nas Tasks 3/4):** `training_catalog` NÃO tem `isCritical` — a criticidade
+> vem de `training_requirements.isCritical` via `OrganizationTraining.requirementId`. Portanto
+> `CatalogMeta` agora é só `{ normLabels: string[] }`, e a coluna/valor **Crítico** resolve-se por
+> `requirementCriticalById: Map<number, boolean>` (montado no `index.tsx` com `useListTrainingRequirements`).
+> `buildColaboradorRows` deve receber esse mapa como 3º parâmetro e computar
+> `Crítico: (t.requirementId != null && requirementCriticalById.get(t.requirementId) === true) ? "Sim" : "Não"`.
+> Ignore, abaixo, o `catalogMeta.isCritical` (não existe mais) — **Norma** continua vindo do `catalogMeta`.
+
 **Files:**
 - Create: `artifacts/web/src/pages/app/aprendizagem/gestao/_export.ts`
 - Modify: `artifacts/web/src/pages/app/aprendizagem/gestao/index.tsx` (botão "Exportar" no topo)
