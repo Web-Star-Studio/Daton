@@ -33,11 +33,15 @@ const router: IRouter = Router();
 function serializeClass(
   row: typeof trainingClassesTable.$inferSelect,
   participantCount?: number,
+  confirmedCount?: number,
+  realizadoCount?: number,
 ) {
   return {
     ...row,
     attachments: row.attachments ?? [],
     ...(participantCount !== undefined ? { participantCount } : {}),
+    ...(confirmedCount !== undefined ? { confirmedCount } : {}),
+    ...(realizadoCount !== undefined ? { realizadoCount } : {}),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -141,13 +145,20 @@ router.get(
       .select({
         classId: trainingClassParticipantsTable.classId,
         n: sql<number>`cast(count(*) as int)`,
+        confirmed: sql<number>`cast(count(*) filter (where ${trainingClassParticipantsTable.attendance} = 'presente') as int)`,
+        realizado: sql<number>`cast(count(*) filter (where ${trainingClassParticipantsTable.result} = 'aprovado') as int)`,
       })
       .from(trainingClassParticipantsTable)
       .groupBy(trainingClassParticipantsTable.classId);
-    const countByClass = new Map(counts.map((c) => [c.classId, c.n]));
+    const countByClass = new Map(
+      counts.map((c) => [c.classId, { n: c.n, confirmed: c.confirmed, realizado: c.realizado }]),
+    );
 
     res.json({
-      data: rows.map((r) => serializeClass(r, countByClass.get(r.id) ?? 0)),
+      data: rows.map((r) => {
+        const c = countByClass.get(r.id);
+        return serializeClass(r, c?.n ?? 0, c?.confirmed ?? 0, c?.realizado ?? 0);
+      }),
     });
   },
 );

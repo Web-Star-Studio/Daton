@@ -11204,6 +11204,10 @@ components:
             $ref: "#/components/schemas/EmployeeRecordAttachment"
         participantCount:
           type: integer
+        confirmedCount:
+          type: integer
+        realizadoCount:
+          type: integer
         createdAt:
           type: string
           format: date-time

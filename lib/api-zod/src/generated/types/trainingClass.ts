@@ -28,6 +28,8 @@ export interface TrainingClass {
   notes?: string | null;
   attachments: EmployeeRecordAttachment[];
   participantCount?: number;
+  confirmedCount?: number;
+  realizadoCount?: number;
   createdAt: string;
   updatedAt: string;
 }

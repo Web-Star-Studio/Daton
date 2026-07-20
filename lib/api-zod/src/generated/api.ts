@@ -21311,6 +21311,8 @@ export const ListTrainingClassesResponse = zod.object({
           }),
         ),
         participantCount: zod.number().optional(),
+        confirmedCount: zod.number().optional(),
+        realizadoCount: zod.number().optional(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       })
@@ -21414,6 +21416,8 @@ export const GetTrainingClassResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
+    confirmedCount: zod.number().optional(),
+    realizadoCount: zod.number().optional(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -21526,6 +21530,8 @@ export const UpdateTrainingClassResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
+    confirmedCount: zod.number().optional(),
+    realizadoCount: zod.number().optional(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -21592,6 +21598,8 @@ export const AddTrainingClassParticipantsResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
+    confirmedCount: zod.number().optional(),
+    realizadoCount: zod.number().optional(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
