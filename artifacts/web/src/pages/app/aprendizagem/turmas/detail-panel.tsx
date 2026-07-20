@@ -12,12 +12,14 @@ import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Plus } from "lucide-react";
 import {
   uploadFilesToStorage,
   formatFileSize,
   EMPLOYEE_RECORD_ATTACHMENT_ACCEPT,
 } from "@/lib/uploads";
 import { resolveApiUrl } from "@/lib/api";
+import { AddParticipantsDialog } from "./add-participants-dialog";
 
 type Tab = "presenca" | "notas" | "evidencias";
 
@@ -52,6 +54,7 @@ export function TurmaDetailPanel({
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("presenca");
   const [uploading, setUploading] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const { data: detail, isLoading } = useGetTrainingClass(orgId, classId, {
     query: {
@@ -114,9 +117,26 @@ export function TurmaDetailPanel({
       const res = await completeMutation.mutateAsync({ orgId, id: classId });
       invalidateDetail();
       onChanged();
+      if (res.completed > 0) {
+        toast({
+          title: "Turma concluída",
+          description: `${res.completed} treino(s) registrado(s) como concluído(s).`,
+        });
+        return;
+      }
+      // Zero tem duas causas bem diferentes, e tratá-las igual é o que deixava o
+      // operador no escuro: (a) ninguém marcado "Presente" — só presente vira
+      // registro, então nada foi gerado e é preciso agir; (b) todos os presentes
+      // já haviam sido processados numa execução anterior — nada a fazer.
+      const anyPresent = (detail?.participants ?? []).some(
+        (p) => p.attendance === "presente",
+      );
       toast({
-        title: "Turma concluída",
-        description: `${res.completed} treino(s) registrado(s) como concluído(s).`,
+        title: anyPresent ? "Nada a atualizar" : "Nenhum registro gerado",
+        description: anyPresent
+          ? "Todos os participantes presentes já tinham registro de treinamento."
+          : "Marque a presença dos participantes: só quem está como “Presente” gera registro de treinamento.",
+        variant: anyPresent ? undefined : "destructive",
       });
     } catch {
       toast({
@@ -157,7 +177,13 @@ export function TurmaDetailPanel({
   }
 
   const participants = detail.participants ?? [];
+  // "Realizada" significa que o treinamento aconteceu — não que a escrituração
+  // está fechada. Presença e notas costumam chegar depois (prova corrigida,
+  // lista de presença digitalizada), e o backend nunca bloqueou essas edições.
+  // Travar o painel aqui criava um beco sem saída: turma concluída sem ninguém
+  // marcado presente ficava sem registro de treinamento e sem como corrigir.
   const isDone = detail.status === "realizada";
+  const enrolledIds = new Set(participants.map((p) => p.employeeId));
 
   return (
     <div className="rounded-xl border bg-card shadow-sm">
@@ -179,17 +205,26 @@ export function TurmaDetailPanel({
               {participants.length} inscrito(s)
             </p>
           </div>
-          {canWrite && !isDone ? (
+          {canWrite ? (
             <Button
               size="sm"
+              variant={isDone ? "outline" : "default"}
               onClick={() => void handleComplete()}
               disabled={completeMutation.isPending}
+              // Reexecutar é seguro: completeTrainingClass pula quem já está
+              // concluído e só processa os pendentes (recém-inscritos ou que
+              // acabaram de ser marcados como presentes).
+              title={
+                isDone
+                  ? "Gera o registro de treinamento para participantes presentes que ainda não foram processados."
+                  : undefined
+              }
             >
-              Concluir turma
+              {isDone ? "Atualizar conclusão" : "Concluir turma"}
             </Button>
           ) : null}
         </div>
-        <div className="mt-3 flex gap-1 text-xs">
+        <div className="mt-3 flex items-center gap-1 text-xs">
           {(["presenca", "notas", "evidencias"] as Tab[]).map((t) => (
             <button
               key={t}
@@ -207,6 +242,15 @@ export function TurmaDetailPanel({
                   : "Evidências"}
             </button>
           ))}
+          {canWrite ? (
+            <button
+              onClick={() => setAddOpen(true)}
+              className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 font-medium text-blue-700 hover:bg-blue-50"
+            >
+              <Plus className="h-3 w-3" />
+              Adicionar
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -220,7 +264,7 @@ export function TurmaDetailPanel({
               >
                 <InitialsAvatar name={p.employeeName} />
                 <span className="flex-1 truncate text-sm">{p.employeeName}</span>
-                {canWrite && !isDone ? (
+                {canWrite ? (
                   <div className="flex gap-1">
                     <button
                       onClick={() => void setAttendance(p, "presente")}
@@ -251,7 +295,10 @@ export function TurmaDetailPanel({
               </div>
             ))}
             {participants.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum inscrito.</p>
+              <p className="text-sm text-muted-foreground">
+                Nenhum inscrito
+                {canWrite ? " — use “Adicionar” para inscrever." : "."}
+              </p>
             ) : null}
           </div>
         ) : null}
@@ -277,7 +324,7 @@ export function TurmaDetailPanel({
                   <td className="py-1.5">
                     <ScoreInput
                       score={p.score ?? null}
-                      disabled={!canWrite || isDone}
+                      disabled={!canWrite}
                       onSave={(v) => void setScore(p, v)}
                     />
                   </td>
@@ -339,6 +386,21 @@ export function TurmaDetailPanel({
           </div>
         ) : null}
       </div>
+
+      {canWrite ? (
+        <AddParticipantsDialog
+          orgId={orgId}
+          classId={classId}
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          enrolledIds={enrolledIds}
+          onAdded={() => {
+            invalidateDetail();
+            onChanged();
+            setTab("presenca");
+          }}
+        />
+      ) : null}
     </div>
   );
 }
