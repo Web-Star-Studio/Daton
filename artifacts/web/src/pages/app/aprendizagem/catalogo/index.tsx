@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { TurmasDoTreinamento } from "./turmas-do-treinamento";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useCreateTrainingCatalogItem,
@@ -21,6 +23,7 @@ import {
   useActiveNorms,
   useAllNorms,
   buildNormLabelMap,
+  shortNormLabel,
 } from "@/lib/norms-client";
 import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
@@ -60,6 +63,8 @@ const CATEGORIES = [
   "Reunião",
 ];
 const MODALITIES = ["Presencial", "EAD", "Híbrido", "Externo"];
+/** Quantos badges de norma cabem no cabeçalho do card antes do "+N". */
+const NORM_BADGES_ON_CARD = 2;
 
 /** Rótulo(s) da(s) norma(s) de um item: prioriza o catálogo (normIds); cai no
  *  texto legado `norm` para itens ainda não migrados. */
@@ -222,6 +227,7 @@ export default function CatalogoPage() {
   const canWrite = canWriteModule("employees");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [search, setSearch] = useState("");
   // Debounced before it reaches the query: each keystroke would otherwise refetch
@@ -319,7 +325,11 @@ export default function CatalogoPage() {
           ? f.targetCompetencies.filter((t) => t.name !== c.name)
           : [
               ...f.targetCompetencies,
-              { name: c.name, type: c.competencyType ?? "habilidade", level: 1 },
+              {
+                name: c.name,
+                type: c.competencyType ?? "habilidade",
+                level: 1,
+              },
             ],
       };
     });
@@ -357,6 +367,14 @@ export default function CatalogoPage() {
     setEditingId(null);
     setForm({ ...itemToForm(item), title: `${item.title} — cópia` });
     setFormOpen(true);
+  };
+
+  // "Abrir turma" da ficha: leva para Gestão de turmas já com o treinamento
+  // escolhido e o passo 1 do stepper aberto (a turma em si é criada lá, onde
+  // ficam participantes, presença e notas).
+  const abrirTurma = (item: TrainingCatalogItem) => {
+    setFichaItem(null);
+    navigate(`/aprendizagem/turmas?novaTurma=${item.id}`);
   };
 
   useHeaderActions(
@@ -546,95 +564,119 @@ export default function CatalogoPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {paginated.pageItems.map((item) => (
-            <div
-              key={item.id}
-              className="flex cursor-pointer flex-col rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-primary/50"
-              onClick={() => setFichaItem(item)}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="text-sm font-semibold">{item.title}</h3>
-                {normLabelsForItem(item, normLabelMap).length > 0 ? (
-                  <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                    {normLabelsForItem(item, normLabelMap).map((label) => (
-                      <span
-                        key={label}
-                        className="rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700"
-                      >
-                        {label}
-                      </span>
-                    ))}
+          {paginated.pageItems.map((item) => {
+            const normLabels = normLabelsForItem(item, normLabelMap);
+            const shownNorms = normLabels.slice(0, NORM_BADGES_ON_CARD);
+            const hiddenNorms = normLabels.length - shownNorms.length;
+            return (
+              <div
+                key={item.id}
+                className="flex cursor-pointer flex-col rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-primary/50"
+                onClick={() => setFichaItem(item)}
+              >
+                {/* Título tem prioridade de espaço (min-w-0 + flex-1); a coluna de
+                  normas é limitada e truncada. Rótulos longos ("NR-11 ·
+                  Transporte e Movimentação de Materiais") espremiam o título até
+                  ele quebrar palavra a palavra. Rótulo inteiro no title/ficha. */}
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="min-w-0 flex-1 text-sm font-semibold">
+                    {item.title}
+                  </h3>
+                  {normLabels.length > 0 ? (
+                    <div className="flex max-w-[45%] flex-wrap items-start justify-end gap-1">
+                      {shownNorms.map((label) => (
+                        <span
+                          key={label}
+                          title={label}
+                          // min-w-0: item de flex tem min-width:auto (tamanho do
+                          // conteúdo), que ganha do max-w-full e anularia o truncate.
+                          className="min-w-0 max-w-full truncate rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700"
+                        >
+                          {shortNormLabel(label)}
+                        </span>
+                      ))}
+                      {hiddenNorms > 0 ? (
+                        <span
+                          title={normLabels.join(", ")}
+                          className="shrink-0 rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700"
+                        >
+                          +{hiddenNorms}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {[
+                    item.category,
+                    item.workloadHours
+                      ? `${formatKpiNumber(item.workloadHours)}h`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                {item.objective ? (
+                  <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                    {item.objective}
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {item.modality ? (
+                    <Badge className={MODALITY_BADGE[item.modality] ?? ""}>
+                      {item.modality}
+                    </Badge>
+                  ) : null}
+                  {item.isMandatory ? (
+                    <Badge className="bg-red-50 text-red-700">
+                      Obrigatório
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-muted text-muted-foreground">
+                      Seletivo
+                    </Badge>
+                  )}
+                  {item.status !== "ativo" ? (
+                    <Badge className="bg-amber-50 text-amber-700">
+                      {item.status}
+                    </Badge>
+                  ) : null}
+                </div>
+                {canWrite ? (
+                  <div
+                    className="mt-3 flex gap-1 border-t pt-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => openEdit(item)}
+                      title="Editar"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => openDuplicate(item)}
+                      title="Duplicar"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto text-destructive"
+                      onClick={() => void handleDelete(item)}
+                      title="Remover"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 ) : null}
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {[
-                  item.category,
-                  item.workloadHours
-                    ? `${formatKpiNumber(item.workloadHours)}h`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              {item.objective ? (
-                <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-                  {item.objective}
-                </p>
-              ) : null}
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {item.modality ? (
-                  <Badge className={MODALITY_BADGE[item.modality] ?? ""}>
-                    {item.modality}
-                  </Badge>
-                ) : null}
-                {item.isMandatory ? (
-                  <Badge className="bg-red-50 text-red-700">Obrigatório</Badge>
-                ) : (
-                  <Badge className="bg-muted text-muted-foreground">
-                    Seletivo
-                  </Badge>
-                )}
-                {item.status !== "ativo" ? (
-                  <Badge className="bg-amber-50 text-amber-700">
-                    {item.status}
-                  </Badge>
-                ) : null}
-              </div>
-              {canWrite ? (
-                <div
-                  className="mt-3 flex gap-1 border-t pt-2"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => openEdit(item)}
-                    title="Editar"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => openDuplicate(item)}
-                    title="Duplicar"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="ml-auto text-destructive"
-                    onClick={() => void handleDelete(item)}
-                    title="Remover"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -667,6 +709,27 @@ export default function CatalogoPage() {
             : ""
         }
         size="lg"
+        headerActions={
+          fichaItem && canWrite ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const item = fichaItem;
+                  setFichaItem(null);
+                  openDuplicate(item);
+                }}
+              >
+                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                Duplicar
+              </Button>
+              <Button size="sm" onClick={() => abrirTurma(fichaItem)}>
+                Abrir turma
+              </Button>
+            </>
+          ) : null
+        }
       >
         {fichaItem ? (
           <div className="space-y-4 text-sm">
@@ -741,6 +804,9 @@ export default function CatalogoPage() {
                 <span>· Instrutor: {fichaItem.defaultInstructor}</span>
               ) : null}
             </div>
+            {orgId ? (
+              <TurmasDoTreinamento orgId={orgId} catalogItemId={fichaItem.id} />
+            ) : null}
           </div>
         ) : null}
       </Dialog>
