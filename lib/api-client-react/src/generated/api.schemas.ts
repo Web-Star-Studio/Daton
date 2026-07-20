@@ -6,6 +6,28 @@
  * OpenAPI spec version: 0.1.0
  */
 /**
+ * Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.
+ */
+export interface CompetencyTarget {
+  name: string;
+  type: string;
+  level: number;
+}
+
+/**
+ * O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
+ */
+export type TrainingCatalogItemEvidenceType =
+  | (typeof TrainingCatalogItemEvidenceType)[keyof typeof TrainingCatalogItemEvidenceType]
+  | null;
+
+export const TrainingCatalogItemEvidenceType = {
+  capacitacao: "capacitacao",
+  habilitacao: "habilitacao",
+  conscientizacao: "conscientizacao",
+} as const;
+
+/**
  * Item do catálogo de treinamentos (definição reutilizável).
  */
 export interface TrainingCatalogItem {
@@ -29,9 +51,13 @@ export interface TrainingCatalogItem {
   validityMonths?: number | null;
   isMandatory: boolean;
   status: string;
+  /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
+  evidenceType?: TrainingCatalogItemEvidenceType;
   targetCompetencyName?: string | null;
   targetCompetencyType?: string | null;
   targetCompetencyLevel?: number | null;
+  /** Lista canônica de competências que este item comprova (ISO 10015) — um treino pode comprovar várias. As colunas targetCompetencyName/Type/Level (singulares) são legado e espelham o primeiro item desta lista. */
+  targetCompetencies: CompetencyTarget[];
   defaultInstructor?: string | null;
   objective?: string | null;
   programContent?: string | null;
@@ -39,6 +65,19 @@ export interface TrainingCatalogItem {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
+ */
+export type CreateTrainingCatalogItemBodyEvidenceType =
+  | (typeof CreateTrainingCatalogItemBodyEvidenceType)[keyof typeof CreateTrainingCatalogItemBodyEvidenceType]
+  | null;
+
+export const CreateTrainingCatalogItemBodyEvidenceType = {
+  capacitacao: "capacitacao",
+  habilitacao: "habilitacao",
+  conscientizacao: "conscientizacao",
+} as const;
 
 export interface CreateTrainingCatalogItemBody {
   /** @minLength 1 */
@@ -54,14 +93,31 @@ export interface CreateTrainingCatalogItemBody {
   validityMonths?: number | null;
   isMandatory?: boolean;
   status?: string;
+  /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
+  evidenceType?: CreateTrainingCatalogItemBodyEvidenceType;
   targetCompetencyName?: string;
   targetCompetencyType?: string;
   targetCompetencyLevel?: number;
+  /** Lista canônica de competências que este item comprova (ISO 10015). Quando informada, o servidor espelha o primeiro item nas colunas targetCompetencyName/Type/Level (legado). */
+  targetCompetencies?: CompetencyTarget[];
   defaultInstructor?: string;
   objective?: string;
   programContent?: string;
   evaluationMethod?: string;
 }
+
+/**
+ * O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
+ */
+export type UpdateTrainingCatalogItemBodyEvidenceType =
+  | (typeof UpdateTrainingCatalogItemBodyEvidenceType)[keyof typeof UpdateTrainingCatalogItemBodyEvidenceType]
+  | null;
+
+export const UpdateTrainingCatalogItemBodyEvidenceType = {
+  capacitacao: "capacitacao",
+  habilitacao: "habilitacao",
+  conscientizacao: "conscientizacao",
+} as const;
 
 export interface UpdateTrainingCatalogItemBody {
   /** @minLength 1 */
@@ -77,9 +133,13 @@ export interface UpdateTrainingCatalogItemBody {
   validityMonths?: number | null;
   isMandatory?: boolean;
   status?: string;
+  /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
+  evidenceType?: UpdateTrainingCatalogItemBodyEvidenceType;
   targetCompetencyName?: string;
   targetCompetencyType?: string;
   targetCompetencyLevel?: number;
+  /** Lista canônica de competências que este item comprova (ISO 10015). Quando informada, o servidor espelha o primeiro item nas colunas targetCompetencyName/Type/Level (legado). */
+  targetCompetencies?: CompetencyTarget[];
   defaultInstructor?: string;
   objective?: string;
   programContent?: string;
@@ -1233,14 +1293,88 @@ export const EmployeeStatus = {
   on_leave: "on_leave",
 } as const;
 
+/**
+ * `indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.
+ */
 export type EmployeeCompetencyGapStatus =
-  (typeof EmployeeCompetencyGapStatus)[keyof typeof EmployeeCompetencyGapStatus];
+  | (typeof EmployeeCompetencyGapStatus)[keyof typeof EmployeeCompetencyGapStatus]
+  | null;
 
 export const EmployeeCompetencyGapStatus = {
   ok: "ok",
   gap: "gap",
   critical: "critical",
+  indeterminado: "indeterminado",
 } as const;
+
+export type EmployeeCompetencyConformanceRequirementsItemCompetencyType =
+  (typeof EmployeeCompetencyConformanceRequirementsItemCompetencyType)[keyof typeof EmployeeCompetencyConformanceRequirementsItemCompetencyType];
+
+export const EmployeeCompetencyConformanceRequirementsItemCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
+/**
+ * `nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).
+ */
+export type EmployeeCompetencyConformanceRequirementsItemStatus =
+  (typeof EmployeeCompetencyConformanceRequirementsItemStatus)[keyof typeof EmployeeCompetencyConformanceRequirementsItemStatus];
+
+export const EmployeeCompetencyConformanceRequirementsItemStatus = {
+  atende: "atende",
+  gap: "gap",
+  nao_classificado: "nao_classificado",
+} as const;
+
+export type EmployeeCompetencyConformanceRequirementsItemSource =
+  | (typeof EmployeeCompetencyConformanceRequirementsItemSource)[keyof typeof EmployeeCompetencyConformanceRequirementsItemSource]
+  | null;
+
+export const EmployeeCompetencyConformanceRequirementsItemSource = {
+  manual: "manual",
+  treinamento: "treinamento",
+} as const;
+
+export type EmployeeCompetencyConformanceGapStatus =
+  (typeof EmployeeCompetencyConformanceGapStatus)[keyof typeof EmployeeCompetencyConformanceGapStatus];
+
+export const EmployeeCompetencyConformanceGapStatus = {
+  ok: "ok",
+  gap: "gap",
+  critical: "critical",
+  indeterminado: "indeterminado",
+} as const;
+
+export type EmployeeCompetencyConformanceRequirementsItemEvidence = {
+  trainingId: number;
+  title: string;
+  completionDate: string | null;
+  expirationDate: string | null;
+} | null;
+
+export type EmployeeCompetencyConformanceRequirementsItem = {
+  competencyName: string;
+  competencyType: EmployeeCompetencyConformanceRequirementsItemCompetencyType;
+  requiredLevel: number;
+  acquiredLevel: number;
+  /** `nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗). */
+  status: EmployeeCompetencyConformanceRequirementsItemStatus;
+  source: EmployeeCompetencyConformanceRequirementsItemSource;
+  evidence: EmployeeCompetencyConformanceRequirementsItemEvidence;
+  gapLevel: number;
+  critical: boolean;
+};
+
+/**
+ * Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts/api-server/src/services/aprendizagem/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de /competency-gaps.
+ */
+export interface EmployeeCompetencyConformance {
+  positionName: string | null;
+  requirements: EmployeeCompetencyConformanceRequirementsItem[];
+  gapStatus: EmployeeCompetencyConformanceGapStatus;
+}
 
 export interface Employee {
   /** Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar). */
@@ -1263,7 +1397,10 @@ export interface Employee {
   status: EmployeeStatus;
   unitName?: string | null;
   trainingCompletionPercent?: number | null;
+  /** `indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado. */
   competencyGapStatus?: EmployeeCompetencyGapStatus;
+  /** Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por /competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET /employees/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado. */
+  competencyConformance?: EmployeeCompetencyConformance | null;
   createdAt: string;
   updatedAt: string;
 }

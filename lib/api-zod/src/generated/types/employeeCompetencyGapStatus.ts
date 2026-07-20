@@ -6,11 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * `indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.
+ */
 export type EmployeeCompetencyGapStatus =
-  (typeof EmployeeCompetencyGapStatus)[keyof typeof EmployeeCompetencyGapStatus];
+  | (typeof EmployeeCompetencyGapStatus)[keyof typeof EmployeeCompetencyGapStatus]
+  | null;
 
 export const EmployeeCompetencyGapStatus = {
   ok: "ok",
   gap: "gap",
   critical: "critical",
+  indeterminado: "indeterminado",
 } as const;

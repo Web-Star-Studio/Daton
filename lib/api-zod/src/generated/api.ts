@@ -1562,7 +1562,52 @@ export const ListEmployeesResponse = zod.object({
       status: zod.enum(["active", "inactive", "on_leave"]),
       unitName: zod.string().nullish(),
       trainingCompletionPercent: zod.number().nullish(),
-      competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+      competencyGapStatus: zod
+        .enum(["ok", "gap", "critical", "indeterminado"])
+        .nullish()
+        .describe(
+          "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+        ),
+      competencyConformance: zod
+        .object({
+          positionName: zod.string().nullable(),
+          requirements: zod.array(
+            zod.object({
+              competencyName: zod.string(),
+              competencyType: zod.enum([
+                "formacao",
+                "experiencia",
+                "habilidade",
+              ]),
+              requiredLevel: zod.number(),
+              acquiredLevel: zod.number(),
+              status: zod
+                .enum(["atende", "gap", "nao_classificado"])
+                .describe(
+                  "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                ),
+              source: zod.enum(["manual", "treinamento"]).nullable(),
+              evidence: zod
+                .object({
+                  trainingId: zod.number(),
+                  title: zod.string(),
+                  completionDate: zod.string().nullable(),
+                  expirationDate: zod.string().nullable(),
+                })
+                .nullable(),
+              gapLevel: zod.number(),
+              critical: zod.boolean(),
+            }),
+          ),
+          gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+        })
+        .describe(
+          "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+        )
+        .nullish()
+        .describe(
+          "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+        ),
       createdAt: zod.string().datetime({}),
       updatedAt: zod.string().datetime({}),
     }),
@@ -2205,7 +2250,48 @@ export const GetEmployeeResponse = zod
     status: zod.enum(["active", "inactive", "on_leave"]),
     unitName: zod.string().nullish(),
     trainingCompletionPercent: zod.number().nullish(),
-    competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+    competencyGapStatus: zod
+      .enum(["ok", "gap", "critical", "indeterminado"])
+      .nullish()
+      .describe(
+        "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+      ),
+    competencyConformance: zod
+      .object({
+        positionName: zod.string().nullable(),
+        requirements: zod.array(
+          zod.object({
+            competencyName: zod.string(),
+            competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+            requiredLevel: zod.number(),
+            acquiredLevel: zod.number(),
+            status: zod
+              .enum(["atende", "gap", "nao_classificado"])
+              .describe(
+                "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+              ),
+            source: zod.enum(["manual", "treinamento"]).nullable(),
+            evidence: zod
+              .object({
+                trainingId: zod.number(),
+                title: zod.string(),
+                completionDate: zod.string().nullable(),
+                expirationDate: zod.string().nullable(),
+              })
+              .nullable(),
+            gapLevel: zod.number(),
+            critical: zod.boolean(),
+          }),
+        ),
+        gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+      })
+      .describe(
+        "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+      )
+      .nullish()
+      .describe(
+        "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -2544,7 +2630,48 @@ export const UpdateEmployeeResponse = zod.object({
   status: zod.enum(["active", "inactive", "on_leave"]),
   unitName: zod.string().nullish(),
   trainingCompletionPercent: zod.number().nullish(),
-  competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+  competencyGapStatus: zod
+    .enum(["ok", "gap", "critical", "indeterminado"])
+    .nullish()
+    .describe(
+      "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+    ),
+  competencyConformance: zod
+    .object({
+      positionName: zod.string().nullable(),
+      requirements: zod.array(
+        zod.object({
+          competencyName: zod.string(),
+          competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+          requiredLevel: zod.number(),
+          acquiredLevel: zod.number(),
+          status: zod
+            .enum(["atende", "gap", "nao_classificado"])
+            .describe(
+              "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+            ),
+          source: zod.enum(["manual", "treinamento"]).nullable(),
+          evidence: zod
+            .object({
+              trainingId: zod.number(),
+              title: zod.string(),
+              completionDate: zod.string().nullable(),
+              expirationDate: zod.string().nullable(),
+            })
+            .nullable(),
+          gapLevel: zod.number(),
+          critical: zod.boolean(),
+        }),
+      ),
+      gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+    })
+    .describe(
+      "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+    )
+    .nullish()
+    .describe(
+      "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+    ),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -4500,7 +4627,52 @@ export const GetDocumentResponse = zod.object({
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -4779,7 +4951,52 @@ export const UpdateDocumentResponse = zod.object({
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5105,7 +5322,52 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5446,7 +5708,52 @@ export const SubmitDocumentForReviewResponse = zod.object({
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5703,7 +6010,52 @@ export const ApproveDocumentResponse = zod.object({
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5960,7 +6312,52 @@ export const RejectDocumentResponse = zod.object({
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -6213,7 +6610,52 @@ export const ReviseDocumentResponse = zod.object({
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -6466,7 +6908,52 @@ export const DistributeDocumentResponse = zod.object({
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -6739,7 +7226,52 @@ export const UpdateDocumentContentResponse = zod.object({
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -20042,9 +20574,30 @@ export const ListTrainingCatalogResponse = zod.object({
         validityMonths: zod.number().nullish(),
         isMandatory: zod.boolean(),
         status: zod.string(),
+        evidenceType: zod
+          .enum(["capacitacao", "habilitacao", "conscientizacao"])
+          .nullish()
+          .describe(
+            "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
+          ),
         targetCompetencyName: zod.string().nullish(),
         targetCompetencyType: zod.string().nullish(),
         targetCompetencyLevel: zod.number().nullish(),
+        targetCompetencies: zod
+          .array(
+            zod
+              .object({
+                name: zod.string(),
+                type: zod.string(),
+                level: zod.number(),
+              })
+              .describe(
+                "Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.",
+              ),
+          )
+          .describe(
+            "Lista canônica de competências que este item comprova (ISO 10015) — um treino pode comprovar várias. As colunas targetCompetencyName\/Type\/Level (singulares) são legado e espelham o primeiro item desta lista.",
+          ),
         defaultInstructor: zod.string().nullish(),
         objective: zod.string().nullish(),
         programContent: zod.string().nullish(),
@@ -20080,9 +20633,31 @@ export const CreateTrainingCatalogItemBody = zod.object({
   validityMonths: zod.number().nullish(),
   isMandatory: zod.boolean().optional(),
   status: zod.string().optional(),
+  evidenceType: zod
+    .enum(["capacitacao", "habilitacao", "conscientizacao"])
+    .nullish()
+    .describe(
+      "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
+    ),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod.string().optional(),
   targetCompetencyLevel: zod.number().optional(),
+  targetCompetencies: zod
+    .array(
+      zod
+        .object({
+          name: zod.string(),
+          type: zod.string(),
+          level: zod.number(),
+        })
+        .describe(
+          "Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.",
+        ),
+    )
+    .optional()
+    .describe(
+      "Lista canônica de competências que este item comprova (ISO 10015). Quando informada, o servidor espelha o primeiro item nas colunas targetCompetencyName\/Type\/Level (legado).",
+    ),
   defaultInstructor: zod.string().optional(),
   objective: zod.string().optional(),
   programContent: zod.string().optional(),
@@ -20119,9 +20694,30 @@ export const GetTrainingCatalogItemResponse = zod
     validityMonths: zod.number().nullish(),
     isMandatory: zod.boolean(),
     status: zod.string(),
+    evidenceType: zod
+      .enum(["capacitacao", "habilitacao", "conscientizacao"])
+      .nullish()
+      .describe(
+        "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
+      ),
     targetCompetencyName: zod.string().nullish(),
     targetCompetencyType: zod.string().nullish(),
     targetCompetencyLevel: zod.number().nullish(),
+    targetCompetencies: zod
+      .array(
+        zod
+          .object({
+            name: zod.string(),
+            type: zod.string(),
+            level: zod.number(),
+          })
+          .describe(
+            "Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.",
+          ),
+      )
+      .describe(
+        "Lista canônica de competências que este item comprova (ISO 10015) — um treino pode comprovar várias. As colunas targetCompetencyName\/Type\/Level (singulares) são legado e espelham o primeiro item desta lista.",
+      ),
     defaultInstructor: zod.string().nullish(),
     objective: zod.string().nullish(),
     programContent: zod.string().nullish(),
@@ -20150,9 +20746,31 @@ export const UpdateTrainingCatalogItemBody = zod.object({
   validityMonths: zod.number().nullish(),
   isMandatory: zod.boolean().optional(),
   status: zod.string().optional(),
+  evidenceType: zod
+    .enum(["capacitacao", "habilitacao", "conscientizacao"])
+    .nullish()
+    .describe(
+      "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
+    ),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod.string().optional(),
   targetCompetencyLevel: zod.number().optional(),
+  targetCompetencies: zod
+    .array(
+      zod
+        .object({
+          name: zod.string(),
+          type: zod.string(),
+          level: zod.number(),
+        })
+        .describe(
+          "Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.",
+        ),
+    )
+    .optional()
+    .describe(
+      "Lista canônica de competências que este item comprova (ISO 10015). Quando informada, o servidor espelha o primeiro item nas colunas targetCompetencyName\/Type\/Level (legado).",
+    ),
   defaultInstructor: zod.string().optional(),
   objective: zod.string().optional(),
   programContent: zod.string().optional(),
@@ -20181,9 +20799,30 @@ export const UpdateTrainingCatalogItemResponse = zod
     validityMonths: zod.number().nullish(),
     isMandatory: zod.boolean(),
     status: zod.string(),
+    evidenceType: zod
+      .enum(["capacitacao", "habilitacao", "conscientizacao"])
+      .nullish()
+      .describe(
+        "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
+      ),
     targetCompetencyName: zod.string().nullish(),
     targetCompetencyType: zod.string().nullish(),
     targetCompetencyLevel: zod.number().nullish(),
+    targetCompetencies: zod
+      .array(
+        zod
+          .object({
+            name: zod.string(),
+            type: zod.string(),
+            level: zod.number(),
+          })
+          .describe(
+            "Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.",
+          ),
+      )
+      .describe(
+        "Lista canônica de competências que este item comprova (ISO 10015) — um treino pode comprovar várias. As colunas targetCompetencyName\/Type\/Level (singulares) são legado e espelham o primeiro item desta lista.",
+      ),
     defaultInstructor: zod.string().nullish(),
     objective: zod.string().nullish(),
     programContent: zod.string().nullish(),

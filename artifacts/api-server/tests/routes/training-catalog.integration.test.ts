@@ -196,6 +196,84 @@ describe("training-catalog routes", () => {
       .set(authHeader(context));
     expect(get.body.workloadHours).toBe(0.33);
   });
+
+  it("aceita, persiste e devolve evidenceType", async () => {
+    const ctx = await createTestContext({ seed: "catalog-evidence-type" });
+    contexts.push(ctx);
+
+    const created = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/training-catalog`)
+      .set(authHeader(ctx))
+      .send({
+        title: `Direção defensiva ${ctx.prefix}`,
+        evidenceType: "capacitacao",
+        targetCompetencyName: "Direção defensiva",
+        targetCompetencyType: "habilidade",
+        targetCompetencyLevel: 1,
+      });
+
+    expect(created.status).toBe(201);
+    expect(created.body.evidenceType).toBe("capacitacao");
+
+    const listed = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/training-catalog?search=${ctx.prefix}`,
+      )
+      .set(authHeader(ctx));
+
+    expect(listed.status).toBe(200);
+    expect(listed.body.data[0].evidenceType).toBe("capacitacao");
+  });
+
+  it("rejeita evidenceType fora do vocabulário", async () => {
+    const ctx = await createTestContext({ seed: "catalog-evidence-invalid" });
+    contexts.push(ctx);
+
+    const res = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/training-catalog`)
+      .set(authHeader(ctx))
+      .send({
+        title: `Inválido ${ctx.prefix}`,
+        evidenceType: "qualquer_coisa",
+      });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("aceita várias competências-alvo e espelha a primeira nas colunas singulares", async () => {
+    const ctx = await createTestContext({ seed: "catalog-multi-comp" });
+    contexts.push(ctx);
+
+    const created = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/training-catalog`)
+      .set(authHeader(ctx))
+      .send({
+        title: `Treino combo ${ctx.prefix}`,
+        evidenceType: "capacitacao",
+        targetCompetencies: [
+          { name: "Direção defensiva", type: "habilidade", level: 1 },
+          { name: "Segurança viária", type: "habilidade", level: 2 },
+        ],
+      });
+
+    expect(created.status).toBe(201);
+    expect(created.body.targetCompetencies).toHaveLength(2);
+    // A primeira competência é espelhada nas colunas singulares legadas.
+    expect(created.body.targetCompetencyName).toBe("Direção defensiva");
+    expect(created.body.targetCompetencyLevel).toBe(1);
+
+    const listed = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/training-catalog?search=${ctx.prefix}`,
+      )
+      .set(authHeader(ctx));
+
+    expect(listed.status).toBe(200);
+    expect(listed.body.data[0].targetCompetencies).toHaveLength(2);
+    expect(listed.body.data[0].targetCompetencies[1].name).toBe(
+      "Segurança viária",
+    );
+  });
 });
 
 // Se o treinamento não existe mais, "cargo X deve fazer Y" deixa de fazer
