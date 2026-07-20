@@ -19,7 +19,13 @@ const response: PendenciasResponse = {
     noDue: 0,
     upcoming: 0,
     completedToday: 0,
-    bySource: { kpi: 1, action_plan: 1, nonconformity: 0, regulatory_document: 0 },
+    bySource: {
+      kpi: 1,
+      action_plan: 1,
+      nonconformity: 0,
+      regulatory_document: 0,
+      training_effectiveness: 3,
+    },
   },
   items: [],
   completedToday: [],
@@ -75,6 +81,39 @@ describe("SuasPendenciasPage — operator (identity, cards, no selector)", () =>
     expect(screen.getByText("Operador")).toBeInTheDocument();
     expect(screen.getByText(/hoje às 08:12/)).toBeInTheDocument();
     expect(screen.getByText("Total em aberto")).toBeInTheDocument();
+  });
+
+  it("shows the training-effectiveness card and renders its items", () => {
+    mockPendencias.mockReturnValue({
+      data: {
+        ...response,
+        items: [
+          {
+            id: "training_effectiveness:42",
+            source: "training_effectiveness",
+            sourceLabel: "Eficácia de treinamento",
+            title: "NR-35 Trabalho em altura",
+            subtitle: "Maria Souza · POA",
+            statusLabel: "Avaliação por gestor",
+            dueDate: "2026-06-15",
+            urgency: "overdue",
+            responsibleUserId: 1,
+            link: { route: "/aprendizagem/eficacia", ctaLabel: "Avaliar" },
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    render(<SuasPendenciasPage />);
+    expect(screen.getByText("Eficácia de treinos")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("NR-35 Trabalho em altura")).toBeInTheDocument();
+    expect(screen.getByText("Eficácia de treinamento")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Avaliar/ })).toHaveAttribute(
+      "href",
+      "/aprendizagem/eficacia",
+    );
   });
 
   it("shows no scope selector for an operator", () => {
