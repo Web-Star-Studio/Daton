@@ -50,7 +50,11 @@ describe("FormacaoQualificacoes", () => {
     expect(screen.getByText("Comp A")).toBeInTheDocument();
     expect(screen.getByText("Comp B")).toBeInTheDocument();
     expect(screen.getByText("Comp C")).toBeInTheDocument();
-    expect(screen.getByText(/Não avaliável/i)).toBeInTheDocument();
+    // Texto específico do item (o rodapé também contém "não avaliável", então
+    // a busca precisa ser específica para não casar em dois lugares).
+    expect(
+      screen.getByText(/Não avaliável — treinamento não classificado/i),
+    ).toBeInTheDocument();
     // barra: 1 atende / (1 atende + 1 gap) -> 1 não avaliável no rodapé
     expect(
       screen.getByText(/1 requisito ainda não avaliável/i),

@@ -172,7 +172,7 @@ export function FormacaoQualificacoes({
                         </span>
                       </div>
                       <span className="text-[11px] text-muted-foreground shrink-0 ml-3">
-                        Treinamento não classificado
+                        Não avaliável — treinamento não classificado
                       </span>
                     </div>
                   );
