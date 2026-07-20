@@ -52,9 +52,9 @@ export function buildPositionSubline(input: {
 // --- Competências (matriz do cargo) ---
 
 export const COMPETENCY_TYPE_LABELS: Record<string, string> = {
-  formacao: "Formação",
-  experiencia: "Experiência",
+  conhecimento: "Conhecimento",
   habilidade: "Habilidade",
+  atitude: "Atitude",
 };
 
 /** Nível requerido (0–5) → rótulo (Básico/Intermediário/Avançado). */

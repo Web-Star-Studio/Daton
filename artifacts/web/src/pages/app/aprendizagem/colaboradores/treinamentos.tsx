@@ -141,9 +141,9 @@ const EFFECTIVENESS_STATUS_BADGE_VARIANT: Record<
 };
 
 const COMPETENCY_TYPE_LABELS: Record<string, string> = {
-  formacao: "Formacao",
-  experiencia: "Experiencia",
+  conhecimento: "Conhecimento",
   habilidade: "Habilidade",
+  atitude: "Atitude",
 };
 
 type TrainingAdminForm = {
@@ -415,19 +415,19 @@ function TrainingDialog({
             className="mt-1 h-10 text-[13px]"
           >
             <option
-              value={CreateTrainingBodyTargetCompetencyTypeValues.formacao}
+              value={CreateTrainingBodyTargetCompetencyTypeValues.conhecimento}
             >
-              Formacao
-            </option>
-            <option
-              value={CreateTrainingBodyTargetCompetencyTypeValues.experiencia}
-            >
-              Experiencia
+              Conhecimento
             </option>
             <option
               value={CreateTrainingBodyTargetCompetencyTypeValues.habilidade}
             >
               Habilidade
+            </option>
+            <option
+              value={CreateTrainingBodyTargetCompetencyTypeValues.atitude}
+            >
+              Atitude
             </option>
           </Select>
         </div>
@@ -609,9 +609,9 @@ function RequirementDialog({
             }
             className="mt-1 h-10 text-[13px]"
           >
-            <option value="formacao">Formacao</option>
-            <option value="experiencia">Experiencia</option>
+            <option value="conhecimento">Conhecimento</option>
             <option value="habilidade">Habilidade</option>
+            <option value="atitude">Atitude</option>
           </Select>
         </div>
         <div>

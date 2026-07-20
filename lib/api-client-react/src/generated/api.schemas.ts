@@ -1320,9 +1320,9 @@ export type EmployeeCompetencyConformanceRequirementsItemCompetencyType =
   (typeof EmployeeCompetencyConformanceRequirementsItemCompetencyType)[keyof typeof EmployeeCompetencyConformanceRequirementsItemCompetencyType];
 
 export const EmployeeCompetencyConformanceRequirementsItemCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 /**
@@ -1449,9 +1449,9 @@ export type EmployeeCompetencyType =
   (typeof EmployeeCompetencyType)[keyof typeof EmployeeCompetencyType];
 
 export const EmployeeCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export interface EmployeeCompetency {
@@ -1481,9 +1481,9 @@ export type EmployeeTrainingTargetCompetencyType =
   | null;
 
 export const EmployeeTrainingTargetCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export type EmployeeTrainingStatus =
@@ -1573,9 +1573,9 @@ export type OrganizationTrainingTargetCompetencyType =
   | null;
 
 export const OrganizationTrainingTargetCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export type OrganizationTrainingStatus =
@@ -1699,9 +1699,9 @@ export type PositionCompetencyRequirementCompetencyType =
   (typeof PositionCompetencyRequirementCompetencyType)[keyof typeof PositionCompetencyRequirementCompetencyType];
 
 export const PositionCompetencyRequirementCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export interface PositionCompetencyRequirement {
@@ -1737,9 +1737,9 @@ export type EmployeeCompetencyGapCompetencyType =
   (typeof EmployeeCompetencyGapCompetencyType)[keyof typeof EmployeeCompetencyGapCompetencyType];
 
 export const EmployeeCompetencyGapCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export interface EmployeeCompetencyGap {
@@ -1978,9 +1978,9 @@ export type CreateCompetencyBodyType =
   (typeof CreateCompetencyBodyType)[keyof typeof CreateCompetencyBodyType];
 
 export const CreateCompetencyBodyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export interface CreateCompetencyBody {
@@ -2006,9 +2006,9 @@ export type CreateTrainingBodyTargetCompetencyType =
   (typeof CreateTrainingBodyTargetCompetencyType)[keyof typeof CreateTrainingBodyTargetCompetencyType];
 
 export const CreateTrainingBodyTargetCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export type CreateTrainingBodyStatus =
@@ -2067,9 +2067,9 @@ export type UpdateCompetencyBodyType =
   (typeof UpdateCompetencyBodyType)[keyof typeof UpdateCompetencyBodyType];
 
 export const UpdateCompetencyBodyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export interface UpdateCompetencyBody {
@@ -2095,9 +2095,9 @@ export type UpdateTrainingBodyTargetCompetencyType =
   (typeof UpdateTrainingBodyTargetCompetencyType)[keyof typeof UpdateTrainingBodyTargetCompetencyType];
 
 export const UpdateTrainingBodyTargetCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export type UpdateTrainingBodyStatus =
@@ -2212,9 +2212,9 @@ export type CreatePositionCompetencyRequirementBodyCompetencyType =
   (typeof CreatePositionCompetencyRequirementBodyCompetencyType)[keyof typeof CreatePositionCompetencyRequirementBodyCompetencyType];
 
 export const CreatePositionCompetencyRequirementBodyCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export interface CreatePositionCompetencyRequirementBody {
@@ -2235,9 +2235,9 @@ export type UpdatePositionCompetencyRequirementBodyCompetencyType =
   (typeof UpdatePositionCompetencyRequirementBodyCompetencyType)[keyof typeof UpdatePositionCompetencyRequirementBodyCompetencyType];
 
 export const UpdatePositionCompetencyRequirementBodyCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
 
 export interface UpdatePositionCompetencyRequirementBody {

@@ -11,7 +11,7 @@ export type OrganizationTrainingTargetCompetencyType =
   | null;
 
 export const OrganizationTrainingTargetCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;

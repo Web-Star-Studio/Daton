@@ -29,6 +29,7 @@ import {
   trainingEffectivenessReviewsTable,
   employeeAwarenessTable,
   employeeUnitsTable,
+  competencyCatalogTable,
   positionCompetencyRequirementsTable,
   positionCompetencyMatrixRevisionsTable,
   positionsTable,
@@ -1418,6 +1419,29 @@ async function createPositionCompetencyMatrixRevision(
   });
 }
 
+/** O tipo é propriedade da competência (catálogo), não do requisito: casa por
+ *  nome dentro da org e devolve o tipo do catálogo. Sem item correspondente
+ *  (caso dos requisitos vindos da carga), devolve o fallback recebido — não se
+ *  inventa valor nem se apaga o histórico. */
+async function resolveCompetencyTypeFromCatalog(
+  tx: Pick<typeof db, "select">,
+  organizationId: number,
+  competencyName: string,
+  fallback: string,
+): Promise<string> {
+  const [item] = await tx
+    .select({ competencyType: competencyCatalogTable.competencyType })
+    .from(competencyCatalogTable)
+    .where(
+      and(
+        eq(competencyCatalogTable.organizationId, organizationId),
+        sql`lower(trim(${competencyCatalogTable.name})) = lower(trim(${competencyName}))`,
+      ),
+    )
+    .limit(1);
+  return item?.competencyType || fallback;
+}
+
 router.get(
   "/organizations/:orgId/employees",
   requireAuth,
@@ -2616,12 +2640,20 @@ router.post(
 
     try {
       const requirement = await db.transaction(async (tx) => {
+        const competencyName = body.data.competencyName.trim();
+        const competencyType = await resolveCompetencyTypeFromCatalog(
+          tx,
+          params.data.orgId,
+          competencyName,
+          body.data.competencyType,
+        );
+
         const [created] = await tx
           .insert(positionCompetencyRequirementsTable)
           .values({
             positionId: position.id,
-            competencyName: body.data.competencyName.trim(),
-            competencyType: body.data.competencyType,
+            competencyName,
+            competencyType,
             requiredLevel: body.data.requiredLevel,
             notes: body.data.notes?.trim() || null,
             sortOrder: body.data.sortOrder ?? 0,
@@ -2681,15 +2713,41 @@ router.patch(
 
     try {
       const requirement = await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(positionCompetencyRequirementsTable)
+          .where(
+            and(
+              eq(
+                positionCompetencyRequirementsTable.id,
+                params.data.requirementId,
+              ),
+              eq(positionCompetencyRequirementsTable.positionId, position.id),
+            ),
+          )
+          .limit(1);
+        if (!existing) return null;
+
+        // Nome resultante: o novo, se enviado; senão o já gravado. O tipo é
+        // realinhado ao catálogo mesmo quando o corpo não traz competencyType.
+        const resultingName =
+          body.data.competencyName !== undefined
+            ? body.data.competencyName.trim()
+            : existing.competencyName;
+        const competencyType = await resolveCompetencyTypeFromCatalog(
+          tx,
+          params.data.orgId,
+          resultingName,
+          body.data.competencyType ?? existing.competencyType,
+        );
+
         const [updated] = await tx
           .update(positionCompetencyRequirementsTable)
           .set({
             ...(body.data.competencyName !== undefined
-              ? { competencyName: body.data.competencyName.trim() }
+              ? { competencyName: resultingName }
               : {}),
-            ...(body.data.competencyType !== undefined
-              ? { competencyType: body.data.competencyType }
-              : {}),
+            competencyType,
             ...(body.data.requiredLevel !== undefined
               ? { requiredLevel: body.data.requiredLevel }
               : {}),

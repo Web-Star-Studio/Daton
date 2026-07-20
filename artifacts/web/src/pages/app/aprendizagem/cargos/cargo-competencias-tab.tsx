@@ -27,7 +27,7 @@ import {
   levelBucket,
 } from "./cargos-utils";
 
-const TYPE_OPTIONS = ["formacao", "experiencia", "habilidade"] as const;
+const TYPE_OPTIONS = ["conhecimento", "habilidade", "atitude"] as const;
 const LEVEL_OPTIONS = [
   { value: 1, label: "Básico" },
   { value: 3, label: "Intermediário" },

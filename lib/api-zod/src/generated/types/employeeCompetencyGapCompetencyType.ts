@@ -10,7 +10,7 @@ export type EmployeeCompetencyGapCompetencyType =
   (typeof EmployeeCompetencyGapCompetencyType)[keyof typeof EmployeeCompetencyGapCompetencyType];
 
 export const EmployeeCompetencyGapCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;

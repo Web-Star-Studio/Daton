@@ -160,9 +160,9 @@ const EFFECTIVENESS_STATUS_COLORS: Record<string, string> = {
 };
 
 const COMPETENCY_TYPE_LABELS: Record<string, string> = {
-  formacao: "Formação",
-  experiencia: "Experiência",
+  conhecimento: "Conhecimento",
   habilidade: "Habilidade",
+  atitude: "Atitude",
 };
 
 type EmployeeProfileItemRecord = EmployeeProfileItem;
@@ -1037,14 +1037,14 @@ function CompetencyFormStep({
             }
             className="mt-1 h-10 text-[13px]"
           >
-            <option value={CreateCompetencyBodyTypeValues.formacao}>
-              Formação
-            </option>
-            <option value={CreateCompetencyBodyTypeValues.experiencia}>
-              Experiência
+            <option value={CreateCompetencyBodyTypeValues.conhecimento}>
+              Conhecimento
             </option>
             <option value={CreateCompetencyBodyTypeValues.habilidade}>
               Habilidade
+            </option>
+            <option value={CreateCompetencyBodyTypeValues.atitude}>
+              Atitude
             </option>
           </Select>
         </div>
@@ -1234,19 +1234,19 @@ function TrainingFormStep({
             className="mt-1 h-10 text-[13px]"
           >
             <option
-              value={CreateTrainingBodyTargetCompetencyTypeValues.formacao}
+              value={CreateTrainingBodyTargetCompetencyTypeValues.conhecimento}
             >
-              Formação
-            </option>
-            <option
-              value={CreateTrainingBodyTargetCompetencyTypeValues.experiencia}
-            >
-              Experiência
+              Conhecimento
             </option>
             <option
               value={CreateTrainingBodyTargetCompetencyTypeValues.habilidade}
             >
               Habilidade
+            </option>
+            <option
+              value={CreateTrainingBodyTargetCompetencyTypeValues.atitude}
+            >
+              Atitude
             </option>
           </Select>
         </div>
@@ -1590,7 +1590,7 @@ function CompetenciasTab({
   const emptyForm: CompetencyForm = {
     name: "",
     description: "",
-    type: "formacao",
+    type: "conhecimento",
     requiredLevel: 3,
     acquiredLevel: 0,
     evidence: "",

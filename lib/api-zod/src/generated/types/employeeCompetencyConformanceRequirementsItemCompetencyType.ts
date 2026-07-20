@@ -10,7 +10,7 @@ export type EmployeeCompetencyConformanceRequirementsItemCompetencyType =
   (typeof EmployeeCompetencyConformanceRequirementsItemCompetencyType)[keyof typeof EmployeeCompetencyConformanceRequirementsItemCompetencyType];
 
 export const EmployeeCompetencyConformanceRequirementsItemCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
