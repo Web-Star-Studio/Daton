@@ -92,6 +92,7 @@ import type {
   CreateRegulatoryDocumentBody,
   CreateRegulatoryDocumentRenewalBody,
   CreateRegulatoryNormBody,
+  CreateRoadSafetyDiagnosisBody,
   CreateRoadSafetyFactorBody,
   CreateRoadSafetyMeasurementBody,
   CreateSgqProcessBody,
@@ -253,6 +254,7 @@ import type {
   RequestPasswordResetBody,
   RestoreActionPlanPlanningBody,
   RoadSafetyFactor,
+  RoadSafetyFactorDiagnosis,
   RoadSafetyMeasurement,
   SaveQuestionnaireResponsesBody,
   SetUnitManagers200,
@@ -34458,6 +34460,229 @@ export const useCreateRoadSafetyMeasurement = <
   TContext
 > => {
   return useMutation(getCreateRoadSafetyMeasurementMutationOptions(options));
+};
+
+/**
+ * @summary List the append-only diagnosis history of a factor
+ */
+export const getListRoadSafetyDiagnosesUrl = (
+  orgId: number,
+  factorId: number,
+) => {
+  return `/api/organizations/${orgId}/road-safety/factors/${factorId}/diagnoses`;
+};
+
+export const listRoadSafetyDiagnoses = async (
+  orgId: number,
+  factorId: number,
+  options?: RequestInit,
+): Promise<RoadSafetyFactorDiagnosis[]> => {
+  return customFetch<RoadSafetyFactorDiagnosis[]>(
+    getListRoadSafetyDiagnosesUrl(orgId, factorId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListRoadSafetyDiagnosesQueryKey = (
+  orgId: number,
+  factorId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/road-safety/factors/${factorId}/diagnoses`,
+  ] as const;
+};
+
+export const getListRoadSafetyDiagnosesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRoadSafetyDiagnoses>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  factorId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRoadSafetyDiagnoses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListRoadSafetyDiagnosesQueryKey(orgId, factorId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRoadSafetyDiagnoses>>
+  > = ({ signal }) =>
+    listRoadSafetyDiagnoses(orgId, factorId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && factorId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRoadSafetyDiagnoses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRoadSafetyDiagnosesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRoadSafetyDiagnoses>>
+>;
+export type ListRoadSafetyDiagnosesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the append-only diagnosis history of a factor
+ */
+
+export function useListRoadSafetyDiagnoses<
+  TData = Awaited<ReturnType<typeof listRoadSafetyDiagnoses>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  factorId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRoadSafetyDiagnoses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRoadSafetyDiagnosesQueryOptions(
+    orgId,
+    factorId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register a new diagnosis (append-only; author is the logged-in user)
+ */
+export const getCreateRoadSafetyDiagnosisUrl = (
+  orgId: number,
+  factorId: number,
+) => {
+  return `/api/organizations/${orgId}/road-safety/factors/${factorId}/diagnoses`;
+};
+
+export const createRoadSafetyDiagnosis = async (
+  orgId: number,
+  factorId: number,
+  createRoadSafetyDiagnosisBody: CreateRoadSafetyDiagnosisBody,
+  options?: RequestInit,
+): Promise<RoadSafetyFactorDiagnosis> => {
+  return customFetch<RoadSafetyFactorDiagnosis>(
+    getCreateRoadSafetyDiagnosisUrl(orgId, factorId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createRoadSafetyDiagnosisBody),
+    },
+  );
+};
+
+export const getCreateRoadSafetyDiagnosisMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRoadSafetyDiagnosis>>,
+    TError,
+    {
+      orgId: number;
+      factorId: number;
+      data: BodyType<CreateRoadSafetyDiagnosisBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createRoadSafetyDiagnosis>>,
+  TError,
+  {
+    orgId: number;
+    factorId: number;
+    data: BodyType<CreateRoadSafetyDiagnosisBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createRoadSafetyDiagnosis"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createRoadSafetyDiagnosis>>,
+    {
+      orgId: number;
+      factorId: number;
+      data: BodyType<CreateRoadSafetyDiagnosisBody>;
+    }
+  > = (props) => {
+    const { orgId, factorId, data } = props ?? {};
+
+    return createRoadSafetyDiagnosis(orgId, factorId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateRoadSafetyDiagnosisMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createRoadSafetyDiagnosis>>
+>;
+export type CreateRoadSafetyDiagnosisMutationBody =
+  BodyType<CreateRoadSafetyDiagnosisBody>;
+export type CreateRoadSafetyDiagnosisMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register a new diagnosis (append-only; author is the logged-in user)
+ */
+export const useCreateRoadSafetyDiagnosis = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRoadSafetyDiagnosis>>,
+    TError,
+    {
+      orgId: number;
+      factorId: number;
+      data: BodyType<CreateRoadSafetyDiagnosisBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createRoadSafetyDiagnosis>>,
+  TError,
+  {
+    orgId: number;
+    factorId: number;
+    data: BodyType<CreateRoadSafetyDiagnosisBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateRoadSafetyDiagnosisMutationOptions(options));
 };
 
 /**

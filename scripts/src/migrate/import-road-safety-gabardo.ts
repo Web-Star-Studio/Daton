@@ -10,14 +10,17 @@
  *   import-road-safety-gabardo <orgId> --apply   → importa de verdade
  */
 import { createRequire } from "module";
-import { db, organizationsTable, roadSafetyFactorsTable } from "@workspace/db";
+import {
+  db,
+  organizationsTable,
+  roadSafetyFactorDiagnosesTable,
+  roadSafetyFactorsTable,
+} from "@workspace/db";
 import { asc, eq, sql } from "drizzle-orm";
 
 // xlsx é dependência transitiva — resolvida pelo caminho explícito do store.
 const require = createRequire(import.meta.url);
-const XLSX = require(
-  "/home/jp/daton/Daton/node_modules/.pnpm/xlsx@0.18.5/node_modules/xlsx",
-);
+const XLSX = require("/home/jp/daton/Daton/node_modules/.pnpm/xlsx@0.18.5/node_modules/xlsx");
 const FILE =
   "/home/jp/daton/Daton/FPLAN 005 - Lev e Análise dos Fatores de Desempenho rev05 14-10-25 (1).xlsx";
 
@@ -31,7 +34,9 @@ function norm(s: unknown): string {
     .replace(/[̀-ͯ]/g, "");
 }
 function clean(s: unknown): string | null {
-  const v = String(s ?? "").trim().replace(/\s+/g, " ");
+  const v = String(s ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
   return v ? v : null;
 }
 
@@ -86,6 +91,21 @@ function planilhaCode(item: unknown): string {
   return `FD${(m ? m[1] : "0").padStart(2, "0")}`;
 }
 
+/**
+ * Hoje em date-only local — data de referência do diagnóstico criado junto
+ * com o fator. A planilha não traz uma data por linha para o texto do
+ * diagnóstico (coluna 8), então a melhor aproximação honesta é "quando isso
+ * entrou no sistema" — o mesmo critério usado pelo `initialDiagnosis` do
+ * `POST /factors` (ver `todayDateOnly()` em
+ * `artifacts/api-server/src/routes/road-safety/index.ts`).
+ */
+function todayDateOnly(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -124,6 +144,10 @@ async function main() {
         .join(" — ") || null;
     return {
       sheetCode: clean(r[0]),
+      // Diagnóstico (coluna 8) vira o primeiro registro do histórico
+      // (road_safety_factor_diagnoses) — NÃO grava mais na coluna legada
+      // `current_diagnosis`, que a API não lê mais (ver Task 4/9).
+      diagnosis: clean(r[8]),
       values: {
         organizationId: orgId,
         code: planilhaCode(r[0]),
@@ -133,7 +157,6 @@ async function main() {
         isAdditional: false,
         name: clean(r[3]) ?? `Fator ${i + 1}`,
         analysis: clean(r[4]),
-        currentDiagnosis: clean(r[8]),
         monitoringForm: mapMonitoringForm(r[5]),
         periodicity: mapPeriodicity(r[7]),
         measureUnit: clean(r[7]),
@@ -210,6 +233,11 @@ async function main() {
       `${v.code} (planilha ${f.sheetCode})  ${v.type} · ${v.origin}  GUT ${v.gutGravity}×${v.gutUrgency}×${v.gutTendency}=${gut}`,
     );
     console.log(`   ${v.name}`);
+    if (f.diagnosis) {
+      console.log(
+        `   diagnóstico: sim (vira histórico, referenceDate ${todayDateOnly()})`,
+      );
+    }
   }
 
   if (Number(existing) > 0) {
@@ -227,11 +255,32 @@ async function main() {
   }
 
   let n = 0;
+  let diagnosed = 0;
+  const referenceDate = todayDateOnly();
   for (const f of factors) {
-    await db.insert(roadSafetyFactorsTable).values(f.values);
+    const [row] = await db
+      .insert(roadSafetyFactorsTable)
+      .values(f.values)
+      .returning();
     n += 1;
+    if (f.diagnosis) {
+      // Primeiro registro do histórico — não o autor original (a planilha
+      // não registra quem escreveu o texto, e o import roda sem usuário
+      // logado), por isso diagnosedByUserId fica NULL, igual ao backfill
+      // (road-safety-diagnosis-backfill.ts).
+      await db.insert(roadSafetyFactorDiagnosesTable).values({
+        organizationId: orgId,
+        factorId: row.id,
+        content: f.diagnosis,
+        referenceDate,
+        diagnosedByUserId: null,
+      });
+      diagnosed += 1;
+    }
   }
-  console.log(`\n✓ Importados: ${n} fatores de desempenho.`);
+  console.log(
+    `\n✓ Importados: ${n} fatores de desempenho (${diagnosed} com diagnóstico inicial no histórico).`,
+  );
   process.exit(0);
 }
 

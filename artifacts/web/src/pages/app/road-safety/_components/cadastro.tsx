@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  IdCard,
-  Loader2,
-   ShieldCheck,
-  SlidersHorizontal,
-} from "lucide-react";
+import { IdCard, Loader2, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { useListOrgUsers } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
+import { useKpiIndicators } from "@/lib/kpi-client";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
@@ -16,6 +13,8 @@ import { cn } from "@/lib/utils";
 import {
   CONTROL_STATUSES,
   CONTROL_STATUS_LABELS,
+  DIAGNOSIS_PERIODICITIES,
+  DIAGNOSIS_PERIODICITY_LABELS,
   FACTOR_ORIGINS,
   FACTOR_TYPES,
   FACTOR_TYPE_LABELS,
@@ -31,9 +30,9 @@ import {
   type ControlStatus,
   type FactorType,
   type Periodicity,
-  type WithCurrentDiagnosis,
 } from "@/lib/road-safety-client";
 import { RelevanceBadge } from "./badges";
+import { DiagnosisSection } from "./diagnostico";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 
 type CadastroScreenProps = {
@@ -50,8 +49,10 @@ type FormData = {
   isAdditional: boolean;
   name: string;
   analysis: string;
-  currentDiagnosis: string;
+  initialDiagnosis: string;
+  diagnosisPeriodicity: "" | Periodicity;
   monitoringForm: string;
+  kpiIndicatorId: string;
   periodicity: Periodicity;
   measureUnit: string;
   goal: string;
@@ -73,8 +74,10 @@ const emptyForm = (): FormData => ({
   isAdditional: false,
   name: "",
   analysis: "",
-  currentDiagnosis: "",
+  initialDiagnosis: "",
+  diagnosisPeriodicity: "",
   monitoringForm: "indicator",
+  kpiIndicatorId: "",
   periodicity: "monthly",
   measureUnit: "",
   goal: "",
@@ -120,7 +123,10 @@ function Block({
   return (
     <section className="rounded-xl border bg-card p-4">
       <div className="mb-4 flex items-center gap-2 border-b pb-2.5">
-        <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" aria-hidden />
+        <Icon
+          className="h-4 w-4 text-blue-600 dark:text-blue-400"
+          aria-hidden
+        />
         <h3 className="text-[13px] font-semibold text-foreground">{title}</h3>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">{children}</div>
@@ -128,17 +134,35 @@ function Block({
   );
 }
 
-export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroScreenProps) {
+export function CadastroScreen({
+  orgId,
+  factorId,
+  onSaved,
+  onCancel,
+}: CadastroScreenProps) {
   const { data: factors = [] } = useRoadSafetyFactors(orgId);
   const { data: orgUsersData } = useListOrgUsers(orgId);
   const orgUsers = orgUsersData?.users ?? [];
+  const { data: indicators = [], isLoading: loadingIndicators } =
+    useKpiIndicators(orgId);
+  const indicatorOptions = useMemo(
+    () =>
+      indicators.map((i) => ({
+        value: String(i.id),
+        label: i.unit ? `${i.name} · ${i.unit}` : i.name,
+      })),
+    [indicators],
+  );
 
   const createFactor = useCreateFactorWithInvalidation(orgId);
   const updateFactor = useUpdateFactorWithInvalidation(orgId);
 
   const editing = factorId !== null;
   const factor = useMemo(
-    () => (factorId !== null ? factors.find((f) => f.id === factorId) ?? null : null),
+    () =>
+      factorId !== null
+        ? (factors.find((f) => f.id === factorId) ?? null)
+        : null,
     [factors, factorId],
   );
 
@@ -158,13 +182,20 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
       isAdditional: factor.isAdditional,
       name: factor.name,
       analysis: factor.analysis ?? "",
-      currentDiagnosis:
-        (factor as WithCurrentDiagnosis).currentDiagnosis ?? "",
+      initialDiagnosis: "",
+      diagnosisPeriodicity: (factor.diagnosisPeriodicity ?? "") as
+        | ""
+        | Periodicity,
       monitoringForm: factor.monitoringForm ?? "",
+      kpiIndicatorId:
+        factor.kpiIndicatorId != null ? String(factor.kpiIndicatorId) : "",
       periodicity: factor.periodicity as Periodicity,
       measureUnit: factor.measureUnit ?? "",
       goal: factor.goal != null ? String(factor.goal) : "",
-      responsibleUserId: factor.responsibleUserId != null ? String(factor.responsibleUserId) : "",
+      responsibleUserId:
+        factor.responsibleUserId != null
+          ? String(factor.responsibleUserId)
+          : "",
       monitoringDetail: factor.monitoringDetail ?? "",
       gutGravity: factor.gutGravity,
       gutUrgency: factor.gutUrgency,
@@ -181,6 +212,8 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
 
   const gutScore = form.gutGravity * form.gutUrgency * form.gutTendency;
   const saving = createFactor.isPending || updateFactor.isPending;
+  const linkedToIndicator =
+    form.monitoringForm === "indicator" && form.kpiIndicatorId !== "";
 
   async function handleSave() {
     if (!form.name.trim()) {
@@ -194,12 +227,18 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
       isAdditional: form.isAdditional,
       name: form.name.trim(),
       analysis: form.analysis || null,
-      currentDiagnosis: form.currentDiagnosis || null,
+      diagnosisPeriodicity: form.diagnosisPeriodicity || null,
+      // initialDiagnosis só existe na criação — na edição o diagnóstico entra
+      // pelo endpoint próprio, com autor e data.
+      ...(editing ? {} : { initialDiagnosis: form.initialDiagnosis || null }),
       monitoringForm: form.monitoringForm || null,
+      kpiIndicatorId: form.kpiIndicatorId ? Number(form.kpiIndicatorId) : null,
       periodicity: form.periodicity,
       measureUnit: form.measureUnit || null,
       goal: form.goal.trim() ? Number(form.goal) : null,
-      responsibleUserId: form.responsibleUserId ? Number(form.responsibleUserId) : null,
+      responsibleUserId: form.responsibleUserId
+        ? Number(form.responsibleUserId)
+        : null,
       monitoringDetail: form.monitoringDetail || null,
       gutGravity: form.gutGravity,
       gutUrgency: form.gutUrgency,
@@ -219,7 +258,10 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
       }
       onSaved();
     } catch {
-      toast({ title: "Erro ao salvar o fator de desempenho", variant: "destructive" });
+      toast({
+        title: "Erro ao salvar o fator de desempenho",
+        variant: "destructive",
+      });
     }
   }
 
@@ -228,7 +270,9 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-foreground">
-            {editing ? `Editar ${factor?.code ?? "fator"}` : "Cadastro de fator de desempenho"}
+            {editing
+              ? `Editar ${factor?.code ?? "fator"}`
+              : "Cadastro de fator de desempenho"}
           </h2>
           <p className="text-xs text-muted-foreground">
             Configure um FD da Segurança Viária — válido para qualquer segmento.
@@ -240,7 +284,9 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
             source={{
               sourceModule: "road_safety",
               sourceRef: { roadSafetyFactorId: factor.id },
-              defaultTitle: factor.code ? `${factor.code} — ${factor.name}` : factor.name,
+              defaultTitle: factor.code
+                ? `${factor.code} — ${factor.name}`
+                : factor.name,
               originLabel: factor.code ?? factor.name,
             }}
             label="Criar plano de ação"
@@ -259,25 +305,40 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
           />
         </Field>
         <Field label="Tipo do fator">
-          <Select value={form.type} onChange={(e) => set("type", e.target.value as FactorType)}>
+          <Select
+            value={form.type}
+            onChange={(e) => set("type", e.target.value as FactorType)}
+          >
             {FACTOR_TYPES.map((t) => (
-              <option key={t} value={t}>{FACTOR_TYPE_LABELS[t]}</option>
+              <option key={t} value={t}>
+                {FACTOR_TYPE_LABELS[t]}
+              </option>
             ))}
           </Select>
         </Field>
         <Field label="Origem do fator">
-          <Select value={form.origin} onChange={(e) => set("origin", e.target.value)}>
+          <Select
+            value={form.origin}
+            onChange={(e) => set("origin", e.target.value)}
+          >
             <option value="">Selecione</option>
             {FACTOR_ORIGINS.map((o) => (
-              <option key={o} value={o}>{ORIGIN_LABELS[o]}</option>
+              <option key={o} value={o}>
+                {ORIGIN_LABELS[o]}
+              </option>
             ))}
           </Select>
         </Field>
         <Field label="Vínculo com item da norma">
-          <Select value={form.normItem} onChange={(e) => set("normItem", e.target.value)}>
+          <Select
+            value={form.normItem}
+            onChange={(e) => set("normItem", e.target.value)}
+          >
             <option value="">Sem vínculo normativo</option>
             {NORM_ITEMS.map((n) => (
-              <option key={n.code} value={n.code}>{n.code} — {n.label}</option>
+              <option key={n.code} value={n.code}>
+                {n.code} — {n.label}
+              </option>
             ))}
           </Select>
         </Field>
@@ -295,12 +356,31 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
             placeholder="Descreva como e por que este fator impacta a segurança viária da organização..."
           />
         </Field>
-        <Field label="Diagnóstico atual" full>
-          <Textarea
-            value={form.currentDiagnosis}
-            onChange={(e) => set("currentDiagnosis", e.target.value)}
-            placeholder="Estado atual do fator — o diagnóstico que embasa a análise GUT..."
-          />
+        {editing && factor ? (
+          <DiagnosisSection orgId={orgId} factor={factor} />
+        ) : (
+          <Field label="Diagnóstico inicial" full>
+            <Textarea
+              value={form.initialDiagnosis}
+              onChange={(e) => set("initialDiagnosis", e.target.value)}
+              placeholder="Estado atual do fator — o diagnóstico que embasa a análise GUT..."
+            />
+          </Field>
+        )}
+        <Field label="Periodicidade do diagnóstico">
+          <Select
+            value={form.diagnosisPeriodicity}
+            onChange={(e) =>
+              set("diagnosisPeriodicity", e.target.value as "" | Periodicity)
+            }
+          >
+            <option value="">Sem revisão programada</option>
+            {DIAGNOSIS_PERIODICITIES.map((p) => (
+              <option key={p} value={p}>
+                {DIAGNOSIS_PERIODICITY_LABELS[p]}
+              </option>
+            ))}
+          </Select>
         </Field>
         <label className="flex cursor-pointer items-center gap-2 sm:col-span-2">
           <input
@@ -319,21 +399,49 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
         <Field label="Forma de monitoramento">
           <Select
             value={form.monitoringForm}
-            onChange={(e) => set("monitoringForm", e.target.value)}
+            onChange={(e) => {
+              set("monitoringForm", e.target.value);
+              if (e.target.value !== "indicator") set("kpiIndicatorId", "");
+            }}
           >
             <option value="">Selecione</option>
             {MONITORING_FORMS.map((m) => (
-              <option key={m} value={m}>{MONITORING_FORM_LABELS[m]}</option>
+              <option key={m} value={m}>
+                {MONITORING_FORM_LABELS[m]}
+              </option>
             ))}
           </Select>
         </Field>
+        {form.monitoringForm === "indicator" ? (
+          <Field label="Indicador vinculado" full>
+            <SearchableSelect
+              value={form.kpiIndicatorId}
+              onChange={(v) => set("kpiIndicatorId", v)}
+              options={indicatorOptions}
+              placeholder="Selecione um indicador do módulo Indicadores"
+              searchPlaceholder="Buscar indicador..."
+              isLoading={loadingIndicators}
+              emptyMessage={
+                indicators.length === 0
+                  ? "Nenhum indicador cadastrado no módulo Indicadores."
+                  : "Nenhum indicador encontrado"
+              }
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Vinculado: o valor atual, a unidade e a meta deste fator passam a
+              vir do indicador. O lançamento manual fica desabilitado.
+            </p>
+          </Field>
+        ) : null}
         <Field label="Periodicidade">
           <Select
             value={form.periodicity}
             onChange={(e) => set("periodicity", e.target.value as Periodicity)}
           >
             {PERIODICITIES.map((p) => (
-              <option key={p} value={p}>{PERIODICITY_LABELS[p]}</option>
+              <option key={p} value={p}>
+                {PERIODICITY_LABELS[p]}
+              </option>
             ))}
           </Select>
         </Field>
@@ -341,7 +449,13 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
           <Input
             value={form.measureUnit}
             onChange={(e) => set("measureUnit", e.target.value)}
-            placeholder="Ex: %, un, km, hora"
+            placeholder={
+              linkedToIndicator ? "Vem do indicador" : "Ex: %, un, km, hora"
+            }
+            disabled={linkedToIndicator}
+            className={cn(
+              linkedToIndicator && "bg-muted/50 text-muted-foreground",
+            )}
           />
         </Field>
         <Field label="Meta do período">
@@ -349,7 +463,11 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
             type="number"
             value={form.goal}
             onChange={(e) => set("goal", e.target.value)}
-            placeholder="Ex: 100"
+            placeholder={linkedToIndicator ? "Vem do indicador" : "Ex: 100"}
+            disabled={linkedToIndicator}
+            className={cn(
+              linkedToIndicator && "bg-muted/50 text-muted-foreground",
+            )}
           />
         </Field>
         <Field label="Responsável">
@@ -359,7 +477,9 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
           >
             <option value="">Selecione um responsável</option>
             {orgUsers.map((u) => (
-              <option key={u.id} value={String(u.id)}>{u.name}</option>
+              <option key={u.id} value={String(u.id)}>
+                {u.name}
+              </option>
             ))}
           </Select>
         </Field>
@@ -374,8 +494,13 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
 
       <section className="rounded-xl border bg-card p-4">
         <div className="mb-4 flex items-center gap-2 border-b pb-2.5">
-          <SlidersHorizontal className="h-4 w-4 text-blue-600 dark:text-blue-400" aria-hidden />
-          <h3 className="text-[13px] font-semibold text-foreground">Bloco D — Análise GUT</h3>
+          <SlidersHorizontal
+            className="h-4 w-4 text-blue-600 dark:text-blue-400"
+            aria-hidden
+          />
+          <h3 className="text-[13px] font-semibold text-foreground">
+            Bloco D — Análise GUT
+          </h3>
         </div>
         <div className="space-y-4">
           {(
@@ -385,8 +510,13 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
               ["Tendência", "gutTendency"],
             ] as const
           ).map(([label, key]) => (
-            <div key={key} className="grid grid-cols-[110px_1fr_36px] items-center gap-3">
-              <span className="text-[13px] font-medium text-foreground">{label}</span>
+            <div
+              key={key}
+              className="grid grid-cols-[110px_1fr_36px] items-center gap-3"
+            >
+              <span className="text-[13px] font-medium text-foreground">
+                {label}
+              </span>
               <Slider
                 value={[form[key]]}
                 min={1}
@@ -401,10 +531,18 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
           ))}
           <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
             <div>
-              <div className="text-xs text-muted-foreground">Resultado GUT (G × U × T)</div>
-              <div className="text-2xl font-semibold tabular-nums text-foreground">{gutScore}</div>
+              <div className="text-xs text-muted-foreground">
+                Resultado GUT (G × U × T)
+              </div>
+              <div className="text-2xl font-semibold tabular-nums text-foreground">
+                {gutScore}
+              </div>
             </div>
-            <RelevanceBadge score={gutScore} withScore={false} className="px-3.5 py-1 text-xs" />
+            <RelevanceBadge
+              score={gutScore}
+              withScore={false}
+              className="px-3.5 py-1 text-xs"
+            />
           </div>
         </div>
       </section>
@@ -420,10 +558,14 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
         <Field label="Status do controle">
           <Select
             value={form.controlStatus}
-            onChange={(e) => set("controlStatus", e.target.value as ControlStatus)}
+            onChange={(e) =>
+              set("controlStatus", e.target.value as ControlStatus)
+            }
           >
             {CONTROL_STATUSES.map((s) => (
-              <option key={s} value={s}>{CONTROL_STATUS_LABELS[s]}</option>
+              <option key={s} value={s}>
+                {CONTROL_STATUS_LABELS[s]}
+              </option>
             ))}
           </Select>
         </Field>

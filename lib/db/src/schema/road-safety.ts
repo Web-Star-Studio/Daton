@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { kpiIndicatorsTable } from "./kpi";
 import { organizationsTable } from "./organizations";
 import { usersTable } from "./users";
 
@@ -125,6 +126,12 @@ export const roadSafetyFactorsTable = pgTable(
     // Bloco B — Monitoramento
     monitoringForm: varchar("monitoring_form", { length: 30 }),
     periodicity: varchar("periodicity", { length: 20 }).notNull().default("monthly"),
+    /**
+     * Cadência de revisão do DIAGNÓSTICO do fator — distinta de `periodicity`,
+     * que rege o lançamento do indicador. Null = sem revisão programada: não
+     * vence e não gera pendência.
+     */
+    diagnosisPeriodicity: varchar("diagnosis_periodicity", { length: 20 }),
     measureUnit: varchar("measure_unit", { length: 30 }),
     goal: numeric("goal", { precision: 15, scale: 4 }),
     responsibleUserId: integer("responsible_user_id").references(
@@ -132,6 +139,12 @@ export const roadSafetyFactorsTable = pgTable(
       { onDelete: "set null" },
     ),
     monitoringDetail: text("monitoring_detail"),
+    /** Indicador (KPI) vinculado — quando setado, o fator consome valor/meta do
+     * módulo Indicadores e o lançamento manual fica bloqueado. */
+    kpiIndicatorId: integer("kpi_indicator_id").references(
+      () => kpiIndicatorsTable.id,
+      { onDelete: "set null" },
+    ),
     // Bloco D — Análise GUT (cada eixo 1–5; relevância = G × U × T)
     gutGravity: integer("gut_gravity").notNull().default(1),
     gutUrgency: integer("gut_urgency").notNull().default(1),
@@ -187,6 +200,41 @@ export const roadSafetyFactorMeasurementsTable = pgTable(
   ],
 );
 
+/**
+ * Diagnóstico do fator — append-only. Cada revisão é um registro novo, com
+ * autor e data; nenhum registro existente é editado ou apagado.
+ */
+export const roadSafetyFactorDiagnosesTable = pgTable(
+  "road_safety_factor_diagnoses",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id),
+    factorId: integer("factor_id")
+      .notNull()
+      .references(() => roadSafetyFactorsTable.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    referenceDate: date("reference_date").notNull(),
+    /** Null = registro migrado (autor original não registrado) ou usuário removido. */
+    diagnosedByUserId: integer("diagnosed_by_user_id").references(
+      () => usersTable.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("road_safety_diagnoses_factor_idx").on(
+      table.factorId,
+      table.referenceDate,
+    ),
+  ],
+);
+
 // ─── Insert schemas + inferred types ─────────────────────────────────────────
 
 export const insertRoadSafetyFactorSchema = createInsertSchema(
@@ -203,3 +251,12 @@ export type InsertRoadSafetyFactorMeasurement = z.infer<
 >;
 export type RoadSafetyFactorMeasurement =
   typeof roadSafetyFactorMeasurementsTable.$inferSelect;
+
+export const insertRoadSafetyFactorDiagnosisSchema = createInsertSchema(
+  roadSafetyFactorDiagnosesTable,
+).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertRoadSafetyFactorDiagnosis = z.infer<
+  typeof insertRoadSafetyFactorDiagnosisSchema
+>;
+export type RoadSafetyFactorDiagnosis =
+  typeof roadSafetyFactorDiagnosesTable.$inferSelect;

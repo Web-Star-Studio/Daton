@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { UpdateRoadSafetyFactorBodyControlStatus } from "./updateRoadSafetyFactorBodyControlStatus";
+import type { UpdateRoadSafetyFactorBodyDiagnosisPeriodicity } from "./updateRoadSafetyFactorBodyDiagnosisPeriodicity";
 import type { UpdateRoadSafetyFactorBodyType } from "./updateRoadSafetyFactorBodyType";
 
 export interface UpdateRoadSafetyFactorBody {
@@ -22,6 +23,9 @@ export interface UpdateRoadSafetyFactorBody {
   goal?: number | null;
   responsibleUserId?: number | null;
   monitoringDetail?: string | null;
+  /** Indicador (KPI) vinculado — fonte do valor/meta exibidos. Null = monitoramento manual. */
+  kpiIndicatorId?: number | null;
+  diagnosisPeriodicity?: UpdateRoadSafetyFactorBodyDiagnosisPeriodicity;
   gutGravity?: number;
   gutUrgency?: number;
   gutTendency?: number;

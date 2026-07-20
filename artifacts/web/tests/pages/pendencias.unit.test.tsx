@@ -19,7 +19,13 @@ const response: PendenciasResponse = {
     noDue: 0,
     upcoming: 0,
     completedToday: 0,
-    bySource: { kpi: 1, action_plan: 1, nonconformity: 0, regulatory_document: 0 },
+    bySource: {
+      kpi: 1,
+      action_plan: 1,
+      nonconformity: 0,
+      regulatory_document: 0,
+      road_safety_diagnosis: 0,
+    },
   },
   items: [],
   completedToday: [],
@@ -75,6 +81,7 @@ describe("SuasPendenciasPage — operator (identity, cards, no selector)", () =>
     expect(screen.getByText("Operador")).toBeInTheDocument();
     expect(screen.getByText(/hoje às 08:12/)).toBeInTheDocument();
     expect(screen.getByText("Total em aberto")).toBeInTheDocument();
+    expect(screen.getByText("Segurança viária")).toBeInTheDocument();
   });
 
   it("shows no scope selector for an operator", () => {

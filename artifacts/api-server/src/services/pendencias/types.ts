@@ -2,7 +2,8 @@ export type PendenciaSource =
   | "kpi"
   | "action_plan"
   | "nonconformity"
-  | "regulatory_document";
+  | "regulatory_document"
+  | "road_safety_diagnosis";
 
 export type PendenciaUrgency = "overdue" | "due_soon" | "upcoming" | "no_due";
 export type PendenciaPriority = "p1" | "p2" | "p3";
@@ -50,6 +51,7 @@ export const SOURCE_LABELS: Record<PendenciaSource, string> = {
   action_plan: "Plano de ação",
   nonconformity: "Não conformidade",
   regulatory_document: "Documento regulatório",
+  road_safety_diagnosis: "Diagnóstico de fator",
 };
 
 function startOfDay(d: Date): Date {

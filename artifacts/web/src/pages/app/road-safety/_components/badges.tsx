@@ -1,10 +1,12 @@
 import { cn } from "@/lib/utils";
 import {
   CONTROL_STATUS_LABELS,
+  diagnosisBadgeLabel,
   FACTOR_TYPE_SHORT,
   GUT_RELEVANCE_LABELS,
   gutRelevance,
   type ControlStatus,
+  type DiagnosisStatus,
   type FactorType,
 } from "@/lib/road-safety-client";
 
@@ -63,4 +65,26 @@ export function TypeBadge({ type }: { type: string }) {
   const t: FactorType =
     type in TYPE_STYLES ? (type as FactorType) : "intermediate";
   return <span className={cn(PILL, TYPE_STYLES[t])}>{FACTOR_TYPE_SHORT[t]}</span>;
+}
+
+const DIAGNOSIS_STYLES: Record<DiagnosisStatus, string> = {
+  none: "bg-slate-100 text-slate-600 dark:bg-slate-500/15 dark:text-slate-300",
+  ok: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  due_soon: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  overdue: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
+};
+
+/** Vencimento do diagnóstico — e.g. "Vencido", "Vence em 4 dias". */
+export function DiagnosisBadge({
+  status,
+  nextDate,
+}: {
+  status: DiagnosisStatus;
+  nextDate: string | null;
+}) {
+  return (
+    <span className={cn(PILL, DIAGNOSIS_STYLES[status])}>
+      {diagnosisBadgeLabel(status, nextDate)}
+    </span>
+  );
 }

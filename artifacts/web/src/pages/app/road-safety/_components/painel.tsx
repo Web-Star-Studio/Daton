@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import {
@@ -18,11 +18,22 @@ import {
   FACTOR_TYPES,
   FACTOR_TYPE_LABELS,
   ORIGIN_LABELS,
+  factorCurrentValue,
+  factorGoalValue,
+  factorMeasureUnit,
+  formatDateOnly,
   gutRelevance,
+  isLinkedToIndicator,
+  useLinkedIndicators,
   useRoadSafetyFactors,
 } from "@/lib/road-safety-client";
 import { formatKpiValue } from "@/lib/kpi-client";
-import { RelevanceBadge, StatusBadge, TypeBadge } from "./badges";
+import {
+  DiagnosisBadge,
+  RelevanceBadge,
+  StatusBadge,
+  TypeBadge,
+} from "./badges";
 
 type PainelScreenProps = {
   orgId: number;
@@ -44,8 +55,15 @@ const TILE_VALUE: Record<TileTone, string> = {
   green: "text-emerald-600 dark:text-emerald-400",
 };
 
-export function PainelScreen({ orgId, onView, onLaunch, onNew }: PainelScreenProps) {
+export function PainelScreen({
+  orgId,
+  onView,
+  onLaunch,
+  onNew,
+}: PainelScreenProps) {
   const { data: factors = [], isLoading } = useRoadSafetyFactors(orgId);
+  const currentYear = new Date().getFullYear();
+  const linked = useLinkedIndicators(orgId, currentYear);
 
   const [typeFilter, setTypeFilter] = useState("");
   const [originFilter, setOriginFilter] = useState("");
@@ -69,7 +87,8 @@ export function PainelScreen({ orgId, onView, onLaunch, onNew }: PainelScreenPro
       factors.filter((f) => {
         if (typeFilter && f.type !== typeFilter) return false;
         if (originFilter && f.origin !== originFilter) return false;
-        if (relevanceFilter && gutRelevance(f.gutScore) !== relevanceFilter) return false;
+        if (relevanceFilter && gutRelevance(f.gutScore) !== relevanceFilter)
+          return false;
         if (statusFilter && f.controlStatus !== statusFilter) return false;
         return true;
       }),
@@ -104,16 +123,28 @@ export function PainelScreen({ orgId, onView, onLaunch, onNew }: PainelScreenPro
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto">
+        <Select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="w-auto"
+        >
           <option value="">Todos os tipos</option>
           {FACTOR_TYPES.map((t) => (
-            <option key={t} value={t}>{FACTOR_TYPE_LABELS[t]}</option>
+            <option key={t} value={t}>
+              {FACTOR_TYPE_LABELS[t]}
+            </option>
           ))}
         </Select>
-        <Select value={originFilter} onChange={(e) => setOriginFilter(e.target.value)} className="w-auto">
+        <Select
+          value={originFilter}
+          onChange={(e) => setOriginFilter(e.target.value)}
+          className="w-auto"
+        >
           <option value="">Toda origem</option>
           {FACTOR_ORIGINS.map((o) => (
-            <option key={o} value={o}>{ORIGIN_LABELS[o]}</option>
+            <option key={o} value={o}>
+              {ORIGIN_LABELS[o]}
+            </option>
           ))}
         </Select>
         <Select
@@ -127,21 +158,33 @@ export function PainelScreen({ orgId, onView, onLaunch, onNew }: PainelScreenPro
           <option value="alta">Alta</option>
           <option value="extrema">Extrema</option>
         </Select>
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-auto">
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-auto"
+        >
           <option value="">Todo status</option>
           {CONTROL_STATUSES.map((s) => (
-            <option key={s} value={s}>{CONTROL_STATUS_LABELS[s]}</option>
+            <option key={s} value={s}>
+              {CONTROL_STATUS_LABELS[s]}
+            </option>
           ))}
         </Select>
       </div>
 
       <div className="overflow-hidden rounded-lg border bg-card">
         {isLoading ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">Carregando...</div>
+          <div className="p-12 text-center text-sm text-muted-foreground">
+            Carregando...
+          </div>
         ) : factors.length === 0 ? (
           <div className="p-12 text-center text-sm text-muted-foreground">
             Nenhum fator de desempenho cadastrado.{" "}
-            <button type="button" onClick={onNew} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+            <button
+              type="button"
+              onClick={onNew}
+              className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+            >
               Cadastrar o primeiro
             </button>
           </div>
@@ -158,6 +201,7 @@ export function PainelScreen({ orgId, onView, onLaunch, onNew }: PainelScreenPro
                 <TableHead>Fator de Desempenho</TableHead>
                 <TableHead>Indicador atual</TableHead>
                 <TableHead>Meta</TableHead>
+                <TableHead>Diagnóstico</TableHead>
                 <TableHead>GUT</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
@@ -166,11 +210,21 @@ export function PainelScreen({ orgId, onView, onLaunch, onNew }: PainelScreenPro
             <TableBody>
               {filtered.map((f) => {
                 const alerting =
-                  f.controlStatus === "non_conforming" || f.controlStatus === "overdue";
+                  f.controlStatus === "non_conforming" ||
+                  f.controlStatus === "overdue";
+                const info =
+                  f.kpiIndicatorId != null
+                    ? (linked.get(f.kpiIndicatorId) ?? null)
+                    : null;
+                const unit = factorMeasureUnit(f, info);
                 return (
                   <TableRow key={f.id}>
-                    <TableCell className="font-semibold text-muted-foreground">{f.code}</TableCell>
-                    <TableCell><TypeBadge type={f.type} /></TableCell>
+                    <TableCell className="font-semibold text-muted-foreground">
+                      {f.code}
+                    </TableCell>
+                    <TableCell>
+                      <TypeBadge type={f.type} />
+                    </TableCell>
                     <TableCell className="max-w-[260px]">
                       <div className="flex items-start gap-1.5">
                         {alerting ? (
@@ -179,23 +233,67 @@ export function PainelScreen({ orgId, onView, onLaunch, onNew }: PainelScreenPro
                             aria-label="Requer atenção"
                           />
                         ) : null}
-                        <span className="font-medium text-foreground">{f.name}</span>
+                        <span className="font-medium text-foreground">
+                          {f.name}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="tabular-nums">
-                      {fmt(f.latestValue, f.measureUnit)}
+                      <div className="flex items-center gap-1.5">
+                        {fmt(factorCurrentValue(f, info), unit)}
+                        {isLinkedToIndicator(f) && info ? (
+                          <Link2
+                            className="h-3 w-3 shrink-0 text-blue-500"
+                            aria-label={`Vinculado ao indicador ${info.name}`}
+                          />
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
-                      {fmt(f.goal, f.measureUnit)}
+                      {fmt(factorGoalValue(f, info), unit)}
                     </TableCell>
-                    <TableCell><RelevanceBadge score={f.gutScore} /></TableCell>
-                    <TableCell><StatusBadge status={f.controlStatus} /></TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5">
+                        <DiagnosisBadge
+                          status={f.diagnosisStatus}
+                          nextDate={f.nextDiagnosisDate ?? null}
+                        />
+                        {f.lastDiagnosis ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatDateOnly(f.lastDiagnosis.referenceDate)}
+                            {f.lastDiagnosis.diagnosedByUserName
+                              ? ` · ${f.lastDiagnosis.diagnosedByUserName}`
+                              : ""}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground">
+                            Sem diagnóstico
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <RelevanceBadge score={f.gutScore} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={f.controlStatus} />
+                    </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1.5">
-                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => onView(f.id)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => onView(f.id)}
+                        >
                           Ver
                         </Button>
-                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => onLaunch(f.id)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => onLaunch(f.id)}
+                        >
                           Lançar
                         </Button>
                       </div>
