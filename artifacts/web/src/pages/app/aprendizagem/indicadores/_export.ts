@@ -62,6 +62,39 @@ function statusFillColor(s: TrafficLight | null): [number, number, number] {
   return SLATE_300;
 }
 
+/**
+ * O gráfico por norma da tela não usa o semáforo de meta: usa a escala de 4
+ * faixas de `pctColor`/`pctBarColor` (80/60/40 → verde/azul/âmbar/vermelho).
+ * O PDF replica exatamente essa escala — colapsar tudo abaixo de 60 em
+ * vermelho pintaria de vermelho, no relatório, barras que a tela mostra em
+ * âmbar.
+ */
+type NormTier = "green" | "blue" | "amber" | "red" | null;
+
+function normBarLight(pct: number | null): NormTier {
+  if (pct === null) return null;
+  if (pct >= 80) return "green";
+  if (pct >= 60) return "blue";
+  if (pct >= 40) return "amber";
+  return "red";
+}
+
+function normFillColor(t: NormTier): [number, number, number] {
+  if (t === "green") return GREEN_500;
+  if (t === "blue") return [59, 130, 246]; // blue-500
+  if (t === "amber") return [251, 191, 36]; // amber-400
+  if (t === "red") return RED_500;
+  return SLATE_300;
+}
+
+function normTextColor(t: NormTier): [number, number, number] {
+  if (t === "green") return GREEN_700;
+  if (t === "blue") return [29, 78, 216]; // blue-700
+  if (t === "amber") return AMBER_700;
+  if (t === "red") return RED_700;
+  return [100, 116, 139];
+}
+
 const UNIT_STATUS_LABEL: Record<LearningSummaryUnitRow["status"], string> = {
   ok: "OK",
   atencao: "Atenção",
@@ -257,9 +290,7 @@ export function buildLearningIndicatorsPdf(input: LmsExportInput): jsPDF {
     for (const row of summary.byNorm) {
       ensureSpace(18);
       const pct = row.effectiveness;
-      // Mesmos limiares da tela (80/60/40) — ver pctBarColor em index.tsx.
-      const light: TrafficLight | null =
-        pct === null ? null : pct >= 80 ? "green" : pct >= 60 ? "yellow" : "red";
+      const light = normBarLight(pct);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
@@ -270,7 +301,7 @@ export function buildLearningIndicatorsPdf(input: LmsExportInput): jsPDF {
       doc.setFillColor(241, 245, 249);
       doc.roundedRect(trackX, y + 1, trackW, 7, 3.5, 3.5, "F");
       if (pct !== null && pct > 0) {
-        const [fr, fg, fb] = statusFillColor(light);
+        const [fr, fg, fb] = normFillColor(light);
         doc.setFillColor(fr, fg, fb);
         doc.roundedRect(
           trackX,
@@ -283,7 +314,7 @@ export function buildLearningIndicatorsPdf(input: LmsExportInput): jsPDF {
         );
       }
 
-      const [tr, tg, tb] = statusTextColor(light);
+      const [tr, tg, tb] = normTextColor(light);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(tr, tg, tb);
       doc.text(fmtPct(pct), pageW - margin, y + 7, { align: "right" });
@@ -347,8 +378,12 @@ export function buildLearningIndicatorsPdf(input: LmsExportInput): jsPDF {
   }
 
   // ── Treinamentos vencidos ──
-  if (summary.expired.length > 0) {
-    sectionTitle("Treinamentos vencidos");
+  // `expired` é a posição de HOJE e não acompanha o exercício selecionado.
+  // Num relatório de ano fechado, listá-la ao lado de um card year-scoped
+  // colocaria vencimentos futuros dentro de um "Exercício 2024". Só sai
+  // quando a contagem do exercício é positiva, e com o período no título.
+  if (summary.expired.length > 0 && (summary.cards.expiredTrainings ?? 0) > 0) {
+    sectionTitle("Treinamentos vencidos · posição atual");
     autoTable(doc, {
       startY: y,
       head: [["Colaborador", "Filial", "Treinamento", "Vencimento"]],
@@ -444,7 +479,13 @@ export function exportLearningIndicatorsToExcel(input: LmsExportInput): void {
         Norma: def.isoRef,
         Valor: value ?? "",
         Meta: target?.goal ?? "",
-        Direção: target?.direction === "down" ? "Menor é melhor" : "Maior é melhor",
+        // Sem meta não há direção a declarar — preencher "Maior é melhor" por
+        // padrão contradiria a coluna Situação, que diz "Sem dados".
+        Direção: !target
+          ? ""
+          : target.direction === "down"
+            ? "Menor é melhor"
+            : "Maior é melhor",
         Situação: status ? STATUS_LABEL[status] : "Sem dados",
       };
     }),
@@ -473,13 +514,16 @@ export function exportLearningIndicatorsToExcel(input: LmsExportInput): void {
 
   appendSheet(
     wb,
-    "Vencidos",
-    summary.expired.map((r) => ({
-      Colaborador: r.employeeName,
-      Filial: r.unitName ?? "",
-      Treinamento: r.title,
-      Vencimento: fmtDate(r.expirationDate),
-    })),
+    "Vencidos (hoje)",
+    // Mesma ressalva do PDF: posição atual, não do exercício selecionado.
+    (summary.cards.expiredTrainings ?? 0) > 0
+      ? summary.expired.map((r) => ({
+          Colaborador: r.employeeName,
+          Filial: r.unitName ?? "",
+          Treinamento: r.title,
+          Vencimento: fmtDate(r.expirationDate),
+        }))
+      : [],
   );
 
   appendSheet(

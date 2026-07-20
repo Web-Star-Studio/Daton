@@ -176,3 +176,30 @@ describe("buildLearningIndicatorsPdf", () => {
     ).not.toThrow();
   });
 });
+
+describe("export — coerência com o exercício selecionado", () => {
+  // `expired` é a posição de hoje e não acompanha o ano escolhido: num
+  // exercício fechado sem vencidos, listá-la contradiria o card.
+  const PASSADO: LearningSummary = {
+    ...SUMMARY,
+    cards: { ...SUMMARY.cards, expiredTrainings: 0 },
+  };
+
+  function pdfSize(summary: LearningSummary): number {
+    return buildLearningIndicatorsPdf({ summary, year: 2024 }).output().length;
+  }
+
+  it("omite a tabela de vencidos quando o exercício não registra vencidos", () => {
+    // A amostra existe no payload...
+    expect(PASSADO.expired.length).toBeGreaterThan(0);
+    // ...mas o documento sai menor porque a seção não é desenhada. O texto do
+    // PDF vive em content streams codificados, então o tamanho é o sinal
+    // observável de que a seção entrou ou não.
+    expect(pdfSize(PASSADO)).toBeLessThan(pdfSize(SUMMARY));
+  });
+
+  it("desenha a tabela quando o exercício registra vencidos", () => {
+    expect(SUMMARY.cards.expiredTrainings).toBeGreaterThan(0);
+    expect(pdfSize(SUMMARY)).toBeGreaterThan(pdfSize(PASSADO));
+  });
+});

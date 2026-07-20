@@ -185,7 +185,18 @@ export async function computeLearningSummary(args: {
   // Para um ano passado o acumulado é o ano inteiro (mês 12); para o ano
   // corrente, o mês atual.
   const cardsMonth = year === currentYear ? currentMonth : 12;
-  const metricArgs = { orgId, year, month: cardsMonth, unitId, database };
+  // `startMonth: 1` só afeta `effectiveness_overall`, a única métrica de
+  // janela: sob um cabeçalho "Exercício X" o card tem que ser o acumulado do
+  // ano, não a fatia de um mês (um ano fechado mostraria apenas dezembro).
+  // As demais métricas já acumulam até `month` e ignoram este parâmetro.
+  const metricArgs = {
+    orgId,
+    year,
+    month: cardsMonth,
+    startMonth: 1,
+    unitId,
+    database,
+  };
 
   const [
     patCompletion,

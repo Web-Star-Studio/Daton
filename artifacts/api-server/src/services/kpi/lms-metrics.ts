@@ -171,9 +171,17 @@ export async function computeLmsMetric(args: {
   year: number;
   month: number;
   unitId?: number;
+  /**
+   * Primeiro mês da janela em `effectiveness_overall` — a única métrica que
+   * olha um intervalo em vez de acumular até `month`. Padrão: o próprio
+   * `month` (janela de um mês), que é o que o módulo KPI precisa para lançar
+   * valor mensal. O resumo do LMS passa `1` para obter o acumulado do
+   * exercício, senão um ano fechado renderia só dezembro.
+   */
+  startMonth?: number;
   database: Database;
 }): Promise<number | null> {
-  const { orgId, metric, year, month, unitId, database } = args;
+  const { orgId, metric, year, month, unitId, startMonth, database } = args;
 
   // Recorte por filial na tabela de colaboradores — reaproveitado pelas
   // métricas que passam por `employees`.
@@ -202,7 +210,8 @@ export async function computeLmsMetric(args: {
   }
 
   if (metric === "effectiveness_overall") {
-    const start = `${year}-${String(month).padStart(2, "0")}-01`;
+    const first = Math.min(Math.max(startMonth ?? month, 1), month);
+    const start = `${year}-${String(first).padStart(2, "0")}-01`;
     const end = endOfMonthIso(year, month);
     const rows = await database
       .select({
