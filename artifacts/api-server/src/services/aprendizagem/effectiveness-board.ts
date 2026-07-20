@@ -55,16 +55,35 @@ export const boardHasDraftExists = exists(
     ),
 );
 
+// "Não aplicável" é invisível para toda contagem de obrigação: não é
+// pendência, não vence, não é realizado, não entra em numerador nem
+// denominador. Vale para os fragmentos deste arquivo (board de eficácia e
+// stats da Gestão de Treinamentos, que o importa de volta) — outros módulos
+// (lms-metrics.ts, training-catalog.ts, learning-summary.ts) reimplementam a
+// mesma regra como `status not in ('concluido', 'nao_aplicavel')` literal; ao
+// tocar naqueles, use a MESMA grafia.
+export const notNaoAplicavel = sql`${employeeTrainingsTable.status} <> 'nao_aplicavel'`;
+
 /**
  * Coluna "Concluídas": treinamentos com review registrado.
- * SQL: hasReview
+ * SQL: hasReview AND status <> 'nao_aplicavel'
+ *
+ * Defesa em profundidade: hoje esta coluna só é alcançada com
+ * `scope=needs_evaluation` (já filtra notNaoAplicavel) e `status=concluido`
+ * nas três colunas do board — NA nunca chega aqui pela UI. O filtro aqui
+ * estreita o predicado (nunca amplia) para o caso de a coluna ser usada
+ * fora desse caminho: um treino marcado NA depois de já ter review não pode
+ * aparecer como "realizado".
  */
-export const boardConcluidas = boardHasReviewExists;
+export const boardConcluidas = and(boardHasReviewExists, notNaoAplicavel)!;
 
 /**
  * Coluna "Em Avaliação": sem review, mas com papel ou prazo de avaliação atribuídos.
  * SQL: NOT hasReview
  *      AND (effectiveness_assigned_role IS NOT NULL OR effectiveness_due_date IS NOT NULL)
+ *      AND status <> 'nao_aplicavel'
+ *
+ * Mesma defesa em profundidade de boardConcluidas acima.
  */
 export const boardEmAvaliacao = and(
   not(boardHasReviewExists),
@@ -75,6 +94,7 @@ export const boardEmAvaliacao = and(
     // da coluna "Pendentes" e o avaliador fecha o wizard no meio.
     boardHasDraftExists,
   )!,
+  notNaoAplicavel,
 )!;
 
 /**
@@ -82,12 +102,20 @@ export const boardEmAvaliacao = and(
  * SQL: NOT hasReview
  *      AND effectiveness_assigned_role IS NULL
  *      AND effectiveness_due_date IS NULL
+ *      AND status <> 'nao_aplicavel'
+ *
+ * NA nunca é "realizado", então eficácia não se aplica: sem o filtro, um
+ * treino marcado Não aplicável (mas com evaluationMethod/targetCompetencyName
+ * herdados do catálogo) serializava effectivenessStatus "pending" e inflava
+ * stats.effectivenessPending. Ver getEffectivenessStatus, que precisa da
+ * mesma exclusão do lado JS.
  */
 export const boardPendentes = and(
   not(boardHasReviewExists),
   not(boardHasDraftExists),
   isNull(employeeTrainingsTable.effectivenessAssignedRole),
   isNull(employeeTrainingsTable.effectivenessDueDate),
+  notNaoAplicavel,
 )!;
 
 /**
@@ -112,15 +140,28 @@ export const boardHasPendingCriteria = or(
  * alguma configuração de avaliação de eficácia ou já possuem uma review.
  * Espelha o conjunto de estados NÃO-nulos de `getEffectivenessStatus`:
  * pending (critério presente) + in_review (papel OU **prazo** atribuído) + review.
- * SQL: (critério de pending presente — ver boardHasPendingCriteria)
- *      OR effectiveness_assigned_role IS NOT NULL
- *      OR effectiveness_due_date IS NOT NULL   -- in_review por prazo (SQL×JS, #115)
- *      OR EXISTS (review)
+ * SQL: status <> 'nao_aplicavel'
+ *      AND (
+ *        (critério de pending presente — ver boardHasPendingCriteria)
+ *        OR effectiveness_assigned_role IS NOT NULL
+ *        OR effectiveness_due_date IS NOT NULL   -- in_review por prazo (SQL×JS, #115)
+ *        OR EXISTS (review)
+ *        OR EXISTS (rascunho)
+ *      )
+ *
+ * NA nunca é "realizado", então eficácia não se aplica: sem o filtro, um
+ * treino marcado Não aplicável mas com evaluationMethod/targetCompetencyName
+ * (ou effectivenessAssignedRole/effectivenessDueDate) herdados do catálogo
+ * antes da marcação continuava entrando no board — o RH marca NA justamente
+ * para parar de ser cobrado por aquele item. Ver notNaoAplicavel.
  */
-export const boardNeedsEvaluationScope = or(
-  boardHasPendingCriteria,
-  isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
-  isNotNull(employeeTrainingsTable.effectivenessDueDate),
-  boardHasReviewExists,
-  boardHasDraftExists,
+export const boardNeedsEvaluationScope = and(
+  notNaoAplicavel,
+  or(
+    boardHasPendingCriteria,
+    isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
+    isNotNull(employeeTrainingsTable.effectivenessDueDate),
+    boardHasReviewExists,
+    boardHasDraftExists,
+  ),
 )!;

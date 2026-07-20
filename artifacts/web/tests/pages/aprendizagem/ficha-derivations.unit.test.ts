@@ -13,7 +13,13 @@ describe("computeTrainingCounters", () => {
       { status: "pendente" },
       { status: "vencido" },
     ]);
-    expect(r).toEqual({ total: 4, feitos: 2, pendentes: 1, vencidos: 1 });
+    expect(r).toEqual({
+      total: 4,
+      feitos: 2,
+      pendentes: 1,
+      vencidos: 1,
+      naoAplicavel: 0,
+    });
   });
 
   it("trata treino concluído com validade passada como vencido", () => {
@@ -31,6 +37,7 @@ describe("computeTrainingCounters", () => {
       feitos: 0,
       pendentes: 0,
       vencidos: 0,
+      naoAplicavel: 0,
     });
   });
 });

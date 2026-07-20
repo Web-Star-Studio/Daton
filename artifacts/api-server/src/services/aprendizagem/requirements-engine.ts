@@ -85,15 +85,20 @@ export async function applyTrainingRequirements(args: {
       .map((t) => t.catalogItemId)
       .filter((id): id is number => id != null),
   );
+  // "pendente" bloqueia recriação por já existir a pendência; "nao_aplicavel"
+  // bloqueia porque o RH declarou que o requisito não se aplica a esta pessoa —
+  // recriar o pendente ressuscitaria exatamente o que foi dispensado.
+  const jaTratado = (s: string) => s === "pendente" || s === "nao_aplicavel";
+
   const pendingByRequirement = new Set(
     existing
-      .filter((t) => t.status === "pendente")
+      .filter((t) => jaTratado(t.status))
       .map((t) => t.requirementId)
       .filter((id): id is number => id != null),
   );
   const pendingCatalogIds = new Set(
     existing
-      .filter((t) => t.status === "pendente")
+      .filter((t) => jaTratado(t.status))
       .map((t) => t.catalogItemId)
       .filter((id): id is number => id != null),
   );

@@ -14,6 +14,8 @@ const STAT_TONE: Record<string, string> = {
   feitos: "text-emerald-600",
   pendentes: "text-amber-600",
   vencidos: "text-red-600",
+  // Neutro (discreto): ausência de obrigação, não é sucesso nem alerta.
+  naoAplicavel: "text-muted-foreground",
 };
 
 export function FichaHeader({
@@ -41,6 +43,15 @@ export function FichaHeader({
     { key: "pendentes", label: "Pendentes", value: c.pendentes },
     { key: "vencidos", label: "Vencidos", value: c.vencidos },
   ];
+  // 5º contador discreto, só quando há registros "Não aplicável" — eles já
+  // saem do total e dos outros 3 contadores (computeTrainingCounters).
+  if (c.naoAplicavel > 0) {
+    stats.push({
+      key: "naoAplicavel",
+      label: "Não aplicável",
+      value: c.naoAplicavel,
+    });
+  }
   return (
     <div className="flex flex-wrap items-center gap-4">
       <div className="flex h-14 w-14 flex-none items-center justify-center rounded-xl bg-secondary text-lg font-bold text-foreground">

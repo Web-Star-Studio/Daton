@@ -1756,7 +1756,9 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
   unitId: zod.coerce.number().optional(),
   department: zod.coerce.string().optional(),
   position: zod.coerce.string().optional(),
-  status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
+  status: zod
+    .enum(["pendente", "concluido", "vencido", "nao_aplicavel"])
+    .optional(),
   expiringWithinDays: zod.coerce.number().min(1).optional(),
   effectivenessStatus: zod
     .enum(["pending", "in_review", "effective", "ineffective"])
@@ -1847,7 +1849,13 @@ export const ListOrganizationTrainingsResponse = zod.object({
       workloadHours: zod.number().nullish(),
       completionDate: zod.string().nullish(),
       expirationDate: zod.string().nullish(),
-      status: zod.enum(["pendente", "concluido", "vencido"]),
+      status: zod.enum(["pendente", "concluido", "vencido", "nao_aplicavel"]),
+      notApplicableReason: zod
+        .string()
+        .nullish()
+        .describe(
+          "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+        ),
       effectivenessStatus: zod
         .enum(["pending", "in_review", "effective", "ineffective"])
         .nullish(),
@@ -2482,7 +2490,18 @@ export const GetEmployeeResponse = zod
             workloadHours: zod.number().nullish(),
             completionDate: zod.string().nullish(),
             expirationDate: zod.string().nullish(),
-            status: zod.enum(["pendente", "concluido", "vencido"]),
+            status: zod.enum([
+              "pendente",
+              "concluido",
+              "vencido",
+              "nao_aplicavel",
+            ]),
+            notApplicableReason: zod
+              .string()
+              .nullish()
+              .describe(
+                "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+              ),
             attachments: zod.array(
               zod.object({
                 fileName: zod.string(),
@@ -3137,7 +3156,13 @@ export const ListTrainingsResponseItem = zod.object({
   workloadHours: zod.number().nullish(),
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
-  status: zod.enum(["pendente", "concluido", "vencido"]),
+  status: zod.enum(["pendente", "concluido", "vencido", "nao_aplicavel"]),
+  notApplicableReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+    ),
   attachments: zod.array(
     zod.object({
       fileName: zod.string(),
@@ -3325,7 +3350,15 @@ export const CreateTrainingBody = zod.object({
   workloadHours: zod.number().optional(),
   completionDate: zod.string().optional(),
   expirationDate: zod.string().optional(),
-  status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
+  status: zod
+    .enum(["pendente", "concluido", "vencido", "nao_aplicavel"])
+    .optional(),
+  notApplicableReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+    ),
   attachments: zod
     .array(
       zod.object({
@@ -3382,7 +3415,15 @@ export const UpdateTrainingBody = zod.object({
   workloadHours: zod.number().optional(),
   completionDate: zod.string().optional(),
   expirationDate: zod.string().optional(),
-  status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
+  status: zod
+    .enum(["pendente", "concluido", "vencido", "nao_aplicavel"])
+    .optional(),
+  notApplicableReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+    ),
   attachments: zod
     .array(
       zod.object({
@@ -3458,7 +3499,13 @@ export const UpdateTrainingResponse = zod.object({
   workloadHours: zod.number().nullish(),
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
-  status: zod.enum(["pendente", "concluido", "vencido"]),
+  status: zod.enum(["pendente", "concluido", "vencido", "nao_aplicavel"]),
+  notApplicableReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+    ),
   attachments: zod.array(
     zod.object({
       fileName: zod.string(),
@@ -3676,7 +3723,13 @@ export const AssignTrainingEffectivenessResponse = zod.object({
   workloadHours: zod.number().nullish(),
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
-  status: zod.enum(["pendente", "concluido", "vencido"]),
+  status: zod.enum(["pendente", "concluido", "vencido", "nao_aplicavel"]),
+  notApplicableReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+    ),
   effectivenessStatus: zod
     .enum(["pending", "in_review", "effective", "ineffective"])
     .nullish(),

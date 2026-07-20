@@ -424,6 +424,67 @@ describe("DELETE /training-catalog/:itemId — exclusão em cascata", () => {
     expect(doneAfter.catalogItemId).toBeNull();
   });
 
+  it("com cascade=true, preserva o treino não aplicável (NA) e desvincula do catálogo (histórico, a0475237)", async () => {
+    const context = await createTestContext({ seed: "catalog-cascade-na" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-catalog`;
+
+    const item = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ title: `Cascata NA ${context.prefix}` });
+    const itemId = item.body.id as number;
+
+    const position = await createPosition(context, { name: "Motorista" });
+    const requirement = await request(app)
+      .post(`/api/organizations/${context.organizationId}/training-requirements`)
+      .set(authHeader(context))
+      .send({
+        positionId: position.id,
+        catalogItemId: itemId,
+        deadlineType: "rh",
+      });
+    const requirementId = requirement.body.id as number;
+
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+    });
+
+    // NA exige motivo na API (POST /employees/:id/trainings rejeita sem
+    // notApplicableReason); aqui inserimos direto no banco, como os demais
+    // casos de cascade desta suíte, mas preenchendo o motivo para refletir
+    // um registro real.
+    const [naTraining] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: `Cascata NA ${context.prefix}`,
+        status: "nao_aplicavel",
+        notApplicableReason: "Colaborador não exerce a atividade",
+        catalogItemId: itemId,
+        requirementId,
+      })
+      .returning();
+
+    const removed = await request(app)
+      .delete(`${base}/${itemId}`)
+      .query({ cascade: "true" })
+      .set(authHeader(context));
+    expect(removed.status).toBe(204);
+
+    // NA permanece — não é apagado pelo DELETE de pendências (a0475237),
+    // só perde o vínculo com o catálogo e a obrigatoriedade (histórico
+    // preservado, mesma regra do concluído).
+    const [naAfter] = await db
+      .select()
+      .from(employeeTrainingsTable)
+      .where(eq(employeeTrainingsTable.id, naTraining.id));
+    expect(naAfter).toBeDefined();
+    expect(naAfter.status).toBe("nao_aplicavel");
+    expect(naAfter.catalogItemId).toBeNull();
+    expect(naAfter.requirementId).toBeNull();
+  });
+
   it("cascade não apaga employee_trainings concluídos de OUTRO item do catálogo", async () => {
     const context = await createTestContext({ seed: "catalog-cascade-scope" });
     contexts.push(context);

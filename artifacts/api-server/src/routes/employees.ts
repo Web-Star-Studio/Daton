@@ -122,6 +122,7 @@ import {
   boardHasReviewExists,
   boardNeedsEvaluationScope,
   boardPendentes,
+  notNaoAplicavel,
 } from "../services/aprendizagem/effectiveness-board";
 
 export {
@@ -132,6 +133,7 @@ export {
   boardHasReviewExists,
   boardNeedsEvaluationScope,
   boardPendentes,
+  notNaoAplicavel,
 } from "../services/aprendizagem/effectiveness-board";
 
 // ─── Gestão de Treinamentos — contagens programado/realizadoMes (SP6/B T1) ──
@@ -218,6 +220,8 @@ function deriveTrainingStatus(
   status: string,
   expirationDate: string | null,
 ): string {
+  // "Não aplicável" não vence: é um registro fora de qualquer obrigação.
+  if (status === "nao_aplicavel") return status;
   if (expirationDate) {
     const expDate = new Date(expirationDate);
     if (expDate < new Date()) {
@@ -225,6 +229,25 @@ function deriveTrainingStatus(
     }
   }
   return status;
+}
+
+/** NA exige motivo; qualquer outro status descarta o motivo. Devolve o valor a
+ *  gravar em not_applicable_reason, ou um erro de validação. */
+function resolveNotApplicableReason(
+  status: string | undefined,
+  reason: string | null | undefined,
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (status === "nao_aplicavel") {
+    const trimmed = (reason ?? "").trim();
+    if (!trimmed) {
+      return {
+        ok: false,
+        error: "Motivo é obrigatório quando o status é Não aplicável",
+      };
+    }
+    return { ok: true, value: trimmed };
+  }
+  return { ok: true, value: null };
 }
 
 function normalizeCompetencyText(value: string | null | undefined): string {
@@ -258,6 +281,18 @@ function getEffectivenessStatus(
   training: typeof employeeTrainingsTable.$inferSelect,
   hasAnyDraft = false,
 ): "pending" | "in_review" | "effective" | "ineffective" | null {
+  // NA nunca é "realizado" — eficácia não se aplica — curto-circuita ANTES de
+  // qualquer outro ramo (review final, rascunho/atribuição e critério
+  // herdado). É alcançável marcar como NA um treino que já tem review final
+  // ou rascunho registrados; sem este guard no topo, o treino continuava
+  // voltando "effective"/"ineffective"/"in_review" (só o ramo `pending` tinha
+  // a exclusão), e a ficha mostrava "Não aplicável" lado a lado com um
+  // resultado de eficácia — contraditório. Mesma exclusão do lado SQL em
+  // `boardPendentes` (notNaoAplicavel); ver P2 do PR #182.
+  if (training.status === "nao_aplicavel") {
+    return null;
+  }
+
   if (reviews.length > 0) {
     return reviews[0]?.isEffective ? "effective" : "ineffective";
   }
@@ -1786,11 +1821,14 @@ router.get(
         );
       } else if (st === "vencido") {
         conditions.push(
-          or(
-            eq(employeeTrainingsTable.status, "vencido"),
-            and(
-              isNotNull(employeeTrainingsTable.expirationDate),
-              sql`${employeeTrainingsTable.expirationDate} < current_date`,
+          and(
+            notNaoAplicavel,
+            or(
+              eq(employeeTrainingsTable.status, "vencido"),
+              and(
+                isNotNull(employeeTrainingsTable.expirationDate),
+                sql`${employeeTrainingsTable.expirationDate} < current_date`,
+              )!,
             )!,
           )!,
         );
@@ -1904,6 +1942,7 @@ router.get(
         .split("T")[0];
       conditions.push(
         and(
+          notNaoAplicavel,
           isNotNull(employeeTrainingsTable.expirationDate),
           sql`${employeeTrainingsTable.expirationDate} >= current_date`,
           sql`${employeeTrainingsTable.expirationDate} <= ${horizonDate}::date`,
@@ -1944,6 +1983,7 @@ router.get(
         completionDate: employeeTrainingsTable.completionDate,
         expirationDate: employeeTrainingsTable.expirationDate,
         status: employeeTrainingsTable.status,
+        notApplicableReason: employeeTrainingsTable.notApplicableReason,
         attachments: employeeTrainingsTable.attachments,
         legacyV1Id: employeeTrainingsTable.legacyV1Id,
         catalogItemId: employeeTrainingsTable.catalogItemId,
@@ -2007,28 +2047,46 @@ router.get(
 
     const [statsRow] = await db
       .select({
-        total: sql<number>`count(*)::int`,
+        // NA é invisível para toda contagem de obrigação — total precisa
+        // excluir nao_aplicavel também, senão diverge da soma
+        // pendente+concluido+vencido (ver notNaoAplicavel abaixo).
+        total: sql<number>`count(*) filter (where ${notNaoAplicavel})::int`,
         // Board column counts
         boardPendentesCount: sql<number>`count(*) filter (where ${boardPendentes})::int`,
         boardEmAvaliacaoCount: sql<number>`count(*) filter (where ${boardEmAvaliacao})::int`,
         boardConcluidasCount: sql<number>`count(*) filter (where ${boardConcluidas})::int`,
-        // Legacy training-status stats (replicating deriveTrainingStatus logic)
-        pendenteCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'pendente')::int`,
-        concluidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'concluido' and (${employeeTrainingsTable.expirationDate} is null or ${employeeTrainingsTable.expirationDate} >= current_date))::int`,
-        vencidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'vencido' or (${employeeTrainingsTable.expirationDate} is not null and ${employeeTrainingsTable.expirationDate} < current_date))::int`,
+        // Legacy training-status stats (replicating deriveTrainingStatus logic).
+        // Junto com `total` acima, todas as quatro somam `notNaoAplicavel`:
+        // NA é invisível para toda contagem de obrigação (não é pendência,
+        // não vence, não é realizado, não entra no total). Em
+        // pendenteCount/concluidoCount a igualdade exata de status já exclui
+        // NA — mantido por consistência/documentação.
+        pendenteCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'pendente' and ${notNaoAplicavel})::int`,
+        concluidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'concluido' and (${employeeTrainingsTable.expirationDate} is null or ${employeeTrainingsTable.expirationDate} >= current_date) and ${notNaoAplicavel})::int`,
+        vencidoCount: sql<number>`count(*) filter (where (${employeeTrainingsTable.status} = 'vencido' or (${employeeTrainingsTable.expirationDate} is not null and ${employeeTrainingsTable.expirationDate} < current_date)) and ${notNaoAplicavel})::int`,
         // effectivenessPending: boardPendentes (sem review/atribuição) + critério
         // de eficácia presente (fragmento único, alinhado ao JS — #115)
         effectivenessPendingCount: sql<number>`count(*) filter (where ${boardPendentes} and ${boardHasPendingCriteria})::int`,
-        // eficazes / naoEficazes: última review por treinamento
-        eficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = true)::int`,
-        naoEficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = false)::int`,
-        // onTime: concluídas com dueDate onde latestEvalDate <= dueDate
+        // eficazes / naoEficazes: última review por treinamento.
+        // `latestIsEffective` olha só para training_effectiveness_reviews —
+        // não sabe que o treino foi marcado NA depois da review. É
+        // alcançável (nada impede marcar NA um treino já avaliado), então
+        // sem ${notNaoAplicavel} aqui esses agregados continuavam somando um
+        // treino dispensado que carrega review antiga. Mesma exclusão do
+        // lado JS em getEffectivenessStatus. (boardConcluidas já filtra
+        // notNaoAplicavel, mas esta métrica não passa por ele.)
+        eficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = true and ${notNaoAplicavel})::int`,
+        naoEficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = false and ${notNaoAplicavel})::int`,
+        // onTime: concluídas com dueDate onde latestEvalDate <= dueDate.
+        // ${notNaoAplicavel} é redundante com boardConcluidas (que já filtra),
+        // mantido por clareza/documentação.
         onTimeCount: sql<number>`count(*) filter (where
           ${boardConcluidas}
+          and ${notNaoAplicavel}
           and ${employeeTrainingsTable.effectivenessDueDate} is not null
           and ${latestEvalDate} <= ${employeeTrainingsTable.effectivenessDueDate}
         )::int`,
-        withDueDateCount: sql<number>`count(*) filter (where ${boardConcluidas} and ${employeeTrainingsTable.effectivenessDueDate} is not null)::int`,
+        withDueDateCount: sql<number>`count(*) filter (where ${boardConcluidas} and ${notNaoAplicavel} and ${employeeTrainingsTable.effectivenessDueDate} is not null)::int`,
         // NB: `programadoCount` foi removido deste agregado — `isProgramado` é um
         // EXISTS correlacionado e, dentro de um `count(*) filter` (SELECT list),
         // o planner não consegue achatá-lo em semi-join; vira SubPlan por linha
@@ -2133,6 +2191,7 @@ router.get(
         requirementId: row.requirementId,
         dueDate: row.dueDate,
         status: derivedStatus,
+        notApplicableReason: row.notApplicableReason,
         effectivenessStatus,
         effectivenessDueDate: row.effectivenessDueDate || null,
         effectivenessAssignedRole:
@@ -3281,6 +3340,16 @@ router.post(
       if (v !== undefined) (values as Record<string, unknown>)[k] = v;
     }
 
+    const notApplicableResult = resolveNotApplicableReason(
+      values.status,
+      values.notApplicableReason,
+    );
+    if (!notApplicableResult.ok) {
+      res.status(400).json({ error: notApplicableResult.error });
+      return;
+    }
+    values.notApplicableReason = notApplicableResult.value;
+
     // Validade: se houver conclusão + renovação e nenhuma data de vencimento
     // explícita, calcula expirationDate = completionDate + renewalMonths.
     if (
@@ -3357,10 +3426,45 @@ router.patch(
       return;
     }
 
+    // PATCH é atualização parcial: status pode não vir no body. Busca o
+    // registro atual para decidir a regra do motivo com o status/motivo
+    // vigentes quando o body não os informa.
+    const [existing] = await db
+      .select({
+        status: employeeTrainingsTable.status,
+        notApplicableReason: employeeTrainingsTable.notApplicableReason,
+      })
+      .from(employeeTrainingsTable)
+      .where(
+        and(
+          eq(employeeTrainingsTable.id, params.data.trainId),
+          eq(employeeTrainingsTable.employeeId, params.data.empId),
+        ),
+      );
+    if (!existing) {
+      res.status(404).json({ error: "Treinamento não encontrado" });
+      return;
+    }
+
+    const effectiveStatus = body.data.status ?? existing.status;
+    const effectiveReason =
+      body.data.notApplicableReason !== undefined
+        ? body.data.notApplicableReason
+        : existing.notApplicableReason;
+    const notApplicableResult = resolveNotApplicableReason(
+      effectiveStatus,
+      effectiveReason,
+    );
+    if (!notApplicableResult.ok) {
+      res.status(400).json({ error: notApplicableResult.error });
+      return;
+    }
+
     const [training] = await db
       .update(employeeTrainingsTable)
       .set({
         ...body.data,
+        notApplicableReason: notApplicableResult.value,
         ...(attachments !== undefined ? { attachments } : {}),
       })
       .where(
@@ -3509,6 +3613,7 @@ router.post(
         completionDate: employeeTrainingsTable.completionDate,
         expirationDate: employeeTrainingsTable.expirationDate,
         status: employeeTrainingsTable.status,
+        notApplicableReason: employeeTrainingsTable.notApplicableReason,
         attachments: employeeTrainingsTable.attachments,
         legacyV1Id: employeeTrainingsTable.legacyV1Id,
         catalogItemId: employeeTrainingsTable.catalogItemId,
@@ -3570,6 +3675,7 @@ router.post(
       completionDate: updatedRow.completionDate,
       expirationDate: updatedRow.expirationDate,
       status: derivedStatus,
+      notApplicableReason: updatedRow.notApplicableReason,
       effectivenessStatus,
       effectivenessDueDate: updatedRow.effectivenessDueDate || null,
       effectivenessAssignedRole:

@@ -238,6 +238,32 @@ describe("trainingEffectivenessPendenciaProvider", () => {
     expect(items).toHaveLength(0);
   });
 
+  it("treino 'Não aplicável' não gera pendência — nem atribuído, nem no agregado", async () => {
+    const ctx = await createTestContext({ seed: "pend-ef-na" });
+    contexts.push(ctx);
+    const employee = await createEmployee(ctx, { name: `Colab ${ctx.prefix}` });
+    // Atribuído a alguém, mas o RH marcou NA — deixou de ser cobrável.
+    await seedTraining(employee.id, {
+      status: "nao_aplicavel",
+      effectivenessAssignedRole: "rh",
+      effectivenessDueDate: "2026-06-10",
+    });
+    // Sem atribuição e com critério herdado do catálogo: não pode inflar o agregado.
+    await seedTraining(employee.id, {
+      status: "nao_aplicavel",
+      evaluationMethod: "Prova prática",
+    });
+
+    const items = await trainingEffectivenessPendenciaProvider.listPending({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId],
+      now: NOW,
+      dueSoonDays: 7,
+    });
+
+    expect(items).toHaveLength(0);
+  });
+
   it("listCompletedToday devolve só reviews finais criadas hoje pelo avaliador no escopo", async () => {
     const ctx = await createTestContext({ seed: "pend-ef-done" });
     contexts.push(ctx);
