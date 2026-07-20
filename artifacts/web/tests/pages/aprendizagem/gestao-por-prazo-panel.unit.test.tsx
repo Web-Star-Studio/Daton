@@ -93,5 +93,6 @@ describe("PorPrazoPanel", () => {
       />,
     );
     expect(screen.getAllByText("0").length).toBeGreaterThan(0);
+    expect(screen.getByText("Nenhum treinamento vencido.")).toBeInTheDocument();
   });
 });

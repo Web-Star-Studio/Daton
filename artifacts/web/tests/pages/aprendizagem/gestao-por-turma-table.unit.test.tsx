@@ -30,6 +30,7 @@ describe("PorTurmaTable", () => {
       />,
     );
     expect(screen.getByText("Direção defensiva")).toBeInTheDocument();
+    expect(screen.getByText("26")).toBeInTheDocument();
     expect(screen.getByText("24")).toBeInTheDocument();
     expect(screen.getByText("23")).toBeInTheDocument();
     expect(screen.getByText("Realizada")).toBeInTheDocument();
