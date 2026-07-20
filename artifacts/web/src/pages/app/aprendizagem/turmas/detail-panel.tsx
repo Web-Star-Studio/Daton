@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetTrainingClass,
   useUpdateTrainingClassParticipant,
-  useCompleteTrainingClass,
   useUpdateTrainingClass,
   getGetTrainingClassQueryKey,
 } from "@workspace/api-client-react";
@@ -12,12 +11,16 @@ import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Plus } from "lucide-react";
 import {
   uploadFilesToStorage,
   formatFileSize,
   EMPLOYEE_RECORD_ATTACHMENT_ACCEPT,
 } from "@/lib/uploads";
 import { resolveApiUrl } from "@/lib/api";
+import { AddParticipantsDialog } from "./add-participants-dialog";
+import { ScoreInput } from "./score-input";
+import { EncerrarTurmaDialog } from "./encerrar-turma-dialog";
 
 type Tab = "presenca" | "notas" | "evidencias";
 
@@ -52,6 +55,8 @@ export function TurmaDetailPanel({
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("presenca");
   const [uploading, setUploading] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [encerrarOpen, setEncerrarOpen] = useState(false);
 
   const { data: detail, isLoading } = useGetTrainingClass(orgId, classId, {
     query: {
@@ -61,7 +66,6 @@ export function TurmaDetailPanel({
   });
 
   const updateParticipant = useUpdateTrainingClassParticipant();
-  const completeMutation = useCompleteTrainingClass();
   const updateClass = useUpdateTrainingClass();
 
   const invalidateDetail = () => {
@@ -109,24 +113,6 @@ export function TurmaDetailPanel({
     }
   };
 
-  const handleComplete = async () => {
-    try {
-      const res = await completeMutation.mutateAsync({ orgId, id: classId });
-      invalidateDetail();
-      onChanged();
-      toast({
-        title: "Turma concluída",
-        description: `${res.completed} treino(s) registrado(s) como concluído(s).`,
-      });
-    } catch {
-      toast({
-        title: "Erro ao concluir turma",
-        description: "Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0 || !detail) return;
     setUploading(true);
@@ -157,7 +143,13 @@ export function TurmaDetailPanel({
   }
 
   const participants = detail.participants ?? [];
+  // "Realizada" significa que o treinamento aconteceu — não que a escrituração
+  // está fechada. Presença e notas costumam chegar depois (prova corrigida,
+  // lista de presença digitalizada), e o backend nunca bloqueou essas edições.
+  // Travar o painel aqui criava um beco sem saída: turma concluída sem ninguém
+  // marcado presente ficava sem registro de treinamento e sem como corrigir.
   const isDone = detail.status === "realizada";
+  const enrolledIds = new Set(participants.map((p) => p.employeeId));
 
   return (
     <div className="rounded-xl border bg-card shadow-sm">
@@ -179,17 +171,25 @@ export function TurmaDetailPanel({
               {participants.length} inscrito(s)
             </p>
           </div>
-          {canWrite && !isDone ? (
+          {canWrite ? (
             <Button
               size="sm"
-              onClick={() => void handleComplete()}
-              disabled={completeMutation.isPending}
+              variant={isDone ? "outline" : "default"}
+              onClick={() => setEncerrarOpen(true)}
+              // Reabrir numa turma já realizada é seguro: o assistente regrava
+              // só o que mudou e completeTrainingClass pula quem já está
+              // concluído, então nada é duplicado.
+              title={
+                isDone
+                  ? "Revisar presença e notas e gerar os registros que ainda faltam."
+                  : undefined
+              }
             >
-              Concluir turma
+              {isDone ? "Revisar encerramento" : "Encerrar turma"}
             </Button>
           ) : null}
         </div>
-        <div className="mt-3 flex gap-1 text-xs">
+        <div className="mt-3 flex items-center gap-1 text-xs">
           {(["presenca", "notas", "evidencias"] as Tab[]).map((t) => (
             <button
               key={t}
@@ -207,6 +207,15 @@ export function TurmaDetailPanel({
                   : "Evidências"}
             </button>
           ))}
+          {canWrite ? (
+            <button
+              onClick={() => setAddOpen(true)}
+              className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 font-medium text-blue-700 hover:bg-blue-50"
+            >
+              <Plus className="h-3 w-3" />
+              Adicionar
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -220,7 +229,7 @@ export function TurmaDetailPanel({
               >
                 <InitialsAvatar name={p.employeeName} />
                 <span className="flex-1 truncate text-sm">{p.employeeName}</span>
-                {canWrite && !isDone ? (
+                {canWrite ? (
                   <div className="flex gap-1">
                     <button
                       onClick={() => void setAttendance(p, "presente")}
@@ -251,7 +260,10 @@ export function TurmaDetailPanel({
               </div>
             ))}
             {participants.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum inscrito.</p>
+              <p className="text-sm text-muted-foreground">
+                Nenhum inscrito
+                {canWrite ? " — use “Adicionar” para inscrever." : "."}
+              </p>
             ) : null}
           </div>
         ) : null}
@@ -277,7 +289,7 @@ export function TurmaDetailPanel({
                   <td className="py-1.5">
                     <ScoreInput
                       score={p.score ?? null}
-                      disabled={!canWrite || isDone}
+                      disabled={!canWrite}
                       onSave={(v) => void setScore(p, v)}
                     />
                   </td>
@@ -339,53 +351,38 @@ export function TurmaDetailPanel({
           </div>
         ) : null}
       </div>
-    </div>
-  );
-}
 
-// Controlled score input that stays in sync with refetched data.
-export function ScoreInput({
-  score,
-  disabled,
-  onSave,
-}: {
-  score: number | null;
-  disabled: boolean;
-  onSave: (v: number) => void;
-}) {
-  const [val, setVal] = useState(score != null ? String(score) : "");
-  useEffect(() => {
-    setVal(score != null ? String(score) : "");
-  }, [score]);
-  return (
-    <Input
-      type="number"
-      inputMode="decimal"
-      min={0}
-      max={10}
-      step={0.5}
-      value={val}
-      disabled={disabled}
-      className="h-8 w-20"
-      onChange={(e) => setVal(e.target.value)}
-      onBlur={() => {
-        if (val === "" || val === String(score ?? "")) return;
-        const parsed = Number(val);
-        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10) {
-          // Valor inválido: volta ao que estava, em vez de gravar lixo — mas
-          // avisa, senão o número digitado some sem explicação (achado 3 da
-          // revisão de fix/score-precisao-nota).
-          toast({
-            title: "Nota inválida",
-            description: "A nota deve estar entre 0 e 10.",
-            variant: "destructive",
-          });
-          setVal(score != null ? String(score) : "");
-          return;
-        }
-        onSave(parsed);
-      }}
-    />
+      {canWrite ? (
+        <AddParticipantsDialog
+          orgId={orgId}
+          classId={classId}
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          enrolledIds={enrolledIds}
+          onAdded={() => {
+            invalidateDetail();
+            onChanged();
+            setTab("presenca");
+          }}
+        />
+      ) : null}
+
+      {canWrite ? (
+        <EncerrarTurmaDialog
+          orgId={orgId}
+          classId={classId}
+          open={encerrarOpen}
+          onOpenChange={setEncerrarOpen}
+          participants={participants}
+          minScore={detail.minScore}
+          isDone={isDone}
+          onDone={() => {
+            invalidateDetail();
+            onChanged();
+          }}
+        />
+      ) : null}
+    </div>
   );
 }
 

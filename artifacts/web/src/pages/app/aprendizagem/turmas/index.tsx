@@ -7,8 +7,6 @@ import {
   useAddTrainingClassParticipants,
   getListTrainingClassesQueryKey,
   useListUnits,
-  useListEmployees,
-  getListEmployeesQueryKey,
   useListUserOptions,
   getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
@@ -35,6 +33,7 @@ import {
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import { TurmaDetailPanel } from "./detail-panel";
+import { EmployeePicker } from "./employee-picker";
 
 const STATUS_BADGE: Record<string, string> = {
   agendada: "bg-amber-50 text-amber-700",
@@ -175,16 +174,6 @@ export default function TurmasPage() {
     [catalogItems, form.catalogItemId],
   );
   const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
-  const [empSearch, setEmpSearch] = useState("");
-
-  const empParams = { search: empSearch || undefined, pageSize: 50 };
-  const { data: employeesResult } = useListEmployees(orgId ?? 0, empParams, {
-    query: {
-      enabled: !!orgId && open && step === 3,
-      queryKey: getListEmployeesQueryKey(orgId ?? 0, empParams),
-    },
-  });
-  const employees = employeesResult?.data ?? [];
 
   const createMutation = useCreateTrainingClass();
   const addParticipantsMutation = useAddTrainingClassParticipants();
@@ -535,45 +524,12 @@ export default function TurmasPage() {
         ) : null}
 
         {step === 3 ? (
-          <div className="space-y-3">
-            <Input
-              value={empSearch}
-              onChange={(e) => setEmpSearch(e.target.value)}
-              placeholder="Buscar colaborador..."
-            />
-            <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border p-2">
-              {employees.map((emp) => {
-                const checked = selectedEmployees.includes(emp.id);
-                return (
-                  <label
-                    key={emp.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) =>
-                        setSelectedEmployees((prev) =>
-                          e.target.checked
-                            ? [...prev, emp.id]
-                            : prev.filter((id) => id !== emp.id),
-                        )
-                      }
-                    />
-                    {emp.name}
-                  </label>
-                );
-              })}
-              {employees.length === 0 ? (
-                <p className="px-2 py-3 text-xs text-muted-foreground">
-                  Nenhum colaborador encontrado.
-                </p>
-              ) : null}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {selectedEmployees.length} selecionado(s)
-            </p>
-          </div>
+          <EmployeePicker
+            orgId={orgId ?? 0}
+            enabled={open && step === 3}
+            selected={selectedEmployees}
+            onChange={setSelectedEmployees}
+          />
         ) : null}
 
         <DialogFooter>
