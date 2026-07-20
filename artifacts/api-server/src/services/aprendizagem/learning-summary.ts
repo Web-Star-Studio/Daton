@@ -4,6 +4,7 @@ import {
   count,
   desc,
   eq,
+  gte,
   isNotNull,
   lte,
   notExists,
@@ -112,7 +113,15 @@ export interface LearningSummary {
 /**
  * Resolve meta/tolerância por métrica: parte dos padrões de
  * `LMS_INDICATOR_DEFS` e sobrescreve com o que a organização configurou no
- * módulo KPI para o ano pedido.
+ * módulo KPI.
+ *
+ * Usa **carry-forward**, não o ano exato: vale a config do ano mais recente
+ * que seja `<= year`. É a mesma regra que o módulo KPI aplica na leitura
+ * (`GET /kpi/years/:year` monta uma config sintética a partir do ano anterior
+ * mais recente quando o ano pedido ainda não foi aberto). Com o join exato, um
+ * org que definiu a meta em 2025 e ainda não abriu 2026 veria aqui o padrão do
+ * sistema e no módulo KPI a meta dele — dois semáforos diferentes para o mesmo
+ * indicador.
  */
 async function resolveTargets(
   orgId: number,
@@ -122,6 +131,7 @@ async function resolveTargets(
   const configured = await database
     .select({
       metric: kpiIndicatorsTable.computedMetric,
+      year: kpiYearConfigsTable.year,
       goal: kpiYearConfigsTable.goal,
       tolerance: kpiYearConfigsTable.tolerance,
       direction: kpiIndicatorsTable.direction,
@@ -131,7 +141,7 @@ async function resolveTargets(
       kpiYearConfigsTable,
       and(
         eq(kpiYearConfigsTable.indicatorId, kpiIndicatorsTable.id),
-        eq(kpiYearConfigsTable.year, year),
+        lte(kpiYearConfigsTable.year, year),
       ),
     )
     .where(
@@ -139,9 +149,17 @@ async function resolveTargets(
         eq(kpiIndicatorsTable.organizationId, orgId),
         eq(kpiIndicatorsTable.computedSource, "lms"),
       ),
-    );
+    )
+    .orderBy(desc(kpiYearConfigsTable.year));
 
-  const byMetric = new Map(configured.map((r) => [r.metric, r]));
+  // Já vem do maior ano para o menor: o primeiro de cada métrica é o vigente.
+  // São no máximo 6 métricas × poucos anos, então resolver em JS evita SQL
+  // cru (e manter `Database` como `Pick<typeof db, "select">`, que é o que os
+  // testes injetam).
+  const byMetric = new Map<string, (typeof configured)[number]>();
+  for (const row of configured) {
+    if (row.metric && !byMetric.has(row.metric)) byMetric.set(row.metric, row);
+  }
 
   return LMS_INDICATOR_DEFS.map((def) => {
     const override = byMetric.get(def.metric);
@@ -176,7 +194,6 @@ export async function computeLearningSummary(args: {
   const now = new Date();
   const currentMonth = now.getUTCMonth() + 1;
   const currentYear = now.getUTCFullYear();
-  const today = now.toISOString().slice(0, 10);
 
   // ─── CARDS ─────────────────────────────────────────────────────────────────
   // Seguem o mesmo recorte do resto da tela (ano + filial). Antes eram fixos em
@@ -197,6 +214,21 @@ export async function computeLearningSummary(args: {
     unitId,
     database,
   };
+
+  // Fronteiras do exercício selecionado. TODA a resposta é "posição ao fim do
+  // período", o mesmo recorte dos cards — antes `byNorm` era histórico
+  // completo, `expired` cortava em "hoje" e `pendingEffectiveness` não tinha
+  // corte nenhum, então o seletor de ano não os afetava e o cabeçalho
+  // "Exercício X" prometia um recorte que três painéis ignoravam.
+  //
+  // Repare que o corte é ACUMULADO (`<= periodEnd`), não "dentro do ano":
+  // vencido e eficácia pendente são dívida que não zera na virada do ano —
+  // um treinamento concluído em 2024 sem avaliação continua pendente em 2026,
+  // e escondê-lo esconderia justamente a pendência mais velha.
+  const periodStart = `${year}-01-01`;
+  const periodEnd = new Date(Date.UTC(year, cardsMonth, 0))
+    .toISOString()
+    .slice(0, 10);
 
   const [
     patCompletion,
@@ -245,7 +277,16 @@ export async function computeLearningSummary(args: {
     .groupBy(annualTrainingProgramTable.unitId);
 
   // Effectiveness por filial (via employee.unitId)
-  const effConditions = [eq(employeesTable.organizationId, orgId)];
+  // Mesma janela do card de eficácia e do `byNorm`. Sem isto a coluna
+  // "Eficácia" da tabela por filial ficava sem recorte de data nenhum e
+  // mostrava avaliações de outro ano sob o cabeçalho do exercício — a
+  // `completion` ao lado já respeitava o ano, então a própria linha se
+  // contradizia.
+  const effConditions = [
+    eq(employeesTable.organizationId, orgId),
+    gte(trainingEffectivenessReviewsTable.evaluationDate, periodStart),
+    lte(trainingEffectivenessReviewsTable.evaluationDate, periodEnd),
+  ];
   if (unitId !== undefined) {
     effConditions.push(eq(employeesTable.unitId, unitId));
   }
@@ -342,6 +383,11 @@ export async function computeLearningSummary(args: {
       and(
         eq(employeesTable.organizationId, orgId),
         unitId !== undefined ? eq(employeesTable.unitId, unitId) : undefined,
+        // MESMA janela do card "Eficácia geral" (Jan → fim do período). É o
+        // detalhamento daquele número: com janelas diferentes, a soma das
+        // barras não reconciliaria com o total exibido logo acima.
+        gte(trainingEffectivenessReviewsTable.evaluationDate, periodStart),
+        lte(trainingEffectivenessReviewsTable.evaluationDate, periodEnd),
       ),
     );
 
@@ -371,10 +417,13 @@ export async function computeLearningSummary(args: {
   );
 
   // ─── EXPIRED ────────────────────────────────────────────────────────────────
+  // Corte no fim do período, o MESMO de `cards.expiredTrainings`. Antes era
+  // "hoje": num exercício fechado a contagem dizia uma coisa e a amostra
+  // listava outra (inclusive vencimentos posteriores ao ano consultado).
   const expiredConditions = [
     eq(employeesTable.organizationId, orgId),
     isNotNull(employeeTrainingsTable.expirationDate),
-    lte(employeeTrainingsTable.expirationDate, today),
+    lte(employeeTrainingsTable.expirationDate, periodEnd),
     sql`${employeeTrainingsTable.status} <> 'concluido'`,
   ];
   if (unitId !== undefined) {
@@ -406,10 +455,14 @@ export async function computeLearningSummary(args: {
   }));
 
   // ─── PENDING EFFECTIVENESS ──────────────────────────────────────────────────
-  // Treinamentos concluídos sem nenhuma review de eficácia.
+  // Treinamentos concluídos sem nenhuma review de eficácia, até o fim do
+  // período. Acumulado de propósito: é dívida, não fluxo do ano — concluído em
+  // 2024 sem avaliação segue pendente em 2026. `completion_date` nulo entra
+  // porque o treinamento já está marcado como concluído.
   const pendingConditions = [
     eq(employeesTable.organizationId, orgId),
     eq(employeeTrainingsTable.status, "concluido"),
+    sql`(${employeeTrainingsTable.completionDate} is null or ${employeeTrainingsTable.completionDate} <= ${periodEnd})`,
     notExists(
       database
         .select({ id: trainingEffectivenessReviewsTable.id })
