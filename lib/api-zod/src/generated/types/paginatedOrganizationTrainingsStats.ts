@@ -18,6 +18,5 @@ export type PaginatedOrganizationTrainingsStats = {
   eficazes?: number;
   naoEficazes?: number;
   eficazPercent?: number | null;
-  programado?: number;
   realizadoMes?: number;
 };

@@ -1984,7 +1984,13 @@ router.get(
           and ${latestEvalDate} <= ${employeeTrainingsTable.effectivenessDueDate}
         )::int`,
         withDueDateCount: sql<number>`count(*) filter (where ${boardConcluidas} and ${employeeTrainingsTable.effectivenessDueDate} is not null)::int`,
-        programadoCount: sql<number>`count(*) filter (where ${isProgramado})::int`,
+        // NB: `programadoCount` foi removido deste agregado — `isProgramado` é um
+        // EXISTS correlacionado e, dentro de um `count(*) filter` (SELECT list),
+        // o planner não consegue achatá-lo em semi-join; vira SubPlan por linha
+        // (medido ~6,5s / 1,15M buffer hits em 50k linhas). O mesmo fragmento no
+        // WHERE (params onlyProgramado/onlyPendenteSemTurma abaixo) é achatado em
+        // Hash Semi Join (~60ms / ~800 buffers) — use esse caminho para contar
+        // programados, nunca reintroduza aqui.
         realizadoMesCount: sql<number>`count(*) filter (where ${isRealizadoMes})::int`,
       })
       .from(employeeTrainingsTable)
@@ -2015,7 +2021,6 @@ router.get(
       vencido: statsRow?.vencidoCount ?? 0,
       effectivenessPending: statsRow?.effectivenessPendingCount ?? 0,
       onTimePercent,
-      programado: statsRow?.programadoCount ?? 0,
       realizadoMes: statsRow?.realizadoMesCount ?? 0,
       // Novos campos de board (T2)
       boardCounts: {

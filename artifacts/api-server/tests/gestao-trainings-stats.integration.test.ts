@@ -69,7 +69,7 @@ async function seedProgramadoERealizado(ctx: TestOrgContext) {
 }
 
 describe("GET employees/trainings — stats programado/realizadoMes", () => {
-  it("conta programado e realizadoMes", async () => {
+  it("conta stats.realizadoMes; programado é provado via onlyProgramado (caminho rápido)", async () => {
     const ctx = await createTestContext({ seed: "trainings-stats" });
     contexts.push(ctx);
     await seedProgramadoERealizado(ctx);
@@ -80,8 +80,21 @@ describe("GET employees/trainings — stats programado/realizadoMes", () => {
       )
       .set(authHeader(ctx));
     expect(res.status).toBe(200);
-    expect(res.body.stats.programado).toBe(1);
     expect(res.body.stats.realizadoMes).toBe(1);
+    // `stats.programado` foi removido (EXISTS correlacionado no SELECT list
+    // não achata em semi-join — SubPlan por linha, medido ~6,5s/1,15M buffer
+    // hits em 50k linhas). Não deve voltar ao statsRow.
+    expect(res.body.stats.programado).toBeUndefined();
+
+    // Mesma contagem, pelo caminho rápido: onlyProgramado no WHERE achata em
+    // Hash Semi Join (~60ms/~800 buffers).
+    const onlyProgramadoRes = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?onlyProgramado=true&pageSize=1`,
+      )
+      .set(authHeader(ctx));
+    expect(onlyProgramadoRes.status).toBe(200);
+    expect(onlyProgramadoRes.body.pagination.total).toBe(1);
   });
 
   it("onlyProgramado filtra a lista para pendentes com turma ativa", async () => {

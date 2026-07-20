@@ -1935,7 +1935,6 @@ export const ListOrganizationTrainingsResponse = zod.object({
     eficazes: zod.number().optional(),
     naoEficazes: zod.number().optional(),
     eficazPercent: zod.number().nullish(),
-    programado: zod.number().optional(),
     realizadoMes: zod.number().optional(),
   }),
 });

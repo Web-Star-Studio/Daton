@@ -149,6 +149,34 @@ export default function AprendizagemGestaoPage() {
   );
   const aVencerCount = expiringResult?.pagination.total ?? 0;
 
+  // ── Query "programados": total da paginação (mesmo padrão de aVencerCount).
+  // `stats.programado` foi removido do backend — o EXISTS correlacionado de
+  // isProgramado dentro do `count(*) filter` do statsRow (SELECT list) não é
+  // achatado pelo planner em semi-join e vira SubPlan por linha (~6,5s/1,15M
+  // buffer hits em 50k linhas). O mesmo fragmento no WHERE, via param
+  // `onlyProgramado`, é achatado em Hash Semi Join (~60ms/~800 buffers) — daí
+  // essa query dedicada em vez de ler stats.programado. Não restringir a uma
+  // aba: os cards aparecem em todas.
+  const programadoParams: ListOrganizationTrainingsParams = {
+    ...baseParams,
+    onlyProgramado: true,
+    pageSize: 1,
+  };
+  const { data: programadoResult } = useListOrganizationTrainings(
+    orgId,
+    programadoParams,
+    {
+      query: {
+        enabled,
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId,
+          programadoParams,
+        ),
+      },
+    },
+  );
+  const programadoCount = programadoResult?.pagination.total ?? 0;
+
   // ── Buckets do painel "Por prazo" (só quando a aba está ativa) ──────────────
   const onPrazoTab = tab === "prazo";
   const vencidosBucketParams: ListOrganizationTrainingsParams = {
@@ -201,8 +229,9 @@ export default function AprendizagemGestaoPage() {
   // (param `onlyPendenteSemTurma`) — uma única query exata, sem buscar
   // programados no cliente para subtrair por id (o corte em 50 pendentes
   // podia esvaziar a coluna com badge > 0 quando os primeiros N pendentes
-  // eram todos programados; ver review final). Total exibido continua
-  // stats.pendente - stats.programado.
+  // eram todos programados; ver review final). Total exibido usa o
+  // `pagination.total` desta mesma query (exato, sem subtração nem query
+  // extra — `stats.programado` não existe mais no backend).
   const pendentesSemTurmaBucketParams: ListOrganizationTrainingsParams = {
     ...baseParams,
     onlyPendenteSemTurma: true,
@@ -437,7 +466,7 @@ export default function AprendizagemGestaoPage() {
           vencido: stats?.vencido ?? 0,
           aVencer: aVencerCount,
           pendente: stats?.pendente ?? 0,
-          programado: stats?.programado ?? 0,
+          programado: programadoCount,
           realizadoMes: stats?.realizadoMes ?? 0,
         }}
         active={statusFilter}
@@ -497,7 +526,7 @@ export default function AprendizagemGestaoPage() {
           vencidos={{ total: stats?.vencido ?? 0, items: vencidosItems }}
           aVencer={{ total: aVencerCount, items: aVencerItems }}
           pendentesSemTurma={{
-            total: (stats?.pendente ?? 0) - (stats?.programado ?? 0),
+            total: pendentesSemTurmaBucketResult?.pagination.total ?? 0,
             items: pendentesSemTurmaItems,
           }}
           onSeeAll={(f) => {

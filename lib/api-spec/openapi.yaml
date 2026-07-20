@@ -13546,8 +13546,6 @@ components:
             eficazPercent:
               type: number
               nullable: true
-            programado:
-              type: integer
             realizadoMes:
               type: integer
           required:
