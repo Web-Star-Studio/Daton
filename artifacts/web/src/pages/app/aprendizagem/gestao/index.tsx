@@ -11,10 +11,12 @@ import {
   getListPositionsQueryKey,
 } from "@workspace/api-client-react";
 import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
-import { useActiveNorms } from "@/lib/norms-client";
+import {
+  useActiveNorms,
+  useAllNorms,
+  buildNormLabelMap,
+} from "@/lib/norms-client";
 import type {
-  OrganizationTraining,
-  OrganizationTrainingStatus,
   ListOrganizationTrainingsParams,
   ListOrganizationTrainingsStatus,
   TrainingClass,
@@ -24,53 +26,11 @@ import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-/** Format a date-only ISO string (YYYY-MM-DD) as DD/MM/AA without UTC shift. */
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const parts = iso.slice(0, 10).split("-");
-  if (parts.length === 3) {
-    const d = new Date(
-      Number(parts[0]),
-      Number(parts[1]) - 1,
-      Number(parts[2]),
-    );
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "2-digit",
-      });
-    }
-  }
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-  });
-}
-
-/** Vencimento efetivo de um treinamento (expiração, senão prazo). */
-function trainingDeadline(t: OrganizationTraining): string | null {
-  return t.expirationDate ?? t.dueDate ?? null;
-}
+import { formatDate, trainingDeadline } from "./_lib/format";
+import { buildCatalogMeta } from "./_lib/catalog-meta";
+import { PorColaboradorTable } from "./_components/PorColaboradorTable";
 
 // ─── Badges ───────────────────────────────────────────────────────────────
-
-const STATUS_BADGE: Record<OrganizationTrainingStatus, string> = {
-  pendente: "bg-blue-50 text-blue-700 border-blue-200",
-  concluido: "bg-green-50 text-green-700 border-green-200",
-  vencido: "bg-red-50 text-red-700 border-red-200",
-};
-const STATUS_LABEL: Record<OrganizationTrainingStatus, string> = {
-  pendente: "Pendente",
-  concluido: "Concluído",
-  vencido: "Vencido",
-};
 
 const CLASS_STATUS_BADGE: Record<string, string> = {
   agendada: "bg-amber-50 text-amber-700",
@@ -252,6 +212,21 @@ export default function AprendizagemGestaoPage() {
     [activeNorms],
   );
 
+  // Colunas Norma/Crítico da tabela "Por colaborador": normLabelById inclui
+  // normas inativas de propósito (um item do catálogo pode referenciar uma
+  // norma já desativada e o rótulo ainda precisa aparecer). catalogItems usa
+  // o mesmo catálogo completo já carregado acima (sem 2ª busca).
+  const { data: allNorms = [] } = useAllNorms(orgId);
+  const normLabelById = useMemo(() => buildNormLabelMap(allNorms), [allNorms]);
+  const catalogItems = useMemo(
+    () => catalogResult?.data ?? [],
+    [catalogResult],
+  );
+  const catalogMeta = useMemo(
+    () => buildCatalogMeta(catalogItems, normLabelById),
+    [catalogItems, normLabelById],
+  );
+
   // ── Guards ──────────────────────────────────────────────────────────────
   if (!orgId) return null;
 
@@ -375,8 +350,9 @@ export default function AprendizagemGestaoPage() {
       {/* ── Conteúdo da aba ──────────────────────────────────────────────── */}
       {tab === "colaborador" ? (
         <div className="rounded-xl border bg-card shadow-sm">
-          <TrainingTable
+          <PorColaboradorTable
             rows={rows}
+            catalogMeta={catalogMeta}
             loading={mainLoading}
             error={mainError}
             emptyLabel="Nenhum treinamento encontrado para os filtros selecionados."
@@ -397,8 +373,9 @@ export default function AprendizagemGestaoPage() {
             carregados — use “Carregar mais” para incluir o restante.
           </p>
           <div className="rounded-xl border bg-card shadow-sm">
-            <TrainingTable
+            <PorColaboradorTable
               rows={rowsByDeadline}
+              catalogMeta={catalogMeta}
               loading={mainLoading}
               error={mainError}
               emptyLabel="Nenhum treinamento encontrado para os filtros selecionados."
@@ -545,76 +522,6 @@ function ResultsFooter({
           Carregar mais
         </button>
       )}
-    </div>
-  );
-}
-
-function TrainingTable({
-  rows,
-  loading,
-  error,
-  emptyLabel,
-}: {
-  rows: OrganizationTraining[];
-  loading: boolean;
-  error: boolean;
-  emptyLabel: string;
-}) {
-  if (loading) {
-    return (
-      <p className="px-4 py-8 text-sm text-muted-foreground">Carregando...</p>
-    );
-  }
-  if (error) {
-    return (
-      <p className="px-4 py-8 text-center text-sm text-red-600">
-        Não foi possível carregar os treinamentos.
-      </p>
-    );
-  }
-  if (rows.length === 0) {
-    return (
-      <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-        {emptyLabel}
-      </p>
-    );
-  }
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="border-b text-left text-xs uppercase text-muted-foreground">
-          <tr>
-            <th className="px-4 py-2 font-medium">Colaborador</th>
-            <th className="px-4 py-2 font-medium">Cargo</th>
-            <th className="px-4 py-2 font-medium">Filial</th>
-            <th className="px-4 py-2 font-medium">Treinamento</th>
-            <th className="px-4 py-2 font-medium">Situação</th>
-            <th className="px-4 py-2 font-medium">Vencimento</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((t) => (
-            <tr key={t.id} className="border-b last:border-0 hover:bg-muted/40">
-              <td className="px-4 py-2 font-medium">{t.employeeName}</td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {t.employeePosition ?? "—"}
-              </td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {t.unitName ?? "—"}
-              </td>
-              <td className="px-4 py-2">{t.title}</td>
-              <td className="px-4 py-2">
-                <Badge className={cn("border", STATUS_BADGE[t.status])}>
-                  {STATUS_LABEL[t.status]}
-                </Badge>
-              </td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {formatDate(t.expirationDate ?? t.dueDate)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
