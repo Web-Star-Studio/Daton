@@ -3,7 +3,10 @@ import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
+import {
+  SearchableSelect,
+  type SearchableOption,
+} from "@/components/ui/searchable-select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -25,9 +28,9 @@ import { AutoGrowTextarea } from "./auto-grow-textarea";
 
 const DEBOUNCE_MS = 1000;
 
-const STATUS_OPTIONS: SearchableOption[] = (Object.keys(ACTION_STATUS_LABELS) as ActionPlanActionStatus[]).map(
-  (status) => ({ value: status, label: ACTION_STATUS_LABELS[status] }),
-);
+const STATUS_OPTIONS: SearchableOption[] = (
+  Object.keys(ACTION_STATUS_LABELS) as ActionPlanActionStatus[]
+).map((status) => ({ value: status, label: ACTION_STATUS_LABELS[status] }));
 
 /** Editable snapshot of one row. Mirrors `ActionPlanAction`, but with the date
  * as a calendar string (for `<input type="date">`) and every text field as
@@ -51,7 +54,8 @@ function draftFromAction(a: ActionPlanAction): ActionDraft {
     whereAt: a.whereAt ?? "",
     how: a.how ?? "",
     howMuch: a.howMuch ?? "",
-    responsibleUserId: a.responsibleUserId != null ? String(a.responsibleUserId) : "",
+    responsibleUserId:
+      a.responsibleUserId != null ? String(a.responsibleUserId) : "",
     dueDate: storageIsoToCalendarDate(a.dueDate),
     status: a.status,
     notes: a.notes ?? "",
@@ -76,13 +80,13 @@ function draftToPayload(d: ActionDraft): UpdateActionPlanActionBody {
 function hasContent(a: ActionPlanAction): boolean {
   return Boolean(
     a.what?.trim() ||
-      a.why?.trim() ||
-      a.whereAt?.trim() ||
-      a.how?.trim() ||
-      a.howMuch?.trim() ||
-      a.notes?.trim() ||
-      a.responsibleUserId != null ||
-      a.dueDate,
+    a.why?.trim() ||
+    a.whereAt?.trim() ||
+    a.how?.trim() ||
+    a.howMuch?.trim() ||
+    a.notes?.trim() ||
+    a.responsibleUserId != null ||
+    a.dueDate,
   );
 }
 
@@ -91,7 +95,10 @@ function hasContent(a: ActionPlanAction): boolean {
  * "late"). `today` is a YYYY-MM-DD calendar string, compared lexically
  * against the stored date's own YYYY-MM-DD prefix (no `Date` parsing, so no
  * timezone drift — same approach as the plan-level overdue check). */
-export function isActionOverdue(action: Pick<ActionPlanAction, "dueDate" | "status">, today: string): boolean {
+export function isActionOverdue(
+  action: Pick<ActionPlanAction, "dueDate" | "status">,
+  today: string,
+): boolean {
   if (!action.dueDate) return false;
   if (action.status !== "open" && action.status !== "in_progress") return false;
   return action.dueDate.slice(0, 10) < today;
@@ -147,7 +154,10 @@ export function AcoesDoPlano({
     setDrafts((prev) => {
       const next: Record<number, ActionDraft> = {};
       for (const a of actions) {
-        next[a.id] = dirtyIdsRef.current.has(a.id) && prev[a.id] ? prev[a.id] : draftFromAction(a);
+        next[a.id] =
+          dirtyIdsRef.current.has(a.id) && prev[a.id]
+            ? prev[a.id]
+            : draftFromAction(a);
       }
       return next;
     });
@@ -171,9 +181,16 @@ export function AcoesDoPlano({
     }, DEBOUNCE_MS);
   }
 
-  function patchField<K extends keyof ActionDraft>(actionId: number, key: K, value: ActionDraft[K]) {
+  function patchField<K extends keyof ActionDraft>(
+    actionId: number,
+    key: K,
+    value: ActionDraft[K],
+  ) {
     dirtyIdsRef.current.add(actionId);
-    setDrafts((prev) => ({ ...prev, [actionId]: { ...prev[actionId], [key]: value } }));
+    setDrafts((prev) => ({
+      ...prev,
+      [actionId]: { ...prev[actionId], [key]: value },
+    }));
     scheduleSave(actionId);
   }
 
@@ -181,7 +198,12 @@ export function AcoesDoPlano({
     const draft = draftsRef.current[actionId];
     if (!draft) return;
     try {
-      await updateAction.mutateAsync({ orgId, planId, actionId, data: draftToPayload(draft) });
+      await updateAction.mutateAsync({
+        orgId,
+        planId,
+        actionId,
+        data: draftToPayload(draft),
+      });
       // Só desmarca "suja" se nenhuma edição nova foi agendada enquanto o PATCH
       // estava em voo. Se `timersRef.current[actionId]` existe, o usuário mexeu na
       // linha durante o request — limpar a flag agora deixaria o resync (disparado
@@ -195,11 +217,16 @@ export function AcoesDoPlano({
       // keeps showing an edit the server rejected (a "Concluída" that never
       // actually saved) — a menos que o usuário já tenha começado a corrigir a
       // linha (timer vivo): nesse caso a edição nova manda, não a reversão.
-      toast({ title: "Erro ao salvar ação", description: apiErrorMessage(err), variant: "destructive" });
+      toast({
+        title: "Erro ao salvar ação",
+        description: apiErrorMessage(err),
+        variant: "destructive",
+      });
       if (timersRef.current[actionId]) return;
       dirtyIdsRef.current.delete(actionId);
       const server = actionsRef.current.find((a) => a.id === actionId);
-      if (server) setDrafts((prev) => ({ ...prev, [actionId]: draftFromAction(server) }));
+      if (server)
+        setDrafts((prev) => ({ ...prev, [actionId]: draftFromAction(server) }));
     }
   }
 
@@ -211,10 +238,18 @@ export function AcoesDoPlano({
 
   async function handleAdd() {
     try {
-      const created = await createAction.mutateAsync({ orgId, planId, data: {} });
+      const created = await createAction.mutateAsync({
+        orgId,
+        planId,
+        data: {},
+      });
       setExpanded((prev) => new Set(prev).add(created.id));
     } catch (err) {
-      toast({ title: "Erro ao incluir ação", description: apiErrorMessage(err), variant: "destructive" });
+      toast({
+        title: "Erro ao incluir ação",
+        description: apiErrorMessage(err),
+        variant: "destructive",
+      });
     }
   }
 
@@ -243,7 +278,11 @@ export function AcoesDoPlano({
     try {
       await deleteAction.mutateAsync({ orgId, planId, actionId });
     } catch (err) {
-      toast({ title: "Erro ao remover ação", description: apiErrorMessage(err), variant: "destructive" });
+      toast({
+        title: "Erro ao remover ação",
+        description: apiErrorMessage(err),
+        variant: "destructive",
+      });
     } finally {
       setARemover(null);
     }
@@ -275,7 +314,8 @@ export function AcoesDoPlano({
 
       {actions.length === 0 ? (
         <p className="text-[13px] text-muted-foreground">
-          Nenhuma ação registrada neste plano. Inclua as ações que tratam a causa raiz.
+          Nenhuma ação registrada neste plano. Inclua as ações que tratam a
+          causa raiz.
         </p>
       ) : (
         // Um card por ação, empilhado — a coluna da ficha é estreita e uma tabela
@@ -300,19 +340,28 @@ export function AcoesDoPlano({
                     aria-expanded={aberta}
                     className="mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground"
                   >
-                    {aberta ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    {aberta ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
                   </button>
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center gap-2">
                       <Input
                         value={draft.what}
-                        onChange={(e) => patchField(action.id, "what", e.target.value)}
+                        onChange={(e) =>
+                          patchField(action.id, "what", e.target.value)
+                        }
                         placeholder="O que será feito"
                         readOnly={!canEdit}
                         className="flex-1"
                       />
                       {overdue && (
-                        <Badge variant="destructive" className="shrink-0 text-[10px]">
+                        <Badge
+                          variant="destructive"
+                          className="shrink-0 text-[10px]"
+                        >
                           Atrasada
                         </Badge>
                       )}
@@ -320,45 +369,60 @@ export function AcoesDoPlano({
                     {/* A coluna da ficha nunca passa de ~438px, então 3 colunas apertariam os
                         controles (o "Selecione"/"Em andamento" truncava). Quem ocupa a linha
                         inteira (nomes são longos); Quando e Status dividem a de baixo. */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="col-span-2">
-                        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Quem
-                        </label>
-                        <SearchableSelect
-                          value={draft.responsibleUserId}
-                          onChange={(v) => patchField(action.id, "responsibleUserId", v)}
-                          options={buildResponsibleOptions(orgUsers, draft.responsibleUserId, action.responsibleUserName)}
-                          placeholder="Selecione"
-                          searchPlaceholder="Buscar usuário..."
-                          emptyMessage="Nenhum usuário encontrado"
-                          disabled={!canEdit}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Quando
-                        </label>
-                        <Input
-                          type="date"
-                          value={draft.dueDate}
-                          onChange={(e) => patchField(action.id, "dueDate", e.target.value)}
-                          readOnly={!canEdit}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Status
-                        </label>
-                        <SearchableSelect
-                          value={draft.status}
-                          // Status é obrigatório — ignora o "Limpar seleção" do combobox (setaria "").
-                          onChange={(v) => {
-                            if (v) patchField(action.id, "status", v as ActionPlanActionStatus);
-                          }}
-                          options={STATUS_OPTIONS}
-                          disabled={!canEdit}
-                        />
+                    <div className="@container">
+                      <div className="grid grid-cols-2 gap-2 @2xl:grid-cols-3">
+                        <div className="col-span-2 @2xl:col-span-1">
+                          <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Quem
+                          </label>
+                          <SearchableSelect
+                            value={draft.responsibleUserId}
+                            onChange={(v) =>
+                              patchField(action.id, "responsibleUserId", v)
+                            }
+                            options={buildResponsibleOptions(
+                              orgUsers,
+                              draft.responsibleUserId,
+                              action.responsibleUserName,
+                            )}
+                            placeholder="Selecione"
+                            searchPlaceholder="Buscar usuário..."
+                            emptyMessage="Nenhum usuário encontrado"
+                            disabled={!canEdit}
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Quando
+                          </label>
+                          <Input
+                            type="date"
+                            value={draft.dueDate}
+                            onChange={(e) =>
+                              patchField(action.id, "dueDate", e.target.value)
+                            }
+                            readOnly={!canEdit}
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Status
+                          </label>
+                          <SearchableSelect
+                            value={draft.status}
+                            // Status é obrigatório — ignora o "Limpar seleção" do combobox (setaria "").
+                            onChange={(v) => {
+                              if (v)
+                                patchField(
+                                  action.id,
+                                  "status",
+                                  v as ActionPlanActionStatus,
+                                );
+                            }}
+                            options={STATUS_OPTIONS}
+                            disabled={!canEdit}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

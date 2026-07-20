@@ -554,7 +554,7 @@ export default function ActionPlanFichaPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 p-6">
+    <div className="mx-auto max-w-6xl space-y-5 p-6">
       {/* Top bar */}
       <div id="etapa-encerramento" className="flex scroll-mt-20 flex-wrap items-center gap-2 rounded-lg transition-shadow">
         <Button
@@ -631,7 +631,11 @@ export default function ActionPlanFichaPage() {
         <ActionPlanTimeline plan={plan} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* A coluna da esquerda abriga o Planejamento — 8 editores de análise estruturada e a
+          tabela de ações. Numa grade de metades iguais ela ficava com ~428px, e o Ishikawa
+          (6 categorias) virava campos de ~110px, ilegíveis. Daí a proporção assimétrica: o
+          trabalho analítico ganha o dobro da coluna de metadados. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         {/* ─── Left column ─────────────────────────────────────────────────── */}
         <div className="space-y-4">
           <Section id="etapa-identificacao" title="Identificação e contexto">

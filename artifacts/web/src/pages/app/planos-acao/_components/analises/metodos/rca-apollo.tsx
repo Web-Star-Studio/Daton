@@ -51,7 +51,7 @@ export function RcaApollo({
           readOnly={readOnly}
           extras={(node, update) => (
             <>
-              <div className="w-32 shrink-0">
+              <div className="w-36 shrink-0">
                 <SearchableSelect
                   value={node.type}
                   onChange={(v) =>
@@ -68,7 +68,7 @@ export function RcaApollo({
                 />
               </div>
               <Input
-                className="h-8 w-40 shrink-0 text-[13px]"
+                className="h-8 min-w-[12rem] flex-1 text-[13px]"
                 value={node.evidence ?? ""}
                 placeholder="Evidência"
                 readOnly={readOnly}

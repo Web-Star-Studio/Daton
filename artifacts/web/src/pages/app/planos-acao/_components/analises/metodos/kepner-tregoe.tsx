@@ -121,91 +121,102 @@ export function KepnerTregoe({
         </p>
         <div className="space-y-1.5">
           {causas.map((causa) => (
-            <div key={causa.id} className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="kt-causa-provavel"
-                className="shrink-0 cursor-pointer"
-                checked={data.mostProbableCauseId === causa.id}
-                disabled={readOnly}
-                onChange={() =>
-                  onChange({ ...data, mostProbableCauseId: causa.id })
-                }
-                aria-label="Marcar como causa mais provável"
-              />
-              <Input
-                className="h-8 flex-1 text-[13px]"
-                value={causa.text ?? ""}
-                placeholder="Causa possível"
-                readOnly={readOnly}
-                onChange={(e) =>
-                  onChange({
-                    ...data,
-                    possibleCauses: causas.map((c) =>
-                      c.id === causa.id ? { ...c, text: e.target.value } : c,
-                    ),
-                  })
-                }
-              />
-              <Input
-                className="h-8 flex-1 text-[13px]"
-                value={causa.verification ?? ""}
-                placeholder="Como foi verificada"
-                readOnly={readOnly}
-                onChange={(e) =>
-                  onChange({
-                    ...data,
-                    possibleCauses: causas.map((c) =>
-                      c.id === causa.id
-                        ? { ...c, verification: e.target.value }
-                        : c,
-                    ),
-                  })
-                }
-              />
-              <div className="flex shrink-0 items-center gap-1.5">
-                <span className="text-[11px] text-muted-foreground">
-                  Confirmada
-                </span>
-                <Switch
-                  checked={causa.verified ?? false}
+            // Um bloco por causa: a hipótese e o teste que a confirma são textos longos —
+            // numa linha só (com radio, switch e remover ao lado) nada ficava legível.
+            <div
+              key={causa.id}
+              className="space-y-1.5 rounded-lg border bg-background p-2"
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="kt-causa-provavel"
+                  className="shrink-0 cursor-pointer"
+                  checked={data.mostProbableCauseId === causa.id}
                   disabled={readOnly}
-                  onCheckedChange={(verified) =>
+                  onChange={() =>
+                    onChange({ ...data, mostProbableCauseId: causa.id })
+                  }
+                  aria-label="Marcar como causa mais provável"
+                />
+                <Input
+                  className="h-8 min-w-0 flex-1 text-[13px]"
+                  value={causa.text ?? ""}
+                  placeholder="Causa possível"
+                  readOnly={readOnly}
+                  onChange={(e) =>
                     onChange({
                       ...data,
                       possibleCauses: causas.map((c) =>
-                        c.id === causa.id ? { ...c, verified } : c,
+                        c.id === causa.id ? { ...c, text: e.target.value } : c,
                       ),
                     })
                   }
-                  aria-label="Causa confirmada pelo teste"
                 />
-              </div>
-              {!readOnly && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0 text-muted-foreground"
-                  aria-label="Remover causa possível"
-                  onClick={() => {
-                    if (data.mostProbableCauseId === causa.id) {
+                {!readOnly && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 text-muted-foreground"
+                    aria-label="Remover causa possível"
+                    onClick={() => {
+                      if (data.mostProbableCauseId === causa.id) {
+                        onChange({
+                          ...data,
+                          mostProbableCauseId: undefined,
+                          possibleCauses: causas.filter(
+                            (c) => c.id !== causa.id,
+                          ),
+                        });
+                        return;
+                      }
                       onChange({
                         ...data,
-                        mostProbableCauseId: undefined,
                         possibleCauses: causas.filter((c) => c.id !== causa.id),
                       });
-                      return;
-                    }
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  className="h-8 min-w-0 flex-1 text-[13px]"
+                  value={causa.verification ?? ""}
+                  placeholder="Como foi verificada"
+                  readOnly={readOnly}
+                  onChange={(e) =>
                     onChange({
                       ...data,
-                      possibleCauses: causas.filter((c) => c.id !== causa.id),
-                    });
-                  }}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              )}
+                      possibleCauses: causas.map((c) =>
+                        c.id === causa.id
+                          ? { ...c, verification: e.target.value }
+                          : c,
+                      ),
+                    })
+                  }
+                />
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span className="text-[11px] text-muted-foreground">
+                    Confirmada
+                  </span>
+                  <Switch
+                    checked={causa.verified ?? false}
+                    disabled={readOnly}
+                    onCheckedChange={(verified) =>
+                      onChange({
+                        ...data,
+                        possibleCauses: causas.map((c) =>
+                          c.id === causa.id ? { ...c, verified } : c,
+                        ),
+                      })
+                    }
+                    aria-label="Causa confirmada pelo teste"
+                  />
+                </div>
+              </div>
             </div>
           ))}
           {!readOnly && (

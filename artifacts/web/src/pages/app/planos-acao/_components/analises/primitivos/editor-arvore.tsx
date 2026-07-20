@@ -41,84 +41,98 @@ export function EditorArvore<T extends BaseNode>({
 
   return (
     <div className="space-y-1.5">
-      {nodes.map((node) => (
-        <div key={node.id} className="space-y-1.5">
-          <div
-            className="flex items-start gap-1.5"
-            style={{ paddingLeft: depth * 20 }}
-          >
-            <Input
-              className="h-8 flex-1 text-[13px]"
-              value={node.text ?? ""}
-              placeholder={placeholder}
-              readOnly={readOnly}
-              onChange={(e) =>
-                patch(node.id, { ...node, text: e.target.value })
-              }
-            />
-            {extras?.(node, (next) => patch(node.id, next))}
-            {!readOnly && (
-              <div className="flex shrink-0 items-center">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground"
-                  aria-label="Desindentar"
-                  title="Desindentar"
-                  onClick={() => onChange(outdentNode(nodes, node.id))}
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground"
-                  aria-label="Indentar"
-                  title="Indentar"
-                  onClick={() => onChange(indentNode(nodes, node.id))}
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground"
-                  aria-label="Adicionar item abaixo"
-                  title="Adicionar item abaixo"
-                  onClick={() => onChange(addSibling(nodes, node.id, novoNo()))}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground"
-                  aria-label="Remover item (e o que estiver abaixo dele)"
-                  title="Remover"
-                  onClick={() => onChange(removeNode(nodes, node.id))}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
+      {nodes.map((node) => {
+        // Avaliado aqui para não renderizar a linha de campos quando o método não tem nada a
+        // mostrar neste nó — a porta E/OU, por exemplo, só existe em nó com filhos.
+        const camposDoMetodo = extras?.(node, (next) => patch(node.id, next));
+        return (
+          <div key={node.id} className="space-y-1.5">
+            {/* O texto do nó fica SOZINHO na primeira linha (com os controles à direita) e os
+              campos do método vão para a de baixo. Antes dividiam a mesma linha: com um
+              select e um campo de evidência de largura fixa ao lado, o `flex-1` do texto
+              era espremido a zero — a causa em si ficava invisível, e a linha transbordava. */}
+            <div className="space-y-1" style={{ paddingLeft: depth * 20 }}>
+              <div className="flex items-start gap-1.5">
+                <Input
+                  className="h-8 min-w-0 flex-1 text-[13px]"
+                  value={node.text ?? ""}
+                  placeholder={placeholder}
+                  readOnly={readOnly}
+                  onChange={(e) =>
+                    patch(node.id, { ...node, text: e.target.value })
+                  }
+                />
+                {!readOnly && (
+                  <div className="flex shrink-0 items-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground"
+                      aria-label="Desindentar"
+                      title="Desindentar"
+                      onClick={() => onChange(outdentNode(nodes, node.id))}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground"
+                      aria-label="Indentar"
+                      title="Indentar"
+                      onClick={() => onChange(indentNode(nodes, node.id))}
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground"
+                      aria-label="Adicionar item abaixo"
+                      title="Adicionar item abaixo"
+                      onClick={() =>
+                        onChange(addSibling(nodes, node.id, novoNo()))
+                      }
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground"
+                      aria-label="Remover item (e o que estiver abaixo dele)"
+                      title="Remover"
+                      onClick={() => onChange(removeNode(nodes, node.id))}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
+              {camposDoMetodo && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {camposDoMetodo}
+                </div>
+              )}
+            </div>
+            {node.children.length > 0 && (
+              <EditorArvore
+                nodes={node.children as T[]}
+                onChange={(children) => patch(node.id, { ...node, children })}
+                novoNo={novoNo}
+                extras={extras}
+                placeholder={placeholder}
+                readOnly={readOnly}
+                depth={depth + 1}
+              />
             )}
           </div>
-          {node.children.length > 0 && (
-            <EditorArvore
-              nodes={node.children as T[]}
-              onChange={(children) => patch(node.id, { ...node, children })}
-              novoNo={novoNo}
-              extras={extras}
-              placeholder={placeholder}
-              readOnly={readOnly}
-              depth={depth + 1}
-            />
-          )}
-        </div>
-      ))}
+        );
+      })}
       {!readOnly && depth === 0 && (
         <Button
           type="button"

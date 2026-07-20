@@ -75,7 +75,10 @@ export function TabelaEstruturada<R extends { id: string }>({
         rows.map((row) => (
           <div
             key={row.id}
-            className={cn("rounded-lg border bg-background p-2.5", rowClassName?.(row))}
+            className={cn(
+              "rounded-lg border bg-background p-2.5",
+              rowClassName?.(row),
+            )}
           >
             {(tituloCol || (!readOnly && !fixedRows)) && (
               <div className="mb-1.5 flex items-start justify-between gap-2">
@@ -93,7 +96,9 @@ export function TabelaEstruturada<R extends { id: string }>({
                     size="icon"
                     className="-mr-1 -mt-1 h-6 w-6 shrink-0 text-muted-foreground"
                     aria-label="Remover linha"
-                    onClick={() => onChange(rows.filter((r) => r.id !== row.id))}
+                    onClick={() =>
+                      onChange(rows.filter((r) => r.id !== row.id))
+                    }
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
@@ -101,42 +106,57 @@ export function TabelaEstruturada<R extends { id: string }>({
               </div>
             )}
 
-            <div className="space-y-1.5">
-              {campos.map((coluna) => (
-                <div key={coluna.header}>
-                  <label className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {coluna.header}
-                  </label>
-                  {coluna.kind === "computed" ? (
-                    <div className="text-[13px]">{coluna.render(row)}</div>
-                  ) : coluna.kind === "select" ? (
-                    <SearchableSelect
-                      value={(row[coluna.key] as string | undefined)?.toString() ?? ""}
-                      onChange={(v) => setCell(row.id, coluna.key, v || undefined)}
-                      options={coluna.options}
-                      placeholder="—"
-                      searchPlaceholder="Buscar..."
-                      emptyMessage="Sem opções"
-                      disabled={readOnly}
-                    />
-                  ) : (
-                    <Input
-                      className="h-8 text-[13px]"
-                      value={(row[coluna.key] as string | undefined) ?? ""}
-                      placeholder={coluna.placeholder}
-                      readOnly={readOnly}
-                      onChange={(e) => setCell(row.id, coluna.key, e.target.value)}
-                    />
-                  )}
-                </div>
-              ))}
+            <div className="@container">
+              <div className="grid gap-x-3 gap-y-1.5 @xl:grid-cols-2">
+                {campos.map((coluna) => (
+                  <div key={coluna.header}>
+                    <label className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {coluna.header}
+                    </label>
+                    {coluna.kind === "computed" ? (
+                      <div className="text-[13px]">{coluna.render(row)}</div>
+                    ) : coluna.kind === "select" ? (
+                      <SearchableSelect
+                        value={
+                          (row[coluna.key] as string | undefined)?.toString() ??
+                          ""
+                        }
+                        onChange={(v) =>
+                          setCell(row.id, coluna.key, v || undefined)
+                        }
+                        options={coluna.options}
+                        placeholder="—"
+                        searchPlaceholder="Buscar..."
+                        emptyMessage="Sem opções"
+                        disabled={readOnly}
+                      />
+                    ) : (
+                      <Input
+                        className="h-8 text-[13px]"
+                        value={(row[coluna.key] as string | undefined) ?? ""}
+                        placeholder={coluna.placeholder}
+                        readOnly={readOnly}
+                        onChange={(e) =>
+                          setCell(row.id, coluna.key, e.target.value)
+                        }
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ))
       )}
 
       {!readOnly && !fixedRows && onAdd && (
-        <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={onAdd}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-xs"
+          onClick={onAdd}
+        >
           <Plus className="mr-1 h-3.5 w-3.5" />
           {addLabel}
         </Button>
