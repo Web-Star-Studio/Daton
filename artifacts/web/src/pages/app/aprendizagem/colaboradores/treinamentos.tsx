@@ -109,6 +109,7 @@ const TRAINING_STATUS_LABELS: Record<string, string> = {
   pendente: "Pendente",
   concluido: "Concluido",
   vencido: "Vencido",
+  nao_aplicavel: "Não aplicável",
 };
 
 const TRAINING_STATUS_BADGE_VARIANT: Record<
@@ -118,6 +119,8 @@ const TRAINING_STATUS_BADGE_VARIANT: Record<
   pendente: "secondary",
   concluido: "default",
   vencido: "destructive",
+  // Neutro: ausência de obrigação, não é sucesso nem alerta.
+  nao_aplicavel: "outline",
 };
 
 const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {

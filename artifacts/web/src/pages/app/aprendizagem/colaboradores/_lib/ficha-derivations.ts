@@ -1,11 +1,23 @@
 export function computeTrainingCounters(
   trainings: { status?: string | null; expirationDate?: string | null }[],
   today: string = new Date().toISOString().slice(0, 10),
-): { total: number; feitos: number; pendentes: number; vencidos: number } {
+): {
+  total: number;
+  feitos: number;
+  pendentes: number;
+  vencidos: number;
+  naoAplicavel: number;
+} {
   let feitos = 0;
   let pendentes = 0;
   let vencidos = 0;
+  let naoAplicavel = 0;
   for (const t of trainings) {
+    // "Não aplicável" sai de toda contagem de obrigação — inclusive do total.
+    if (t.status === "nao_aplicavel") {
+      naoAplicavel++;
+      continue;
+    }
     const expired = !!t.expirationDate && t.expirationDate < today;
     if (t.status === "vencido" || (t.status === "concluido" && expired)) {
       vencidos++;
@@ -15,7 +27,13 @@ export function computeTrainingCounters(
       pendentes++;
     }
   }
-  return { total: trainings.length, feitos, pendentes, vencidos };
+  return {
+    total: trainings.length - naoAplicavel,
+    feitos,
+    pendentes,
+    vencidos,
+    naoAplicavel,
+  };
 }
 
 export function computeTenure(

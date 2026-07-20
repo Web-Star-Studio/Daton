@@ -17,6 +17,14 @@ const TRAINING_STATUS_BADGE: Record<string, string> = {
   concluido: "bg-green-50 text-green-700",
   pendente: "bg-amber-50 text-amber-700",
   vencido: "bg-red-50 text-red-700",
+  // Neutro: ausência de obrigação, não é sucesso nem alerta.
+  nao_aplicavel: "bg-muted text-muted-foreground",
+};
+
+// A API devolve o status cru (ex.: "concluido"); só nao_aplicavel precisa de
+// rótulo traduzido aqui — os demais já são palavras legíveis em pt-BR.
+const TRAINING_STATUS_LABEL: Record<string, string> = {
+  nao_aplicavel: "Não aplicável",
 };
 
 export default function MinhaAreaPage() {
@@ -180,7 +188,7 @@ export default function MinhaAreaPage() {
                   >
                     <span className="flex-1 truncate">{t.title}</span>
                     <Badge className={TRAINING_STATUS_BADGE[t.status] ?? ""}>
-                      {t.status}
+                      {TRAINING_STATUS_LABEL[t.status] ?? t.status}
                     </Badge>
                   </li>
                 ))}
