@@ -1,6 +1,6 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
-import { db, employeeTrainingsTable, trainingCatalogTable, trainingEffectivenessReviewsTable, annualTrainingProgramTable } from "@workspace/db";
+import { db, employeeTrainingsTable, trainingCatalogTable, trainingEffectivenessReviewsTable, annualTrainingProgramTable, kpiIndicatorsTable, kpiYearConfigsTable } from "@workspace/db";
 import app from "../../src/app";
 import {
   authHeader,
@@ -232,5 +232,155 @@ describe("GET /organizations/:orgId/learning/summary", () => {
       (e: { employeeName: string }) => e.employeeName === "Ana B",
     );
     expect(expiredFromB).toBeUndefined();
+  });
+});
+
+describe("GET learning/summary — recorte por exercício e carry-forward da meta", () => {
+  it("herda a meta do ano anterior mais recente quando o ano pedido não foi aberto", async () => {
+    const ctx = await createTestContext({ seed: "lrn-summary-carry" });
+    contexts.push(ctx);
+
+    const [indicator] = await db
+      .insert(kpiIndicatorsTable)
+      .values({
+        organizationId: ctx.organizationId,
+        name: "% Cumprimento do PAT",
+        measurement: "% de itens do programa anual realizados",
+        direction: "up",
+        periodicity: "monthly",
+        computedSource: "lms",
+        computedMetric: "pat_completion",
+      })
+      .returning({ id: kpiIndicatorsTable.id });
+
+    // Config só em 2025 — 2026 nunca foi aberto.
+    await db.insert(kpiYearConfigsTable).values({
+      organizationId: ctx.organizationId,
+      indicatorId: indicator.id,
+      year: 2025,
+      goal: "55",
+      tolerance: "3",
+    });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/learning/summary?year=2026`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    const target = res.body.targets.find(
+      (t: { metric: string }) => t.metric === "pat_completion",
+    );
+    // 80/1 são os defaults de LMS_INDICATOR_DEFS; tem que vir a config da org.
+    expect(target.goal).toBe(55);
+    expect(target.tolerance).toBe(3);
+  });
+
+  it("usa o default do sistema quando a org nunca configurou o indicador", async () => {
+    const ctx = await createTestContext({ seed: "lrn-summary-default" });
+    contexts.push(ctx);
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/learning/summary?year=2026`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    const target = res.body.targets.find(
+      (t: { metric: string }) => t.metric === "pat_completion",
+    );
+    expect(target.goal).toBe(80);
+  });
+
+  it("byNorm cobre só a janela do exercício; vencidos/pendentes são acumulados", async () => {
+    const ctx = await createTestContext({ seed: "lrn-summary-window" });
+    contexts.push(ctx);
+
+    const unit = await createUnit(ctx, "Filial Janela");
+    const employee = await createEmployee(ctx, {
+      name: "Ana Janela",
+      unitId: unit.id,
+    });
+
+    const [catalog] = await db
+      .insert(trainingCatalogTable)
+      .values({
+        organizationId: ctx.organizationId,
+        title: "Norma Antiga",
+        norm: "NORMA-ANTIGA",
+      })
+      .returning({ id: trainingCatalogTable.id });
+
+    const [oldTraining] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: "Concluído em 2024",
+        status: "concluido",
+        completionDate: "2024-05-10",
+        catalogItemId: catalog.id,
+      })
+      .returning({ id: employeeTrainingsTable.id });
+
+    // Avaliação de 2024 — fora da janela de 2026.
+    await db.insert(trainingEffectivenessReviewsTable).values({
+      trainingId: oldTraining.id,
+      evaluatorUserId: ctx.userId,
+      evaluationDate: "2024-06-01",
+      isEffective: true,
+    });
+
+    // Vencido em 2025: dívida que continua aberta em 2026.
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: employee.id,
+      title: "Vencido em 2025",
+      status: "pendente",
+      expirationDate: "2025-12-31",
+    });
+
+    const get = async (year: number) =>
+      (
+        await request(app)
+          .get(
+            `/api/organizations/${ctx.organizationId}/learning/summary?year=${year}`,
+          )
+          .set(authHeader(ctx))
+      ).body;
+
+    const y2026 = await get(2026);
+    const y2024 = await get(2024);
+
+    // byNorm: a review de 2024 não conta no exercício de 2026...
+    expect(
+      y2026.byNorm.find((n: { norm: string }) => n.norm === "NORMA-ANTIGA"),
+    ).toBeUndefined();
+    // ...e conta no exercício de 2024.
+    expect(
+      y2024.byNorm.find((n: { norm: string }) => n.norm === "NORMA-ANTIGA"),
+    ).toBeDefined();
+
+    // expired é acumulado: vencimento de 2025 aparece em 2026...
+    expect(
+      y2026.expired.find((e: { title: string }) => e.title === "Vencido em 2025"),
+    ).toBeDefined();
+    // ...mas não num exercício anterior ao vencimento.
+    expect(
+      y2024.expired.find((e: { title: string }) => e.title === "Vencido em 2025"),
+    ).toBeUndefined();
+
+    // pendingEffectiveness é dívida acumulada: concluído em 2024 sem avaliação
+    // não pode sumir do exercício corrente. (O de 2024 TEM review, então usamos
+    // um concluído sem review para a asserção.)
+    const semReview = y2026.pendingEffectiveness.find(
+      (p: { title: string }) => p.title === "Vencido em 2025",
+    );
+    expect(semReview).toBeUndefined(); // não está 'concluido'
+
+    // A coluna Eficácia da tabela por filial usa a MESMA janela. Sem isto ela
+    // somava avaliações de qualquer ano ao lado de um Cumprimento year-scoped.
+    const rowIn = (body: { byUnit: { unitName: string }[] }) =>
+      body.byUnit.find((u) => u.unitName === "Filial Janela") as unknown as {
+        effectiveness: number | null;
+      };
+    expect(rowIn(y2024).effectiveness).toBe(100); // review de 2024, eficaz
+    expect(rowIn(y2026).effectiveness).toBeNull(); // nenhuma review em 2026
   });
 });
