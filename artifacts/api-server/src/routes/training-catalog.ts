@@ -320,8 +320,9 @@ router.delete(
     if (cascade) {
       // Se o treinamento não existe mais, "cargo X deve fazer Y" deixa de
       // fazer sentido: apaga a obrigatoriedade e as pendências ainda não
-      // realizadas. Quem já concluiu é histórico — preservado, só perde o
-      // vínculo com o catálogo.
+      // realizadas. Quem já concluiu ou foi marcado não aplicável é
+      // histórico — preservado, só perde o vínculo com o catálogo (NA nunca
+      // é pendência, ver regra em treinamento-nao-aplicavel).
       const [row] = await db.transaction(async (tx) => {
         // Confirma que o item é DESTA organização ANTES de qualquer mutação.
         // As operações abaixo em employee_trainings filtram só por
@@ -339,27 +340,30 @@ router.delete(
           )
           .limit(1);
         if (!owned) return [] as { id: number }[]; // 404, sem tocar em nada
-        // Pendências (não concluídas) somem: ninguém dali em diante é esperado.
+        // Pendências (nem concluídas nem NA) somem: ninguém dali em diante é
+        // esperado. NA nunca foi pendência — some daqui e vai para o UPDATE
+        // abaixo junto com os concluídos (histórico preservado).
         await tx
           .delete(employeeTrainingsTable)
           .where(
             and(
               eq(employeeTrainingsTable.catalogItemId, itemId),
-              sql`${employeeTrainingsTable.status} <> 'concluido'`,
+              sql`${employeeTrainingsTable.status} not in ('concluido', 'nao_aplicavel')`,
             ),
           );
-        // Concluídos são preservados como histórico, mas desvinculados do
-        // catálogo. Zeramos explicitamente: a FK ON DELETE SET NULL de
-        // catalog_item_id/requirement_id foi criada por DDL só na produção e
-        // não existe em todo ambiente — sem isto, o registro ficaria com um
-        // ponteiro pendente após o item ser apagado.
+        // Concluídos e não aplicáveis são preservados como histórico, mas
+        // desvinculados do catálogo. Zeramos explicitamente: a FK ON DELETE
+        // SET NULL de catalog_item_id/requirement_id foi criada por DDL só na
+        // produção e não existe em todo ambiente — sem isto, o registro
+        // ficaria com um ponteiro pendente após o item ser apagado (o DELETE
+        // acima, de propósito, não toca em NA).
         await tx
           .update(employeeTrainingsTable)
           .set({ catalogItemId: null, requirementId: null })
           .where(
             and(
               eq(employeeTrainingsTable.catalogItemId, itemId),
-              sql`${employeeTrainingsTable.status} = 'concluido'`,
+              sql`${employeeTrainingsTable.status} in ('concluido', 'nao_aplicavel')`,
             ),
           );
         // ON DELETE CASCADE cuida de obrigatoriedades/turmas/PAT vinculados.
@@ -415,7 +419,7 @@ router.delete(
           ),
         db
           .select({
-            pendencias: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} <> 'concluido')::int`,
+            pendencias: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} not in ('concluido', 'nao_aplicavel'))::int`,
             concluidos: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'concluido')::int`,
           })
           .from(employeeTrainingsTable)

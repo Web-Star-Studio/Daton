@@ -5,6 +5,7 @@ import {
   authHeader,
   cleanupTestContext,
   createEmployee,
+  createPosition,
   createTestContext,
   type TestOrgContext,
 } from "../../../tests/support/backend";
@@ -288,5 +289,64 @@ describe("Treinamento status nao_aplicavel — motivo obrigatório", () => {
     expect(
       aVencer.body.data.find((t: { title: string }) => t.title.includes("NR-12")),
     ).toBeUndefined();
+  });
+
+  // Regressão: as 4 leituras de status que negavam por `<> 'concluido'`
+  // ("tudo que não está concluído é pendência") contavam o NA como
+  // pendência, exatamente o oposto do que a regra central pede — um treino
+  // NA é invisível para toda contagem de obrigação. Este caso cobre o
+  // agregado exposto como `dependencies.pendencias` no item do catálogo
+  // (routes/training-catalog.ts, endpoint DELETE sem cascade — a única rota
+  // que expõe esse campo; a listagem GET /training-catalog não agrega por
+  // item).
+  it("NA não conta como pendência no agregado do catálogo (dependencies.pendencias)", async () => {
+    const ctx = await createTestContext({ seed: "na-fora-de-pendencias-catalogo" });
+    contexts.push(ctx);
+    const base = `/api/organizations/${ctx.organizationId}/training-catalog`;
+
+    const item = await request(app)
+      .post(base)
+      .set(authHeader(ctx))
+      .send({ title: `${ctx.prefix} NR-06 catálogo` });
+    expect(item.status).toBe(201);
+    const itemId = item.body.id as number;
+
+    // Precisa de alguma obrigatoriedade/turma/PAT para o DELETE sem cascade
+    // recusar com 409 e expor `dependencies` (senão ele simplesmente apaga
+    // o item sem nunca calcular pendencias/concluidos).
+    const position = await createPosition(ctx, { name: `${ctx.prefix} Cargo` });
+    const requirement = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/training-requirements`)
+      .set(authHeader(ctx))
+      .send({
+        positionId: position.id,
+        catalogItemId: itemId,
+        deadlineType: "rh",
+      });
+    expect(requirement.status).toBe(201);
+
+    const emp = await createEmployee(ctx, { name: `${ctx.prefix} Marcado NA` });
+    const training = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({
+        catalogItemId: itemId,
+        status: "nao_aplicavel",
+        notApplicableReason: "Colaborador não exerce a atividade",
+      });
+    expect(training.status).toBe(201);
+    expect(training.body.status).toBe("nao_aplicavel");
+
+    const blocked = await request(app)
+      .delete(`${base}/${itemId}`)
+      .set(authHeader(ctx));
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.dependencies).toEqual({
+      obrigatoriedades: 1,
+      turmas: 0,
+      pat: 0,
+      pendencias: 0,
+      concluidos: 0,
+    });
   });
 });

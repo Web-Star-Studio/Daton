@@ -313,7 +313,7 @@ export async function computeLmsMetric(args: {
           eq(employeesTable.organizationId, orgId),
           isNotNull(employeeTrainingsTable.expirationDate),
           lte(employeeTrainingsTable.expirationDate, end),
-          sql`${employeeTrainingsTable.status} <> 'concluido'`,
+          sql`${employeeTrainingsTable.status} not in ('concluido', 'nao_aplicavel')`,
           employeeUnitFilter,
         ),
       );
