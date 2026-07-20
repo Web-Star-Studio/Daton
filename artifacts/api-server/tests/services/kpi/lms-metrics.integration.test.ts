@@ -166,6 +166,72 @@ describe("computeLmsMetric", () => {
     expect(v).toBe(50);
   });
 
+  // Regressão: o denominador de mandatory_coverage era `count()` cru sobre
+  // `requirementId is not null`, sem excluir nao_aplicavel — o numerador
+  // (`status = 'concluido'`) já era seguro, mas a obrigatoriedade dispensada
+  // continuava pesando no total. Com 3 concluídas + 1 NA, a cobertura travava
+  // em 75% e nunca batia 100%, mesmo com todas as obrigatoriedades aplicáveis
+  // cumpridas. NA precisa sair do numerador E do denominador.
+  it("mandatory_coverage ignora nao_aplicavel no denominador (3 concluídas + 1 NA = 100%, não 75%)", async () => {
+    const ctx = await createTestContext({ seed: "lms-metric-cov-na" });
+    contexts.push(ctx);
+    const org = ctx.organizationId;
+    const emp = await createEmployee(ctx, {
+      name: `Colaborador ${ctx.prefix}`,
+    });
+    const position = await createPosition(ctx, { name: `Cargo ${ctx.prefix}` });
+    const [catalogItem] = await db
+      .insert(trainingCatalogTable)
+      .values({ organizationId: org, title: `Obrigatório NA ${ctx.prefix}` })
+      .returning();
+    const [requirement] = await db
+      .insert(trainingRequirementsTable)
+      .values({
+        organizationId: org,
+        positionId: position.id,
+        catalogItemId: catalogItem.id,
+      })
+      .returning();
+    await db.insert(employeeTrainingsTable).values([
+      {
+        employeeId: emp.id,
+        title: `Obrigatório A ${ctx.prefix}`,
+        status: "concluido",
+        requirementId: requirement.id,
+        completionDate: "2026-03-10",
+      },
+      {
+        employeeId: emp.id,
+        title: `Obrigatório B ${ctx.prefix}`,
+        status: "concluido",
+        requirementId: requirement.id,
+        completionDate: "2026-03-10",
+      },
+      {
+        employeeId: emp.id,
+        title: `Obrigatório C ${ctx.prefix}`,
+        status: "concluido",
+        requirementId: requirement.id,
+        completionDate: "2026-03-10",
+      },
+      {
+        employeeId: emp.id,
+        title: `Obrigatório D NA ${ctx.prefix}`,
+        status: "nao_aplicavel",
+        requirementId: requirement.id,
+        notApplicableReason: "Não se aplica ao colaborador",
+      },
+    ]);
+    const v = await computeLmsMetric({
+      orgId: org,
+      metric: "mandatory_coverage",
+      year: 2026,
+      month: 3,
+      database: db,
+    });
+    expect(v).toBe(100);
+  });
+
   it("hours_per_employee = total horas concluídas / colaboradores ativos", async () => {
     const ctx = await createTestContext({ seed: "lms-metric-hrs" });
     contexts.push(ctx);

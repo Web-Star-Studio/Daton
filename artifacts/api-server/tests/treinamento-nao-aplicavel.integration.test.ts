@@ -1,6 +1,6 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
-import { db } from "@workspace/db";
+import { db, employeeTrainingsTable } from "@workspace/db";
 import app from "../src/app";
 import { applyTrainingRequirements } from "../src/services/aprendizagem/requirements-engine";
 import {
@@ -464,5 +464,161 @@ describe("Treinamento status nao_aplicavel — motivo obrigatório", () => {
       .set(authHeader(ctx));
     expect(afterSecond.body).toHaveLength(1);
     expect(afterSecond.body[0].status).toBe("nao_aplicavel");
+  });
+
+  // Regressão (revisão final): boardPendentes/getEffectivenessStatus não
+  // olhavam status. A condição de entrada do board de eficácia é ter
+  // evaluationMethod/targetCompetencyName não-vazios — campos que são
+  // snapshot do catálogo, então um treino marcado NA que veio de um item com
+  // evaluationMethod preenchido continuava serializando effectivenessStatus
+  // "pending", entrando em stats.effectivenessPending e aparecendo na coluna
+  // "Pendentes" do board. Eficácia só faz sentido sobre treino realizado —
+  // NA nunca é realizado.
+  it("NA com critério de eficácia herdado do catálogo não aparece em boardColumn=pendentes nem em stats.effectivenessPending", async () => {
+    const ctx = await createTestContext({ seed: "na-fora-do-board-eficacia" });
+    contexts.push(ctx);
+    const emp = await createEmployee(ctx, { name: `${ctx.prefix} Board` });
+
+    const catalogItem = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/training-catalog`)
+      .set(authHeader(ctx))
+      .send({
+        title: `${ctx.prefix} NR-35 board`,
+        evaluationMethod: "Prova prática",
+      });
+    expect(catalogItem.status).toBe(201);
+
+    // Treino NA vinculado ao item: herda evaluationMethod do catálogo (o
+    // mesmo caminho do motor de requisitos / snapshot no POST), sem review
+    // e sem atribuição de avaliador — exatamente o "pendente" que a coluna
+    // do board detectaria se não excluísse NA.
+    const training = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({
+        catalogItemId: catalogItem.body.id,
+        status: "nao_aplicavel",
+        notApplicableReason: "Colaborador não exerce a atividade",
+      });
+    expect(training.status).toBe(201);
+    expect(training.body.status).toBe("nao_aplicavel");
+    expect(training.body.evaluationMethod).toBe("Prova prática");
+
+    // Também cria um pendente "normal" com o mesmo critério, para garantir
+    // que o filtro exclui só o NA — não zera a coluna inteira.
+    const outroEmp = await createEmployee(ctx, {
+      name: `${ctx.prefix} Board Pendente`,
+    });
+    const pendente = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${outroEmp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({ catalogItemId: catalogItem.body.id });
+    expect(pendente.status).toBe(201);
+    expect(pendente.body.status).toBe("pendente");
+
+    const board = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?boardColumn=pendentes&pageSize=50`,
+      )
+      .set(authHeader(ctx));
+    expect(board.status).toBe(200);
+    expect(
+      board.body.data.find((t: { id: number }) => t.id === training.body.id),
+    ).toBeUndefined();
+    expect(
+      board.body.data.find((t: { id: number }) => t.id === pendente.body.id),
+    ).toBeDefined();
+
+    const listagem = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings?pageSize=50`)
+      .set(authHeader(ctx));
+    expect(listagem.status).toBe(200);
+    const naRow = listagem.body.data.find(
+      (t: { id: number }) => t.id === training.body.id,
+    );
+    expect(naRow?.effectivenessStatus).toBeNull();
+    // Só o pendente "normal" deve contar — o NA fica de fora dos dois lados.
+    expect(listagem.body.stats.effectivenessPending).toBe(1);
+    expect(listagem.body.stats.boardCounts.pendentes).toBe(1);
+  });
+
+  // Regressão (revisão final, item 2): mesmo defeito de mandatory_coverage no
+  // agregado por colaborador (computeTrainingCompletionByEmployee), exibido
+  // como `trainingCompletionPercent` na listagem de Colaboradores. O
+  // comentário do arquivo diz "mirrors mandatory_coverage" — os dois
+  // precisam ser corrigidos juntos, senão a % da lista de Colaboradores
+  // desalinha do KPI para o mesmo colaborador.
+  it("trainingCompletionPercent (listagem de Colaboradores) ignora nao_aplicavel no denominador", async () => {
+    const ctx = await createTestContext({ seed: "na-fora-do-completion-colab" });
+    contexts.push(ctx);
+    const position = await createPosition(ctx, {
+      name: `${ctx.prefix} Cargo Completion`,
+    });
+    const emp = await createEmployee(ctx, {
+      name: `${ctx.prefix} Completion`,
+      position: position.name,
+    });
+
+    const catalogItem = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/training-catalog`)
+      .set(authHeader(ctx))
+      .send({ title: `${ctx.prefix} NR-35 completion` });
+    expect(catalogItem.status).toBe(201);
+
+    const requirement = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/training-requirements`)
+      .set(authHeader(ctx))
+      .send({
+        positionId: position.id,
+        catalogItemId: catalogItem.body.id,
+        deadlineType: "rh",
+      });
+    expect(requirement.status).toBe(201);
+    const requirementId = requirement.body.id as number;
+
+    // 3 obrigatoriedades concluídas + 1 marcada NA para o mesmo requisito: a
+    // % exibida na lista de Colaboradores deve ser 100%, não 75%.
+    await db.insert(employeeTrainingsTable).values([
+      {
+        employeeId: emp.id,
+        title: `${ctx.prefix} Obrigatório A`,
+        status: "concluido",
+        requirementId,
+        completionDate: "2026-01-15",
+      },
+      {
+        employeeId: emp.id,
+        title: `${ctx.prefix} Obrigatório B`,
+        status: "concluido",
+        requirementId,
+        completionDate: "2026-01-15",
+      },
+      {
+        employeeId: emp.id,
+        title: `${ctx.prefix} Obrigatório C`,
+        status: "concluido",
+        requirementId,
+        completionDate: "2026-01-15",
+      },
+      {
+        employeeId: emp.id,
+        title: `${ctx.prefix} Obrigatório D NA`,
+        status: "nao_aplicavel",
+        requirementId,
+        notApplicableReason: "Não se aplica ao colaborador",
+      },
+    ]);
+
+    const listagem = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees?search=${encodeURIComponent(ctx.prefix)}&pageSize=50`,
+      )
+      .set(authHeader(ctx));
+    expect(listagem.status).toBe(200);
+    const row = listagem.body.data.find(
+      (e: { id: number }) => e.id === emp.id,
+    );
+    expect(row).toBeDefined();
+    expect(row.trainingCompletionPercent).toBe(100);
   });
 });
