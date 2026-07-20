@@ -31,6 +31,18 @@ import {
 
 type Database = Pick<typeof db, "select">;
 
+/**
+ * Só avaliação FINALIZADA conta como avaliação.
+ *
+ * O rascunho (#176) é preenchimento em andamento — o próprio schema diz que
+ * "NÃO conta como avaliação concluída em nenhuma coluna do board", e o #178
+ * aplicou isso no board. Aqui faltava: rascunho entrava na eficácia por norma
+ * e por filial e, pior, satisfazia o `notExists` das pendências, fazendo o
+ * treinamento sumir da lista de "concluídos sem avaliação" sem que ninguém
+ * tivesse concluído a avaliação.
+ */
+const FINAL_REVIEW = eq(trainingEffectivenessReviewsTable.status, "final");
+
 function pct(numer: number, denom: number): number | null {
   if (denom === 0) return null;
   return Math.round((numer / denom) * 1000) / 10; // 1 casa decimal
@@ -286,6 +298,7 @@ export async function computeLearningSummary(args: {
     eq(employeesTable.organizationId, orgId),
     gte(trainingEffectivenessReviewsTable.evaluationDate, periodStart),
     lte(trainingEffectivenessReviewsTable.evaluationDate, periodEnd),
+    FINAL_REVIEW,
   ];
   if (unitId !== undefined) {
     effConditions.push(eq(employeesTable.unitId, unitId));
@@ -383,6 +396,7 @@ export async function computeLearningSummary(args: {
       and(
         eq(employeesTable.organizationId, orgId),
         unitId !== undefined ? eq(employeesTable.unitId, unitId) : undefined,
+        FINAL_REVIEW,
         // MESMA janela do card "Eficácia geral" (Jan → fim do período). É o
         // detalhamento daquele número: com janelas diferentes, a soma das
         // barras não reconciliaria com o total exibido logo acima.
@@ -463,14 +477,20 @@ export async function computeLearningSummary(args: {
     eq(employeesTable.organizationId, orgId),
     eq(employeeTrainingsTable.status, "concluido"),
     sql`(${employeeTrainingsTable.completionDate} is null or ${employeeTrainingsTable.completionDate} <= ${periodEnd})`,
+    // Rascunho NÃO tira o treinamento daqui: "concluído sem avaliação" continua
+    // verdade enquanto ninguém finalizou. Sem o filtro, abrir o wizard e sair
+    // no meio fazia a pendência desaparecer da tela.
     notExists(
       database
         .select({ id: trainingEffectivenessReviewsTable.id })
         .from(trainingEffectivenessReviewsTable)
         .where(
-          eq(
-            trainingEffectivenessReviewsTable.trainingId,
-            employeeTrainingsTable.id,
+          and(
+            eq(
+              trainingEffectivenessReviewsTable.trainingId,
+              employeeTrainingsTable.id,
+            ),
+            FINAL_REVIEW,
           ),
         ),
     ),
