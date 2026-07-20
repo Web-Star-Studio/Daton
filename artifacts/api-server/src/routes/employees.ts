@@ -339,7 +339,12 @@ function getEffectivenessStatus(
     training.effectivenessAssignedRole != null ||
     training.effectivenessDueDate != null ||
     // Rascunho em aberto é "em avaliação" mesmo sem atribuição formal — espelha
-    // `boardEmAvaliacao` no SQL.
+    // `boardEmAvaliacao` no SQL. Nota: aqui `draft` é só o rascunho DO usuário
+    // autenticado, enquanto `boardHasDraftExists` (SQL) olha qualquer rascunho —
+    // a coluna do board descreve o estado do treinamento, não o do usuário. Hoje
+    // isso não diverge porque todo rascunho nasce do passo 1 do wizard, que
+    // sempre grava papel+prazo; se algum caminho novo criar rascunho sem
+    // atribuição, alinhar os dois lados aqui.
     draft != null
   ) {
     return "in_review";
@@ -918,12 +923,17 @@ async function loadTrainingReviewRows(
 }
 
 /**
- * Rascunhos de eficácia em aberto, por treinamento. Um rascunho é sempre do
- * avaliador que o abriu (há no máximo um por treino+avaliador), e serve para o
- * wizard reidratar o preenchimento parcial em vez de zerar tudo.
+ * Rascunhos de eficácia em aberto **do avaliador autenticado**, por treinamento.
+ * Serve para o wizard reidratar o preenchimento parcial em vez de zerar tudo.
+ *
+ * O escopo por `evaluatorUserId` é de segurança, não de otimização: um mesmo
+ * treinamento pode ter vários avaliadores (gestor, RH, instrutor, colaborador).
+ * Sem o filtro, o rascunho mais recente vazaria para todos e um avaliador
+ * poderia finalizar, na própria conta, as anotações inacabadas de outro.
  */
 async function loadTrainingDraftRows(
   trainingIds: number[],
+  evaluatorUserId: number,
 ): Promise<Map<number, TrainingReviewRow>> {
   if (trainingIds.length === 0) return new Map();
 
@@ -954,6 +964,10 @@ async function loadTrainingDraftRows(
       and(
         inArray(trainingEffectivenessReviewsTable.trainingId, trainingIds),
         eq(trainingEffectivenessReviewsTable.status, "draft"),
+        eq(
+          trainingEffectivenessReviewsTable.evaluatorUserId,
+          evaluatorUserId,
+        ),
       ),
     )
     .orderBy(sql`${trainingEffectivenessReviewsTable.createdAt} desc`);
@@ -1898,6 +1912,7 @@ router.get(
           select r.is_effective
           from training_effectiveness_reviews r
           where r.training_id = ${employeeTrainingsTable.id}
+            and r.status = 'final'
           order by r.evaluation_date desc, r.created_at desc
           limit 1
         )`;
@@ -2009,6 +2024,7 @@ router.get(
       select r.is_effective
       from training_effectiveness_reviews r
       where r.training_id = ${employeeTrainingsTable.id}
+        and r.status = 'final'
       order by r.evaluation_date desc, r.created_at desc
       limit 1
     )`;
@@ -2016,6 +2032,7 @@ router.get(
       select r.evaluation_date
       from training_effectiveness_reviews r
       where r.training_id = ${employeeTrainingsTable.id}
+        and r.status = 'final'
       order by r.evaluation_date desc, r.created_at desc
       limit 1
     )`;
@@ -2090,6 +2107,7 @@ router.get(
     );
     const draftsByTrainingId = await loadTrainingDraftRows(
       rows.map((row) => row.id),
+      req.auth!.userId,
     );
 
     // ── Formatar linha (efectivenessStatus e expiringWithinDays já estão no SQL) ─
@@ -3526,7 +3544,10 @@ router.post(
 
     const reviews = await loadTrainingReviewRows([updatedRow.id]);
     const trainingReviews = reviews.get(updatedRow.id) || [];
-    const drafts = await loadTrainingDraftRows([updatedRow.id]);
+    const drafts = await loadTrainingDraftRows(
+      [updatedRow.id],
+      req.auth!.userId,
+    );
     const trainingDraft = drafts.get(updatedRow.id) || null;
     const derivedStatus = deriveTrainingStatus(
       updatedRow.status,
