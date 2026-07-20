@@ -3285,6 +3285,14 @@ router.post(
     const [comp] = await db
       .insert(employeeCompetenciesTable)
       .values({
+        // `type` é opcional no contrato; sem valor explícito, o default de
+        // COLUNA em produção ainda é 'formacao' (schema local já diz
+        // 'conhecimento', mas essa DDL não foi aplicada no Neon de prod —
+        // ver docs/prds). Fixamos aqui o mesmo fallback CHA que
+        // transformCompetencyType() usa na migração, para não depender do
+        // default do banco. Vem ANTES do spread: se o cliente mandar
+        // `type`, body.data sobrescreve.
+        type: "conhecimento",
         ...body.data,
         attachments: attachments || [],
         employeeId: params.data.empId,

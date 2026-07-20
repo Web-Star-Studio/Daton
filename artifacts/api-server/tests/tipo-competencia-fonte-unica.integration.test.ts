@@ -4,6 +4,7 @@ import app from "../src/app";
 import {
   authHeader,
   cleanupTestContext,
+  createEmployee,
   createPosition,
   createTestContext,
   type TestOrgContext,
@@ -214,5 +215,32 @@ describe("tipo de competência do requisito vem do catálogo (fonte única)", ()
 
     expect(createdB.status).toBe(201);
     expect(createdB.body.competencyType).toBe("conhecimento");
+  });
+
+  it("competência do colaborador sem `type` no corpo grava CHA, nunca o default legado do banco", async () => {
+    const context = await createTestContext({ seed: "tipo-comp-emp-sem-type" });
+    contexts.push(context);
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+    });
+
+    const created = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}/competencies`,
+      )
+      .set(authHeader(context))
+      .send({
+        name: `Competência sem tipo ${context.prefix}`,
+        // `type` deliberadamente omitido: a coluna no Neon de produção ainda
+        // tem DEFAULT 'formacao' (a DDL do schema local, que já é
+        // 'conhecimento', não foi aplicada lá). Sem fallback na aplicação,
+        // essa linha nasceria com um valor fora do contrato CHA.
+      });
+
+    expect(created.status).toBe(201);
+    expect(created.body.type).toBe("conhecimento");
+    expect(["conhecimento", "habilidade", "atitude"]).toContain(
+      created.body.type,
+    );
   });
 });
