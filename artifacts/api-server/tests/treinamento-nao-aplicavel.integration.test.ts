@@ -1,6 +1,8 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
+import { db } from "@workspace/db";
 import app from "../src/app";
+import { applyTrainingRequirements } from "../src/services/aprendizagem/requirements-engine";
 import {
   authHeader,
   cleanupTestContext,
@@ -348,5 +350,81 @@ describe("Treinamento status nao_aplicavel — motivo obrigatório", () => {
       pendencias: 0,
       concluidos: 0,
     });
+  });
+
+  // Task 4: o motor de requisitos (applyTrainingRequirements) deduplicava
+  // olhando só status === "pendente" — um treino marcado NA não entrava
+  // nesse conjunto, então a próxima execução (admissão, mudança de cargo)
+  // recriava um segundo pendente para o MESMO requisito, ressuscitando
+  // exatamente o que o RH acabou de dispensar. NA precisa contar como
+  // "requisito já tratado" no dedup, igual a "pendente".
+  it("motor de requisitos não recria um treino marcado como não aplicável", async () => {
+    const ctx = await createTestContext({ seed: "na-motor-nao-recria" });
+    contexts.push(ctx);
+    const position = await createPosition(ctx, {
+      name: `${ctx.prefix} Motorista`,
+    });
+    const emp = await createEmployee(ctx, {
+      name: `${ctx.prefix} Recria`,
+      position: position.name,
+    });
+
+    const catalogItem = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/training-catalog`)
+      .set(authHeader(ctx))
+      .send({ title: `${ctx.prefix} NR-35 motor` });
+    expect(catalogItem.status).toBe(201);
+
+    const requirement = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/training-requirements`)
+      .set(authHeader(ctx))
+      .send({
+        positionId: position.id,
+        catalogItemId: catalogItem.body.id,
+        deadlineType: "rh",
+      });
+    expect(requirement.status).toBe(201);
+
+    // 1ª rodada: gera o pendente a partir da obrigatoriedade do cargo.
+    const first = await applyTrainingRequirements({
+      orgId: ctx.organizationId,
+      employeeId: emp.id,
+      database: db,
+    });
+    expect(first.generated).toBe(1);
+
+    const afterFirst = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx));
+    expect(afterFirst.body).toHaveLength(1);
+    const trainingId = afterFirst.body[0].id;
+
+    // RH declara que o requisito não se aplica a esta pessoa.
+    const patch = await request(app)
+      .patch(
+        `/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings/${trainingId}`,
+      )
+      .set(authHeader(ctx))
+      .send({
+        status: "nao_aplicavel",
+        notApplicableReason: "Não exerce atividade em altura",
+      });
+    expect(patch.status).toBe(200);
+    expect(patch.body.status).toBe("nao_aplicavel");
+
+    // 2ª rodada (ex.: mudança de cargo): o motor NÃO pode recriar o pendente
+    // para o mesmo requisito só porque ele não está mais "pendente".
+    const second = await applyTrainingRequirements({
+      orgId: ctx.organizationId,
+      employeeId: emp.id,
+      database: db,
+    });
+    expect(second.generated).toBe(0);
+
+    const afterSecond = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx));
+    expect(afterSecond.body).toHaveLength(1);
+    expect(afterSecond.body[0].status).toBe("nao_aplicavel");
   });
 });
