@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { computeEffectivenessScore } from "@/pages/app/aprendizagem/eficacia";
-import { ScoreInput } from "@/pages/app/aprendizagem/turmas/detail-panel";
+import { ScoreInput } from "@/pages/app/aprendizagem/turmas/score-input";
 import { toast } from "@/hooks/use-toast";
 
 vi.mock("@/hooks/use-toast", () => ({
