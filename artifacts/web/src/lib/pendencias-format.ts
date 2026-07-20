@@ -3,7 +3,8 @@ export type PendenciaSource =
   | "action_plan"
   | "action_plan_action"
   | "nonconformity"
-  | "regulatory_document";
+  | "regulatory_document"
+  | "training_effectiveness";
 export type PendenciaUrgency = "overdue" | "due_soon" | "upcoming" | "no_due";
 export type PendenciaPriority = "p1" | "p2" | "p3";
 
@@ -54,6 +55,7 @@ export const SOURCE_LABELS: Record<PendenciaSource, string> = {
   action_plan_action: "Ação de plano",
   nonconformity: "Não conformidade",
   regulatory_document: "Documento regulatório",
+  training_effectiveness: "Eficácia de treinamento",
 };
 
 export const ROLE_LABELS: Record<string, string> = {

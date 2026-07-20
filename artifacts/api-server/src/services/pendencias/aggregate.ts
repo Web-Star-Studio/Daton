@@ -110,6 +110,7 @@ export async function aggregatePendencias(
       action_plan_action: 0,
       nonconformity: 0,
       regulatory_document: 0,
+      training_effectiveness: 0,
     },
   };
   for (const item of items) {

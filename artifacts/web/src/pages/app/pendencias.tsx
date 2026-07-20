@@ -52,9 +52,14 @@ function SummaryCards({ counts }: { counts: PendenciasResponse["counts"] }) {
     { label: "Planos de ação", value: counts.bySource.action_plan, hint: "em andamento" },
     { label: "Não conformidades", value: counts.bySource.nonconformity, hint: "aguardam ação" },
     { label: "Documentos", value: counts.bySource.regulatory_document, hint: "a renovar" },
+    {
+      label: "Eficácia de treinos",
+      value: counts.bySource.training_effectiveness,
+      hint: "a avaliar",
+    },
   ];
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {cards.map((c) => (
         <Card key={c.label}>
           <CardContent className="p-4">
