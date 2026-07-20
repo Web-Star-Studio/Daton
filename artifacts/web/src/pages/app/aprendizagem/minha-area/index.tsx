@@ -77,6 +77,15 @@ export default function MinhaAreaPage() {
         pendentes: myTrainings.filter((t) => t.status === "pendente").length,
         vencidos: myTrainings.filter((t) => t.status === "vencido").length,
       };
+  // `counts.total` (stats.total) exclui nao_aplicavel de propósito — é a
+  // contagem de obrigação que soma com concluidos/pendentes/vencidos no
+  // grid de tiles acima. A lista "Meus treinamentos" abaixo, porém, mostra
+  // TODOS os registros (inclusive NA, com seu próprio badge neutro) — usar
+  // counts.total no título da seção divergia do nº de linhas realmente
+  // listadas sempre que havia ao menos um treino NA. pagination.total cobre
+  // o conjunto inteiro (não só a página de 200); sem stats, cai para o
+  // tamanho da própria lista.
+  const listTotal = myTrainingsResult?.pagination?.total ?? myTrainings.length;
 
   const teamParams = {
     unitId: employee?.unitId ?? 0,
@@ -174,7 +183,7 @@ export default function MinhaAreaPage() {
 
           <div className="grid gap-4 lg:grid-cols-2">
           {/* Meus treinamentos */}
-          <Section title={`Meus treinamentos (${counts.total})`}>
+          <Section title={`Meus treinamentos (${listTotal})`}>
             {myTrainings.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Nenhum treinamento.

@@ -235,6 +235,11 @@ export async function computeLmsMetric(args: {
           eq(employeesTable.organizationId, orgId),
           gte(trainingEffectivenessReviewsTable.evaluationDate, start),
           lte(trainingEffectivenessReviewsTable.evaluationDate, end),
+          // "Não aplicável" é invisível para toda contagem de obrigação:
+          // eficácia só faz sentido sobre treino realizado, e NA nunca é
+          // realizado. Sem este filtro, marcar NA um treino que já tinha
+          // review continua inflando/reduzindo numerador e denominador aqui.
+          ne(employeeTrainingsTable.status, "nao_aplicavel"),
           employeeUnitFilter,
         ),
       );

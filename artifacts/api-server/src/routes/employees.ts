@@ -166,14 +166,24 @@ export const notNaoAplicavel = sql`${employeeTrainingsTable.status} <> 'nao_apli
 
 /**
  * Coluna "Concluídas": treinamentos com review registrado.
- * SQL: hasReview
+ * SQL: hasReview AND status <> 'nao_aplicavel'
+ *
+ * Defesa em profundidade: hoje esta coluna só é alcançada com
+ * `scope=needs_evaluation` (já filtra notNaoAplicavel) e `status=concluido`
+ * nas três colunas do board — NA nunca chega aqui pela UI. O filtro aqui
+ * estreita o predicado (nunca amplia) para o caso de a coluna ser usada
+ * fora desse caminho: um treino marcado NA depois de já ter review não pode
+ * aparecer como "realizado".
  */
-export const boardConcluidas = boardHasReviewExists;
+export const boardConcluidas = and(boardHasReviewExists, notNaoAplicavel)!;
 
 /**
  * Coluna "Em Avaliação": sem review, mas com papel ou prazo de avaliação atribuídos.
  * SQL: NOT hasReview
  *      AND (effectiveness_assigned_role IS NOT NULL OR effectiveness_due_date IS NOT NULL)
+ *      AND status <> 'nao_aplicavel'
+ *
+ * Mesma defesa em profundidade de boardConcluidas acima.
  */
 export const boardEmAvaliacao = and(
   not(boardHasReviewExists),
@@ -184,6 +194,7 @@ export const boardEmAvaliacao = and(
     // da coluna "Pendentes" e o avaliador fecha o wizard no meio.
     boardHasDraftExists,
   )!,
+  notNaoAplicavel,
 )!;
 
 /**
@@ -2187,15 +2198,18 @@ router.get(
         // de eficácia presente (fragmento único, alinhado ao JS — #115)
         effectivenessPendingCount: sql<number>`count(*) filter (where ${boardPendentes} and ${boardHasPendingCriteria})::int`,
         // eficazes / naoEficazes: última review por treinamento.
-        // `latestIsEffective`/`boardConcluidas` olham só para
-        // training_effectiveness_reviews — não sabem que o treino foi
-        // marcado NA depois da review. É alcançável (nada impede marcar NA
-        // um treino já avaliado), então sem ${notNaoAplicavel} aqui esses
-        // agregados continuavam somando um treino dispensado que carrega
-        // review antiga. Mesma exclusão do lado JS em getEffectivenessStatus.
+        // `latestIsEffective` olha só para training_effectiveness_reviews —
+        // não sabe que o treino foi marcado NA depois da review. É
+        // alcançável (nada impede marcar NA um treino já avaliado), então
+        // sem ${notNaoAplicavel} aqui esses agregados continuavam somando um
+        // treino dispensado que carrega review antiga. Mesma exclusão do
+        // lado JS em getEffectivenessStatus. (boardConcluidas já filtra
+        // notNaoAplicavel, mas esta métrica não passa por ele.)
         eficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = true and ${notNaoAplicavel})::int`,
         naoEficazesCount: sql<number>`count(*) filter (where ${latestIsEffective} = false and ${notNaoAplicavel})::int`,
-        // onTime: concluídas com dueDate onde latestEvalDate <= dueDate
+        // onTime: concluídas com dueDate onde latestEvalDate <= dueDate.
+        // ${notNaoAplicavel} é redundante com boardConcluidas (que já filtra),
+        // mantido por clareza/documentação.
         onTimeCount: sql<number>`count(*) filter (where
           ${boardConcluidas}
           and ${notNaoAplicavel}
