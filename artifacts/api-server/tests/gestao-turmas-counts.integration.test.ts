@@ -21,7 +21,7 @@ afterEach(async () => {
   await Promise.all(contexts.splice(0).map((c) => cleanupTestContext(c)));
 });
 
-describe("GET training-classes — confirmedCount/realizadoCount", () => {
+describe("GET training-classes — confirmedCount/approvedCount", () => {
   it("Inscritos=3, Confirmados=2 (presente), Realizados=1 (aprovado)", async () => {
     const ctx = await createTestContext({ seed: "turmas-counts" });
     contexts.push(ctx);
@@ -60,6 +60,6 @@ describe("GET training-classes — confirmedCount/realizadoCount", () => {
     const found = res.body.data.find((c: { id: number }) => c.id === cls.id);
     expect(found.participantCount).toBe(3);
     expect(found.confirmedCount).toBe(2);
-    expect(found.realizadoCount).toBe(1);
+    expect(found.approvedCount).toBe(1);
   });
 });

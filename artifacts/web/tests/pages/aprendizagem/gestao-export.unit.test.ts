@@ -109,7 +109,7 @@ describe("gestao export row-builders", () => {
             status: "realizada",
             participantCount: 24,
             confirmedCount: 24,
-            realizadoCount: 23,
+            approvedCount: 23,
           } as never,
         ],
         new Map([[5, "Direção defensiva"]]),

@@ -10,6 +10,9 @@ interface DialogProps {
   title: string;
   description?: string;
   size?: "sm" | "md" | "lg" | "xl" | "2xl";
+  /** Ações à direita do cabeçalho, antes do botão de fechar (ex.: "Duplicar",
+   *  "Abrir turma" na ficha do catálogo). Omitir mantém só o "x". */
+  headerActions?: React.ReactNode;
 }
 
 const sizeClasses = {
@@ -27,6 +30,7 @@ export function Dialog({
   title,
   description,
   size = "md",
+  headerActions,
 }: DialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -63,7 +67,7 @@ export function Dialog({
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between px-6 py-4 border-b border-border/60">
-          <div className="flex flex-col pt-0.5">
+          <div className="flex min-w-0 flex-col pt-0.5">
             <h2
               id={titleId}
               className="text-[15px] font-semibold leading-none tracking-tight"
@@ -79,14 +83,17 @@ export function Dialog({
               </p>
             )}
           </div>
-          <button
-            onClick={() => onOpenChange(false)}
-            aria-label="Fechar diálogo"
-            title="Fechar diálogo"
-            className="p-1 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60 transition-colors cursor-pointer shrink-0 ml-4"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2 ml-4">
+            {headerActions}
+            <button
+              onClick={() => onOpenChange(false)}
+              aria-label="Fechar diálogo"
+              title="Fechar diálogo"
+              className="p-1 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60 transition-colors cursor-pointer shrink-0"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
       </div>

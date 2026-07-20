@@ -11209,10 +11209,19 @@ components:
             $ref: "#/components/schemas/EmployeeRecordAttachment"
         participantCount:
           type: integer
+        approvedCount:
+          type: integer
+          description: >-
+            Participantes aprovados (result = "aprovado"). Exibido como
+            "Realizados" na ficha do catálogo e na Gestão de Treinamentos.
+            Presente só na listagem; a rota de detalhe devolve os participantes
+            com o resultado de cada um.
         confirmedCount:
           type: integer
-        realizadoCount:
-          type: integer
+          description: >-
+            Participantes com presença confirmada (attendance = "presente") —
+            passo intermediário do funil Inscritos → Confirmados → Realizados.
+            Presente só na listagem.
         createdAt:
           type: string
           format: date-time
@@ -22039,11 +22048,50 @@ components:
         expiredTrainings:
           type: number
           nullable: true
+        mandatoryCoverage:
+          description: "% de obrigatoriedades concluídas (ISO 9001 §7.2)"
+          type: number
+          nullable: true
+        hoursPerEmployee:
+          description: "Horas de treinamento ÷ colaboradores ativos (ISO 10015 §4.3)"
+          type: number
+          nullable: true
       required:
         - patCompletion
         - effectiveness
         - criticalGaps
         - expiredTrainings
+        - mandatoryCoverage
+        - hoursPerEmployee
+
+    LearningSummaryTarget:
+      description: >-
+        Meta/direção de uma métrica do LMS. Vem da configuração do módulo KPI da
+        organização quando os indicadores foram ativados; caso contrário, do
+        padrão do sistema.
+      type: object
+      properties:
+        metric:
+          type: string
+          enum:
+            - pat_completion
+            - effectiveness_overall
+            - mandatory_coverage
+            - hours_per_employee
+            - critical_gaps
+            - expired_trainings
+        goal:
+          type: number
+        tolerance:
+          type: number
+        direction:
+          type: string
+          enum: [up, down]
+      required:
+        - metric
+        - goal
+        - tolerance
+        - direction
 
     LearningSummaryUnitRow:
       type: object
@@ -22116,6 +22164,10 @@ components:
       properties:
         cards:
           $ref: "#/components/schemas/LearningSummaryCards"
+        targets:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningSummaryTarget"
         byUnit:
           type: array
           items:
@@ -22134,6 +22186,7 @@ components:
             $ref: "#/components/schemas/LearningSummaryPendingRow"
       required:
         - cards
+        - targets
         - byUnit
         - byNorm
         - expired

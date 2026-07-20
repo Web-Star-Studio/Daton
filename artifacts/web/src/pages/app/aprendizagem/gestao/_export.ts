@@ -66,7 +66,7 @@ export function buildTurmaRows(
     Filial: c.unitId ? (unitNameById.get(c.unitId) ?? "") : "",
     Inscritos: c.participantCount ?? 0,
     Confirmados: c.confirmedCount ?? 0,
-    Realizados: c.realizadoCount ?? 0,
+    Realizados: c.approvedCount ?? 0,
     Status: CLASS_STATUS_LABEL[c.status] ?? c.status,
   }));
 }

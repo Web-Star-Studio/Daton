@@ -21316,8 +21316,18 @@ export const ListTrainingClassesResponse = zod.object({
           }),
         ),
         participantCount: zod.number().optional(),
-        confirmedCount: zod.number().optional(),
-        realizadoCount: zod.number().optional(),
+        approvedCount: zod
+          .number()
+          .optional()
+          .describe(
+            'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+          ),
+        confirmedCount: zod
+          .number()
+          .optional()
+          .describe(
+            'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       })
@@ -21421,8 +21431,18 @@ export const GetTrainingClassResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
-    confirmedCount: zod.number().optional(),
-    realizadoCount: zod.number().optional(),
+    approvedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
+    confirmedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -21535,8 +21555,18 @@ export const UpdateTrainingClassResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
-    confirmedCount: zod.number().optional(),
-    realizadoCount: zod.number().optional(),
+    approvedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
+    confirmedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -21603,8 +21633,18 @@ export const AddTrainingClassParticipantsResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
-    confirmedCount: zod.number().optional(),
-    realizadoCount: zod.number().optional(),
+    approvedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
+    confirmedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -21818,7 +21858,34 @@ export const GetLearningDashboardSummaryResponse = zod.object({
     effectiveness: zod.number().nullable(),
     criticalGaps: zod.number().nullable(),
     expiredTrainings: zod.number().nullable(),
+    mandatoryCoverage: zod
+      .number()
+      .nullable()
+      .describe("% de obrigatoriedades concluídas (ISO 9001 §7.2)"),
+    hoursPerEmployee: zod
+      .number()
+      .nullable()
+      .describe("Horas de treinamento ÷ colaboradores ativos (ISO 10015 §4.3)"),
   }),
+  targets: zod.array(
+    zod
+      .object({
+        metric: zod.enum([
+          "pat_completion",
+          "effectiveness_overall",
+          "mandatory_coverage",
+          "hours_per_employee",
+          "critical_gaps",
+          "expired_trainings",
+        ]),
+        goal: zod.number(),
+        tolerance: zod.number(),
+        direction: zod.enum(["up", "down"]),
+      })
+      .describe(
+        "Meta\/direção de uma métrica do LMS. Vem da configuração do módulo KPI da organização quando os indicadores foram ativados; caso contrário, do padrão do sistema.",
+      ),
+  ),
   byUnit: zod.array(
     zod.object({
       unitId: zod.number(),

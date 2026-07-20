@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PorTurmaTable } from "@/pages/app/aprendizagem/gestao/_components/PorTurmaTable";
 
-// participantCount é distinto de confirmedCount/realizadoCount de propósito:
+// participantCount é distinto de confirmedCount/approvedCount de propósito:
 // valores iguais colidiriam em getByText (texto duplicado na tabela).
 const classes = [
   {
@@ -14,7 +14,7 @@ const classes = [
     status: "realizada",
     participantCount: 26,
     confirmedCount: 24,
-    realizadoCount: 23,
+    approvedCount: 23,
   },
 ] as never;
 
