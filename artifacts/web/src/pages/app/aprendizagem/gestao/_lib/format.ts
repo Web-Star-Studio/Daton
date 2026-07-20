@@ -43,11 +43,15 @@ export const STATUS_BADGE: Record<OrganizationTrainingStatus, string> = {
   pendente: "bg-blue-50 text-blue-700 border-blue-200",
   concluido: "bg-green-50 text-green-700 border-green-200",
   vencido: "bg-red-50 text-red-700 border-red-200",
+  // Estilo provisório (parity de tipos p/ TS2741). Tratamento visual definitivo
+  // fica para as tasks de UI (2–6) que consomem o novo status.
+  nao_aplicavel: "bg-gray-50 text-gray-700 border-gray-200",
 };
 export const STATUS_LABEL: Record<OrganizationTrainingStatus, string> = {
   pendente: "Pendente",
   concluido: "Concluído",
   vencido: "Vencido",
+  nao_aplicavel: "Não aplicável",
 };
 
 /** Badges de status de TURMA (distintos do status de treinamento acima). */

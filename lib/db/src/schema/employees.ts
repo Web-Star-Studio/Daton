@@ -193,6 +193,9 @@ export const employeeTrainingsTable = pgTable(
     completionDate: date("completion_date"),
     expirationDate: date("expiration_date"),
     status: text("status").notNull().default("pendente"),
+    /** Motivo obrigatório quando status = 'nao_aplicavel'. Nullable: registros
+     *  históricos e os demais status não têm motivo. */
+    notApplicableReason: text("not_applicable_reason"),
     attachments: jsonb("attachments")
       .$type<EmployeeRecordAttachment[]>()
       .notNull()

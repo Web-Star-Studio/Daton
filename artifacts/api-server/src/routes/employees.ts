@@ -318,6 +318,25 @@ function deriveTrainingStatus(
   return status;
 }
 
+/** NA exige motivo; qualquer outro status descarta o motivo. Devolve o valor a
+ *  gravar em not_applicable_reason, ou um erro de validação. */
+function resolveNotApplicableReason(
+  status: string | undefined,
+  reason: string | null | undefined,
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (status === "nao_aplicavel") {
+    const trimmed = (reason ?? "").trim();
+    if (!trimmed) {
+      return {
+        ok: false,
+        error: "Motivo é obrigatório quando o status é Não aplicável",
+      };
+    }
+    return { ok: true, value: trimmed };
+  }
+  return { ok: true, value: null };
+}
+
 function normalizeCompetencyText(value: string | null | undefined): string {
   return (value || "").trim().toLocaleLowerCase("pt-BR");
 }
@@ -2035,6 +2054,7 @@ router.get(
         completionDate: employeeTrainingsTable.completionDate,
         expirationDate: employeeTrainingsTable.expirationDate,
         status: employeeTrainingsTable.status,
+        notApplicableReason: employeeTrainingsTable.notApplicableReason,
         attachments: employeeTrainingsTable.attachments,
         legacyV1Id: employeeTrainingsTable.legacyV1Id,
         catalogItemId: employeeTrainingsTable.catalogItemId,
@@ -2224,6 +2244,7 @@ router.get(
         requirementId: row.requirementId,
         dueDate: row.dueDate,
         status: derivedStatus,
+        notApplicableReason: row.notApplicableReason,
         effectivenessStatus,
         effectivenessDueDate: row.effectivenessDueDate || null,
         effectivenessAssignedRole:
@@ -3372,6 +3393,16 @@ router.post(
       if (v !== undefined) (values as Record<string, unknown>)[k] = v;
     }
 
+    const notApplicableResult = resolveNotApplicableReason(
+      values.status,
+      values.notApplicableReason,
+    );
+    if (!notApplicableResult.ok) {
+      res.status(400).json({ error: notApplicableResult.error });
+      return;
+    }
+    values.notApplicableReason = notApplicableResult.value;
+
     // Validade: se houver conclusão + renovação e nenhuma data de vencimento
     // explícita, calcula expirationDate = completionDate + renewalMonths.
     if (
@@ -3448,10 +3479,45 @@ router.patch(
       return;
     }
 
+    // PATCH é atualização parcial: status pode não vir no body. Busca o
+    // registro atual para decidir a regra do motivo com o status/motivo
+    // vigentes quando o body não os informa.
+    const [existing] = await db
+      .select({
+        status: employeeTrainingsTable.status,
+        notApplicableReason: employeeTrainingsTable.notApplicableReason,
+      })
+      .from(employeeTrainingsTable)
+      .where(
+        and(
+          eq(employeeTrainingsTable.id, params.data.trainId),
+          eq(employeeTrainingsTable.employeeId, params.data.empId),
+        ),
+      );
+    if (!existing) {
+      res.status(404).json({ error: "Treinamento não encontrado" });
+      return;
+    }
+
+    const effectiveStatus = body.data.status ?? existing.status;
+    const effectiveReason =
+      body.data.notApplicableReason !== undefined
+        ? body.data.notApplicableReason
+        : existing.notApplicableReason;
+    const notApplicableResult = resolveNotApplicableReason(
+      effectiveStatus,
+      effectiveReason,
+    );
+    if (!notApplicableResult.ok) {
+      res.status(400).json({ error: notApplicableResult.error });
+      return;
+    }
+
     const [training] = await db
       .update(employeeTrainingsTable)
       .set({
         ...body.data,
+        notApplicableReason: notApplicableResult.value,
         ...(attachments !== undefined ? { attachments } : {}),
       })
       .where(
@@ -3600,6 +3666,7 @@ router.post(
         completionDate: employeeTrainingsTable.completionDate,
         expirationDate: employeeTrainingsTable.expirationDate,
         status: employeeTrainingsTable.status,
+        notApplicableReason: employeeTrainingsTable.notApplicableReason,
         attachments: employeeTrainingsTable.attachments,
         legacyV1Id: employeeTrainingsTable.legacyV1Id,
         catalogItemId: employeeTrainingsTable.catalogItemId,
@@ -3661,6 +3728,7 @@ router.post(
       completionDate: updatedRow.completionDate,
       expirationDate: updatedRow.expirationDate,
       status: derivedStatus,
+      notApplicableReason: updatedRow.notApplicableReason,
       effectivenessStatus,
       effectivenessDueDate: updatedRow.effectivenessDueDate || null,
       effectivenessAssignedRole:

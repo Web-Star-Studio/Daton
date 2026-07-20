@@ -1105,7 +1105,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pendente, concluido, vencido]
+            enum: [pendente, concluido, vencido, nao_aplicavel]
         - name: expiringWithinDays
           in: query
           schema:
@@ -13104,7 +13104,13 @@ components:
           nullable: true
         status:
           type: string
-          enum: [pendente, concluido, vencido]
+          enum: [pendente, concluido, vencido, nao_aplicavel]
+        notApplicableReason:
+          type: string
+          nullable: true
+          description: >-
+            Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA
+            sem motivo e limpa o campo quando o status deixa de ser NA.
         attachments:
           type: array
           items:
@@ -13202,7 +13208,13 @@ components:
           nullable: true
         status:
           type: string
-          enum: [pendente, concluido, vencido]
+          enum: [pendente, concluido, vencido, nao_aplicavel]
+        notApplicableReason:
+          type: string
+          nullable: true
+          description: >-
+            Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA
+            sem motivo e limpa o campo quando o status deixa de ser NA.
         effectivenessStatus:
           type: string
           nullable: true
@@ -13984,7 +13996,13 @@ components:
           type: string
         status:
           type: string
-          enum: [pendente, concluido, vencido]
+          enum: [pendente, concluido, vencido, nao_aplicavel]
+        notApplicableReason:
+          type: string
+          nullable: true
+          description: >-
+            Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA
+            sem motivo e limpa o campo quando o status deixa de ser NA.
         attachments:
           type: array
           maxItems: 10
@@ -14086,7 +14104,13 @@ components:
           type: string
         status:
           type: string
-          enum: [pendente, concluido, vencido]
+          enum: [pendente, concluido, vencido, nao_aplicavel]
+        notApplicableReason:
+          type: string
+          nullable: true
+          description: >-
+            Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA
+            sem motivo e limpa o campo quando o status deixa de ser NA.
         attachments:
           type: array
           maxItems: 10
