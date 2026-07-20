@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateTrainingEffectivenessReviewBodyEvaluatorRole } from "./createTrainingEffectivenessReviewBodyEvaluatorRole";
+import type { CreateTrainingEffectivenessReviewBodyStatus } from "./createTrainingEffectivenessReviewBodyStatus";
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
+import type { TrainingEffectivenessCriteria } from "./trainingEffectivenessCriteria";
 
 export interface CreateTrainingEffectivenessReviewBody {
   evaluationDate: string;
@@ -23,6 +25,9 @@ export interface CreateTrainingEffectivenessReviewBody {
   resultLevel?: number;
   comments?: string;
   evaluatorRole?: CreateTrainingEffectivenessReviewBodyEvaluatorRole;
+  /** 'draft' grava o preenchimento parcial do wizard sem concluir a avaliação (não concede competência e mantém o card em "Em avaliação"). Substitui o rascunho anterior do mesmo avaliador. */
+  status?: CreateTrainingEffectivenessReviewBodyStatus;
+  criteria?: TrainingEffectivenessCriteria;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
 }

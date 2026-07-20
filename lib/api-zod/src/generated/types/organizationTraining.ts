@@ -10,6 +10,7 @@ import type { OrganizationTrainingEffectivenessAssignedRole } from "./organizati
 import type { OrganizationTrainingEffectivenessStatus } from "./organizationTrainingEffectivenessStatus";
 import type { OrganizationTrainingStatus } from "./organizationTrainingStatus";
 import type { OrganizationTrainingTargetCompetencyType } from "./organizationTrainingTargetCompetencyType";
+import type { TrainingEffectivenessDraft } from "./trainingEffectivenessDraft";
 import type { TrainingEffectivenessReview } from "./trainingEffectivenessReview";
 
 export interface OrganizationTraining {
@@ -40,6 +41,7 @@ export interface OrganizationTraining {
   effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
+  effectivenessDraft?: TrainingEffectivenessDraft | null;
   effectivenessDueDate?: string | null;
   effectivenessAssignedRole?: OrganizationTrainingEffectivenessAssignedRole;
   reviewerCount: number;

@@ -33,11 +33,15 @@ const router: IRouter = Router();
 function serializeClass(
   row: typeof trainingClassesTable.$inferSelect,
   participantCount?: number,
+  approvedCount?: number,
+  confirmedCount?: number,
 ) {
   return {
     ...row,
     attachments: row.attachments ?? [],
     ...(participantCount !== undefined ? { participantCount } : {}),
+    ...(approvedCount !== undefined ? { approvedCount } : {}),
+    ...(confirmedCount !== undefined ? { confirmedCount } : {}),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -137,17 +141,32 @@ router.get(
       .where(and(...conditions))
       .orderBy(asc(trainingClassesTable.startDate));
 
-    const counts = await db
-      .select({
-        classId: trainingClassParticipantsTable.classId,
-        n: sql<number>`cast(count(*) as int)`,
-      })
-      .from(trainingClassParticipantsTable)
-      .groupBy(trainingClassParticipantsTable.classId);
-    const countByClass = new Map(counts.map((c) => [c.classId, c.n]));
+    // Inscritos, confirmados e aprovados por turma. "Aprovados" é o que a ficha
+    // do catálogo e a Gestão de Treinamentos mostram como "Realizados": quem
+    // concluiu, não quem se inscreveu. "Confirmados" é a presença
+    // (attendance='presente'), o passo intermediário do funil.
+    // Restrito às turmas já carregadas — sem o inArray o agregado varre a
+    // tabela de participantes inteira, de todas as organizações.
+    const classIds = rows.map((r) => r.id);
+    const counts = classIds.length
+      ? await db
+          .select({
+            classId: trainingClassParticipantsTable.classId,
+            n: sql<number>`cast(count(*) as int)`,
+            approved: sql<number>`cast(count(*) filter (where ${trainingClassParticipantsTable.result} = 'aprovado') as int)`,
+            confirmed: sql<number>`cast(count(*) filter (where ${trainingClassParticipantsTable.attendance} = 'presente') as int)`,
+          })
+          .from(trainingClassParticipantsTable)
+          .where(inArray(trainingClassParticipantsTable.classId, classIds))
+          .groupBy(trainingClassParticipantsTable.classId)
+      : [];
+    const countByClass = new Map(counts.map((c) => [c.classId, c]));
 
     res.json({
-      data: rows.map((r) => serializeClass(r, countByClass.get(r.id) ?? 0)),
+      data: rows.map((r) => {
+        const c = countByClass.get(r.id);
+        return serializeClass(r, c?.n ?? 0, c?.approved ?? 0, c?.confirmed ?? 0);
+      }),
     });
   },
 );
@@ -402,7 +421,10 @@ router.post(
 
     // Batch-fetch pending trainings para todos os participantes de uma vez (evita N+1).
     const pendingTrainings = await db
-      .select({ id: employeeTrainingsTable.id, employeeId: employeeTrainingsTable.employeeId })
+      .select({
+        id: employeeTrainingsTable.id,
+        employeeId: employeeTrainingsTable.employeeId,
+      })
       .from(employeeTrainingsTable)
       .where(
         and(
@@ -457,7 +479,10 @@ router.patch(
     }
     // garante que a turma é da org
     const [cls] = await db
-      .select({ id: trainingClassesTable.id, minScore: trainingClassesTable.minScore })
+      .select({
+        id: trainingClassesTable.id,
+        minScore: trainingClassesTable.minScore,
+      })
       .from(trainingClassesTable)
       .where(
         and(
@@ -486,7 +511,8 @@ router.patch(
       body.data.attendance !== undefined
         ? body.data.attendance
         : current.attendance;
-    const score = body.data.score !== undefined ? body.data.score : current.score;
+    const score =
+      body.data.score !== undefined ? body.data.score : current.score;
     // Só recomputa result quando o PATCH fornece explicitamente `result` ou `attendance`.
     // Score sozinho (sem attendance/result) preserva o result manual existente.
     const result =
