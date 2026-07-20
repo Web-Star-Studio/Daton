@@ -50,14 +50,29 @@ export function transformCompetencyType(category: string | null): string {
   return "formacao";
 }
 
-/** Transform v1 training status to v2 */
+/**
+ * Transform v1 training status to v2.
+ *
+ * O v2 só reconhece 4 status de treinamento — `pendente`, `concluido`,
+ * `vencido` e `nao_aplicavel` (o enum do OpenAPI e os mapas de rótulo do
+ * front). Esta função já emitiu três valores fora dessa lista
+ * (`em_andamento`, `cancelado`, `expirado`), e o `em_andamento` chegou a
+ * entrar em produção: nenhuma tela sabia rotulá-lo e ele não era contado como
+ * pendência nem como concluído, ficando invisível para o RH. Qualquer valor
+ * devolvido aqui PRECISA existir no enum do contrato.
+ */
 export function transformTrainingStatus(v1Status: string | null): string {
   if (!v1Status) return "pendente";
   const lower = v1Status.toLowerCase();
-  if (lower === "em andamento" || lower === "in_progress") return "em_andamento";
   if (lower === "concluído" || lower === "concluido" || lower === "completed") return "concluido";
-  if (lower === "cancelado" || lower === "cancelled") return "cancelado";
-  if (lower === "expirado" || lower === "expired") return "expirado";
+  // "expirado" era devolvido cru — o v2 chama esse estado de "vencido".
+  if (lower === "expirado" || lower === "expired") return "vencido";
+  // Em andamento e cancelado não têm equivalente no v2: em ambos os casos o
+  // treinamento não foi concluído, então continua como pendência (é o que o RH
+  // precisa enxergar). Marcar como "não aplicável" exigiria um motivo por
+  // registro, que a migração não tem como preencher.
+  if (lower === "em andamento" || lower === "in_progress") return "pendente";
+  if (lower === "cancelado" || lower === "cancelled") return "pendente";
   return "pendente";
 }
 
