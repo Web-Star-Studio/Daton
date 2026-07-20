@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import {
   useListOrganizationTrainings,
   getListOrganizationTrainingsQueryKey,
@@ -11,6 +12,7 @@ import {
   useListTrainingRequirements,
   getListTrainingRequirementsQueryKey,
 } from "@workspace/api-client-react";
+import type { OrganizationTraining } from "@workspace/api-client-react";
 import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import {
   useActiveNorms,
@@ -22,7 +24,7 @@ import { usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/select";
-import { trainingDeadline } from "./_lib/format";
+import { formatDate, trainingDeadline } from "./_lib/format";
 import { buildCatalogMeta } from "./_lib/catalog-meta";
 import {
   buildColaboradorRows,
@@ -33,6 +35,17 @@ import { PorColaboradorTable } from "./_components/PorColaboradorTable";
 import { PorTurmaTable } from "./_components/PorTurmaTable";
 import { MetricCards } from "./_components/MetricCards";
 import { StatusPills } from "./_components/StatusPills";
+import { PorPrazoPanel, type PrazoItem } from "./_components/PorPrazoPanel";
+
+/** Mapeia um treinamento para o item compacto exibido no painel "Por prazo". */
+function toPrazoItem(t: OrganizationTraining): PrazoItem {
+  const date = formatDate(trainingDeadline(t));
+  return {
+    id: t.id,
+    primary: `${t.employeeName} — ${t.title}`,
+    meta: t.unitName ? `${date} · ${t.unitName}` : date,
+  };
+}
 
 // ─── Filter / tab types ─────────────────────────────────────────────────────
 
@@ -62,6 +75,7 @@ export default function AprendizagemGestaoPage() {
   const { hasModuleAccess } = usePermissions();
   const canAccess = hasModuleAccess("employees");
   const enabled = !!orgId && canAccess;
+  const [, setLocation] = useLocation();
 
   // ── Filter state ──────────────────────────────────────────────────────────
   const [filial, setFilial] = useState<string>(""); // unitId (string)
@@ -132,6 +146,105 @@ export default function AprendizagemGestaoPage() {
     },
   );
   const aVencerCount = expiringResult?.pagination.total ?? 0;
+
+  // ── Buckets do painel "Por prazo" (só quando a aba está ativa) ──────────────
+  const onPrazoTab = tab === "prazo";
+  const vencidosBucketParams: ListOrganizationTrainingsParams = {
+    ...baseParams,
+    status: "vencido",
+    pageSize: 5,
+  };
+  const { data: vencidosBucketResult } = useListOrganizationTrainings(
+    orgId,
+    vencidosBucketParams,
+    {
+      query: {
+        enabled: enabled && onPrazoTab,
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId,
+          vencidosBucketParams,
+        ),
+      },
+    },
+  );
+  const vencidosItems = useMemo(
+    () => (vencidosBucketResult?.data ?? []).map(toPrazoItem),
+    [vencidosBucketResult],
+  );
+
+  const aVencerBucketParams: ListOrganizationTrainingsParams = {
+    ...baseParams,
+    expiringWithinDays: 30,
+    pageSize: 5,
+  };
+  const { data: aVencerBucketResult } = useListOrganizationTrainings(
+    orgId,
+    aVencerBucketParams,
+    {
+      query: {
+        enabled: enabled && onPrazoTab,
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId,
+          aVencerBucketParams,
+        ),
+      },
+    },
+  );
+  const aVencerItems = useMemo(
+    () => (aVencerBucketResult?.data ?? []).map(toPrazoItem),
+    [aVencerBucketResult],
+  );
+
+  // "Pendentes sem turma" = pendente ∧ não programado. Não há flag por linha,
+  // então buscamos os pendentes e excluímos os ids que aparecem entre os
+  // programados (ver task-8-brief.md). Total exibido = stats.pendente -
+  // stats.programado (Task 1), não o tamanho da lista filtrada (que é só a
+  // amostra top-N para exibição compacta).
+  const pendentesBucketParams: ListOrganizationTrainingsParams = {
+    ...baseParams,
+    status: "pendente",
+    pageSize: 50,
+  };
+  const { data: pendentesBucketResult } = useListOrganizationTrainings(
+    orgId,
+    pendentesBucketParams,
+    {
+      query: {
+        enabled: enabled && onPrazoTab,
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId,
+          pendentesBucketParams,
+        ),
+      },
+    },
+  );
+  const programadoBucketParams: ListOrganizationTrainingsParams = {
+    ...baseParams,
+    onlyProgramado: true,
+    pageSize: 500,
+  };
+  const { data: programadoBucketResult } = useListOrganizationTrainings(
+    orgId,
+    programadoBucketParams,
+    {
+      query: {
+        enabled: enabled && onPrazoTab,
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId,
+          programadoBucketParams,
+        ),
+      },
+    },
+  );
+  const pendentesSemTurmaItems = useMemo(() => {
+    const programadoIds = new Set(
+      (programadoBucketResult?.data ?? []).map((t) => t.id),
+    );
+    return (pendentesBucketResult?.data ?? [])
+      .filter((t) => !programadoIds.has(t.id))
+      .slice(0, 5)
+      .map(toPrazoItem);
+  }, [pendentesBucketResult, programadoBucketResult]);
 
   // ── Query principal (Por colaborador / Por prazo) ───────────────────────────
   const mainParams: ListOrganizationTrainingsParams = {
@@ -397,28 +510,19 @@ export default function AprendizagemGestaoPage() {
       ) : null}
 
       {tab === "prazo" ? (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Ordena por vencimento (mais próximos primeiro) entre os registros
-            carregados — use “Carregar mais” para incluir o restante.
-          </p>
-          <div className="rounded-xl border bg-card shadow-sm">
-            <PorColaboradorTable
-              rows={rowsByDeadline}
-              catalogMeta={catalogMeta}
-              requirementCriticalById={requirementCriticalById}
-              loading={mainLoading}
-              error={mainError}
-              emptyLabel="Nenhum treinamento encontrado para os filtros selecionados."
-            />
-            <ResultsFooter
-              shown={rowsByDeadline.length}
-              total={totalRows}
-              atMax={pageSize >= 500}
-              onMore={loadMore}
-            />
-          </div>
-        </div>
+        <PorPrazoPanel
+          vencidos={{ total: stats?.vencido ?? 0, items: vencidosItems }}
+          aVencer={{ total: aVencerCount, items: aVencerItems }}
+          pendentesSemTurma={{
+            total: (stats?.pendente ?? 0) - (stats?.programado ?? 0),
+            items: pendentesSemTurmaItems,
+          }}
+          onSeeAll={(f) => {
+            setStatusFilter(f);
+            setTab("colaborador");
+          }}
+          onCreateClass={() => setLocation("/aprendizagem/turmas")}
+        />
       ) : null}
 
       {tab === "turma" ? (
