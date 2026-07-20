@@ -1491,6 +1491,27 @@ export const EmployeeTrainingStatus = {
   vencido: "vencido",
 } as const;
 
+/**
+ * Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.
+ */
+export interface TrainingEffectivenessCriteria {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  behavior: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  result: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  transfer: number;
+}
+
 export interface TrainingEffectivenessReview {
   id: number;
   trainingId: number;
@@ -1509,6 +1530,7 @@ export interface TrainingEffectivenessReview {
    */
   resultLevel?: number | null;
   comments?: string | null;
+  criteria?: TrainingEffectivenessCriteria | null;
   attachments: EmployeeRecordAttachment[];
   createdAt?: string;
 }
@@ -1580,6 +1602,19 @@ export const OrganizationTrainingEffectivenessAssignedRole = {
   colaborador: "colaborador",
 } as const;
 
+/**
+ * Preenchimento parcial da avaliação de eficácia, salvo pelo avaliador e usado para reidratar o wizard.
+ */
+export interface TrainingEffectivenessDraft {
+  id: number;
+  evaluatorUserId: number;
+  evaluatorName?: string | null;
+  evaluatorRole?: string | null;
+  criteria?: TrainingEffectivenessCriteria | null;
+  comments?: string | null;
+  updatedAt?: string;
+}
+
 export interface OrganizationTraining {
   catalogItemId?: number | null;
   dueDate?: string | null;
@@ -1608,6 +1643,7 @@ export interface OrganizationTraining {
   effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
+  effectivenessDraft?: TrainingEffectivenessDraft | null;
   effectivenessDueDate?: string | null;
   effectivenessAssignedRole?: OrganizationTrainingEffectivenessAssignedRole;
   reviewerCount: number;
@@ -2107,6 +2143,17 @@ export const CreateTrainingEffectivenessReviewBodyEvaluatorRole = {
   colaborador: "colaborador",
 } as const;
 
+/**
+ * 'draft' grava o preenchimento parcial do wizard sem concluir a avaliação (não concede competência e mantém o card em "Em avaliação"). Substitui o rascunho anterior do mesmo avaliador.
+ */
+export type CreateTrainingEffectivenessReviewBodyStatus =
+  (typeof CreateTrainingEffectivenessReviewBodyStatus)[keyof typeof CreateTrainingEffectivenessReviewBodyStatus];
+
+export const CreateTrainingEffectivenessReviewBodyStatus = {
+  draft: "draft",
+  final: "final",
+} as const;
+
 export interface CreateTrainingEffectivenessReviewBody {
   evaluationDate: string;
   /**
@@ -2122,6 +2169,9 @@ export interface CreateTrainingEffectivenessReviewBody {
   resultLevel?: number;
   comments?: string;
   evaluatorRole?: CreateTrainingEffectivenessReviewBodyEvaluatorRole;
+  /** 'draft' grava o preenchimento parcial do wizard sem concluir a avaliação (não concede competência e mantém o card em "Em avaliação"). Substitui o rascunho anterior do mesmo avaliador. */
+  status?: CreateTrainingEffectivenessReviewBodyStatus;
+  criteria?: TrainingEffectivenessCriteria;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
 }
