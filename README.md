@@ -29,6 +29,7 @@ Hoje o produto cobre fluxos como:
 - documentação do SGQ, anexos, aprovação e distribuição;
 - governança estratégica, riscos e oportunidades, auditorias e não conformidades;
 - gestão de fornecedores;
+- indicadores (KPI) com objetivos, lançamentos mensais e dashboard;
 - integrações com OpenAI, e-mail transacional e armazenamento de objetos.
 
 ## Stack
