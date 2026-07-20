@@ -76,6 +76,7 @@ export function TurmasDoTreinamento({
                 <th className="py-1.5 pr-3 font-medium">Data</th>
                 <th className="py-1.5 pr-3 font-medium">Filial</th>
                 <th className="py-1.5 pr-3 font-medium">Inscritos</th>
+                <th className="py-1.5 pr-3 font-medium">Realizados</th>
                 <th className="py-1.5 font-medium">Status</th>
               </tr>
             </thead>
@@ -92,6 +93,10 @@ export function TurmasDoTreinamento({
                     {c.unitId ? (unitName.get(c.unitId) ?? "—") : "—"}
                   </td>
                   <td className="py-1.5 pr-3">{c.participantCount ?? 0}</td>
+                  {/* "Realizados" = participantes aprovados. Numa turma ainda
+                      agendada é legitimamente 0 — o badge de status ao lado
+                      explica o porquê. */}
+                  <td className="py-1.5 pr-3">{c.approvedCount ?? 0}</td>
                   <td className="py-1.5">
                     <Badge className={STATUS_BADGE[c.status] ?? ""}>
                       {STATUS_LABEL[c.status] ?? c.status}
