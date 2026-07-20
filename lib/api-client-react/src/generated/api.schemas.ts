@@ -174,19 +174,37 @@ export interface CompetencyCatalogItem {
   updatedAt: string;
 }
 
+export type CreateCompetencyCatalogItemBodyCompetencyType =
+  (typeof CreateCompetencyCatalogItemBodyCompetencyType)[keyof typeof CreateCompetencyCatalogItemBodyCompetencyType];
+
+export const CreateCompetencyCatalogItemBodyCompetencyType = {
+  conhecimento: "conhecimento",
+  habilidade: "habilidade",
+  atitude: "atitude",
+} as const;
+
 export interface CreateCompetencyCatalogItemBody {
   /** @minLength 1 */
   name: string;
-  competencyType?: string;
+  competencyType?: CreateCompetencyCatalogItemBodyCompetencyType;
   category?: string;
   norm?: string;
   isMandatory?: boolean;
 }
 
+export type UpdateCompetencyCatalogItemBodyCompetencyType =
+  (typeof UpdateCompetencyCatalogItemBodyCompetencyType)[keyof typeof UpdateCompetencyCatalogItemBodyCompetencyType];
+
+export const UpdateCompetencyCatalogItemBodyCompetencyType = {
+  conhecimento: "conhecimento",
+  habilidade: "habilidade",
+  atitude: "atitude",
+} as const;
+
 export interface UpdateCompetencyCatalogItemBody {
   /** @minLength 1 */
   name?: string;
-  competencyType?: string;
+  competencyType?: UpdateCompetencyCatalogItemBodyCompetencyType;
   category?: string;
   norm?: string;
   isMandatory?: boolean;

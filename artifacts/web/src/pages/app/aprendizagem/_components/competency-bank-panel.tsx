@@ -7,7 +7,10 @@ import {
   useDeleteCompetencyCatalogItem,
   getListCompetencyCatalogQueryKey,
 } from "@workspace/api-client-react";
-import type { CompetencyCatalogItem } from "@workspace/api-client-react";
+import {
+  CreateCompetencyCatalogItemBodyCompetencyType,
+  type CompetencyCatalogItem,
+} from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,7 +64,10 @@ export function CompetencyBankPanel({
   };
 
   const [newName, setNewName] = useState("");
-  const [newType, setNewType] = useState("habilidade");
+  const [newType, setNewType] =
+    useState<CreateCompetencyCatalogItemBodyCompetencyType>(
+      CreateCompetencyCatalogItemBodyCompetencyType.habilidade,
+    );
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
 
@@ -134,7 +140,12 @@ export function CompetencyBankPanel({
             </Label>
             <Select
               value={newType}
-              onChange={(e) => setNewType(e.target.value)}
+              onChange={(e) =>
+                setNewType(
+                  e.target
+                    .value as CreateCompetencyCatalogItemBodyCompetencyType,
+                )
+              }
               className="mt-1 w-auto"
             >
               {TYPES.map((t) => (

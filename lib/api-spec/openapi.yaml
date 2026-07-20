@@ -10996,6 +10996,7 @@ components:
           minLength: 1
         competencyType:
           type: string
+          enum: [conhecimento, habilidade, atitude]
         category:
           type: string
         norm:
@@ -11013,6 +11014,7 @@ components:
           minLength: 1
         competencyType:
           type: string
+          enum: [conhecimento, habilidade, atitude]
         category:
           type: string
         norm:

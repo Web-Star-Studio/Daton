@@ -21473,7 +21473,9 @@ export const CreateCompetencyCatalogItemParams = zod.object({
 
 export const CreateCompetencyCatalogItemBody = zod.object({
   name: zod.string().min(1),
-  competencyType: zod.string().optional(),
+  competencyType: zod
+    .enum(["conhecimento", "habilidade", "atitude"])
+    .optional(),
   category: zod.string().optional(),
   norm: zod.string().optional(),
   isMandatory: zod.boolean().optional(),
@@ -21506,7 +21508,9 @@ export const UpdateCompetencyCatalogItemParams = zod.object({
 
 export const UpdateCompetencyCatalogItemBody = zod.object({
   name: zod.string().min(1).optional(),
-  competencyType: zod.string().optional(),
+  competencyType: zod
+    .enum(["conhecimento", "habilidade", "atitude"])
+    .optional(),
   category: zod.string().optional(),
   norm: zod.string().optional(),
   isMandatory: zod.boolean().optional(),

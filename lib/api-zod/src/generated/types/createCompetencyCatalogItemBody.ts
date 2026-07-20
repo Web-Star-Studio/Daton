@@ -5,11 +5,12 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateCompetencyCatalogItemBodyCompetencyType } from "./createCompetencyCatalogItemBodyCompetencyType";
 
 export interface CreateCompetencyCatalogItemBody {
   /** @minLength 1 */
   name: string;
-  competencyType?: string;
+  competencyType?: CreateCompetencyCatalogItemBodyCompetencyType;
   category?: string;
   norm?: string;
   isMandatory?: boolean;
