@@ -89,6 +89,13 @@ const STATUS_BAR_COLOR: Record<TrafficLight, string> = {
   red: "bg-red-500",
 };
 
+/**
+ * Teto de linhas que a rota devolve em `pendingEffectiveness` / `expired`
+ * (ver `learning-summary.ts`). Amostras, não contagens — a tela precisa saber
+ * disso para não apresentar o tamanho da lista como total.
+ */
+const PENDING_SAMPLE_LIMIT = 20;
+
 const UNIT_STATUS: Record<
   LearningSummaryUnitRow["status"],
   { label: string; badge: string }
@@ -635,19 +642,32 @@ export default function AprendizagemIndicadoresPage() {
                   >
                     {summary?.cards.expiredTrainings ?? "—"}
                   </div>
-                  {summary && summary.expired.length > 0 && (
-                    <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                      {summary.expired[0]!.employeeName} ·{" "}
-                      {summary.expired[0]!.title}
-                    </p>
-                  )}
+                  {/* A amostra só aparece quando a contagem do exercício é
+                      positiva: `expired` é a lista de vencidos DE HOJE e não
+                      acompanha o filtro de ano, então exibi-la ao lado de um
+                      "0" de um exercício passado seria contraditório. */}
+                  {(summary?.cards.expiredTrainings ?? 0) > 0 &&
+                    summary!.expired.length > 0 && (
+                      <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                        {summary!.expired[0]!.employeeName} ·{" "}
+                        {summary!.expired[0]!.title}
+                      </p>
+                    )}
                 </div>
                 <div className="rounded-xl border bg-card p-4 shadow-sm">
                   <div className="text-[13px] font-semibold">
                     Eficácia pendente
                   </div>
                   <div className="mt-1 text-2xl font-semibold text-foreground">
-                    {summary ? summary.pendingEffectiveness.length : "—"}
+                    {summary
+                      ? // A rota devolve no máximo PENDING_SAMPLE_LIMIT linhas;
+                        // no teto, o total real é maior — "20+" evita cravar um
+                        // número que não é a contagem.
+                        summary.pendingEffectiveness.length >=
+                          PENDING_SAMPLE_LIMIT
+                        ? `${PENDING_SAMPLE_LIMIT}+`
+                        : summary.pendingEffectiveness.length
+                      : "—"}
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     concluídos sem avaliação
