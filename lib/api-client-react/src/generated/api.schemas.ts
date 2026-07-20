@@ -1293,6 +1293,11 @@ export const EmployeeStatus = {
   on_leave: "on_leave",
 } as const;
 
+export type EmployeeManagersItem = {
+  id: number;
+  name: string;
+};
+
 /**
  * `indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.
  */
@@ -1396,6 +1401,8 @@ export interface Employee {
   terminationDate?: string | null;
   status: EmployeeStatus;
   unitName?: string | null;
+  /** Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem/gestão de unidades). Presente apenas na resposta de GET /employees/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor. */
+  managers?: EmployeeManagersItem[];
   trainingCompletionPercent?: number | null;
   /** `indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado. */
   competencyGapStatus?: EmployeeCompetencyGapStatus;

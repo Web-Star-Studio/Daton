@@ -35,6 +35,7 @@ import {
   sgqProcessesTable,
   strategicPlanObjectivesTable,
   strategicPlansTable,
+  unitManagersTable,
   unitsTable,
   usersTable,
 } from "@workspace/db";
@@ -371,6 +372,22 @@ function formatEmployee(e: EmployeeRow) {
     updatedAt:
       e.updatedAt instanceof Date ? e.updatedAt.toISOString() : e.updatedAt,
   };
+}
+
+// Task 5 (Fase 2) — mesma consulta unit_managers -> users usada pela
+// listagem/gestão de unidades (routes/units.ts), agora projetada para a
+// unitId do colaborador do detalhe. Sem unitId (colaborador sem filial),
+// devolve [] sem consultar o banco.
+async function loadUnitManagers(unitId: number | null) {
+  if (unitId === null) {
+    return [];
+  }
+  const rows = await db
+    .select({ id: unitManagersTable.userId, name: usersTable.name })
+    .from(unitManagersTable)
+    .innerJoin(usersTable, eq(unitManagersTable.userId, usersTable.id))
+    .where(eq(unitManagersTable.unitId, unitId));
+  return rows;
 }
 
 const EMPLOYEE_REQUIRED_FIELD_LABELS = {
@@ -2605,6 +2622,7 @@ router.get(
       .from(employeeUnitsTable)
       .innerJoin(unitsTable, eq(employeeUnitsTable.unitId, unitsTable.id))
       .where(eq(employeeUnitsTable.employeeId, params.data.empId));
+    const managers = await loadUnitManagers(rows[0].unitId);
 
     // Task 4 — a ficha lê o MESMO motor de conformidade da listagem/KPIs
     // (resolveEmployeeCompetencies), em vez do matching de texto livre que o
@@ -2630,6 +2648,7 @@ router.get(
     res.json({
       ...formatEmployee(rows[0]),
       units: linkedUnits,
+      managers,
       competencies: competencies.map(formatCompetencyRecord),
       trainings: trainings.map((training) =>
         formatTrainingRecord(training, {

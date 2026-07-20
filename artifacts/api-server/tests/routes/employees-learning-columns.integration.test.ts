@@ -7,6 +7,7 @@ import {
   positionCompetencyRequirementsTable,
   trainingCatalogTable,
   trainingRequirementsTable,
+  unitManagersTable,
 } from "@workspace/db";
 import app from "../../src/app";
 import {
@@ -15,6 +16,7 @@ import {
   createEmployee,
   createPosition,
   createTestContext,
+  createTestUser,
   createUnit,
   type TestOrgContext,
 } from "../../../../tests/support/backend";
@@ -335,5 +337,74 @@ describe("GET /organizations/:orgId/employees/:empId — competencyConformance",
       .set(authHeader(ctx));
     expect(detailRes.status).toBe(200);
     expect(detailRes.body.competencyConformance).toBeNull();
+  });
+});
+
+// Task 5 (Fase 2) — o gestor exibido na ficha ("Dados profissionais") é
+// resolvido pela MESMA tabela unit_managers usada pela listagem de unidades
+// (routes/units.ts), agora projetada a partir da unitId do colaborador do
+// detalhe (employees.ts:loadUnitManagers), em vez de duplicar a query join.
+describe("GET /organizations/:orgId/employees/:empId — managers", () => {
+  it("returns the unit's managers (gestores da filial) resolved via unit_managers", async () => {
+    const ctx = await createTestContext({ seed: "emp-managers" });
+    contexts.push(ctx);
+
+    const unit = await createUnit(ctx, `Filial Gestor ${ctx.prefix}`);
+    const manager = await createTestUser(ctx, { suffix: "gestor" });
+
+    await db.insert(unitManagersTable).values({
+      organizationId: ctx.organizationId,
+      unitId: unit.id,
+      userId: manager.id,
+    });
+
+    const employee = await createEmployee(ctx, {
+      name: `Colaborador Com Gestor ${ctx.prefix}`,
+      unitId: unit.id,
+    });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/${employee.id}`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    expect(res.body.managers).toEqual([
+      { id: manager.id, name: `E2E ${ctx.prefix} gestor` },
+    ]);
+  });
+
+  it("returns an empty managers array when the employee's unit has no managers", async () => {
+    const ctx = await createTestContext({ seed: "emp-no-managers" });
+    contexts.push(ctx);
+
+    const unit = await createUnit(ctx, `Filial Sem Gestor ${ctx.prefix}`);
+    const employee = await createEmployee(ctx, {
+      name: `Colaborador Sem Gestor ${ctx.prefix}`,
+      unitId: unit.id,
+    });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/${employee.id}`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    expect(res.body.managers).toEqual([]);
+  });
+
+  it("returns an empty managers array when the employee has no unit", async () => {
+    const ctx = await createTestContext({ seed: "emp-null-unit-mgr" });
+    contexts.push(ctx);
+
+    const employee = await createEmployee(ctx, {
+      name: `Colaborador Sem Filial ${ctx.prefix}`,
+      unitId: null,
+    });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/${employee.id}`)
+      .set(authHeader(ctx));
+
+    expect(res.status).toBe(200);
+    expect(res.body.managers).toEqual([]);
   });
 });

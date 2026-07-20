@@ -12772,6 +12772,21 @@ components:
         unitName:
           type: string
           nullable: true
+        managers:
+          type: array
+          description: >-
+            Gestores da filial do colaborador (tabela unit_managers, mesmo
+            mecanismo usado pela listagem/gestão de unidades). Presente
+            apenas na resposta de GET /employees/:empId (detalhe); [] quando
+            o colaborador não tem filial ou a filial não tem gestor.
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
         trainingCompletionPercent:
           type: number
           nullable: true

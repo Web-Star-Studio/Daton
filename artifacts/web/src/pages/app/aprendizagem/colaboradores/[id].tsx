@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "wouter";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -52,7 +52,6 @@ import type {
   EmployeeTraining,
   EmployeeAwareness,
   EmployeeDetail,
-  EmployeeCompetencyConformance,
   LinkedUnit,
   TrainingEffectivenessReview,
   DocumentSummary,
@@ -94,24 +93,21 @@ import { downloadTrainingCertificate } from "@/lib/training-certificate-pdf";
 import {
   ArrowLeft,
   Pencil,
-  Check,
   X,
   Plus,
   Trash2,
   GraduationCap,
   Award,
   Lightbulb,
-  User,
   Archive,
   CheckCircle2,
   CalendarCheck,
   Download,
-  XCircle,
-  Building2,
-  AlertTriangle,
-  HelpCircle,
 } from "lucide-react";
 import { useLocation } from "wouter";
+import { FichaHeader } from "./_components/FichaHeader";
+import { DadosCards } from "./_components/DadosCards";
+import { FormacaoQualificacoes } from "./_components/FormacaoQualificacoes";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -124,6 +120,7 @@ const CONTRACT_LABELS: Record<string, string> = {
   pj: "PJ",
   intern: "Estagiário",
   temporary: "Temporário",
+  terceirizado: "Terceirizado",
 };
 
 const TRAINING_STATUS: Record<string, string> = {
@@ -160,11 +157,6 @@ const COMPETENCY_TYPE_LABELS: Record<string, string> = {
   formacao: "Formação",
   experiencia: "Experiência",
   habilidade: "Habilidade",
-};
-
-const REQUIRED_EMPLOYEE_FIELDS: Record<string, string> = {
-  name: "Nome completo",
-  admissionDate: "Data de admissão",
 };
 
 type EmployeeProfileItemRecord = EmployeeProfileItem;
@@ -359,114 +351,6 @@ function mapRecordAttachmentItems(
     objectPath: attachment.objectPath,
     onRemove: onRemove ? () => onRemove(attachment.objectPath) : undefined,
   }));
-}
-
-function InlineField({
-  label,
-  value,
-  fieldKey,
-  type = "text",
-  options,
-  editable = true,
-  onSave,
-}: {
-  label: string;
-  value: string | number | null | undefined;
-  fieldKey: string;
-  type?: "text" | "date" | "select" | "textarea";
-  options?: { value: string; label: string }[];
-  editable?: boolean;
-  onSave: (key: string, val: string | number | null) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(String(value ?? ""));
-
-  const save = () => {
-    onSave(fieldKey, draft || null);
-    setEditing(false);
-  };
-  const cancel = () => {
-    setDraft(String(value ?? ""));
-    setEditing(false);
-  };
-
-  return (
-    <div className="min-w-0">
-      <Label className="mb-1.5 block text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
-        {label}
-      </Label>
-      {editing ? (
-        <div className="mt-1 flex items-center gap-1.5">
-          {type === "select" && options ? (
-            <select
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-[13px]"
-            >
-              {options.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          ) : type === "textarea" ? (
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="min-h-[88px] flex-1 text-[13px]"
-            />
-          ) : (
-            <Input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              type={type}
-              className="h-9 flex-1 text-[13px]"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") save();
-                if (e.key === "Escape") cancel();
-              }}
-            />
-          )}
-          <button
-            onClick={save}
-            className="p-1 text-primary hover:text-primary/80 cursor-pointer"
-          >
-            <Check className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={cancel}
-            className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          className={cn(
-            "group/field mt-1 flex items-start gap-1 text-left",
-            editable ? "cursor-pointer" : "cursor-default",
-          )}
-          onClick={() => {
-            if (!editable) return;
-            setDraft(String(value ?? ""));
-            setEditing(true);
-          }}
-        >
-          <span className="break-words text-[14px] text-foreground">
-            {type === "select" && options
-              ? options.find((o) => o.value === String(value))?.label ||
-                String(value ?? "—")
-              : value || "—"}
-          </span>
-          {editable && (
-            <Pencil className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/0 transition-colors group-hover/field:text-muted-foreground/50" />
-          )}
-        </button>
-      )}
-    </div>
-  );
 }
 
 function EmployeeProfileItemsSection({
@@ -1660,8 +1544,6 @@ function CompetenciasTab({
   editable = true,
   createOpen = false,
   onCreateOpenChange,
-  employeePosition,
-  competencyConformance,
 }: {
   competencies: EmployeeCompetency[];
   orgId: number;
@@ -1669,8 +1551,6 @@ function CompetenciasTab({
   editable?: boolean;
   createOpen?: boolean;
   onCreateOpenChange?: (open: boolean) => void;
-  employeePosition?: string | null;
-  competencyConformance?: EmployeeCompetencyConformance | null;
 }) {
   const queryClient = useQueryClient();
   const [internalCreateOpen, setInternalCreateOpen] = useState(false);
@@ -1691,7 +1571,6 @@ function CompetenciasTab({
     useState(false);
   const [isUploadingEditAttachments, setIsUploadingEditAttachments] =
     useState(false);
-  const [prefillName, setPrefillName] = useState("");
   const createMutation = useCreateCompetency();
   const updateMutation = useUpdateCompetency();
   const deleteMutation = useDeleteCompetency();
@@ -1712,24 +1591,6 @@ function CompetenciasTab({
   };
   const [form, setForm] = useState<CompetencyForm>(emptyForm);
 
-  // Conformidade do Cargo — lê o mesmo motor relacional (resolveEmployeeCompetencies)
-  // usado pela listagem e por /competency-gaps, em vez do antigo matching de
-  // texto livre (position-requirements.ts, aposentado). Três estados por
-  // requisito: "atende" (✓), "gap" (✗) e "nao_classificado" (cinza, "não
-  // avaliável" — NUNCA conta como lacuna nem entra na barra de progresso).
-  const requirements = competencyConformance?.requirements ?? [];
-  const atendeItems = requirements.filter((r) => r.status === "atende");
-  const gapItems = requirements.filter((r) => r.status === "gap");
-  const naoClassificadoItems = requirements.filter(
-    (r) => r.status === "nao_classificado",
-  );
-  const totalReqs = requirements.length;
-  const progressDenom = atendeItems.length + gapItems.length;
-  const compliancePercent =
-    progressDenom > 0
-      ? Math.round((atendeItems.length / progressDenom) * 100)
-      : 0;
-
   const invalidate = () =>
     queryClient.invalidateQueries({
       queryKey: getGetEmployeeQueryKey(orgId, empId),
@@ -1741,15 +1602,6 @@ function CompetenciasTab({
     setForm(emptyForm);
     setCreateAttachments([]);
     setIsUploadingCreateAttachments(false);
-    setPrefillName("");
-  };
-
-  const openCreateFromRequirement = (requirementName: string) => {
-    setPrefillName(requirementName);
-    setForm({ ...emptyForm, name: requirementName });
-    setCreateStep(0);
-    setCreateAttachments([]);
-    setCreateOpen(true);
   };
 
   const closeEditDialog = () => {
@@ -1829,155 +1681,7 @@ function CompetenciasTab({
         Competências necessárias e adquiridas conforme ISO 9001:2015 §7.2
       </p>
 
-      {/* Compliance section */}
-      {employeePosition && competencyConformance && totalReqs > 0 && (
-        <div className="bg-muted/30 border border-border/60 rounded-xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-[13px] font-semibold text-foreground uppercase tracking-wide">
-                Conformidade do Cargo
-              </h3>
-            </div>
-            <span className="text-xs text-muted-foreground font-medium">
-              {competencyConformance.positionName ?? employeePosition}
-            </span>
-          </div>
-
-          {/* Progress bar — atende / (atende + gap); "não classificado" não conta */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                {atendeItems.length}/{progressDenom} requisitos atendidos
-              </span>
-              <span
-                className={cn(
-                  "font-semibold",
-                  compliancePercent >= 80
-                    ? "text-emerald-600"
-                    : compliancePercent >= 50
-                      ? "text-amber-600"
-                      : "text-red-600",
-                )}
-              >
-                {compliancePercent}%
-              </span>
-            </div>
-            <div className="h-2 bg-secondary rounded-full overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-500",
-                  compliancePercent >= 80
-                    ? "bg-emerald-500"
-                    : compliancePercent >= 50
-                      ? "bg-amber-500"
-                      : "bg-red-500",
-                )}
-                style={{ width: `${compliancePercent}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Requirement items — três estados: atende (✓), gap (✗) e
-              nao_classificado (cinza neutro, não é lacuna). */}
-          <div className="space-y-1.5">
-            {requirements.map((item, idx) => {
-              if (item.status === "nao_classificado") {
-                return (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg text-[12px] bg-muted/40 border border-border/50"
-                  >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="truncate text-muted-foreground">
-                        {item.competencyName}
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-muted-foreground shrink-0 ml-3">
-                      Não avaliável — treinamento não classificado
-                    </span>
-                  </div>
-                );
-              }
-              const matched = item.status === "atende";
-              return (
-                <div
-                  key={idx}
-                  className={cn(
-                    "flex items-center justify-between px-3 py-2 rounded-lg text-[12px]",
-                    matched
-                      ? "bg-emerald-50 border border-emerald-200/60 dark:bg-emerald-500/10 dark:border-emerald-500/30"
-                      : "bg-red-50 border border-red-200/60 dark:bg-red-500/10 dark:border-red-500/30",
-                  )}
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {matched ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                    ) : (
-                      <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                    )}
-                    <span
-                      className={cn(
-                        "truncate",
-                        matched
-                          ? "text-emerald-900 dark:text-emerald-200"
-                          : "text-red-900 dark:text-red-200",
-                      )}
-                    >
-                      {item.competencyName}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-3">
-                    {matched && (
-                      <span className="text-emerald-700 dark:text-emerald-300">
-                        Nível: {item.acquiredLevel}/{item.requiredLevel}
-                      </span>
-                    )}
-                    {!matched && editable && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openCreateFromRequirement(item.competencyName)
-                        }
-                        className="flex items-center gap-1 text-[11px] font-medium text-red-700 hover:text-red-900 transition-colors cursor-pointer"
-                      >
-                        <Plus className="h-3 w-3" />
-                        Adicionar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {naoClassificadoItems.length > 0 && (
-            <p className="text-[11px] text-muted-foreground pt-1">
-              {naoClassificadoItems.length}{" "}
-              {naoClassificadoItems.length === 1
-                ? "requisito ainda não avaliável"
-                : "requisitos ainda não avaliáveis"}
-              .
-            </p>
-          )}
-        </div>
-      )}
-
-      {employeePosition && competencyConformance && totalReqs === 0 && (
-        <div className="bg-muted/20 border border-border/40 rounded-xl p-4 flex items-center gap-2 text-xs text-muted-foreground">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            O cargo{" "}
-            <strong>
-              {competencyConformance.positionName ?? employeePosition}
-            </strong>{" "}
-            não possui requisitos definidos.
-          </span>
-        </div>
-      )}
-
-      {competencies.length === 0 && totalReqs === 0 ? (
+      {competencies.length === 0 ? (
         <div className="text-center py-12">
           <Award className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
           <p className="text-[13px] text-muted-foreground">
@@ -3673,9 +3377,6 @@ export default function ColaboradorDetailPage() {
   const empId = Number(params?.id);
   const [location, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<
-    "dados" | "competencias" | "treinamentos" | "conscientizacao"
-  >("dados");
 
   const { data: employee, isLoading, error } = useGetEmployee(orgId!, empId);
   const { data: units = [] } = useListUnits(orgId!);
@@ -3718,17 +3419,32 @@ export default function ColaboradorDetailPage() {
       queryKey: getGetEmployeeQueryKey(orgId!, empId),
     });
 
+  // Painel único: não há mais abas para trocar. `?tab=` (usado por outras
+  // telas, ex. treinamentos.tsx "Abrir competência") agora rola até a seção
+  // correspondente em vez de trocar de aba — a seção já está sempre visível.
+  // Rola só UMA vez por valor de `?tab=`: o efeito depende de `employee` para
+  // esperar as seções existirem no DOM (navegação fria), mas sem este guard ele
+  // re-rolaria a cada refetch (toda mutation invalida o employee) — puxando o
+  // usuário de volta pra seção do deep-link no meio de uma edição.
+  const scrolledTabRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!employee) return;
     const requestedTab = searchParams.get("tab");
-    if (
-      requestedTab === "competencias" ||
-      requestedTab === "treinamentos" ||
-      requestedTab === "conscientizacao" ||
-      requestedTab === "dados"
-    ) {
-      setActiveTab(requestedTab);
-    }
-  }, [searchParams]);
+    if (!requestedTab || requestedTab === scrolledTabRef.current) return;
+    const sectionId =
+      requestedTab === "competencias"
+        ? "secao-competencias"
+        : requestedTab === "treinamentos"
+          ? "secao-treinamentos"
+          : requestedTab === "conscientizacao"
+            ? "secao-conscientizacao"
+            : requestedTab === "dados"
+              ? "secao-dados"
+              : null;
+    if (!sectionId) return;
+    document.getElementById(sectionId)?.scrollIntoView({ block: "start" });
+    scrolledTabRef.current = requestedTab;
+  }, [searchParams, employee]);
 
   useEffect(() => {
     if (searchParams.get("createTraining") !== "1") return;
@@ -3749,36 +3465,8 @@ export default function ColaboradorDetailPage() {
         : undefined,
       evaluationMethod: searchParams.get("evaluationMethod") || undefined,
     });
-    setActiveTab("treinamentos");
     setTrainingCreateOpen(true);
   }, [searchParams]);
-
-  const handleFieldSave = async (key: string, val: string | number | null) => {
-    if (Object.hasOwn(REQUIRED_EMPLOYEE_FIELDS, key)) {
-      const normalizedValue = typeof val === "string" ? val.trim() : val;
-      if (normalizedValue == null || normalizedValue === "") {
-        toast({
-          title: `${REQUIRED_EMPLOYEE_FIELDS[key]} obrigatório`,
-          description: `Preencha ${REQUIRED_EMPLOYEE_FIELDS[key].toLowerCase()} antes de salvar.`,
-          variant: "destructive",
-        });
-        return;
-      }
-      val = normalizedValue;
-    }
-
-    const data: Record<string, string | number | null | undefined> = {};
-    if (key === "unitId") {
-      data.unitId = val ? Number(val) : null;
-    } else {
-      data[key] = val;
-    }
-    await updateMutation.mutateAsync({ orgId: orgId!, empId, data });
-    invalidate();
-    queryClient.invalidateQueries({
-      queryKey: getListEmployeesQueryKey(orgId!),
-    });
-  };
 
   const handleArchive = async () => {
     if (
@@ -3806,42 +3494,9 @@ export default function ColaboradorDetailPage() {
   const headerActions = React.useMemo(() => {
     if (!employee) return null;
 
-    const addButton = canWriteEmployees
-      ? (() => {
-          switch (activeTab) {
-            case "competencias":
-              return (
-                <HeaderActionButton
-                  size="sm"
-                  onClick={() => setCompCreateOpen(true)}
-                  label="Nova Competência"
-                  icon={<Plus className="h-3.5 w-3.5" />}
-                />
-              );
-            case "treinamentos":
-              return (
-                <HeaderActionButton
-                  size="sm"
-                  onClick={() => setTrainingCreateOpen(true)}
-                  label="Novo Treinamento"
-                  icon={<Plus className="h-3.5 w-3.5" />}
-                />
-              );
-            case "conscientizacao":
-              return (
-                <HeaderActionButton
-                  size="sm"
-                  onClick={() => setAwarenessCreateOpen(true)}
-                  label="Novo Registro"
-                  icon={<Plus className="h-3.5 w-3.5" />}
-                />
-              );
-            default:
-              return null;
-          }
-        })()
-      : null;
-
+    // Painel único: "Nova Competência" / "Novo Treinamento" / "Novo Registro"
+    // deixam de ser contextuais por aba e passam a viver junto do título de
+    // cada seção (mesmo padrão de "+ Item" / "+ Vincular" já usado no painel).
     return (
       <div className="flex items-center gap-2">
         <Link href="/aprendizagem/colaboradores">
@@ -3887,7 +3542,6 @@ export default function ColaboradorDetailPage() {
             />
           </Link>
         ) : null}
-        {addButton}
       </div>
     );
   }, [
@@ -3896,7 +3550,6 @@ export default function ColaboradorDetailPage() {
     canWriteEmployees,
     employeePositionRecord,
     handleArchive,
-    activeTab,
   ]);
 
   useHeaderActions(headerActions);
@@ -3926,171 +3579,31 @@ export default function ColaboradorDetailPage() {
     );
   }
 
-  const tabs = [
-    { key: "dados" as const, label: "Dados", icon: User },
-    {
-      key: "competencias" as const,
-      label: "Competências",
-      icon: Award,
-      count: employee.competencies?.length,
-    },
-    {
-      key: "treinamentos" as const,
-      label: "Treinamentos",
-      icon: GraduationCap,
-      count: employee.trainings?.length,
-    },
-    {
-      key: "conscientizacao" as const,
-      label: "Conscientização",
-      icon: Lightbulb,
-      count: employee.awareness?.length,
-    },
-  ];
-
   return (
     <>
-      <div className="space-y-10">
-        <div className="mb-3">
-          <div className="flex items-center gap-6 border-b border-border">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer hover:text-foreground",
-                  activeTab === tab.key
-                    ? "text-foreground font-semibold after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:bg-foreground after:rounded-full"
-                    : "text-muted-foreground",
-                )}
-              >
-                <tab.icon className="h-3.5 w-3.5" />
-                {tab.label}
-                {tab.count !== undefined && tab.count > 0 && (
-                  <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="space-y-8">
+        <FichaHeader
+          name={employee.name}
+          position={employee.position}
+          contractLabel={CONTRACT_LABELS[employee.contractType]}
+          department={employee.department}
+          unitName={employee.unitName}
+          trainings={employee.trainings ?? []}
+        />
 
-        {activeTab === "dados" && (
-          <div className="space-y-10">
-            <div>
-              <OverviewSectionTitle title="Informações Pessoais" />
-              <div className="grid gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
-                <InlineField
-                  label="Nome completo *"
-                  value={employee.name}
-                  fieldKey="name"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="CPF"
-                  value={employee.cpf}
-                  fieldKey="cpf"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="E-mail"
-                  value={employee.email}
-                  fieldKey="email"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Telefone"
-                  value={employee.phone}
-                  fieldKey="phone"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-              </div>
-            </div>
+        <div id="secao-dados" className="space-y-8">
+          <DadosCards
+            employee={employee}
+            gestor={
+              (employee.managers ?? []).map((m) => m.name).join(", ") ||
+              undefined
+            }
+            onEdit={
+              canWriteEmployees ? () => setEditModalOpen(true) : undefined
+            }
+          />
 
-            <div>
-              <OverviewSectionTitle title="Informações Profissionais" />
-              <div className="grid gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
-                <InlineField
-                  label="Cargo"
-                  value={employee.position}
-                  fieldKey="position"
-                  type="select"
-                  options={[
-                    { value: "", label: "Selecionar cargo" },
-                    ...positions.map((position) => ({
-                      value: position.name,
-                      label: position.name,
-                    })),
-                  ]}
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Departamento"
-                  value={employee.department}
-                  fieldKey="department"
-                  type="select"
-                  options={[
-                    { value: "", label: "Selecionar departamento" },
-                    ...departments.map((department) => ({
-                      value: department.name,
-                      label: department.name,
-                    })),
-                  ]}
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Tipo de Contrato"
-                  value={employee.contractType}
-                  fieldKey="contractType"
-                  type="select"
-                  options={[
-                    { value: "clt", label: "CLT" },
-                    { value: "pj", label: "PJ" },
-                    { value: "intern", label: "Estagiário" },
-                    { value: "temporary", label: "Temporário" },
-                  ]}
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Status"
-                  value={employee.status}
-                  fieldKey="status"
-                  type="select"
-                  options={[
-                    { value: "active", label: "Ativo" },
-                    { value: "inactive", label: "Inativo" },
-                    { value: "on_leave", label: "Afastado" },
-                  ]}
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Data de Admissão *"
-                  value={employee.admissionDate}
-                  fieldKey="admissionDate"
-                  type="date"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Data de Desligamento"
-                  value={employee.terminationDate}
-                  fieldKey="terminationDate"
-                  type="date"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-              </div>
-            </div>
-
+          <div className="grid gap-8 md:grid-cols-2">
             <EmployeeProfileItemsSection
               title="Experiências profissionais"
               emptyText="Liste experiências anteriores e adicione anexos quando necessário."
@@ -4116,31 +3629,39 @@ export default function ColaboradorDetailPage() {
               empId={empId}
               editable={canWriteEmployees}
             />
-
-            <LinkedUnitsSection
-              linkedUnits={employee.units || []}
-              allUnits={units}
-              orgId={orgId}
-              empId={empId}
-              editable={canWriteEmployees}
-            />
           </div>
-        )}
 
-        {activeTab === "competencias" && (
-          <CompetenciasTab
-            competencies={employee.competencies || []}
+          <LinkedUnitsSection
+            linkedUnits={employee.units || []}
+            allUnits={units}
             orgId={orgId}
             empId={empId}
             editable={canWriteEmployees}
-            createOpen={compCreateOpen}
-            onCreateOpenChange={setCompCreateOpen}
-            employeePosition={employee.position}
-            competencyConformance={employee.competencyConformance ?? null}
           />
-        )}
+        </div>
 
-        {activeTab === "treinamentos" && (
+        <FormacaoQualificacoes
+          education={employee.education}
+          requiredEducation={employeePositionRecord?.education ?? null}
+          conformance={employee.competencyConformance ?? null}
+        />
+
+        <div id="secao-treinamentos">
+          <OverviewSectionTitle
+            title="Treinamentos"
+            action={
+              canWriteEmployees ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setTrainingCreateOpen(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Novo Treinamento
+                </Button>
+              ) : undefined
+            }
+          />
           <TreinamentosTab
             trainings={employee.trainings || []}
             orgId={orgId}
@@ -4154,9 +3675,50 @@ export default function ColaboradorDetailPage() {
             onCreateOpenChange={handleTrainingCreateOpenChange}
             prefillTraining={queryTrainingPrefill}
           />
-        )}
+        </div>
 
-        {activeTab === "conscientizacao" && (
+        <div id="secao-competencias">
+          <OverviewSectionTitle
+            title="Competências"
+            action={
+              canWriteEmployees ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCompCreateOpen(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Nova Competência
+                </Button>
+              ) : undefined
+            }
+          />
+          <CompetenciasTab
+            competencies={employee.competencies || []}
+            orgId={orgId}
+            empId={empId}
+            editable={canWriteEmployees}
+            createOpen={compCreateOpen}
+            onCreateOpenChange={setCompCreateOpen}
+          />
+        </div>
+
+        <div id="secao-conscientizacao">
+          <OverviewSectionTitle
+            title="Conscientização"
+            action={
+              canWriteEmployees ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAwarenessCreateOpen(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Novo Registro
+                </Button>
+              ) : undefined
+            }
+          />
           <ConscientizacaoTab
             awareness={employee.awareness || []}
             orgId={orgId}
@@ -4165,7 +3727,7 @@ export default function ColaboradorDetailPage() {
             createOpen={awarenessCreateOpen}
             onCreateOpenChange={setAwarenessCreateOpen}
           />
-        )}
+        </div>
       </div>
 
       <Dialog

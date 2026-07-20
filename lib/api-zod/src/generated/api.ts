@@ -1561,6 +1561,17 @@ export const ListEmployeesResponse = zod.object({
       terminationDate: zod.string().nullish(),
       status: zod.enum(["active", "inactive", "on_leave"]),
       unitName: zod.string().nullish(),
+      managers: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            name: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+        ),
       trainingCompletionPercent: zod.number().nullish(),
       competencyGapStatus: zod
         .enum(["ok", "gap", "critical", "indeterminado"])
@@ -2249,6 +2260,17 @@ export const GetEmployeeResponse = zod
     terminationDate: zod.string().nullish(),
     status: zod.enum(["active", "inactive", "on_leave"]),
     unitName: zod.string().nullish(),
+    managers: zod
+      .array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+        }),
+      )
+      .optional()
+      .describe(
+        "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+      ),
     trainingCompletionPercent: zod.number().nullish(),
     competencyGapStatus: zod
       .enum(["ok", "gap", "critical", "indeterminado"])
@@ -2629,6 +2651,17 @@ export const UpdateEmployeeResponse = zod.object({
   terminationDate: zod.string().nullish(),
   status: zod.enum(["active", "inactive", "on_leave"]),
   unitName: zod.string().nullish(),
+  managers: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+    ),
   trainingCompletionPercent: zod.number().nullish(),
   competencyGapStatus: zod
     .enum(["ok", "gap", "critical", "indeterminado"])
@@ -4626,6 +4659,17 @@ export const GetDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
         competencyGapStatus: zod
           .enum(["ok", "gap", "critical", "indeterminado"])
@@ -4950,6 +4994,17 @@ export const UpdateDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
         competencyGapStatus: zod
           .enum(["ok", "gap", "critical", "indeterminado"])
@@ -5321,6 +5376,17 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
         competencyGapStatus: zod
           .enum(["ok", "gap", "critical", "indeterminado"])
@@ -5707,6 +5773,17 @@ export const SubmitDocumentForReviewResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
         competencyGapStatus: zod
           .enum(["ok", "gap", "critical", "indeterminado"])
@@ -6009,6 +6086,17 @@ export const ApproveDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
         competencyGapStatus: zod
           .enum(["ok", "gap", "critical", "indeterminado"])
@@ -6311,6 +6399,17 @@ export const RejectDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
         competencyGapStatus: zod
           .enum(["ok", "gap", "critical", "indeterminado"])
@@ -6609,6 +6708,17 @@ export const ReviseDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
         competencyGapStatus: zod
           .enum(["ok", "gap", "critical", "indeterminado"])
@@ -6907,6 +7017,17 @@ export const DistributeDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
         competencyGapStatus: zod
           .enum(["ok", "gap", "critical", "indeterminado"])
@@ -7225,6 +7346,17 @@ export const UpdateDocumentContentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
         competencyGapStatus: zod
           .enum(["ok", "gap", "critical", "indeterminado"])
