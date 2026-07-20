@@ -37,6 +37,55 @@ function initialScores(
   return map;
 }
 
+export type ParticipantResult = "aprovado" | "reprovado" | null;
+
+/** Este participante será regravado no encerramento? */
+export function willWrite(
+  stored: Pick<TrainingClassParticipant, "attendance" | "score">,
+  nextAttendance: Attendance | undefined,
+  nextScore: number | null,
+): boolean {
+  return (
+    nextAttendance !== (stored.attendance ?? undefined) ||
+    nextScore !== (stored.score ?? null)
+  );
+}
+
+/**
+ * O `result` que o backend vai efetivamente gravar — a tela precisa mostrar
+ * isso, não a sua própria conta.
+ *
+ * Duas regras do servidor importam aqui (`deriveResult` + o handler PATCH em
+ * routes/training-classes.ts):
+ *
+ * 1. `result` só é recomputado quando o PATCH manda `attendance` (ou `result`).
+ *    Um PATCH só de `score` preserva o resultado manual anterior. Por isso o
+ *    encerramento manda sempre a presença junto da nota — senão o assistente
+ *    exibia "Reprovado" e o backend, com o result antigo, ainda gerava o
+ *    registro de treinamento concluído.
+ * 2. Quem não é regravado mantém o resultado atual, inclusive um definido à
+ *    mão. Nesse caso é ele que deve aparecer, não o derivado da nota.
+ */
+export function effectiveResult(
+  stored: Pick<TrainingClassParticipant, "attendance" | "score" | "result">,
+  nextAttendance: Attendance | undefined,
+  nextScore: number | null,
+  minScore: number | null | undefined,
+): ParticipantResult {
+  if (!willWrite(stored, nextAttendance, nextScore)) {
+    return stored.result === "aprovado" || stored.result === "reprovado"
+      ? stored.result
+      : null;
+  }
+  // Espelha deriveResult() do backend.
+  if (nextAttendance === "presente") {
+    if (minScore == null || nextScore == null) return "aprovado";
+    return nextScore >= minScore ? "aprovado" : "reprovado";
+  }
+  if (nextAttendance === "faltou") return "reprovado";
+  return null;
+}
+
 /**
  * Assistente de encerramento: Presença → Notas → Concluir.
  *
@@ -103,11 +152,10 @@ export function EncerrarTurmaDialog({
     setAttendance(next);
   };
 
-  const approved = present.filter((p) => {
-    const s = scores[p.id];
-    if (minScore == null || s == null) return true;
-    return s >= minScore;
-  }).length;
+  const resultOf = (p: TrainingClassParticipant): ParticipantResult =>
+    effectiveResult(p, attendance[p.id], scores[p.id], minScore);
+
+  const approved = present.filter((p) => resultOf(p) === "aprovado").length;
 
   const handleConclude = async () => {
     setSaving(true);
@@ -116,16 +164,16 @@ export function EncerrarTurmaDialog({
       for (const p of participants) {
         const nextAttendance = attendance[p.id];
         const nextScore = scores[p.id];
-        const attendanceChanged = nextAttendance !== (p.attendance ?? undefined);
-        const scoreChanged = nextScore !== (p.score ?? null);
-        if (!attendanceChanged && !scoreChanged) continue;
+        if (!willWrite(p, nextAttendance, nextScore)) continue;
         await updateParticipant.mutateAsync({
           orgId,
           id: classId,
           participantId: p.id,
           data: {
-            ...(attendanceChanged ? { attendance: nextAttendance } : {}),
-            ...(scoreChanged && nextScore != null ? { score: nextScore } : {}),
+            // `attendance` vai sempre, mesmo inalterada: é ela que faz o
+            // backend recomputar o `result`. Ver effectiveResult().
+            attendance: nextAttendance,
+            ...(nextScore != null ? { score: nextScore } : {}),
           },
         });
       }
@@ -135,7 +183,9 @@ export function EncerrarTurmaDialog({
     } catch {
       toast({
         title: "Erro ao encerrar turma",
-        description: "Nada foi concluído. Tente novamente.",
+        // Presenças/notas já gravadas antes da falha permanecem — dizer "nada
+        // foi concluído" mentiria. Reexecutar é seguro (grava só o diff).
+        description: "A turma não foi encerrada. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -253,7 +303,7 @@ export function EncerrarTurmaDialog({
           <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border p-2">
             {present.map((p) => {
               const s = scores[p.id];
-              const failed = minScore != null && s != null && s < minScore;
+              const result = resultOf(p);
               return (
                 <div
                   key={p.id}
@@ -269,14 +319,18 @@ export function EncerrarTurmaDialog({
                   />
                   <span
                     className={`w-20 shrink-0 text-right text-[10px] uppercase tracking-wide ${
-                      s == null
-                        ? "text-muted-foreground"
-                        : failed
-                          ? "text-red-700"
-                          : "text-green-700"
+                      result === "reprovado"
+                        ? "text-red-700"
+                        : result === "aprovado"
+                          ? "text-green-700"
+                          : "text-muted-foreground"
                     }`}
                   >
-                    {s == null ? "—" : failed ? "Reprovado" : "Aprovado"}
+                    {result === "reprovado"
+                      ? "Reprovado"
+                      : result === "aprovado"
+                        ? "Aprovado"
+                        : "—"}
                   </span>
                 </div>
               );
