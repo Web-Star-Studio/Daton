@@ -177,29 +177,29 @@ describe("buildLearningIndicatorsPdf", () => {
   });
 });
 
-describe("export — coerência com o exercício selecionado", () => {
-  // `expired` é a posição de hoje e não acompanha o ano escolhido: num
-  // exercício fechado sem vencidos, listá-la contradiria o card.
-  const PASSADO: LearningSummary = {
+describe("export — seção de vencidos", () => {
+  // `expired` passou a ser recortado pelo mesmo fim de período dos cards, então
+  // não existe mais o estado "lista cheia com contagem zero" que esta suíte
+  // cobria antes. O que importa agora é a seção sair quando há vencidos no
+  // exercício e sumir quando não há.
+  const SEM_VENCIDOS: LearningSummary = {
     ...SUMMARY,
     cards: { ...SUMMARY.cards, expiredTrainings: 0 },
+    expired: [],
   };
 
   function pdfSize(summary: LearningSummary): number {
     return buildLearningIndicatorsPdf({ summary, year: 2024 }).output().length;
   }
 
-  it("omite a tabela de vencidos quando o exercício não registra vencidos", () => {
-    // A amostra existe no payload...
-    expect(PASSADO.expired.length).toBeGreaterThan(0);
-    // ...mas o documento sai menor porque a seção não é desenhada. O texto do
-    // PDF vive em content streams codificados, então o tamanho é o sinal
-    // observável de que a seção entrou ou não.
-    expect(pdfSize(PASSADO)).toBeLessThan(pdfSize(SUMMARY));
+  it("desenha a tabela quando o exercício registra vencidos", () => {
+    expect(SUMMARY.expired.length).toBeGreaterThan(0);
+    expect(pdfSize(SUMMARY)).toBeGreaterThan(pdfSize(SEM_VENCIDOS));
   });
 
-  it("desenha a tabela quando o exercício registra vencidos", () => {
-    expect(SUMMARY.cards.expiredTrainings).toBeGreaterThan(0);
-    expect(pdfSize(SUMMARY)).toBeGreaterThan(pdfSize(PASSADO));
+  it("omite a tabela quando o exercício não registra vencidos", () => {
+    // O texto do PDF vive em content streams codificados, então o tamanho do
+    // documento é o sinal observável de que a seção entrou ou não.
+    expect(pdfSize(SEM_VENCIDOS)).toBeLessThan(pdfSize(SUMMARY));
   });
 });
