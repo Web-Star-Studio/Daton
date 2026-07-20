@@ -10,6 +10,7 @@ const CONTRACT_LABELS: Record<string, string> = {
   pj: "PJ",
   intern: "Estagiário",
   temporary: "Temporário",
+  terceirizado: "Terceirizado",
 };
 
 function fmtDate(value: string | null | undefined): string {

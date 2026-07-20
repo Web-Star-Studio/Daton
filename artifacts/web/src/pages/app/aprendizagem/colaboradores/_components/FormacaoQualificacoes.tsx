@@ -79,10 +79,9 @@ export function FormacaoQualificacoes({
       ? Math.round((atendeItems.length / progressDenom) * 100)
       : 0;
 
-  const hasGaps =
-    veredito === "gap" ||
-    gapItems.length > 0 ||
-    naoClassificadoItems.length > 0;
+  // "nao_classificado" NÃO é lacuna (invariante da Fase 1) — ele fica fora do
+  // selo, da barra e do denominador. O selo vermelho só acende com lacuna real.
+  const hasGaps = veredito === "gap" || gapItems.length > 0;
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card p-5 space-y-5">

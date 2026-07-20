@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "wouter";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -3422,12 +3422,15 @@ export default function ColaboradorDetailPage() {
   // Painel único: não há mais abas para trocar. `?tab=` (usado por outras
   // telas, ex. treinamentos.tsx "Abrir competência") agora rola até a seção
   // correspondente em vez de trocar de aba — a seção já está sempre visível.
+  // Rola só UMA vez por valor de `?tab=`: o efeito depende de `employee` para
+  // esperar as seções existirem no DOM (navegação fria), mas sem este guard ele
+  // re-rolaria a cada refetch (toda mutation invalida o employee) — puxando o
+  // usuário de volta pra seção do deep-link no meio de uma edição.
+  const scrolledTabRef = useRef<string | null>(null);
   useEffect(() => {
-    // As seções só existem no DOM depois que `employee` carrega — por isso o
-    // efeito depende de `employee`: numa navegação fria (deep-link vindo de
-    // outra tela) ele re-dispara quando o dado chega, e aí a seção existe.
     if (!employee) return;
     const requestedTab = searchParams.get("tab");
+    if (!requestedTab || requestedTab === scrolledTabRef.current) return;
     const sectionId =
       requestedTab === "competencias"
         ? "secao-competencias"
@@ -3440,6 +3443,7 @@ export default function ColaboradorDetailPage() {
               : null;
     if (!sectionId) return;
     document.getElementById(sectionId)?.scrollIntoView({ block: "start" });
+    scrolledTabRef.current = requestedTab;
   }, [searchParams, employee]);
 
   useEffect(() => {

@@ -23,7 +23,10 @@ export function computeTenure(
   today: Date = new Date(),
 ): string {
   if (!admissionDate) return "";
-  const start = new Date(admissionDate);
+  // Data-only ("YYYY-MM-DD") ancorada na meia-noite LOCAL, para os getters
+  // locais abaixo baterem com `today` (senão o parse UTC gera off-by-one de mês
+  // em fusos negativos, ex.: BRT). slice(0,10) tolera um timestamp completo.
+  const start = new Date(`${admissionDate.slice(0, 10)}T00:00:00`);
   if (Number.isNaN(start.getTime())) return "";
   let months =
     (today.getFullYear() - start.getFullYear()) * 12 +
