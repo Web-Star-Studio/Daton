@@ -1,13 +1,17 @@
-export type CatalogMeta = { normLabels: string[]; isCritical: boolean };
+export type CatalogMeta = { normLabels: string[] };
 
 type CatalogItemLike = {
   id: number;
   normIds?: number[] | null;
-  isCritical?: boolean | null;
 };
 
-/** Mapa catalogItemId → { normLabels, isCritical }, resolvendo os rótulos de
- *  norma pelos ids. normId sem rótulo conhecido é descartado. */
+/** Mapa catalogItemId → { normLabels }, resolvendo os rótulos de norma pelos
+ *  ids. normId sem rótulo conhecido é descartado.
+ *
+ *  Nota: criticidade NÃO vem do catálogo — `training_catalog` não tem
+ *  `isCritical`. Essa flag vive em `training_requirements` (obrigatoriedade)
+ *  e deve ser resolvida via `OrganizationTraining.requirementId`, não por
+ *  aqui (ver `requirementCriticalById` em `PorColaboradorTable`). */
 export function buildCatalogMeta(
   catalog: CatalogItemLike[],
   normLabelById: Map<number, string>,
@@ -17,7 +21,7 @@ export function buildCatalogMeta(
     const normLabels = (item.normIds ?? [])
       .map((id) => normLabelById.get(id))
       .filter((l): l is string => !!l);
-    out.set(item.id, { normLabels, isCritical: !!item.isCritical });
+    out.set(item.id, { normLabels });
   }
   return out;
 }

@@ -9,6 +9,8 @@ import {
   getListUnitsQueryKey,
   useListPositions,
   getListPositionsQueryKey,
+  useListTrainingRequirements,
+  getListTrainingRequirementsQueryKey,
 } from "@workspace/api-client-react";
 import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
 import {
@@ -227,6 +229,28 @@ export default function AprendizagemGestaoPage() {
     [catalogItems, normLabelById],
   );
 
+  // Coluna Crítico: NÃO vem do catálogo (training_catalog não tem
+  // isCritical) — vem da obrigatoriedade (training_requirements.isCritical),
+  // ligada ao treino por requirementId (ver PorColaboradorTable).
+  const { data: requirementsResult } = useListTrainingRequirements(
+    orgId,
+    undefined,
+    {
+      query: {
+        enabled,
+        queryKey: getListTrainingRequirementsQueryKey(orgId),
+      },
+    },
+  );
+  const requirements = useMemo(
+    () => requirementsResult?.data ?? [],
+    [requirementsResult],
+  );
+  const requirementCriticalById = useMemo(
+    () => new Map(requirements.map((r) => [r.id, !!r.isCritical])),
+    [requirements],
+  );
+
   // ── Guards ──────────────────────────────────────────────────────────────
   if (!orgId) return null;
 
@@ -353,6 +377,7 @@ export default function AprendizagemGestaoPage() {
           <PorColaboradorTable
             rows={rows}
             catalogMeta={catalogMeta}
+            requirementCriticalById={requirementCriticalById}
             loading={mainLoading}
             error={mainError}
             emptyLabel="Nenhum treinamento encontrado para os filtros selecionados."
@@ -376,6 +401,7 @@ export default function AprendizagemGestaoPage() {
             <PorColaboradorTable
               rows={rowsByDeadline}
               catalogMeta={catalogMeta}
+              requirementCriticalById={requirementCriticalById}
               loading={mainLoading}
               error={mainError}
               emptyLabel="Nenhum treinamento encontrado para os filtros selecionados."

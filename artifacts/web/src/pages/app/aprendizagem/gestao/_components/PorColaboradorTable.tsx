@@ -13,19 +13,24 @@ import {
   STATUS_LABEL,
 } from "../_lib/format";
 
-/** Tabela "Por colaborador" (também reusada pela aba "Por prazo") — mostra
- *  Norma e Crítico resolvidos a partir do item de catálogo do treino
- *  (`catalogMeta`, ver `_lib/catalog-meta.ts`). Treino sem `catalogItemId`
- *  (ou cujo item não está no mapa) mostra "—" e não é marcado como crítico. */
+/** Tabela "Por colaborador" (também reusada pela aba "Por prazo") — mostra a
+ *  Norma resolvida a partir do item de catálogo do treino (`catalogMeta`,
+ *  ver `_lib/catalog-meta.ts`; treino sem `catalogItemId`, ou cujo item não
+ *  está no mapa, mostra "—"). A criticidade NÃO vem do catálogo (que não tem
+ *  `isCritical`) — vem da obrigatoriedade (`training_requirements.isCritical`)
+ *  via `t.requirementId → requirementCriticalById`. Treino sem `requirementId`
+ *  (ou cujo requisito não está no mapa) não é marcado como crítico. */
 export function PorColaboradorTable({
   rows,
   catalogMeta,
+  requirementCriticalById,
   loading,
   error,
   emptyLabel,
 }: {
   rows: OrganizationTraining[];
   catalogMeta: Map<number, CatalogMeta>;
+  requirementCriticalById: Map<number, boolean>;
   loading: boolean;
   error: boolean;
   emptyLabel: string;
@@ -82,6 +87,9 @@ export function PorColaboradorTable({
             const normLabel = meta?.normLabels.length
               ? meta.normLabels.join(", ")
               : "—";
+            const isCritical =
+              t.requirementId != null &&
+              requirementCriticalById.get(t.requirementId) === true;
             return (
               <tr
                 key={t.id}
@@ -110,7 +118,7 @@ export function PorColaboradorTable({
                   {formatDate(trainingDeadline(t))}
                 </td>
                 <td className="px-4 py-2">
-                  {meta?.isCritical ? (
+                  {isCritical ? (
                     <Badge className="border border-red-200 bg-red-50 text-red-700">
                       Crítico
                     </Badge>
