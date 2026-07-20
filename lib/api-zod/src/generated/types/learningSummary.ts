@@ -9,10 +9,12 @@ import type { LearningSummaryCards } from "./learningSummaryCards";
 import type { LearningSummaryExpiredRow } from "./learningSummaryExpiredRow";
 import type { LearningSummaryNormRow } from "./learningSummaryNormRow";
 import type { LearningSummaryPendingRow } from "./learningSummaryPendingRow";
+import type { LearningSummaryTarget } from "./learningSummaryTarget";
 import type { LearningSummaryUnitRow } from "./learningSummaryUnitRow";
 
 export interface LearningSummary {
   cards: LearningSummaryCards;
+  targets: LearningSummaryTarget[];
   byUnit: LearningSummaryUnitRow[];
   byNorm: LearningSummaryNormRow[];
   expired: LearningSummaryExpiredRow[];

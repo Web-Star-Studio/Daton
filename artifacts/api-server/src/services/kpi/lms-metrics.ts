@@ -157,14 +157,36 @@ async function countCriticalGapEmployees(
   return total;
 }
 
+/**
+ * Calcula uma métrica do LMS. `unitId` opcional restringe o cálculo a uma
+ * filial; omitido, o escopo é corporativo (comportamento histórico — o módulo
+ * KPI depende dele para computar os indicadores da organização).
+ *
+ * O recorte por filial usa `employees.unit_id` em todas as métricas que partem
+ * de treinamentos/colaboradores, e `annual_training_program.unit_id` no PAT.
+ */
 export async function computeLmsMetric(args: {
   orgId: number;
   metric: LmsMetricKey;
   year: number;
   month: number;
+  unitId?: number;
+  /**
+   * Primeiro mês da janela em `effectiveness_overall` — a única métrica que
+   * olha um intervalo em vez de acumular até `month`. Padrão: o próprio
+   * `month` (janela de um mês), que é o que o módulo KPI precisa para lançar
+   * valor mensal. O resumo do LMS passa `1` para obter o acumulado do
+   * exercício, senão um ano fechado renderia só dezembro.
+   */
+  startMonth?: number;
   database: Database;
 }): Promise<number | null> {
-  const { orgId, metric, year, month, database } = args;
+  const { orgId, metric, year, month, unitId, startMonth, database } = args;
+
+  // Recorte por filial na tabela de colaboradores — reaproveitado pelas
+  // métricas que passam por `employees`.
+  const employeeUnitFilter =
+    unitId !== undefined ? eq(employeesTable.unitId, unitId) : undefined;
 
   if (metric === "pat_completion") {
     const rows = await database
@@ -178,6 +200,9 @@ export async function computeLmsMetric(args: {
           eq(annualTrainingProgramTable.organizationId, orgId),
           eq(annualTrainingProgramTable.year, year),
           sql`(${annualTrainingProgramTable.plannedMonth} is null or ${annualTrainingProgramTable.plannedMonth} <= ${month})`,
+          unitId !== undefined
+            ? eq(annualTrainingProgramTable.unitId, unitId)
+            : undefined,
         ),
       );
     const r = rows[0];
@@ -185,7 +210,8 @@ export async function computeLmsMetric(args: {
   }
 
   if (metric === "effectiveness_overall") {
-    const start = `${year}-${String(month).padStart(2, "0")}-01`;
+    const first = Math.min(Math.max(startMonth ?? month, 1), month);
+    const start = `${year}-${String(first).padStart(2, "0")}-01`;
     const end = endOfMonthIso(year, month);
     const rows = await database
       .select({
@@ -209,6 +235,7 @@ export async function computeLmsMetric(args: {
           eq(employeesTable.organizationId, orgId),
           gte(trainingEffectivenessReviewsTable.evaluationDate, start),
           lte(trainingEffectivenessReviewsTable.evaluationDate, end),
+          employeeUnitFilter,
         ),
       );
     const r = rows[0];
@@ -231,6 +258,7 @@ export async function computeLmsMetric(args: {
         and(
           eq(employeesTable.organizationId, orgId),
           isNotNull(employeeTrainingsTable.requirementId),
+          employeeUnitFilter,
         ),
       );
     const r = rows[0];
@@ -253,6 +281,7 @@ export async function computeLmsMetric(args: {
           eq(employeesTable.organizationId, orgId),
           eq(employeeTrainingsTable.status, "concluido"),
           sql`(${employeeTrainingsTable.completionDate} is null or ${employeeTrainingsTable.completionDate} <= ${end})`,
+          employeeUnitFilter,
         ),
       );
     const [empRow] = await database
@@ -262,6 +291,7 @@ export async function computeLmsMetric(args: {
         and(
           eq(employeesTable.organizationId, orgId),
           eq(employeesTable.status, "active"),
+          employeeUnitFilter,
         ),
       );
     const n = Number(empRow?.n ?? 0);
@@ -284,6 +314,7 @@ export async function computeLmsMetric(args: {
           isNotNull(employeeTrainingsTable.expirationDate),
           lte(employeeTrainingsTable.expirationDate, end),
           sql`${employeeTrainingsTable.status} <> 'concluido'`,
+          employeeUnitFilter,
         ),
       );
     return Number(row?.n ?? 0);
@@ -295,6 +326,10 @@ export async function computeLmsMetric(args: {
     const isCurrent =
       year === now.getUTCFullYear() && month === now.getUTCMonth() + 1;
     if (!isCurrent) return null;
+    if (unitId !== undefined) {
+      const byUnit = await computeCriticalGapCountsByUnit(orgId, database);
+      return byUnit.get(unitId) ?? 0;
+    }
     return await countCriticalGapEmployees(orgId, database);
   }
 
