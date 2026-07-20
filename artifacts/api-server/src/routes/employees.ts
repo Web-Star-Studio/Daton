@@ -242,6 +242,10 @@ export const isRealizadoMes = sql`(
   and ${employeeTrainingsTable.completionDate} >= date_trunc('month', current_date)
   and ${employeeTrainingsTable.completionDate} < date_trunc('month', current_date) + interval '1 month'
 )`;
+// "Não aplicável" é invisível para toda contagem de obrigação: não é
+// pendência, não vence, não é realizado, não entra em numerador nem
+// denominador. Todo cálculo de obrigação deve compor este fragmento.
+export const notNaoAplicavel = sql`${employeeTrainingsTable.status} <> 'nao_aplicavel'`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1898,11 +1902,14 @@ router.get(
         );
       } else if (st === "vencido") {
         conditions.push(
-          or(
-            eq(employeeTrainingsTable.status, "vencido"),
-            and(
-              isNotNull(employeeTrainingsTable.expirationDate),
-              sql`${employeeTrainingsTable.expirationDate} < current_date`,
+          and(
+            notNaoAplicavel,
+            or(
+              eq(employeeTrainingsTable.status, "vencido"),
+              and(
+                isNotNull(employeeTrainingsTable.expirationDate),
+                sql`${employeeTrainingsTable.expirationDate} < current_date`,
+              )!,
             )!,
           )!,
         );
@@ -2016,6 +2023,7 @@ router.get(
         .split("T")[0];
       conditions.push(
         and(
+          notNaoAplicavel,
           isNotNull(employeeTrainingsTable.expirationDate),
           sql`${employeeTrainingsTable.expirationDate} >= current_date`,
           sql`${employeeTrainingsTable.expirationDate} <= ${horizonDate}::date`,
@@ -2125,10 +2133,14 @@ router.get(
         boardPendentesCount: sql<number>`count(*) filter (where ${boardPendentes})::int`,
         boardEmAvaliacaoCount: sql<number>`count(*) filter (where ${boardEmAvaliacao})::int`,
         boardConcluidasCount: sql<number>`count(*) filter (where ${boardConcluidas})::int`,
-        // Legacy training-status stats (replicating deriveTrainingStatus logic)
-        pendenteCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'pendente')::int`,
-        concluidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'concluido' and (${employeeTrainingsTable.expirationDate} is null or ${employeeTrainingsTable.expirationDate} >= current_date))::int`,
-        vencidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'vencido' or (${employeeTrainingsTable.expirationDate} is not null and ${employeeTrainingsTable.expirationDate} < current_date))::int`,
+        // Legacy training-status stats (replicating deriveTrainingStatus logic).
+        // Todas as três somam `notNaoAplicavel`: NA é invisível para toda
+        // contagem de obrigação (não é pendência, não vence, não é
+        // realizado). Em pendenteCount/concluidoCount a igualdade exata de
+        // status já exclui NA — mantido por consistência/documentação.
+        pendenteCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'pendente' and ${notNaoAplicavel})::int`,
+        concluidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'concluido' and (${employeeTrainingsTable.expirationDate} is null or ${employeeTrainingsTable.expirationDate} >= current_date) and ${notNaoAplicavel})::int`,
+        vencidoCount: sql<number>`count(*) filter (where (${employeeTrainingsTable.status} = 'vencido' or (${employeeTrainingsTable.expirationDate} is not null and ${employeeTrainingsTable.expirationDate} < current_date)) and ${notNaoAplicavel})::int`,
         // effectivenessPending: boardPendentes (sem review/atribuição) + critério
         // de eficácia presente (fragmento único, alinhado ao JS — #115)
         effectivenessPendingCount: sql<number>`count(*) filter (where ${boardPendentes} and ${boardHasPendingCriteria})::int`,

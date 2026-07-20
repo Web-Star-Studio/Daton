@@ -210,4 +210,83 @@ describe("Treinamento status nao_aplicavel — motivo obrigatório", () => {
       "Função não manuseia inflamáveis",
     );
   });
+
+  // Regressão: vencidoCount/pendenteCount do statsRow e o ramo `vencido` do
+  // filtro de status replicam em SQL a lógica de deriveTrainingStatus — o
+  // curto-circuito de NA foi corrigido só no JS (commit 7e7dda77). Um NA com
+  // expirationDate vencida continuava contado como "vencido" nas stats e
+  // aparecendo em `?status=vencido` / `?onlyPendenteSemTurma=true`.
+  it("NA não conta como pendente nem vencido, e não vira vencido pela validade", async () => {
+    const ctx = await createTestContext({ seed: "na-fora-das-contagens" });
+    contexts.push(ctx);
+    const emp = await createEmployee(ctx, { name: `${ctx.prefix} Beltrano` });
+    // NA com validade JÁ VENCIDA: não pode virar "vencido"
+    await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({
+        title: `${ctx.prefix} NR-33`,
+        status: "nao_aplicavel",
+        notApplicableReason: "Não executa espaço confinado",
+        expirationDate: "2020-01-01",
+      });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings?pageSize=50`)
+      .set(authHeader(ctx));
+    expect(res.status).toBe(200);
+    expect(res.body.stats.pendente).toBe(0);
+    expect(res.body.stats.vencido).toBe(0);
+    const row = res.body.data.find((t: { title: string }) => t.title.includes("NR-33"));
+    expect(row.status).toBe("nao_aplicavel"); // não derivou para vencido
+
+    const soPendentes = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings?status=pendente&pageSize=50`)
+      .set(authHeader(ctx));
+    expect(soPendentes.body.data.length).toBe(0);
+
+    const soVencidos = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings?status=vencido&pageSize=50`)
+      .set(authHeader(ctx));
+    expect(soVencidos.body.data.length).toBe(0);
+
+    const semTurma = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings?onlyPendenteSemTurma=true&pageSize=50`)
+      .set(authHeader(ctx));
+    expect(semTurma.body.data.length).toBe(0);
+  });
+
+  // Regressão adicional (achada ao confirmar o código, fora da lista original
+  // do brief): `expiringWithinDays` — usado tanto no filtro quanto no bucket
+  // "a vencer" do painel "Por prazo" — não checava o status e contaria um NA
+  // com expirationDate nos próximos N dias como "a vencer". NA "não vence",
+  // então nunca deveria aparecer aqui.
+  it("NA com expirationDate futura não aparece no bucket 'a vencer' (expiringWithinDays)", async () => {
+    const ctx = await createTestContext({ seed: "na-fora-de-a-vencer" });
+    contexts.push(ctx);
+    const emp = await createEmployee(ctx, { name: `${ctx.prefix} Sicrano` });
+    const future = new Date(Date.now() + 10 * 86400000)
+      .toISOString()
+      .split("T")[0];
+
+    await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({
+        title: `${ctx.prefix} NR-12`,
+        status: "nao_aplicavel",
+        notApplicableReason: "Não opera máquinas",
+        expirationDate: future,
+      });
+
+    const aVencer = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?expiringWithinDays=30&pageSize=50`,
+      )
+      .set(authHeader(ctx));
+    expect(aVencer.status).toBe(200);
+    expect(
+      aVencer.body.data.find((t: { title: string }) => t.title.includes("NR-12")),
+    ).toBeUndefined();
+  });
 });
