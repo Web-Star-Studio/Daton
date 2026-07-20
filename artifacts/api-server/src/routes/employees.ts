@@ -1657,9 +1657,15 @@ router.get(
         .enum(["pendentes", "em_avaliacao", "concluidas"])
         .optional(),
       /** Filtra a lista para "programados": pendente ∩ participante de turma ativa. */
-      onlyProgramado: z.coerce.boolean().optional(),
+      onlyProgramado: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((v) => v === "true"),
       /** Filtra a lista para concluídos com completion_date no mês corrente. */
-      realizadoInCurrentMonth: z.coerce.boolean().optional(),
+      realizadoInCurrentMonth: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((v) => v === "true"),
     }).safeParse(req.query);
     if (!query.success) {
       res.status(400).json({ error: query.error.message });

@@ -113,4 +113,24 @@ describe("GET employees/trainings — stats programado/realizadoMes", () => {
     expect(res.body.data.length).toBe(1);
     expect(res.body.data[0].status).toBe("concluido");
   });
+
+  it("onlyProgramado=false não filtra a lista (string 'false' não deve virar truthy)", async () => {
+    const ctx = await createTestContext({
+      seed: "trainings-only-programado-false",
+    });
+    contexts.push(ctx);
+    await seedProgramadoERealizado(ctx);
+
+    const res = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?onlyProgramado=false&pageSize=50`,
+      )
+      .set(authHeader(ctx));
+    expect(res.status).toBe(200);
+    // Lista completa: o pendente/programado E o concluído do mês, sem filtro aplicado.
+    expect(res.body.data.length).toBe(2);
+    const statuses = res.body.data.map((t: { status: string }) => t.status);
+    expect(statuses).toContain("pendente");
+    expect(statuses).toContain("concluido");
+  });
 });
