@@ -19,7 +19,12 @@ export interface Pendencia {
   /** ISO (date-only "YYYY-MM-DD" ou datetime). null = sem prazo. */
   dueDate: string | null;
   urgency: PendenciaUrgency;
+  /** O responsável, DENTRO do escopo pedido, que explica esta linha estar na lista. */
   responsibleUserId: number;
+  /** Todos os responsáveis do item, quando ele admite mais de um (hoje: planos de
+   *  ação — ponto focal + co-responsáveis). Ausente nos demais provedores, que caem
+   *  no singular acima. */
+  responsibleUserIds?: number[];
   responsibleName?: string;
   link: { route: string; ctaLabel: string };
   meta?: Record<string, unknown>;

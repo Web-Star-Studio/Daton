@@ -70,19 +70,22 @@ export async function aggregatePendencias(
       );
   }
 
-  // Enrich responsibleName (needed by the unit/org scopes).
-  const ids = [...new Set([...items, ...completedToday].map((i) => i.responsibleUserId))];
+  // Enrich responsibleName (needed by the unit/org scopes). Um item pode ter mais de
+  // um responsável (planos de ação: ponto focal + co-responsáveis) — aí o rótulo
+  // vira "Maria Silva +2".
+  const ids = [
+    ...new Set(
+      [...items, ...completedToday].flatMap((i) => i.responsibleUserIds ?? [i.responsibleUserId]),
+    ),
+  ];
   if (ids.length > 0) {
     const users = await db
       .select({ id: usersTable.id, name: usersTable.name })
       .from(usersTable)
       .where(and(eq(usersTable.organizationId, ctx.orgId), inArray(usersTable.id, ids)));
     const nameById = new Map(users.map((u) => [u.id, u.name]));
-    for (const item of items) {
-      item.responsibleName = nameById.get(item.responsibleUserId) ?? undefined;
-    }
-    for (const item of completedToday) {
-      item.responsibleName = nameById.get(item.responsibleUserId) ?? undefined;
+    for (const item of [...items, ...completedToday]) {
+      item.responsibleName = composeResponsibleName(item, nameById);
     }
   }
 
@@ -122,4 +125,20 @@ export async function aggregatePendencias(
   counts.completedToday = completedToday.length;
 
   return { items, counts, completedToday };
+}
+
+/** "Maria Silva" para um; "Maria Silva +2" para três. Ordem alfabética para o
+ *  rótulo não dançar entre requisições. */
+function composeResponsibleName(
+  item: Pendencia,
+  nameById: Map<number, string>,
+): string | undefined {
+  const ids = item.responsibleUserIds ?? [item.responsibleUserId];
+  const names = ids
+    .map((id) => nameById.get(id))
+    .filter((n): n is string => Boolean(n))
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+  if (names.length === 0) return undefined;
+  if (names.length === 1) return names[0];
+  return `${names[0]} +${names.length - 1}`;
 }

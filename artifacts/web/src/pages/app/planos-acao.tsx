@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Plus } from "lucide-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Button } from "@/components/ui/button";
 import { ActionTabs, type ActionTabId } from "./planos-acao/_components/action-tabs";
 import { ListaScreen } from "./planos-acao/_components/lista-screen";
+import type { ListFilters } from "./planos-acao/_components/list-filters";
 import { PainelExecutivo } from "./planos-acao/_components/painel-executivo";
 import { PainelOperacional } from "./planos-acao/_components/painel-operacional";
 import { AuditoriaScreen } from "./planos-acao/_components/auditoria-screen";
@@ -21,6 +22,14 @@ export default function ActionPlansModulePage() {
 
   const [tab, setTab] = useState<ActionTabId>("lista");
   const [novaOpen, setNovaOpen] = useState(false);
+  const [pendingFilters, setPendingFilters] = useState<Partial<ListFilters> | undefined>(undefined);
+
+  // Chamado pelos painéis (ex.: tile "Aguardando" da Eficácia): troca para a
+  // aba Lista e injeta o filtro correspondente.
+  const drillDown = useCallback((filters: Partial<ListFilters>) => {
+    setPendingFilters(filters);
+    setTab("lista");
+  }, []);
 
   useHeaderActions(
     canWrite ? (
@@ -34,11 +43,19 @@ export default function ActionPlansModulePage() {
     <div className="p-6">
       <ActionTabs active={tab} onChange={setTab} />
       <div className="pt-5">
-        {tab === "lista" && <ListaScreen orgId={orgId} canWrite={canWrite} onNova={() => setNovaOpen(true)} />}
+        {tab === "lista" && (
+          <ListaScreen
+            orgId={orgId}
+            canWrite={canWrite}
+            onNova={() => setNovaOpen(true)}
+            initialFilters={pendingFilters}
+            onInitialFiltersApplied={() => setPendingFilters(undefined)}
+          />
+        )}
         {tab === "executivo" && <PainelExecutivo orgId={orgId} />}
         {tab === "operacional" && <PainelOperacional orgId={orgId} />}
         {tab === "auditoria" && <AuditoriaScreen orgId={orgId} />}
-        {tab === "eficacia" && <EficaciaScreen orgId={orgId} />}
+        {tab === "eficacia" && <EficaciaScreen orgId={orgId} onDrillDown={drillDown} />}
       </div>
       <NovaAcaoDialog orgId={orgId} open={novaOpen} onOpenChange={setNovaOpen} />
     </div>

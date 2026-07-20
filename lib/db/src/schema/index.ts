@@ -35,3 +35,4 @@ export * from "./regulatory-documents";
 export * from "./regulatory-documents-audit";
 export * from "./regulatory-norms";
 export * from "./action-plan-analysis-methods";
+export * from "./effectiveness-methods";

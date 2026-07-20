@@ -90,6 +90,30 @@ export async function notifyActionPlanActionAssignment(
 }
 
 /**
+ * Notifica UM co-responsável — in-app + e-mail — de que foi vinculado ao plano.
+ * Um plano tem N co-responsáveis; quem chama itera sobre eles. O texto é distinto
+ * do ponto focal de propósito: quem lê precisa saber em que qualidade foi chamado.
+ */
+export async function notifyActionPlanCoResponsibleAssignment(
+  plan: ActionPlanNotifyTarget,
+  recipientUserId: number,
+  actorUserId: number | null,
+): Promise<void> {
+  const ref = plan.code ? `${plan.code} — ` : "";
+  const due = plan.dueDate ? ` Prazo: ${formatDateBR(plan.dueDate)}.` : "";
+  await deliverAssignment({
+    orgId: plan.organizationId,
+    planId: plan.id,
+    recipientUserId,
+    actorUserId,
+    type: "action_plan_assigned",
+    title: `Você foi vinculado a uma ação: ${ref}${plan.title}`,
+    description: `Você foi definido como co-responsável por esta ação.${due} Abra a ação para acompanhar e registrar o andamento.`,
+    reason: "foi definido como co-responsável por esta ação",
+  });
+}
+
+/**
  * Shared delivery core. Best-effort and self-contained: it never throws, so it
  * can't break the create/update request. Skips when there is no recipient or
  * when the actor assigned the work to themselves (no point pinging yourself).

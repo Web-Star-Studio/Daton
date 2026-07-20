@@ -277,6 +277,43 @@ describe("employees routes", () => {
 
     expect(deleteSecondaryRequirement.status).toBe(204);
 
+    // Sem nenhum atestado manual e sem item de catálogo classificado que
+    // comprove "Auditoria interna" nesta organização, o requisito é
+    // "nao_classificado" (ausência de dado) — não "gap". O resolvedor único
+    // (Task 2/3) NÃO conta isso como lacuna acionável; não deve aparecer
+    // na lista de /competency-gaps.
+    const gapsUnclassified = await request(app)
+      .get(
+        `/api/organizations/${context.organizationId}/employees/competency-gaps`,
+      )
+      .set(authHeader(context));
+
+    expect(gapsUnclassified.status).toBe(200);
+    expect(
+      gapsUnclassified.body.data.find(
+        (item: { employeeId: number; competencyName: string }) =>
+          item.employeeId === employee.id &&
+          item.competencyName === "Auditoria interna",
+      ),
+    ).toBeUndefined();
+
+    // Com um atestado manual parcial (abaixo do requerido), o requisito
+    // vira um gap real e acionável — o endpoint continua detectando lacunas
+    // de verdade, só parou de inventar lacuna onde não há dado.
+    const partialCompetency = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}/competencies`,
+      )
+      .set(authHeader(context))
+      .send({
+        name: "Auditoria interna",
+        type: "habilidade",
+        requiredLevel: 5,
+        acquiredLevel: 2,
+      });
+
+    expect(partialCompetency.status).toBe(201);
+
     const gapsBeforeTraining = await request(app)
       .get(
         `/api/organizations/${context.organizationId}/employees/competency-gaps`,
@@ -290,8 +327,8 @@ describe("employees routes", () => {
           employeeId: employee.id,
           competencyName: "Auditoria interna",
           requiredLevel: 5,
-          acquiredLevel: 0,
-          gapLevel: 5,
+          acquiredLevel: 2,
+          gapLevel: 3,
         }),
       ]),
     );
@@ -308,10 +345,12 @@ describe("employees routes", () => {
         targetCompetencyType: "habilidade",
         targetCompetencyLevel: 5,
         evaluationMethod: "Observacao em auditoria real",
+        instructor: "Ana Instrutora",
         status: "concluido",
       });
 
     expect(training.status).toBe(201);
+    expect(training.body.instructor).toBe("Ana Instrutora");
 
     const review = await request(app)
       .post(

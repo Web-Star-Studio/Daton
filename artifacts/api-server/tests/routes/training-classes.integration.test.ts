@@ -28,7 +28,10 @@ describe("training-classes routes", () => {
     const context = await createTestContext({ seed: "classes-crud" });
     contexts.push(context);
     const base = `/api/organizations/${context.organizationId}/training-classes`;
-    const catalogItemId = await createCatalogItem(context, `Treino ${context.prefix}`);
+    const catalogItemId = await createCatalogItem(
+      context,
+      `Treino ${context.prefix}`,
+    );
     const emp1 = await createEmployee(context, { name: `A ${context.prefix}` });
     const emp2 = await createEmployee(context, { name: `B ${context.prefix}` });
 
@@ -87,7 +90,9 @@ describe("training-classes routes", () => {
     // lista com contagem
     const listed = await request(app).get(base).set(authHeader(context));
     expect(listed.status).toBe(200);
-    const found = listed.body.data.find((c: { id: number }) => c.id === classId);
+    const found = listed.body.data.find(
+      (c: { id: number }) => c.id === classId,
+    );
     expect(found.participantCount).toBe(1);
 
     // deletar turma
@@ -95,6 +100,73 @@ describe("training-classes routes", () => {
       .delete(`${base}/${classId}`)
       .set(authHeader(context));
     expect(del.status).toBe(204);
+  });
+
+  // O que a ficha do catálogo consome: filtra as turmas por item e mostra
+  // "Inscritos" vs "Realizados" (aprovados).
+  it("lista por catalogItemId devolve participantCount e approvedCount", async () => {
+    const context = await createTestContext({ seed: "classes-approved" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-classes`;
+    const catalogItemId = await createCatalogItem(
+      context,
+      `NR ${context.prefix}`,
+    );
+    const outroItemId = await createCatalogItem(
+      context,
+      `Outro ${context.prefix}`,
+    );
+    const emps = await Promise.all([
+      createEmployee(context, { name: `A ${context.prefix}` }),
+      createEmployee(context, { name: `B ${context.prefix}` }),
+      createEmployee(context, { name: `C ${context.prefix}` }),
+    ]);
+
+    const created = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ catalogItemId, startDate: "2026-06-15", minScore: 7 });
+    const classId = created.body.id as number;
+
+    // Turma de outro treinamento: não pode aparecer no filtro.
+    await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ catalogItemId: outroItemId, startDate: "2026-06-16" });
+
+    await request(app)
+      .post(`${base}/${classId}/participants`)
+      .set(authHeader(context))
+      .send({ employeeIds: emps.map((e) => e.id) });
+
+    const detail = await request(app)
+      .get(`${base}/${classId}`)
+      .set(authHeader(context));
+    const idOf = (employeeId: number) =>
+      detail.body.participants.find(
+        (p: { employeeId: number }) => p.employeeId === employeeId,
+      ).id;
+
+    // 1 aprovado, 1 reprovado, 1 sem lançamento (result null).
+    await request(app)
+      .patch(`${base}/${classId}/participants/${idOf(emps[0].id)}`)
+      .set(authHeader(context))
+      .send({ attendance: "presente", score: 9 });
+    await request(app)
+      .patch(`${base}/${classId}/participants/${idOf(emps[1].id)}`)
+      .set(authHeader(context))
+      .send({ attendance: "presente", score: 4 });
+
+    const listed = await request(app)
+      .get(base)
+      .query({ catalogItemId })
+      .set(authHeader(context));
+    expect(listed.status).toBe(200);
+    expect(listed.body.data.length).toBe(1);
+    const found = listed.body.data[0];
+    expect(found.id).toBe(classId);
+    expect(found.participantCount).toBe(3);
+    expect(found.approvedCount).toBe(1);
   });
 
   it("bloqueia matrícula de colaborador de outra organização", async () => {
@@ -142,7 +214,10 @@ describe("training-classes routes", () => {
     const context = await createTestContext({ seed: "classes-score-only" });
     contexts.push(context);
     const base = `/api/organizations/${context.organizationId}/training-classes`;
-    const catalogItemId = await createCatalogItem(context, `Treino Score ${context.prefix}`);
+    const catalogItemId = await createCatalogItem(
+      context,
+      `Treino Score ${context.prefix}`,
+    );
     const emp = await createEmployee(context, { name: `E ${context.prefix}` });
 
     const created = await request(app)
@@ -156,7 +231,9 @@ describe("training-classes routes", () => {
       .set(authHeader(context))
       .send({ employeeIds: [emp.id] });
 
-    const detail = await request(app).get(`${base}/${classId}`).set(authHeader(context));
+    const detail = await request(app)
+      .get(`${base}/${classId}`)
+      .set(authHeader(context));
     const participantId = detail.body.participants[0].id as number;
 
     // Seta result manual explicitamente (sem attendance)
@@ -175,5 +252,94 @@ describe("training-classes routes", () => {
     expect(scoreOnly.status).toBe(200);
     expect(scoreOnly.body.result).toBe("aprovado"); // preservado
     expect(scoreOnly.body.score).toBe(3); // score atualizado
+  });
+
+  it("PATCH aceita nota decimal (score numeric(4,2))", async () => {
+    const context = await createTestContext({ seed: "classes-score-decimal" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-classes`;
+    const catalogItemId = await createCatalogItem(
+      context,
+      `Treino Decimal ${context.prefix}`,
+    );
+    const emp = await createEmployee(context, { name: `E ${context.prefix}` });
+
+    const created = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ catalogItemId, startDate: "2026-07-01", minScore: 7 });
+    const classId = created.body.id as number;
+
+    await request(app)
+      .post(`${base}/${classId}/participants`)
+      .set(authHeader(context))
+      .send({ employeeIds: [emp.id] });
+
+    const detail = await request(app)
+      .get(`${base}/${classId}`)
+      .set(authHeader(context));
+    const participantId = detail.body.participants[0].id as number;
+
+    // Nota com meio ponto: se a coluna voltasse a ser integer, o node-pg
+    // manda o parâmetro como texto ("8.5") e o Postgres rejeita com 22P02
+    // (500), em vez de arredondar em silêncio — ver
+    // training-effectiveness-score.integration.test.ts para o mesmo caso.
+    const patched = await request(app)
+      .patch(`${base}/${classId}/participants/${participantId}`)
+      .set(authHeader(context))
+      .send({ attendance: "presente", score: 8.5 });
+
+    expect(patched.status).toBe(200);
+    expect(patched.body.score).toBe(8.5);
+  });
+
+  it("PATCH com score fora de 0-10 devolve 400 (não 500 nem 200) — achado 1 da revisão", async () => {
+    const context = await createTestContext({ seed: "classes-score-oob" });
+    contexts.push(context);
+    const base = `/api/organizations/${context.organizationId}/training-classes`;
+    const catalogItemId = await createCatalogItem(
+      context,
+      `Treino OOB ${context.prefix}`,
+    );
+    const emp = await createEmployee(context, { name: `E ${context.prefix}` });
+
+    const created = await request(app)
+      .post(base)
+      .set(authHeader(context))
+      .send({ catalogItemId, startDate: "2026-07-01", minScore: 7 });
+    const classId = created.body.id as number;
+
+    await request(app)
+      .post(`${base}/${classId}/participants`)
+      .set(authHeader(context))
+      .send({ employeeIds: [emp.id] });
+
+    const detail = await request(app)
+      .get(`${base}/${classId}`)
+      .set(authHeader(context));
+    const participantId = detail.body.participants[0].id as number;
+
+    // numeric(4,2) guarda no máximo 99,99 — mas o bug real era que a API não
+    // impunha faixa nenhuma antes deste fix: score:100 respondia 200 quando a
+    // coluna era integer e virou 500 (numeric field overflow) depois que a
+    // coluna alargou para numeric(4,2), sem NENHUMA validação de contrato
+    // avisando o cliente. Com minimum/maximum no OpenAPI, o Zod gerado
+    // rejeita antes de chegar no banco: 400, com mensagem.
+    const patched = await request(app)
+      .patch(`${base}/${classId}/participants/${participantId}`)
+      .set(authHeader(context))
+      .send({ attendance: "presente", score: 100 });
+
+    expect(patched.status).toBe(400);
+    expect(patched.body.error).toBeTruthy();
+
+    // A nota inválida não deve ter sido persistida.
+    const after = await request(app)
+      .get(`${base}/${classId}`)
+      .set(authHeader(context));
+    const participantAfter = after.body.participants.find(
+      (p: { id: number }) => p.id === participantId,
+    );
+    expect(participantAfter.score).toBeNull();
   });
 });

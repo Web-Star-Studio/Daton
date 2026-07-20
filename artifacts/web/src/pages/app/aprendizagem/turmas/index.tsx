@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
@@ -7,12 +7,13 @@ import {
   useAddTrainingClassParticipants,
   getListTrainingClassesQueryKey,
   useListUnits,
-  useListEmployees,
-  getListEmployeesQueryKey,
   useListUserOptions,
   getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
-import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import {
+  useAllTrainingCatalog,
+  selectPickerCatalogItems,
+} from "@/lib/training-catalog-client";
 import type { TrainingClass } from "@workspace/api-client-react";
 import { formatKpiNumber } from "@/lib/kpi-client";
 import { TrainingWorkloadInput } from "@/pages/app/aprendizagem/_components/carga-horaria";
@@ -32,6 +33,7 @@ import {
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import { TurmaDetailPanel } from "./detail-panel";
+import { EmployeePicker } from "./employee-picker";
 
 const STATUS_BADGE: Record<string, string> = {
   agendada: "bg-amber-50 text-amber-700",
@@ -127,8 +129,8 @@ export default function TurmasPage() {
 
   const { data: catalogResult, isLoading: catalogLoading } =
     useAllTrainingCatalog(orgId ?? 0, undefined, {
-    query: { enabled: !!orgId },
-  });
+      query: { enabled: !!orgId },
+    });
   const catalogItems = catalogResult?.data ?? [];
   const catalogTitle = useMemo(
     () => new Map(catalogItems.map((c) => [c.id, c.title])),
@@ -137,7 +139,10 @@ export default function TurmasPage() {
   const { data: units = [], isLoading: unitsLoading } = useListUnits(
     orgId ?? 0,
   );
-  const unitName = useMemo(() => new Map(units.map((u) => [u.id, u.name])), [units]);
+  const unitName = useMemo(
+    () => new Map(units.map((u) => [u.id, u.name])),
+    [units],
+  );
 
   const invalidateList = () => {
     if (orgId)
@@ -161,17 +166,14 @@ export default function TurmasPage() {
     () => catalogItems.find((c) => String(c.id) === form.catalogItemId) ?? null,
     [catalogItems, form.catalogItemId],
   );
+  // Opções do picker: só ativos + o item já selecionado no form. O
+  // catalogTitle (acima) continua com a lista inteira — é ele quem exibe o
+  // nome do treinamento nas turmas já criadas (mesmo as de treinos arquivados).
+  const catalogPickerOptions = useMemo(
+    () => selectPickerCatalogItems(catalogItems, form.catalogItemId),
+    [catalogItems, form.catalogItemId],
+  );
   const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
-  const [empSearch, setEmpSearch] = useState("");
-
-  const empParams = { search: empSearch || undefined, pageSize: 50 };
-  const { data: employeesResult } = useListEmployees(orgId ?? 0, empParams, {
-    query: {
-      enabled: !!orgId && open && step === 3,
-      queryKey: getListEmployeesQueryKey(orgId ?? 0, empParams),
-    },
-  });
-  const employees = employeesResult?.data ?? [];
 
   const createMutation = useCreateTrainingClass();
   const addParticipantsMutation = useAddTrainingClassParticipants();
@@ -182,6 +184,24 @@ export default function TurmasPage() {
     setStep(1);
     setOpen(true);
   };
+
+  // Chegada do "Abrir turma" da ficha do catálogo: ?novaTurma=<catalogItemId>
+  // abre o stepper já com o treinamento selecionado. Só dispara uma vez, e o
+  // parâmetro sai da URL para um F5 (ou voltar) não reabrir o diálogo.
+  // Espera `canWrite` em vez de consumir o parâmetro: as permissões podem
+  // resolver depois do primeiro render, e consumir antes engoliria a intenção.
+  const prefilledFromUrl = useRef(false);
+  useEffect(() => {
+    if (prefilledFromUrl.current || !canWrite) return;
+    const raw = new URLSearchParams(window.location.search).get("novaTurma");
+    if (!raw || !/^\d+$/.test(raw)) return;
+    prefilledFromUrl.current = true;
+    window.history.replaceState({}, "", window.location.pathname);
+    setForm({ ...EMPTY_FORM, catalogItemId: raw });
+    setSelectedEmployees([]);
+    setStep(1);
+    setOpen(true);
+  }, [canWrite]);
 
   useHeaderActions(
     canWrite ? (
@@ -209,7 +229,9 @@ export default function TurmasPage() {
         location: form.location || undefined,
         instructor: form.instructor || undefined,
         modality: form.modality || undefined,
-        workloadHours: form.workloadHours ? Number(form.workloadHours) : undefined,
+        workloadHours: form.workloadHours
+          ? Number(form.workloadHours)
+          : undefined,
         capacity: form.capacity ? Number(form.capacity) : undefined,
         minScore: form.minScore ? Number(form.minScore) : undefined,
         status: form.status,
@@ -265,7 +287,9 @@ export default function TurmasPage() {
       <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
         <div className="rounded-xl border bg-card shadow-sm">
           {isLoading ? (
-            <p className="px-4 py-8 text-sm text-muted-foreground">Carregando...</p>
+            <p className="px-4 py-8 text-sm text-muted-foreground">
+              Carregando...
+            </p>
           ) : classes.length === 0 ? (
             <p className="px-4 py-12 text-center text-sm text-muted-foreground">
               Nenhuma turma{canWrite ? " — clique em “Nova turma”." : "."}
@@ -291,7 +315,8 @@ export default function TurmasPage() {
                     onClick={() => setSelectedId(c.id)}
                   >
                     <td className="px-4 py-2 font-medium">
-                      {catalogTitle.get(c.catalogItemId) ?? `#${c.catalogItemId}`}
+                      {catalogTitle.get(c.catalogItemId) ??
+                        `#${c.catalogItemId}`}
                       {c.code ? ` — ${c.code}` : ""}
                     </td>
                     <td className="px-4 py-2 text-muted-foreground">
@@ -345,7 +370,7 @@ export default function TurmasPage() {
             <SearchableSelect
               value={form.catalogItemId}
               onChange={(v) => setForm({ ...form, catalogItemId: v })}
-              options={catalogItems.map((c) => ({
+              options={catalogPickerOptions.map((c) => ({
                 value: String(c.id),
                 label: c.title,
               }))}
@@ -372,7 +397,10 @@ export default function TurmasPage() {
                           ? `${selectedCatalogItem.validityMonths} meses`
                           : "Sem validade",
                       ],
-                      ["Instrutor padrão", selectedCatalogItem.defaultInstructor ?? null],
+                      [
+                        "Instrutor padrão",
+                        selectedCatalogItem.defaultInstructor ?? null,
+                      ],
                     ] as [string, string | null][]
                   ).map(([label, value]) => (
                     <div key={label}>
@@ -417,7 +445,9 @@ export default function TurmasPage() {
               <Input
                 type="date"
                 value={form.startDate}
-                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, startDate: e.target.value })
+                }
               />
             </Field>
             <Field label="Data de término">
@@ -494,45 +524,12 @@ export default function TurmasPage() {
         ) : null}
 
         {step === 3 ? (
-          <div className="space-y-3">
-            <Input
-              value={empSearch}
-              onChange={(e) => setEmpSearch(e.target.value)}
-              placeholder="Buscar colaborador..."
-            />
-            <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border p-2">
-              {employees.map((emp) => {
-                const checked = selectedEmployees.includes(emp.id);
-                return (
-                  <label
-                    key={emp.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) =>
-                        setSelectedEmployees((prev) =>
-                          e.target.checked
-                            ? [...prev, emp.id]
-                            : prev.filter((id) => id !== emp.id),
-                        )
-                      }
-                    />
-                    {emp.name}
-                  </label>
-                );
-              })}
-              {employees.length === 0 ? (
-                <p className="px-2 py-3 text-xs text-muted-foreground">
-                  Nenhum colaborador encontrado.
-                </p>
-              ) : null}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {selectedEmployees.length} selecionado(s)
-            </p>
-          </div>
+          <EmployeePicker
+            orgId={orgId ?? 0}
+            enabled={open && step === 3}
+            selected={selectedEmployees}
+            onChange={setSelectedEmployees}
+          />
         ) : null}
 
         <DialogFooter>

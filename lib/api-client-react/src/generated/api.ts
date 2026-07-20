@@ -70,6 +70,7 @@ import type {
   CreateDepartmentBody,
   CreateDocumentBody,
   CreateEffectivenessAssignmentBody,
+  CreateEffectivenessMethodBody,
   CreateEmployeeBody,
   CreateEmployeeProfileItemBody,
   CreateInternalAuditBody,
@@ -115,6 +116,7 @@ import type {
   CreateUnitBody,
   CreateWorkEnvironmentControlBody,
   CreateWorkEnvironmentVerificationBody,
+  DeleteTrainingCatalogItemParams,
   Department,
   DevelopmentProjectBody,
   DevelopmentProjectChange,
@@ -138,6 +140,7 @@ import type {
   DocumentSummary,
   DocumentVersion,
   DocumentVersionSnapshot,
+  EffectivenessMethod,
   Employee,
   EmployeeAwareness,
   EmployeeCompetency,
@@ -309,6 +312,7 @@ import type {
   UpdateDocumentBody,
   UpdateDocumentCommunicationPlanBody,
   UpdateDocumentContentBody,
+  UpdateEffectivenessMethodBody,
   UpdateEmployeeBody,
   UpdateEmployeeProfileItemBody,
   UpdateInternalAuditBody,
@@ -32113,6 +32117,304 @@ export const useUpdateNorm = <
 };
 
 /**
+ * @summary List the organization's effectiveness verification method catalog
+ */
+export const getListEffectivenessMethodsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/effectiveness-methods`;
+};
+
+export const listEffectivenessMethods = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<EffectivenessMethod[]> => {
+  return customFetch<EffectivenessMethod[]>(
+    getListEffectivenessMethodsUrl(orgId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListEffectivenessMethodsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/effectiveness-methods`] as const;
+};
+
+export const getListEffectivenessMethodsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEffectivenessMethods>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEffectivenessMethods>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListEffectivenessMethodsQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEffectivenessMethods>>
+  > = ({ signal }) =>
+    listEffectivenessMethods(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEffectivenessMethods>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEffectivenessMethodsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEffectivenessMethods>>
+>;
+export type ListEffectivenessMethodsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the organization's effectiveness verification method catalog
+ */
+
+export function useListEffectivenessMethods<
+  TData = Awaited<ReturnType<typeof listEffectivenessMethods>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEffectivenessMethods>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEffectivenessMethodsQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a method to the organization's effectiveness verification method catalog
+ */
+export const getCreateEffectivenessMethodUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/effectiveness-methods`;
+};
+
+export const createEffectivenessMethod = async (
+  orgId: number,
+  createEffectivenessMethodBody: CreateEffectivenessMethodBody,
+  options?: RequestInit,
+): Promise<EffectivenessMethod> => {
+  return customFetch<EffectivenessMethod>(
+    getCreateEffectivenessMethodUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createEffectivenessMethodBody),
+    },
+  );
+};
+
+export const getCreateEffectivenessMethodMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEffectivenessMethod>>,
+    TError,
+    { orgId: number; data: BodyType<CreateEffectivenessMethodBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createEffectivenessMethod>>,
+  TError,
+  { orgId: number; data: BodyType<CreateEffectivenessMethodBody> },
+  TContext
+> => {
+  const mutationKey = ["createEffectivenessMethod"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createEffectivenessMethod>>,
+    { orgId: number; data: BodyType<CreateEffectivenessMethodBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createEffectivenessMethod(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateEffectivenessMethodMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createEffectivenessMethod>>
+>;
+export type CreateEffectivenessMethodMutationBody =
+  BodyType<CreateEffectivenessMethodBody>;
+export type CreateEffectivenessMethodMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a method to the organization's effectiveness verification method catalog
+ */
+export const useCreateEffectivenessMethod = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEffectivenessMethod>>,
+    TError,
+    { orgId: number; data: BodyType<CreateEffectivenessMethodBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createEffectivenessMethod>>,
+  TError,
+  { orgId: number; data: BodyType<CreateEffectivenessMethodBody> },
+  TContext
+> => {
+  return useMutation(getCreateEffectivenessMethodMutationOptions(options));
+};
+
+/**
+ * @summary Update an effectiveness verification method (label, active flag or sort order)
+ */
+export const getUpdateEffectivenessMethodUrl = (
+  orgId: number,
+  methodId: number,
+) => {
+  return `/api/organizations/${orgId}/effectiveness-methods/${methodId}`;
+};
+
+export const updateEffectivenessMethod = async (
+  orgId: number,
+  methodId: number,
+  updateEffectivenessMethodBody: UpdateEffectivenessMethodBody,
+  options?: RequestInit,
+): Promise<EffectivenessMethod> => {
+  return customFetch<EffectivenessMethod>(
+    getUpdateEffectivenessMethodUrl(orgId, methodId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateEffectivenessMethodBody),
+    },
+  );
+};
+
+export const getUpdateEffectivenessMethodMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEffectivenessMethod>>,
+    TError,
+    {
+      orgId: number;
+      methodId: number;
+      data: BodyType<UpdateEffectivenessMethodBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEffectivenessMethod>>,
+  TError,
+  {
+    orgId: number;
+    methodId: number;
+    data: BodyType<UpdateEffectivenessMethodBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateEffectivenessMethod"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEffectivenessMethod>>,
+    {
+      orgId: number;
+      methodId: number;
+      data: BodyType<UpdateEffectivenessMethodBody>;
+    }
+  > = (props) => {
+    const { orgId, methodId, data } = props ?? {};
+
+    return updateEffectivenessMethod(orgId, methodId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEffectivenessMethodMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEffectivenessMethod>>
+>;
+export type UpdateEffectivenessMethodMutationBody =
+  BodyType<UpdateEffectivenessMethodBody>;
+export type UpdateEffectivenessMethodMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an effectiveness verification method (label, active flag or sort order)
+ */
+export const useUpdateEffectivenessMethod = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEffectivenessMethod>>,
+    TError,
+    {
+      orgId: number;
+      methodId: number;
+      data: BodyType<UpdateEffectivenessMethodBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEffectivenessMethod>>,
+  TError,
+  {
+    orgId: number;
+    methodId: number;
+    data: BodyType<UpdateEffectivenessMethodBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateEffectivenessMethodMutationOptions(options));
+};
+
+/**
  * @summary List action plans in the organization with filters
  */
 export const getListActionPlansUrl = (
@@ -35196,36 +35498,53 @@ export const useUpdateTrainingCatalogItem = <
 export const getDeleteTrainingCatalogItemUrl = (
   orgId: number,
   itemId: number,
+  params?: DeleteTrainingCatalogItemParams,
 ) => {
-  return `/api/organizations/${orgId}/training-catalog/${itemId}`;
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/training-catalog/${itemId}?${stringifiedParams}`
+    : `/api/organizations/${orgId}/training-catalog/${itemId}`;
 };
 
 export const deleteTrainingCatalogItem = async (
   orgId: number,
   itemId: number,
+  params?: DeleteTrainingCatalogItemParams,
   options?: RequestInit,
 ): Promise<void> => {
-  return customFetch<void>(getDeleteTrainingCatalogItemUrl(orgId, itemId), {
-    ...options,
-    method: "DELETE",
-  });
+  return customFetch<void>(
+    getDeleteTrainingCatalogItemUrl(orgId, itemId, params),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
 };
 
 export const getDeleteTrainingCatalogItemMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
     TError,
-    { orgId: number; itemId: number },
+    { orgId: number; itemId: number; params?: DeleteTrainingCatalogItemParams },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
   TError,
-  { orgId: number; itemId: number },
+  { orgId: number; itemId: number; params?: DeleteTrainingCatalogItemParams },
   TContext
 > => {
   const mutationKey = ["deleteTrainingCatalogItem"];
@@ -35239,11 +35558,11 @@ export const getDeleteTrainingCatalogItemMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
-    { orgId: number; itemId: number }
+    { orgId: number; itemId: number; params?: DeleteTrainingCatalogItemParams }
   > = (props) => {
-    const { orgId, itemId } = props ?? {};
+    const { orgId, itemId, params } = props ?? {};
 
-    return deleteTrainingCatalogItem(orgId, itemId, requestOptions);
+    return deleteTrainingCatalogItem(orgId, itemId, params, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -35253,26 +35572,26 @@ export type DeleteTrainingCatalogItemMutationResult = NonNullable<
   Awaited<ReturnType<typeof deleteTrainingCatalogItem>>
 >;
 
-export type DeleteTrainingCatalogItemMutationError = ErrorType<unknown>;
+export type DeleteTrainingCatalogItemMutationError = ErrorType<void>;
 
 /**
  * @summary Delete a training catalog item (referencing trainings keep their snapshot; link is nulled)
  */
 export const useDeleteTrainingCatalogItem = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
     TError,
-    { orgId: number; itemId: number },
+    { orgId: number; itemId: number; params?: DeleteTrainingCatalogItemParams },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof deleteTrainingCatalogItem>>,
   TError,
-  { orgId: number; itemId: number },
+  { orgId: number; itemId: number; params?: DeleteTrainingCatalogItemParams },
   TContext
 > => {
   return useMutation(getDeleteTrainingCatalogItemMutationOptions(options));

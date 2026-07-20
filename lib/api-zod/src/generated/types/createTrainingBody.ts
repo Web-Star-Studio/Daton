@@ -16,6 +16,7 @@ export interface CreateTrainingBody {
   description?: string;
   objective?: string;
   institution?: string;
+  instructor?: string;
   targetCompetencyName?: string;
   targetCompetencyType?: CreateTrainingBodyTargetCompetencyType;
   /**
@@ -30,6 +31,8 @@ export interface CreateTrainingBody {
   completionDate?: string;
   expirationDate?: string;
   status?: CreateTrainingBodyStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
 }

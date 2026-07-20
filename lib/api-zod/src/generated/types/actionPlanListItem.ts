@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ActionPlanCoResponsible } from "./actionPlanCoResponsible";
 import type { ActionPlanEffectivenessResult } from "./actionPlanEffectivenessResult";
 import type { ActionPlanPriority } from "./actionPlanPriority";
 import type { ActionPlanSourceContext } from "./actionPlanSourceContext";
@@ -35,6 +36,8 @@ export interface ActionPlanListItem {
   responsibleUserId?: number | null;
   /** @nullable */
   responsibleUserName?: string | null;
+  /** Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há. */
+  coResponsibles: ActionPlanCoResponsible[];
   /** @nullable */
   dueDate?: string | null;
   /** @minimum 0 */

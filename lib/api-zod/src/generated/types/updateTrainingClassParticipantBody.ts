@@ -8,6 +8,10 @@
 
 export interface UpdateTrainingClassParticipantBody {
   attendance?: string | null;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
   score?: number | null;
   result?: string | null;
 }

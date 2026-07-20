@@ -41,6 +41,7 @@ import measurementResourcesRouter from "./measurement-resources";
 import regulatoryDocumentsRouter from "./regulatory-documents";
 import regulatoryNormsRouter from "./regulatory-norms";
 import actionPlanAnalysisMethodsRouter from "./action-plan-analysis-methods";
+import effectivenessMethodsRouter from "./effectiveness-methods";
 import pendenciasRouter from "./pendencias";
 import learningSummaryRouter from "./learning-summary";
 const router: IRouter = Router();
@@ -250,8 +251,12 @@ router.use(
 // usuário autenticado da org; a gate admin na escrita vive na própria rota
 // (requireRole("org_admin")).
 router.use(requireAuth, requireCompletedOnboarding, regulatoryNormsRouter);
-// Mesmo raciocínio do catálogo de normas acima: cross-module, leitura livre,
-// gate admin na própria rota (requireRole("org_admin")).
+// Sem requireModuleAccessForPaths: um org_admin pode não ter o módulo
+// `actionPlans` e ainda assim precisa gerir o catálogo em Configurações —
+// leitura livre a qualquer usuário autenticado da org; a gate admin na escrita
+// vive na própria rota (requireRole("org_admin")).
+router.use(requireAuth, requireCompletedOnboarding, effectivenessMethodsRouter);
+// Mesmo raciocínio: cross-module, leitura livre, gate admin na própria rota.
 router.use(requireAuth, requireCompletedOnboarding, actionPlanAnalysisMethodsRouter);
 
 export default router;

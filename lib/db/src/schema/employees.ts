@@ -27,6 +27,17 @@ export type EmployeeRecordAttachment = {
   objectPath: string;
 };
 
+/**
+ * Notas por critério da avaliação de eficácia (escala 1–5, Kirkpatrick).
+ * `behavior` = L3 (comportamento), `result` = L4 (resultado), `transfer` =
+ * transferência para a equipe. A média dos três define eficaz (≥ 3).
+ */
+export type TrainingEffectivenessCriteria = {
+  behavior: number;
+  result: number;
+  transfer: number;
+};
+
 export type PositionCompetencyMatrixSnapshotItem = {
   id: number;
   competencyName: string;
@@ -166,6 +177,9 @@ export const employeeTrainingsTable = pgTable(
     description: text("description"),
     objective: text("objective"),
     institution: text("institution"),
+    // Instrutor do treinamento: nome (texto). Pode ser um funcionário escolhido
+    // da lista OU um palestrante externo digitado livremente.
+    instructor: text("instructor"),
     targetCompetencyName: text("target_competency_name"),
     targetCompetencyType: text("target_competency_type"),
     targetCompetencyLevel: integer("target_competency_level"),
@@ -179,6 +193,9 @@ export const employeeTrainingsTable = pgTable(
     completionDate: date("completion_date"),
     expirationDate: date("expiration_date"),
     status: text("status").notNull().default("pendente"),
+    /** Motivo obrigatório quando status = 'nao_aplicavel'. Nullable: registros
+     *  históricos e os demais status não têm motivo. */
+    notApplicableReason: text("not_applicable_reason"),
     attachments: jsonb("attachments")
       .$type<EmployeeRecordAttachment[]>()
       .notNull()
@@ -224,12 +241,25 @@ export const trainingEffectivenessReviewsTable = pgTable(
       .notNull()
       .references(() => usersTable.id),
     evaluationDate: date("evaluation_date").notNull(),
-    score: integer("score"),
+    // numeric, não integer: a média Kirkpatrick de 3 critérios é decimal por
+    // natureza (3,67 → 7,3 na escala 0–10). Em integer o Postgres arredondava
+    // em silêncio e a tela exibia um número que o banco não guardava.
+    score: numeric("score", { precision: 4, scale: 2, mode: "number" }),
     isEffective: boolean("is_effective"),
     resultLevel: integer("result_level"),
     comments: text("comments"),
     // SP6/B: papel do avaliador na eficácia (gestor|rh|instrutor|colaborador).
     evaluatorRole: varchar("evaluator_role", { length: 20 }),
+    // Wizard de eficácia: 'draft' = preenchimento em andamento (rascunho do
+    // avaliador, NÃO conta como avaliação concluída em nenhuma coluna do board);
+    // 'final' = avaliação registrada. Default 'final' para que todas as linhas
+    // legadas — que só existiam quando finalizadas — continuem valendo.
+    status: varchar("status", { length: 10 }).notNull().default("final"),
+    // Notas por critério Kirkpatrick ({behavior,result,transfer}: 1–5). Antes só
+    // a média derivada era persistida, então reabrir uma avaliação não conseguia
+    // mostrar qual critério recebeu qual nota — e o rascunho não teria o que
+    // reidratar.
+    criteria: jsonb("criteria").$type<TrainingEffectivenessCriteria | null>(),
     attachments: jsonb("attachments")
       .$type<EmployeeRecordAttachment[]>()
       .notNull()
@@ -245,6 +275,12 @@ export const trainingEffectivenessReviewsTable = pgTable(
       table.trainingId,
       table.evaluationDate,
       table.createdAt,
+    ),
+    // Rascunho é sempre buscado/substituído por (treino, avaliador, status).
+    index("ter_draft_lookup_idx").on(
+      table.trainingId,
+      table.evaluatorUserId,
+      table.status,
     ),
   ],
 );

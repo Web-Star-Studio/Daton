@@ -1,10 +1,15 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// jsdom não implementa scrollIntoView, usado pelo cmdk (SearchableSelect do responsável).
+Element.prototype.scrollIntoView = vi.fn();
 
 const navigateMock = vi.fn();
 const toastMock = vi.fn();
 const mockAtivas = vi.fn();
 const mockCreate = vi.fn();
+const mutateAsync = vi.fn(async () => ({ id: 42 }));
 
 vi.mock("wouter", () => ({
   useLocation: () => ["/planos-acao", navigateMock],
@@ -22,10 +27,8 @@ vi.mock("@workspace/api-client-react", () => ({
 // Partial mock: keep every pure helper (labels, gutScore, priorityFromGut...) from the real
 // module — GutInput depends on some of them — replace only the catalog + mutation hooks so
 // the test never touches the network.
-vi.mock("@/lib/action-plans-client", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/action-plans-client")>(
-    "@/lib/action-plans-client",
-  );
+vi.mock("@/lib/action-plans-client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/action-plans-client")>();
   return {
     ...actual,
     useActiveAnalysisMethods: (...args: unknown[]) => mockAtivas(...args),
@@ -41,14 +44,15 @@ function metodo(overrides: Partial<Metodo>): Metodo {
   return { id: 1, organizationId: 1, key: "five_whys", label: "5 Porquês", active: true, isDefault: false, sortOrder: 0, ...overrides };
 }
 
-describe("NovaAcaoDialog", () => {
-  beforeEach(() => {
-    navigateMock.mockReset();
-    toastMock.mockReset();
-    mockAtivas.mockReset().mockReturnValue({ data: [] });
-    mockCreate.mockReset().mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ id: 42 }), isPending: false });
-  });
+beforeEach(() => {
+  navigateMock.mockReset();
+  toastMock.mockReset();
+  mutateAsync.mockClear();
+  mockAtivas.mockReset().mockReturnValue({ data: [] });
+  mockCreate.mockReset().mockReturnValue({ mutateAsync, isPending: false });
+});
 
+describe("NovaAcaoDialog — tratativas", () => {
   it('usa os textos de "plano de ação" (não "ação") no título, subtítulo e botão', () => {
     render(<NovaAcaoDialog orgId={1} open onOpenChange={() => {}} />);
 
@@ -104,8 +108,6 @@ describe("NovaAcaoDialog", () => {
   });
 
   it("envia analyses com as tratativas selecionadas (dados vazios) e o toast de sucesso", async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({ id: 42 });
-    mockCreate.mockReturnValue({ mutateAsync, isPending: false });
     mockAtivas.mockReturnValue({
       data: [
         metodo({ id: 1, key: "five_whys", label: "5 Porquês", isDefault: true }),
@@ -134,8 +136,6 @@ describe("NovaAcaoDialog", () => {
   });
 
   it("não envia a tratativa desmarcada", async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({ id: 42 });
-    mockCreate.mockReturnValue({ mutateAsync, isPending: false });
     mockAtivas.mockReturnValue({
       data: [metodo({ id: 1, key: "five_whys", label: "5 Porquês", isDefault: true })],
     });
@@ -184,5 +184,81 @@ describe("NovaAcaoDialog", () => {
     });
 
     expect(checkbox).not.toBeChecked();
+  });
+});
+
+describe("NovaAcaoDialog — criado dentro do módulo (sem origem imposta)", () => {
+  it("grava a origem escolhida, com Melhoria de Processo como padrão", async () => {
+    render(<NovaAcaoDialog orgId={2} open onOpenChange={vi.fn()} />);
+    const user = userEvent.setup();
+
+    expect(screen.getByLabelText(/Origem/)).toHaveValue("improvement");
+
+    await user.type(screen.getByLabelText(/Título/), "Reduzir fila no recebimento");
+    await user.click(screen.getByRole("button", { name: "Criar plano de ação" }));
+
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+    expect(mutateAsync.mock.calls[0][0].data).toMatchObject({
+      sourceModule: "improvement",
+      actionType: "improvement",
+      title: "Reduzir fila no recebimento",
+    });
+  });
+
+  it("trocar a origem para Corretiva sugere o Tipo Corretiva", async () => {
+    render(<NovaAcaoDialog orgId={2} open onOpenChange={vi.fn()} />);
+    const user = userEvent.setup();
+
+    await user.selectOptions(screen.getByLabelText(/Origem/), "corrective");
+
+    expect(screen.getByLabelText(/Tipo/)).toHaveValue("corrective");
+  });
+
+  it("a sugestão não trava o Tipo: o usuário sobrescreve depois de escolher a origem", async () => {
+    render(<NovaAcaoDialog orgId={2} open onOpenChange={vi.fn()} />);
+    const user = userEvent.setup();
+
+    await user.selectOptions(screen.getByLabelText(/Origem/), "norm_requirement");
+    expect(screen.getByLabelText(/Tipo/)).toHaveValue("corrective");
+
+    await user.selectOptions(screen.getByLabelText(/Tipo/), "preventive");
+    await user.type(screen.getByLabelText(/Título/), "Lacuna 9.1");
+    await user.click(screen.getByRole("button", { name: "Criar plano de ação" }));
+
+    expect(mutateAsync.mock.calls[0][0].data).toMatchObject({
+      sourceModule: "norm_requirement",
+      actionType: "preventive",
+    });
+  });
+
+  it("não oferece a origem legada 'Manual'", () => {
+    render(<NovaAcaoDialog orgId={2} open onOpenChange={vi.fn()} />);
+
+    const origem = screen.getByLabelText(/Origem/);
+    expect(origem).not.toHaveTextContent("Manual");
+  });
+});
+
+describe("NovaAcaoDialog — aberto a partir de outro módulo", () => {
+  it("não mostra o campo Origem e mantém a origem imposta pelo chamador", async () => {
+    render(
+      <NovaAcaoDialog
+        orgId={2}
+        open
+        onOpenChange={vi.fn()}
+        source={{ sourceModule: "kpi", sourceRef: { kpiMonthlyValueId: 9 }, originLabel: "Indicador X · Mai/2026" }}
+      />,
+    );
+    const user = userEvent.setup();
+
+    expect(screen.queryByLabelText(/Origem \*/)).toBeNull();
+
+    await user.type(await screen.findByLabelText(/Título/), "Tratar desvio do indicador");
+    await user.click(await screen.findByRole("button", { name: "Criar plano de ação" }));
+
+    expect(mutateAsync.mock.calls[0][0].data).toMatchObject({
+      sourceModule: "kpi",
+      actionType: "corrective",
+    });
   });
 });

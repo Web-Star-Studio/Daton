@@ -30,7 +30,10 @@ import {
   CreateTrainingBodyStatus as CreateTrainingBodyStatusValues,
   CreateTrainingBodyTargetCompetencyType as CreateTrainingBodyTargetCompetencyTypeValues,
 } from "@workspace/api-client-react";
-import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
+import {
+  useAllTrainingCatalog,
+  selectPickerCatalogItems,
+} from "@/lib/training-catalog-client";
 import type {
   CreateTrainingBodyStatus,
   CreateTrainingBodyTargetCompetencyType,
@@ -106,6 +109,7 @@ const TRAINING_STATUS_LABELS: Record<string, string> = {
   pendente: "Pendente",
   concluido: "Concluido",
   vencido: "Vencido",
+  nao_aplicavel: "Não aplicável",
 };
 
 const TRAINING_STATUS_BADGE_VARIANT: Record<
@@ -115,6 +119,8 @@ const TRAINING_STATUS_BADGE_VARIANT: Record<
   pendente: "secondary",
   concluido: "default",
   vencido: "destructive",
+  // Neutro: ausência de obrigação, não é sucesso nem alerta.
+  nao_aplicavel: "outline",
 };
 
 const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {
@@ -253,6 +259,15 @@ function TrainingDialog({
       renewalMonths: item.validityMonths ?? value.renewalMonths,
     });
   };
+  // Opções do picker: só ativos + o item já selecionado no form (a busca em
+  // useAllTrainingCatalog já vem filtrada por status "ativo" — isto é
+  // defensivo, para não depender só do filtro do servidor). Não há mapa de
+  // exibição neste arquivo: o título de um treino já lançado vem do próprio
+  // registro (training.title), não de uma busca no catálogo.
+  const catalogPickerOptions = useMemo(
+    () => selectPickerCatalogItems(catalogItems, value.catalogItemId),
+    [catalogItems, value.catalogItemId],
+  );
   return (
     <Dialog
       open={open}
@@ -273,7 +288,7 @@ function TrainingDialog({
               className="mt-1 h-10 text-[13px]"
             >
               <option value="">Sem catálogo (preenchimento livre)</option>
-              {catalogItems.map((item) => (
+              {catalogPickerOptions.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.title}
                 </option>

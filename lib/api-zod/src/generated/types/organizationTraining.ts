@@ -10,6 +10,7 @@ import type { OrganizationTrainingEffectivenessAssignedRole } from "./organizati
 import type { OrganizationTrainingEffectivenessStatus } from "./organizationTrainingEffectivenessStatus";
 import type { OrganizationTrainingStatus } from "./organizationTrainingStatus";
 import type { OrganizationTrainingTargetCompetencyType } from "./organizationTrainingTargetCompetencyType";
+import type { TrainingEffectivenessDraft } from "./trainingEffectivenessDraft";
 import type { TrainingEffectivenessReview } from "./trainingEffectivenessReview";
 
 export interface OrganizationTraining {
@@ -27,6 +28,7 @@ export interface OrganizationTraining {
   description?: string | null;
   objective?: string | null;
   institution?: string | null;
+  instructor?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: OrganizationTrainingTargetCompetencyType;
   targetCompetencyLevel?: number | null;
@@ -36,9 +38,12 @@ export interface OrganizationTraining {
   completionDate?: string | null;
   expirationDate?: string | null;
   status: OrganizationTrainingStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
+  effectivenessDraft?: TrainingEffectivenessDraft | null;
   effectivenessDueDate?: string | null;
   effectivenessAssignedRole?: OrganizationTrainingEffectivenessAssignedRole;
   reviewerCount: number;

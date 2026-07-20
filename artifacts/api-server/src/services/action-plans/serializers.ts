@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import type { SourceContext } from "./source-context";
 import { gutScore } from "./gut";
+import type { PlanCoResponsible } from "./responsibles";
 
 export function serializeEvidence(
   e: DbActionPlanEvidence,
@@ -109,6 +110,7 @@ export function serializePlan(
     createdByUserName: string | null;
     effectivenessEvaluatorUserName: string | null;
     evidences: ReturnType<typeof serializeEvidence>[];
+    coResponsibles: PlanCoResponsible[];
     actionsTotal: number;
     actionsDone: number;
   },
@@ -133,10 +135,12 @@ export function serializePlan(
     analyses: composeAnalyses(p),
     responsibleUserId: p.responsibleUserId ?? null,
     responsibleUserName: extras.responsibleUserName,
+    coResponsibles: extras.coResponsibles,
     dueDate: p.dueDate ? p.dueDate.toISOString() : null,
     correctiveActionDescription: p.correctiveActionDescription ?? null,
     correctiveActionCompletedAt: p.correctiveActionCompletedAt ? p.correctiveActionCompletedAt.toISOString() : null,
     effectivenessMethod: p.effectivenessMethod ?? null,
+    effectivenessMethodId: p.effectivenessMethodId ?? null,
     effectivenessDueDate: p.effectivenessDueDate ? p.effectivenessDueDate.toISOString() : null,
     effectivenessEvaluatorUserId: p.effectivenessEvaluatorUserId ?? null,
     effectivenessEvaluatorUserName: extras.effectivenessEvaluatorUserName,

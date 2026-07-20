@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildResponsibleOptions } from "@/pages/app/planos-acao/_components/responsible-options";
+import {
+  buildCoResponsibleOptions,
+  buildResponsibleOptions,
+} from "@/pages/app/planos-acao/_components/responsible-options";
 
 const ana = { id: 1, name: "ANA ADMIN" };
 const thais = { id: 9, name: "THAIS BRITO" };
@@ -43,5 +46,28 @@ describe("buildResponsibleOptions", () => {
     expect(buildResponsibleOptions([ana], null, null)).toEqual([
       { value: "1", label: "ANA ADMIN" },
     ]);
+  });
+});
+
+describe("buildCoResponsibleOptions", () => {
+  const ORG = [
+    { id: 1, name: "Ana" },
+    { id: 2, name: "Bruno" },
+    { id: 3, name: "Carla" },
+  ];
+
+  it("exclui o ponto focal das opções (ninguém é responsável duas vezes)", () => {
+    const options = buildCoResponsibleOptions(ORG, [], 2);
+    expect(options.map((o) => o.value)).toEqual([1, 3]);
+  });
+
+  it("semeia co-responsáveis ausentes da lista da org (operador sem permissão de listar)", () => {
+    const options = buildCoResponsibleOptions([], [{ userId: 9, name: "Diego" }], null);
+    expect(options).toEqual([{ value: 9, label: "Diego" }]);
+  });
+
+  it("não duplica co-responsável que já está na lista da org", () => {
+    const options = buildCoResponsibleOptions(ORG, [{ userId: 3, name: "Carla" }], null);
+    expect(options.map((o) => o.value)).toEqual([1, 2, 3]);
   });
 });

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import {
   useListOrganizationTrainings,
   getListOrganizationTrainingsQueryKey,
@@ -9,80 +9,49 @@ import {
   getListUnitsQueryKey,
   useListPositions,
   getListPositionsQueryKey,
+  useListTrainingRequirements,
+  getListTrainingRequirementsQueryKey,
 } from "@workspace/api-client-react";
+import type { OrganizationTraining } from "@workspace/api-client-react";
 import { useAllTrainingCatalog } from "@/lib/training-catalog-client";
-import type {
-  OrganizationTraining,
-  OrganizationTrainingStatus,
-  ListOrganizationTrainingsParams,
-  ListOrganizationTrainingsStatus,
-  TrainingClass,
-} from "@workspace/api-client-react";
+import {
+  useActiveNorms,
+  useAllNorms,
+  buildNormLabelMap,
+} from "@/lib/norms-client";
+import type { ListOrganizationTrainingsParams } from "@workspace/api-client-react";
 import { usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { formatDate, trainingDeadline } from "./_lib/format";
+import { buildCatalogMeta } from "./_lib/catalog-meta";
+import {
+  buildColaboradorRows,
+  buildTurmaRows,
+  exportGestaoXlsx,
+} from "./_export";
+import { PorColaboradorTable } from "./_components/PorColaboradorTable";
+import { PorTurmaTable } from "./_components/PorTurmaTable";
+import { MetricCards, type CardStatusFilter } from "./_components/MetricCards";
+import { StatusPills } from "./_components/StatusPills";
+import { PorPrazoPanel, type PrazoItem } from "./_components/PorPrazoPanel";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-/** Format a date-only ISO string (YYYY-MM-DD) as DD/MM/AA without UTC shift. */
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const parts = iso.slice(0, 10).split("-");
-  if (parts.length === 3) {
-    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "2-digit",
-      });
-    }
-  }
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-  });
+/** Mapeia um treinamento para o item compacto exibido no painel "Por prazo". */
+function toPrazoItem(t: OrganizationTraining): PrazoItem {
+  const date = formatDate(trainingDeadline(t));
+  return {
+    id: t.id,
+    primary: `${t.employeeName} — ${t.title}`,
+    meta: t.unitName ? `${date} · ${t.unitName}` : date,
+  };
 }
-
-/** Vencimento efetivo de um treinamento (expiração, senão prazo). */
-function trainingDeadline(t: OrganizationTraining): string | null {
-  return t.expirationDate ?? t.dueDate ?? null;
-}
-
-// ─── Badges ───────────────────────────────────────────────────────────────
-
-const STATUS_BADGE: Record<OrganizationTrainingStatus, string> = {
-  pendente: "bg-blue-50 text-blue-700 border-blue-200",
-  concluido: "bg-green-50 text-green-700 border-green-200",
-  vencido: "bg-red-50 text-red-700 border-red-200",
-};
-const STATUS_LABEL: Record<OrganizationTrainingStatus, string> = {
-  pendente: "Pendente",
-  concluido: "Concluído",
-  vencido: "Vencido",
-};
-
-const CLASS_STATUS_BADGE: Record<string, string> = {
-  agendada: "bg-amber-50 text-amber-700",
-  em_andamento: "bg-blue-50 text-blue-700",
-  realizada: "bg-green-50 text-green-700",
-  cancelada: "bg-muted text-muted-foreground",
-};
-const CLASS_STATUS_LABEL: Record<string, string> = {
-  agendada: "Agendada",
-  em_andamento: "Em andamento",
-  realizada: "Realizada",
-  cancelada: "Cancelada",
-};
 
 // ─── Filter / tab types ─────────────────────────────────────────────────────
 
-type StatusFilter = "" | "vencido" | "a_vencer" | "pendente" | "concluido";
+// Reusa a união exportada por MetricCards (evita drift entre os dois lugares
+// que representam o mesmo filtro de status).
+type StatusFilter = CardStatusFilter;
 type Tab = "colaborador" | "turma" | "prazo";
 
 const TABS: Array<{ value: Tab; label: string }> = [
@@ -102,12 +71,14 @@ export default function AprendizagemGestaoPage() {
   const { hasModuleAccess } = usePermissions();
   const canAccess = hasModuleAccess("employees");
   const enabled = !!orgId && canAccess;
+  const [, setLocation] = useLocation();
 
   // ── Filter state ──────────────────────────────────────────────────────────
   const [filial, setFilial] = useState<string>(""); // unitId (string)
   const [cargo, setCargo] = useState<string>(""); // position name
-  const [norma, setNorma] = useState<string>(""); // norm
+  const [normId, setNormId] = useState<string>(""); // id da norma do catálogo
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
+  const [search, setSearch] = useState("");
   const [tab, setTab] = useState<Tab>("colaborador");
   const [pageSize, setPageSize] = useState(100);
 
@@ -129,25 +100,35 @@ export default function AprendizagemGestaoPage() {
   // ── Shared filter params (sem status) ──────────────────────────────────────
   // Na aba de turmas, Cargo/Norma ficam ocultos e não se aplicam às turmas; os
   // cards de status também os ignoram ali, para as contagens baterem com a
-  // lista exibida (review #139).
+  // lista exibida (review #139). `search` também entra aqui pelo mesmo
+  // princípio: se não fizer parte de `baseParams`, os cards e os buckets do
+  // "Por prazo" continuam mostrando os totais gerais enquanto a lista já foi
+  // filtrada pela busca (review final).
   const onClassTab = tab === "turma";
   const baseParams = {
     unitId: filial ? Number(filial) : undefined,
     position: onClassTab ? undefined : cargo || undefined,
-    norm: onClassTab ? undefined : norma || undefined,
+    normId: onClassTab || !normId ? undefined : Number(normId),
+    search: search.trim() || undefined,
   };
 
-  // ── Query de contagem (metric cards): stats vencido/pendente/concluido ──────
+  // ── Query de contagem (metric cards): stats vencido/pendente/programado/
+  // realizadoMes exibidos nos cards e usados no total do bucket "Pendentes
+  // sem turma" (não há mais card "concluído") ──────────────────────────────
   const countParams: ListOrganizationTrainingsParams = {
     ...baseParams,
     pageSize: 1,
   };
-  const { data: countResult } = useListOrganizationTrainings(orgId, countParams, {
-    query: {
-      enabled,
-      queryKey: getListOrganizationTrainingsQueryKey(orgId, countParams),
+  const { data: countResult } = useListOrganizationTrainings(
+    orgId,
+    countParams,
+    {
+      query: {
+        enabled,
+        queryKey: getListOrganizationTrainingsQueryKey(orgId, countParams),
+      },
     },
-  });
+  );
   const stats = countResult?.stats;
 
   // ── Query "a vencer em 30 dias": total da paginação ─────────────────────────
@@ -168,18 +149,122 @@ export default function AprendizagemGestaoPage() {
   );
   const aVencerCount = expiringResult?.pagination.total ?? 0;
 
+  // ── Query "programados": total da paginação (mesmo padrão de aVencerCount).
+  // `stats.programado` foi removido do backend — o EXISTS correlacionado de
+  // isProgramado dentro do `count(*) filter` do statsRow (SELECT list) não é
+  // achatado pelo planner em semi-join e vira SubPlan por linha (~6,5s/1,15M
+  // buffer hits em 50k linhas). O mesmo fragmento no WHERE, via param
+  // `onlyProgramado`, é achatado em Hash Semi Join (~60ms/~800 buffers) — daí
+  // essa query dedicada em vez de ler stats.programado. Não restringir a uma
+  // aba: os cards aparecem em todas.
+  const programadoParams: ListOrganizationTrainingsParams = {
+    ...baseParams,
+    onlyProgramado: true,
+    pageSize: 1,
+  };
+  const { data: programadoResult } = useListOrganizationTrainings(
+    orgId,
+    programadoParams,
+    {
+      query: {
+        enabled,
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId,
+          programadoParams,
+        ),
+      },
+    },
+  );
+  const programadoCount = programadoResult?.pagination.total ?? 0;
+
+  // ── Buckets do painel "Por prazo" (só quando a aba está ativa) ──────────────
+  const onPrazoTab = tab === "prazo";
+  const vencidosBucketParams: ListOrganizationTrainingsParams = {
+    ...baseParams,
+    status: "vencido",
+    pageSize: 5,
+  };
+  const { data: vencidosBucketResult } = useListOrganizationTrainings(
+    orgId,
+    vencidosBucketParams,
+    {
+      query: {
+        enabled: enabled && onPrazoTab,
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId,
+          vencidosBucketParams,
+        ),
+      },
+    },
+  );
+  const vencidosItems = useMemo(
+    () => (vencidosBucketResult?.data ?? []).map(toPrazoItem),
+    [vencidosBucketResult],
+  );
+
+  const aVencerBucketParams: ListOrganizationTrainingsParams = {
+    ...baseParams,
+    expiringWithinDays: 30,
+    pageSize: 5,
+  };
+  const { data: aVencerBucketResult } = useListOrganizationTrainings(
+    orgId,
+    aVencerBucketParams,
+    {
+      query: {
+        enabled: enabled && onPrazoTab,
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId,
+          aVencerBucketParams,
+        ),
+      },
+    },
+  );
+  const aVencerItems = useMemo(
+    () => (aVencerBucketResult?.data ?? []).map(toPrazoItem),
+    [aVencerBucketResult],
+  );
+
+  // "Pendentes sem turma" = pendente ∧ não programado, filtrado no backend
+  // (param `onlyPendenteSemTurma`) — uma única query exata, sem buscar
+  // programados no cliente para subtrair por id (o corte em 50 pendentes
+  // podia esvaziar a coluna com badge > 0 quando os primeiros N pendentes
+  // eram todos programados; ver review final). Total exibido usa o
+  // `pagination.total` desta mesma query (exato, sem subtração nem query
+  // extra — `stats.programado` não existe mais no backend).
+  const pendentesSemTurmaBucketParams: ListOrganizationTrainingsParams = {
+    ...baseParams,
+    onlyPendenteSemTurma: true,
+    pageSize: 5,
+  };
+  const { data: pendentesSemTurmaBucketResult } = useListOrganizationTrainings(
+    orgId,
+    pendentesSemTurmaBucketParams,
+    {
+      query: {
+        enabled: enabled && onPrazoTab,
+        queryKey: getListOrganizationTrainingsQueryKey(
+          orgId,
+          pendentesSemTurmaBucketParams,
+        ),
+      },
+    },
+  );
+  const pendentesSemTurmaItems = useMemo(
+    () => (pendentesSemTurmaBucketResult?.data ?? []).map(toPrazoItem),
+    [pendentesSemTurmaBucketResult],
+  );
+
   // ── Query principal (Por colaborador / Por prazo) ───────────────────────────
-  const isAVencer = statusFilter === "a_vencer";
-  const statusParam: ListOrganizationTrainingsStatus | undefined =
-    statusFilter === "vencido" ||
-    statusFilter === "pendente" ||
-    statusFilter === "concluido"
-      ? statusFilter
-      : undefined;
   const mainParams: ListOrganizationTrainingsParams = {
     ...baseParams,
-    status: isAVencer ? undefined : statusParam,
-    expiringWithinDays: isAVencer ? 30 : undefined,
+    status:
+      statusFilter === "vencido" || statusFilter === "pendente"
+        ? statusFilter
+        : undefined,
+    expiringWithinDays: statusFilter === "a_vencer" ? 30 : undefined,
+    onlyProgramado: statusFilter === "programado" ? true : undefined,
+    realizadoInCurrentMonth: statusFilter === "realizado" ? true : undefined,
     page: 1,
     pageSize,
   };
@@ -235,16 +320,49 @@ export default function AprendizagemGestaoPage() {
     () => new Map((catalogResult?.data ?? []).map((c) => [c.id, c.title])),
     [catalogResult],
   );
+  // Opções de norma vêm do catálogo gerenciável (Configurações → Normas); o
+  // filtro casa pelo id do catálogo (norm_ids do item), não pelo texto legado.
+  const { data: activeNorms = [] } = useActiveNorms(orgId);
   const normOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (catalogResult?.data ?? [])
-            .map((c) => c.norm)
-            .filter((n): n is string => !!n),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    () => activeNorms.map((n) => ({ id: n.id, label: n.label })),
+    [activeNorms],
+  );
+
+  // Colunas Norma/Crítico da tabela "Por colaborador": normLabelById inclui
+  // normas inativas de propósito (um item do catálogo pode referenciar uma
+  // norma já desativada e o rótulo ainda precisa aparecer). catalogItems usa
+  // o mesmo catálogo completo já carregado acima (sem 2ª busca).
+  const { data: allNorms = [] } = useAllNorms(orgId);
+  const normLabelById = useMemo(() => buildNormLabelMap(allNorms), [allNorms]);
+  const catalogItems = useMemo(
+    () => catalogResult?.data ?? [],
     [catalogResult],
+  );
+  const catalogMeta = useMemo(
+    () => buildCatalogMeta(catalogItems, normLabelById),
+    [catalogItems, normLabelById],
+  );
+
+  // Coluna Crítico: NÃO vem do catálogo (training_catalog não tem
+  // isCritical) — vem da obrigatoriedade (training_requirements.isCritical),
+  // ligada ao treino por requirementId (ver PorColaboradorTable).
+  const { data: requirementsResult } = useListTrainingRequirements(
+    orgId,
+    undefined,
+    {
+      query: {
+        enabled,
+        queryKey: getListTrainingRequirementsQueryKey(orgId),
+      },
+    },
+  );
+  const requirements = useMemo(
+    () => requirementsResult?.data ?? [],
+    [requirementsResult],
+  );
+  const requirementCriticalById = useMemo(
+    () => new Map(requirements.map((r) => [r.id, !!r.isCritical])),
+    [requirements],
   );
 
   // ── Guards ──────────────────────────────────────────────────────────────
@@ -260,9 +378,12 @@ export default function AprendizagemGestaoPage() {
 
   const toggleStatus = (s: StatusFilter) => {
     setStatusFilter((prev) => (prev === s ? "" : s));
-    // Os cards são status de treinamento; na aba de turmas o filtro não se
-    // aplica, então leva o usuário à visão por colaborador (review #139).
-    if (tab === "turma") setTab("colaborador");
+    // Os cards são status de treinamento; nem a aba de turmas (o filtro não
+    // se aplica) nem a aba "Por prazo" (painel de buckets fixos, ignora
+    // statusFilter) reagem ao clique — leva o usuário à visão por
+    // colaborador, onde o filtro realmente muda a lista (review #139 e
+    // review final).
+    if (tab === "turma" || tab === "prazo") setTab("colaborador");
   };
 
   return (
@@ -301,52 +422,65 @@ export default function AprendizagemGestaoPage() {
               ))}
             </Select>
             <Select
-              value={norma}
-              onChange={(e) => setNorma(e.target.value)}
+              value={normId}
+              onChange={(e) => setNormId(e.target.value)}
               className="w-auto"
             >
               <option value="">Todas as normas</option>
               {normOptions.map((n) => (
-                <option key={n} value={n}>
-                  {n}
+                <option key={n.id} value={String(n.id)}>
+                  {n.label}
                 </option>
               ))}
             </Select>
           </>
         ) : null}
+        <button
+          type="button"
+          onClick={() => {
+            if (tab === "turma") {
+              exportGestaoXlsx(
+                "turma",
+                buildTurmaRows(classes, catalogTitle, unitName),
+              );
+            } else {
+              exportGestaoXlsx(
+                "colaborador",
+                buildColaboradorRows(
+                  tab === "prazo" ? rowsByDeadline : rows,
+                  catalogMeta,
+                  requirementCriticalById,
+                ),
+              );
+            }
+          }}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+        >
+          Exportar
+        </button>
       </div>
 
       {/* ── Metric cards (clicáveis) ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <MetricCard
-          label="Vencidos"
-          value={stats?.vencido ?? 0}
-          accent="text-red-700"
-          active={statusFilter === "vencido"}
-          onClick={() => toggleStatus("vencido")}
-        />
-        <MetricCard
-          label="A vencer em 30 dias"
-          value={aVencerCount}
-          accent="text-amber-700"
-          active={statusFilter === "a_vencer"}
-          onClick={() => toggleStatus("a_vencer")}
-        />
-        <MetricCard
-          label="Pendentes"
-          value={stats?.pendente ?? 0}
-          accent="text-blue-700"
-          active={statusFilter === "pendente"}
-          onClick={() => toggleStatus("pendente")}
-        />
-        <MetricCard
-          label="Concluídos"
-          value={stats?.concluido ?? 0}
-          accent="text-green-700"
-          active={statusFilter === "concluido"}
-          onClick={() => toggleStatus("concluido")}
-        />
-      </div>
+      <MetricCards
+        counts={{
+          vencido: stats?.vencido ?? 0,
+          aVencer: aVencerCount,
+          pendente: stats?.pendente ?? 0,
+          programado: programadoCount,
+          realizadoMes: stats?.realizadoMes ?? 0,
+        }}
+        active={statusFilter}
+        onToggle={toggleStatus}
+      />
+      <StatusPills active={statusFilter} onToggle={toggleStatus} />
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Buscar colaborador..."
+        aria-label="Buscar colaborador"
+        className="w-full max-w-xs rounded-md border px-3 py-1.5 text-sm sm:w-auto"
+      />
 
       {/* ── Abas ─────────────────────────────────────────────────────────── */}
       <div className="flex gap-1 border-b">
@@ -370,8 +504,10 @@ export default function AprendizagemGestaoPage() {
       {/* ── Conteúdo da aba ──────────────────────────────────────────────── */}
       {tab === "colaborador" ? (
         <div className="rounded-xl border bg-card shadow-sm">
-          <TrainingTable
+          <PorColaboradorTable
             rows={rows}
+            catalogMeta={catalogMeta}
+            requirementCriticalById={requirementCriticalById}
             loading={mainLoading}
             error={mainError}
             emptyLabel="Nenhum treinamento encontrado para os filtros selecionados."
@@ -386,90 +522,30 @@ export default function AprendizagemGestaoPage() {
       ) : null}
 
       {tab === "prazo" ? (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Ordena por vencimento (mais próximos primeiro) entre os registros
-            carregados — use “Carregar mais” para incluir o restante.
-          </p>
-          <div className="rounded-xl border bg-card shadow-sm">
-            <TrainingTable
-              rows={rowsByDeadline}
-              loading={mainLoading}
-              error={mainError}
-              emptyLabel="Nenhum treinamento encontrado para os filtros selecionados."
-            />
-            <ResultsFooter
-              shown={rowsByDeadline.length}
-              total={totalRows}
-              atMax={pageSize >= 500}
-              onMore={loadMore}
-            />
-          </div>
-        </div>
+        <PorPrazoPanel
+          vencidos={{ total: stats?.vencido ?? 0, items: vencidosItems }}
+          aVencer={{ total: aVencerCount, items: aVencerItems }}
+          pendentesSemTurma={{
+            total: pendentesSemTurmaBucketResult?.pagination.total ?? 0,
+            items: pendentesSemTurmaItems,
+          }}
+          onSeeAll={(f) => {
+            setStatusFilter(f);
+            setTab("colaborador");
+          }}
+          onCreateClass={() => setLocation("/aprendizagem/turmas")}
+        />
       ) : null}
 
       {tab === "turma" ? (
         <div className="rounded-xl border bg-card shadow-sm">
-          {classLoading ? (
-            <p className="px-4 py-8 text-sm text-muted-foreground">
-              Carregando...
-            </p>
-          ) : classError ? (
-            <p className="px-4 py-8 text-center text-sm text-red-600">
-              Não foi possível carregar as turmas.
-            </p>
-          ) : classes.length === 0 ? (
-            <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-              Nenhuma turma encontrada para os filtros selecionados.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b text-left text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2 font-medium">Turma</th>
-                    <th className="px-4 py-2 font-medium">Treinamento</th>
-                    <th className="px-4 py-2 font-medium">Data</th>
-                    <th className="px-4 py-2 font-medium">Filial</th>
-                    <th className="px-4 py-2 font-medium">Inscritos</th>
-                    <th className="px-4 py-2 font-medium">Status</th>
-                    <th className="px-4 py-2 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {classes.map((c: TrainingClass) => (
-                    <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
-                      <td className="px-4 py-2 font-medium">{c.code ?? "—"}</td>
-                      <td className="px-4 py-2">
-                        {catalogTitle.get(c.catalogItemId) ??
-                          `#${c.catalogItemId}`}
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">
-                        {formatDate(c.startDate)}
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">
-                        {c.unitId ? (unitName.get(c.unitId) ?? "—") : "—"}
-                      </td>
-                      <td className="px-4 py-2">{c.participantCount ?? 0}</td>
-                      <td className="px-4 py-2">
-                        <Badge className={CLASS_STATUS_BADGE[c.status] ?? ""}>
-                          {CLASS_STATUS_LABEL[c.status] ?? c.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <Link
-                          href="/aprendizagem/turmas"
-                          className="text-xs font-medium text-blue-600 hover:underline"
-                        >
-                          Abrir
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <PorTurmaTable
+            classes={classes}
+            catalogTitleById={catalogTitle}
+            unitNameById={unitName}
+            loading={classLoading}
+            error={classError}
+          />
         </div>
       ) : null}
     </div>
@@ -477,34 +553,6 @@ export default function AprendizagemGestaoPage() {
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
-
-function MetricCard({
-  label,
-  value,
-  accent,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  accent?: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-xl border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/40",
-        active ? "border-primary ring-2 ring-primary" : "",
-      )}
-    >
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn("mt-1 text-2xl font-semibold", accent)}>{value}</div>
-    </button>
-  );
-}
 
 function ResultsFooter({
   shown,
@@ -537,76 +585,6 @@ function ResultsFooter({
           Carregar mais
         </button>
       )}
-    </div>
-  );
-}
-
-function TrainingTable({
-  rows,
-  loading,
-  error,
-  emptyLabel,
-}: {
-  rows: OrganizationTraining[];
-  loading: boolean;
-  error: boolean;
-  emptyLabel: string;
-}) {
-  if (loading) {
-    return (
-      <p className="px-4 py-8 text-sm text-muted-foreground">Carregando...</p>
-    );
-  }
-  if (error) {
-    return (
-      <p className="px-4 py-8 text-center text-sm text-red-600">
-        Não foi possível carregar os treinamentos.
-      </p>
-    );
-  }
-  if (rows.length === 0) {
-    return (
-      <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-        {emptyLabel}
-      </p>
-    );
-  }
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="border-b text-left text-xs uppercase text-muted-foreground">
-          <tr>
-            <th className="px-4 py-2 font-medium">Colaborador</th>
-            <th className="px-4 py-2 font-medium">Cargo</th>
-            <th className="px-4 py-2 font-medium">Filial</th>
-            <th className="px-4 py-2 font-medium">Treinamento</th>
-            <th className="px-4 py-2 font-medium">Situação</th>
-            <th className="px-4 py-2 font-medium">Vencimento</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((t) => (
-            <tr key={t.id} className="border-b last:border-0 hover:bg-muted/40">
-              <td className="px-4 py-2 font-medium">{t.employeeName}</td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {t.employeePosition ?? "—"}
-              </td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {t.unitName ?? "—"}
-              </td>
-              <td className="px-4 py-2">{t.title}</td>
-              <td className="px-4 py-2">
-                <Badge className={cn("border", STATUS_BADGE[t.status])}>
-                  {STATUS_LABEL[t.status]}
-                </Badge>
-              </td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {formatDate(t.expirationDate ?? t.dueDate)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }

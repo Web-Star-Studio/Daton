@@ -68,7 +68,16 @@ export async function completeTrainingClass(args: {
       if (t && t.status === "concluido") continue; // idempotente
       await database
         .update(employeeTrainingsTable)
-        .set({ status: "concluido", completionDate, expirationDate })
+        .set({
+          status: "concluido",
+          completionDate,
+          expirationDate,
+          // Um treino NA vinculado a um participante da turma vira concluído
+          // aqui — a invariante "motivo só existe quando NA" não é garantida
+          // pelo banco, só pelos handlers de rota, então precisa ser mantida
+          // explicitamente neste `.set()` também.
+          notApplicableReason: null,
+        })
         .where(eq(employeeTrainingsTable.id, p.employeeTrainingId));
       completed += 1;
       continue;
@@ -86,6 +95,10 @@ export async function completeTrainingClass(args: {
         ),
       );
     if (pending) {
+      // Este `pending` já veio filtrado por status = 'pendente' (nunca NA),
+      // então não precisa limpar not_applicable_reason aqui — diferente do
+      // branch de `p.employeeTrainingId` acima, que pode apontar para um
+      // treino já marcado 'nao_aplicavel'.
       await database
         .update(employeeTrainingsTable)
         .set({ status: "concluido", completionDate, expirationDate })
@@ -106,7 +119,7 @@ export async function completeTrainingClass(args: {
         title: item?.title ?? "Treinamento",
         description: item?.programContent ?? null,
         objective: item?.objective ?? null,
-        institution: item?.defaultInstructor ?? null,
+        instructor: item?.defaultInstructor ?? null,
         targetCompetencyName: item?.targetCompetencyName ?? null,
         targetCompetencyType: item?.targetCompetencyType ?? null,
         targetCompetencyLevel: item?.targetCompetencyLevel ?? null,

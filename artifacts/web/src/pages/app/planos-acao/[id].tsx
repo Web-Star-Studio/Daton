@@ -26,7 +26,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { buildResponsibleOptions } from "./_components/responsible-options";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { buildCoResponsibleOptions, buildResponsibleOptions } from "./_components/responsible-options";
 import { mergeDraftIntoForm } from "./_components/merge-draft";
 import { diffActionPlanPayload } from "./_components/payload-diff";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -64,6 +65,8 @@ import {
   type ActionPlanType,
   type UpdateActionPlanBody,
 } from "@/lib/action-plans-client";
+import { LEGACY_EFFECTIVENESS_METHOD_LABELS } from "@/lib/action-plans-client";
+import { useAllEffectivenessMethods } from "@/lib/effectiveness-methods-client";
 import { ActionPlanTimeline } from "./_components/timeline";
 import { GutInput } from "./_components/gut-input";
 import { Tratativas } from "./_components/tratativas";
@@ -153,7 +156,9 @@ export default function ActionPlanFichaPage() {
   const metodosAtivos = todasTratativas.filter((m) => m.active);
   const labelPorChave = buildAnalysisMethodLabelMap(todasTratativas);
 
-  const emptyEfic: EficaciaValue = { method: "", dueDate: "", evaluatorUserId: "", before: "", after: "", result: "", comment: "" };
+  const { data: effectivenessMethods = [] } = useAllEffectivenessMethods(orgId);
+
+  const emptyEfic: EficaciaValue = { methodId: "", dueDate: "", evaluatorUserId: "", before: "", after: "", result: "", comment: "" };
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -161,6 +166,7 @@ export default function ActionPlanFichaPage() {
     status: "open" as ActionPlanStatus,
     priority: "medium" as ActionPlanPriority,
     responsibleUserId: "",
+    coResponsibleUserIds: [] as number[],
     dueDate: "",
     correctiveActionDescription: "",
     correctiveActionCompletedAt: "",
@@ -227,6 +233,7 @@ export default function ActionPlanFichaPage() {
       status: plan.status,
       priority: plan.priority,
       responsibleUserId: plan.responsibleUserId != null ? String(plan.responsibleUserId) : "",
+      coResponsibleUserIds: plan.coResponsibles.map((r) => r.userId),
       dueDate: storageIsoToCalendarDate(plan.dueDate),
       correctiveActionDescription: plan.correctiveActionDescription ?? "",
       correctiveActionCompletedAt: storageIsoToCalendarDate(plan.correctiveActionCompletedAt),
@@ -234,7 +241,7 @@ export default function ActionPlanFichaPage() {
       analyses: plan.analyses ?? [],
       rootCause: plan.rootCause ?? "",
       efic: {
-        method: plan.effectivenessMethod ?? "",
+        methodId: plan.effectivenessMethodId != null ? String(plan.effectivenessMethodId) : "",
         dueDate: storageIsoToCalendarDate(plan.effectivenessDueDate),
         evaluatorUserId: plan.effectivenessEvaluatorUserId != null ? String(plan.effectivenessEvaluatorUserId) : "",
         before: plan.effectivenessBefore ?? "",
@@ -258,6 +265,7 @@ export default function ActionPlanFichaPage() {
       status: f.status,
       priority: f.priority,
       responsibleUserId: f.responsibleUserId ? Number(f.responsibleUserId) : null,
+      coResponsibleUserIds: f.coResponsibleUserIds,
       dueDate: f.dueDate ? calendarDateToStorageIso(f.dueDate) : null,
       correctiveActionDescription: f.correctiveActionDescription.trim() || null,
       correctiveActionCompletedAt: f.correctiveActionCompletedAt ? calendarDateToStorageIso(f.correctiveActionCompletedAt) : null,
@@ -266,7 +274,7 @@ export default function ActionPlanFichaPage() {
       gutTendency: f.gut.tendency,
       analyses: f.analyses.length ? f.analyses : null,
       rootCause: f.rootCause.trim() || null,
-      effectivenessMethod: f.efic.method || null,
+      effectivenessMethodId: f.efic.methodId ? Number(f.efic.methodId) : null,
       effectivenessDueDate: f.efic.dueDate ? calendarDateToStorageIso(f.efic.dueDate) : null,
       effectivenessBefore: f.efic.before.trim() || null,
       effectivenessAfter: f.efic.after.trim() || null,
@@ -682,12 +690,35 @@ export default function ActionPlanFichaPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Responsável</Label>
+                  <Label>Ponto focal</Label>
                   <SearchableSelect
                     value={form.responsibleUserId}
                     onChange={(v) => patch("responsibleUserId", v)}
                     options={buildResponsibleOptions(orgUsers, form.responsibleUserId, plan.responsibleUserName)}
                     placeholder="Selecione"
+                    searchPlaceholder="Buscar usuário..."
+                    emptyMessage="Nenhum usuário encontrado"
+                    disabled={!canEdit}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Co-responsáveis</Label>
+                  <SearchableMultiSelect
+                    options={buildCoResponsibleOptions(
+                      orgUsers,
+                      plan.coResponsibles,
+                      form.responsibleUserId ? Number(form.responsibleUserId) : null,
+                    )}
+                    selected={form.coResponsibleUserIds}
+                    onToggle={(id) =>
+                      patch(
+                        "coResponsibleUserIds",
+                        form.coResponsibleUserIds.includes(id)
+                          ? form.coResponsibleUserIds.filter((v) => v !== id)
+                          : [...form.coResponsibleUserIds, id],
+                      )
+                    }
+                    placeholder="Ninguém além do ponto focal"
                     searchPlaceholder="Buscar usuário..."
                     emptyMessage="Nenhum usuário encontrado"
                     disabled={!canEdit}
@@ -858,10 +889,13 @@ export default function ActionPlanFichaPage() {
               value={form.efic}
               onChange={(v) => patch("efic", v)}
               orgUsers={orgUsers}
+              methods={effectivenessMethods}
+              legacyMethodLabel={plan.effectivenessMethod ? LEGACY_EFFECTIVENESS_METHOD_LABELS[plan.effectivenessMethod] : null}
               readOnly={!canEdit}
               canEvaluate={isAdmin || (plan.effectivenessEvaluatorUserId != null && plan.effectivenessEvaluatorUserId === user?.id)}
               canAssignEvaluator={isAdmin}
               responsibleUserId={form.responsibleUserId}
+              coResponsibleUserIds={form.coResponsibleUserIds}
             />
           </Section>
 

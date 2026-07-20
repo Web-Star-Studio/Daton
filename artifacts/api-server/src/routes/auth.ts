@@ -8,6 +8,7 @@ import { issueAuthToken, requireAuth } from "../middlewares/auth";
 import { serializeOrganization } from "../lib/serialize-organization";
 import { ensureDefaultNorms } from "../services/norms/defaults";
 import { ensureAnalysisMethods } from "../services/action-plans/analysis-methods";
+import { ensureDefaultEffectivenessMethods } from "../services/effectiveness-methods/defaults";
 
 const router: IRouter = Router();
 
@@ -129,6 +130,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   await ensureDefaultNorms(org.id);
   await ensureAnalysisMethods(org.id);
+  await ensureDefaultEffectivenessMethods(org.id);
 
   const [user] = await db.insert(usersTable).values({
     name: adminFullName.toUpperCase(),

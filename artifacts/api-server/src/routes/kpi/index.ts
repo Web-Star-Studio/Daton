@@ -281,6 +281,12 @@ async function ensureYearConfig(
       objectiveId: prior?.objectiveId ?? null,
       seq: prior?.seq ?? null,
       goal: prior?.goal ?? null,
+      // A tolerância também é herdada — é o que o docblock acima promete e o
+      // que a leitura (`GET /kpi/years/:year`) já faz ao montar a config
+      // sintética. Sem isto, abrir um ano novo mostrava a tolerância herdada,
+      // mas o primeiro lançamento persistia a linha com `tolerance = null` e
+      // o valor sumia no reload seguinte.
+      tolerance: prior?.tolerance ?? null,
     })
     .onConflictDoUpdate({
       target: [

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "wouter";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -32,6 +32,7 @@ import {
   getStrategicPlan,
   getGetEmployeeQueryKey,
   getListEmployeesQueryKey,
+  useListEmployees,
   getListDepartmentsQueryKey,
   getListPositionsQueryKey,
   CreateCompetencyBodyType as CreateCompetencyBodyTypeValues,
@@ -52,17 +53,10 @@ import type {
   EmployeeAwareness,
   EmployeeDetail,
   LinkedUnit,
-  Position,
   TrainingEffectivenessReview,
   DocumentSummary,
   StrategicPlanObjective,
 } from "@workspace/api-client-react";
-import {
-  findPositionByName,
-  getRequirementsList,
-  matchRequirementsToCompetencies,
-  type ComplianceItem,
-} from "@/lib/position-requirements";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { EmployeeProfileItemDialog } from "@/components/employees/employee-profile-item-dialog";
@@ -79,6 +73,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
+import { formatKpiNumber } from "@/lib/kpi-client";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
 import {
@@ -93,25 +88,26 @@ import {
   type UploadedFileRef,
 } from "@/lib/uploads";
 import { cn } from "@/lib/utils";
+import { downloadTrainingCertificate } from "@/lib/training-certificate-pdf";
 import {
   ArrowLeft,
   Pencil,
-  Check,
   X,
   Plus,
   Trash2,
   GraduationCap,
   Award,
   Lightbulb,
-  User,
   Archive,
   CheckCircle2,
-  XCircle,
-  Building2,
-  AlertTriangle,
-  Paperclip,
+  CalendarCheck,
+  Download,
 } from "lucide-react";
 import { useLocation } from "wouter";
+import { FichaHeader } from "./_components/FichaHeader";
+import { DadosCards } from "./_components/DadosCards";
+import { FormacaoQualificacoes } from "./_components/FormacaoQualificacoes";
+import { RegistrarConclusaoForm } from "./_components/RegistrarConclusaoForm";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -124,12 +120,14 @@ const CONTRACT_LABELS: Record<string, string> = {
   pj: "PJ",
   intern: "Estagiário",
   temporary: "Temporário",
+  terceirizado: "Terceirizado",
 };
 
 const TRAINING_STATUS: Record<string, string> = {
   pendente: "Pendente",
   concluido: "Concluído",
   vencido: "Vencido",
+  nao_aplicavel: "Não aplicável",
 };
 
 const TRAINING_STATUS_COLORS: Record<string, string> = {
@@ -139,6 +137,8 @@ const TRAINING_STATUS_COLORS: Record<string, string> = {
     "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
   vencido:
     "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+  // Neutro: ausência de obrigação, não é sucesso nem alerta.
+  nao_aplicavel: "bg-muted text-muted-foreground border-border",
 };
 
 const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {
@@ -160,11 +160,6 @@ const COMPETENCY_TYPE_LABELS: Record<string, string> = {
   formacao: "Formação",
   experiencia: "Experiência",
   habilidade: "Habilidade",
-};
-
-const REQUIRED_EMPLOYEE_FIELDS: Record<string, string> = {
-  name: "Nome completo",
-  admissionDate: "Data de admissão",
 };
 
 type EmployeeProfileItemRecord = EmployeeProfileItem;
@@ -359,114 +354,6 @@ function mapRecordAttachmentItems(
     objectPath: attachment.objectPath,
     onRemove: onRemove ? () => onRemove(attachment.objectPath) : undefined,
   }));
-}
-
-function InlineField({
-  label,
-  value,
-  fieldKey,
-  type = "text",
-  options,
-  editable = true,
-  onSave,
-}: {
-  label: string;
-  value: string | number | null | undefined;
-  fieldKey: string;
-  type?: "text" | "date" | "select" | "textarea";
-  options?: { value: string; label: string }[];
-  editable?: boolean;
-  onSave: (key: string, val: string | number | null) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(String(value ?? ""));
-
-  const save = () => {
-    onSave(fieldKey, draft || null);
-    setEditing(false);
-  };
-  const cancel = () => {
-    setDraft(String(value ?? ""));
-    setEditing(false);
-  };
-
-  return (
-    <div className="min-w-0">
-      <Label className="mb-1.5 block text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
-        {label}
-      </Label>
-      {editing ? (
-        <div className="mt-1 flex items-center gap-1.5">
-          {type === "select" && options ? (
-            <select
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-[13px]"
-            >
-              {options.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          ) : type === "textarea" ? (
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="min-h-[88px] flex-1 text-[13px]"
-            />
-          ) : (
-            <Input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              type={type}
-              className="h-9 flex-1 text-[13px]"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") save();
-                if (e.key === "Escape") cancel();
-              }}
-            />
-          )}
-          <button
-            onClick={save}
-            className="p-1 text-primary hover:text-primary/80 cursor-pointer"
-          >
-            <Check className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={cancel}
-            className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          className={cn(
-            "group/field mt-1 flex items-start gap-1 text-left",
-            editable ? "cursor-pointer" : "cursor-default",
-          )}
-          onClick={() => {
-            if (!editable) return;
-            setDraft(String(value ?? ""));
-            setEditing(true);
-          }}
-        >
-          <span className="break-words text-[14px] text-foreground">
-            {type === "select" && options
-              ? options.find((o) => o.value === String(value))?.label ||
-                String(value ?? "—")
-              : value || "—"}
-          </span>
-          {editable && (
-            <Pencil className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/0 transition-colors group-hover/field:text-muted-foreground/50" />
-          )}
-        </button>
-      )}
-    </div>
-  );
 }
 
 function EmployeeProfileItemsSection({
@@ -1660,8 +1547,6 @@ function CompetenciasTab({
   editable = true,
   createOpen = false,
   onCreateOpenChange,
-  employeePosition,
-  positions,
 }: {
   competencies: EmployeeCompetency[];
   orgId: number;
@@ -1669,8 +1554,6 @@ function CompetenciasTab({
   editable?: boolean;
   createOpen?: boolean;
   onCreateOpenChange?: (open: boolean) => void;
-  employeePosition?: string | null;
-  positions?: Position[];
 }) {
   const queryClient = useQueryClient();
   const [internalCreateOpen, setInternalCreateOpen] = useState(false);
@@ -1691,7 +1574,6 @@ function CompetenciasTab({
     useState(false);
   const [isUploadingEditAttachments, setIsUploadingEditAttachments] =
     useState(false);
-  const [prefillName, setPrefillName] = useState("");
   const createMutation = useCreateCompetency();
   const updateMutation = useUpdateCompetency();
   const deleteMutation = useDeleteCompetency();
@@ -1712,22 +1594,6 @@ function CompetenciasTab({
   };
   const [form, setForm] = useState<CompetencyForm>(emptyForm);
 
-  // Compliance matching
-  const matchedPosition = positions
-    ? findPositionByName(positions, employeePosition)
-    : null;
-  const requirementsList = matchedPosition
-    ? getRequirementsList(matchedPosition.requirements)
-    : [];
-  const complianceItems =
-    requirementsList.length > 0
-      ? matchRequirementsToCompetencies(requirementsList, competencies)
-      : [];
-  const matchedCount = complianceItems.filter((c) => c.matched).length;
-  const totalReqs = complianceItems.length;
-  const compliancePercent =
-    totalReqs > 0 ? Math.round((matchedCount / totalReqs) * 100) : 0;
-
   const invalidate = () =>
     queryClient.invalidateQueries({
       queryKey: getGetEmployeeQueryKey(orgId, empId),
@@ -1739,34 +1605,6 @@ function CompetenciasTab({
     setForm(emptyForm);
     setCreateAttachments([]);
     setIsUploadingCreateAttachments(false);
-    setPrefillName("");
-  };
-
-  // Rola até o cartão da competência (onde ficam os certificados anexados) e
-  // destaca-o brevemente. Usado pelo indicador de anexo na Conformidade do Cargo.
-  const scrollToCompetency = (competencyId: number) => {
-    const el = document.getElementById(`comp-card-${competencyId}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("ring-2", "ring-emerald-400");
-    // Cancela um destaque anterior do mesmo cartão para não apagá-lo cedo em
-    // cliques repetidos (o timeout fica guardado no próprio elemento).
-    const prev = Number(el.dataset.highlightTimeout);
-    if (prev) window.clearTimeout(prev);
-    el.dataset.highlightTimeout = String(
-      window.setTimeout(() => {
-        el.classList.remove("ring-2", "ring-emerald-400");
-        delete el.dataset.highlightTimeout;
-      }, 1600),
-    );
-  };
-
-  const openCreateFromRequirement = (requirementName: string) => {
-    setPrefillName(requirementName);
-    setForm({ ...emptyForm, name: requirementName });
-    setCreateStep(0);
-    setCreateAttachments([]);
-    setCreateOpen(true);
   };
 
   const closeEditDialog = () => {
@@ -1846,140 +1684,7 @@ function CompetenciasTab({
         Competências necessárias e adquiridas conforme ISO 9001:2015 §7.2
       </p>
 
-      {/* Compliance section */}
-      {employeePosition && matchedPosition && totalReqs > 0 && (
-        <div className="bg-muted/30 border border-border/60 rounded-xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-[13px] font-semibold text-foreground uppercase tracking-wide">
-                Conformidade do Cargo
-              </h3>
-            </div>
-            <span className="text-xs text-muted-foreground font-medium">
-              {matchedPosition.name}
-            </span>
-          </div>
-
-          {/* Progress bar */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                {matchedCount}/{totalReqs} requisitos atendidos
-              </span>
-              <span
-                className={cn(
-                  "font-semibold",
-                  compliancePercent >= 80
-                    ? "text-emerald-600"
-                    : compliancePercent >= 50
-                      ? "text-amber-600"
-                      : "text-red-600",
-                )}
-              >
-                {compliancePercent}%
-              </span>
-            </div>
-            <div className="h-2 bg-secondary rounded-full overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-500",
-                  compliancePercent >= 80
-                    ? "bg-emerald-500"
-                    : compliancePercent >= 50
-                      ? "bg-amber-500"
-                      : "bg-red-500",
-                )}
-                style={{ width: `${compliancePercent}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Requirement items */}
-          <div className="space-y-1.5">
-            {complianceItems.map((item, idx) => (
-              <div
-                key={idx}
-                className={cn(
-                  "flex items-center justify-between px-3 py-2 rounded-lg text-[12px]",
-                  item.matched
-                    ? "bg-emerald-50 border border-emerald-200/60 dark:bg-emerald-500/10 dark:border-emerald-500/30"
-                    : "bg-red-50 border border-red-200/60 dark:bg-red-500/10 dark:border-red-500/30",
-                )}
-              >
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  {item.matched ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                  ) : (
-                    <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                  )}
-                  <span
-                    className={cn(
-                      "truncate",
-                      item.matched
-                        ? "text-emerald-900 dark:text-emerald-200"
-                        : "text-red-900 dark:text-red-200",
-                    )}
-                  >
-                    {item.requirement}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 ml-3">
-                  {item.matched && item.competency && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-emerald-700 dark:text-emerald-300">
-                        Nível: {item.competency.acquiredLevel}/
-                        {item.competency.requiredLevel}
-                      </span>
-                      {(item.competency.acquiredLevel ?? 0) <
-                        (item.competency.requiredLevel ?? 0) && (
-                        <span className="text-[10px] font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded dark:text-amber-300 dark:bg-amber-500/20">
-                          Gap
-                        </span>
-                      )}
-                      {item.competency.attachments.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => scrollToCompetency(item.competency!.id)}
-                          title="Ver certificado(s) anexado(s)"
-                          className="flex items-center gap-0.5 text-[11px] font-medium text-emerald-700 hover:text-emerald-900 dark:text-emerald-300 transition-colors cursor-pointer"
-                        >
-                          <Paperclip className="h-3 w-3" />
-                          {item.competency.attachments.length}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {!item.matched && editable && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openCreateFromRequirement(item.requirement)
-                      }
-                      className="flex items-center gap-1 text-[11px] font-medium text-red-700 hover:text-red-900 transition-colors cursor-pointer"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Adicionar
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {employeePosition && matchedPosition && totalReqs === 0 && (
-        <div className="bg-muted/20 border border-border/40 rounded-xl p-4 flex items-center gap-2 text-xs text-muted-foreground">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            O cargo <strong>{matchedPosition.name}</strong> não possui
-            requisitos definidos.
-          </span>
-        </div>
-      )}
-
-      {competencies.length === 0 && totalReqs === 0 ? (
+      {competencies.length === 0 ? (
         <div className="text-center py-12">
           <Award className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
           <p className="text-[13px] text-muted-foreground">
@@ -2203,6 +1908,7 @@ type TrainingForm = {
   description: string;
   objective: string;
   institution: string;
+  instructor: string;
   targetCompetencyName: string;
   targetCompetencyType: CreateTrainingBodyTargetCompetencyType;
   targetCompetencyLevel: number;
@@ -2212,6 +1918,7 @@ type TrainingForm = {
   completionDate: string;
   expirationDate: string;
   status: CreateTrainingBodyStatus;
+  notApplicableReason: string;
 };
 type AwarenessForm = {
   topic: string;
@@ -2241,6 +1948,10 @@ function TreinamentosTab({
   trainings,
   orgId,
   empId,
+  employeeName,
+  employeeCpf,
+  employeePosition,
+  orgName,
   editable = true,
   createOpen = false,
   onCreateOpenChange,
@@ -2249,6 +1960,10 @@ function TreinamentosTab({
   trainings: EmployeeTraining[];
   orgId: number;
   empId: number;
+  employeeName?: string;
+  employeeCpf?: string | null;
+  employeePosition?: string | null;
+  orgName?: string;
   editable?: boolean;
   createOpen?: boolean;
   onCreateOpenChange?: (open: boolean) => void;
@@ -2263,8 +1978,10 @@ function TreinamentosTab({
   const [reviewTraining, setReviewTraining] = useState<EmployeeTraining | null>(
     null,
   );
+  const [deleteTraining, setDeleteTraining] = useState<EmployeeTraining | null>(
+    null,
+  );
   const [createStep, setCreateStep] = useState(0);
-  const [editStep, setEditStep] = useState(0);
   const [createAttachments, setCreateAttachments] = useState<UploadedFileRef[]>(
     [],
   );
@@ -2296,6 +2013,7 @@ function TreinamentosTab({
     description: "",
     objective: "",
     institution: "",
+    instructor: "",
     targetCompetencyName: "",
     targetCompetencyType:
       CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
@@ -2306,11 +2024,16 @@ function TreinamentosTab({
     completionDate: "",
     expirationDate: "",
     status: CreateTrainingBodyStatusValues.pendente,
+    notApplicableReason: "",
   };
   const [form, setForm] = useState(emptyForm);
+  // score fica como string enquanto o usuário digita (estado controlado) —
+  // convertê-lo a Number a cada tecla, como antes, impede digitar "7.5"
+  // (o "." vira "7" e o dígito seguinte é perdido; mesma armadilha do PR
+  // #150). A conversão pra número só acontece no blur/submit.
   const [reviewForm, setReviewForm] = useState({
     evaluationDate: new Date().toISOString().split("T")[0],
-    score: 0,
+    score: "",
     isEffective: true,
     resultLevel: 0,
     comments: "",
@@ -2320,6 +2043,37 @@ function TreinamentosTab({
     queryClient.invalidateQueries({
       queryKey: getGetEmployeeQueryKey(orgId, empId),
     });
+
+  // Instrutor: busca server-side na lista de funcionários (escala p/ empresas
+  // grandes) + permite texto livre (palestrante de fora) via onCreateOption.
+  const [instructorSearch, setInstructorSearch] = useState("");
+  const instructorEmpParams = {
+    search: instructorSearch || undefined,
+    pageSize: 50,
+  };
+  const { data: instructorEmployeesResult } = useListEmployees(
+    orgId,
+    instructorEmpParams,
+    {
+      query: {
+        enabled: !!orgId && !!editingTraining,
+        queryKey: getListEmployeesQueryKey(orgId, instructorEmpParams),
+      },
+    },
+  );
+  const instructorOptions = (instructorEmployeesResult?.data ?? []).map((e) => ({
+    value: e.name,
+    label: e.name,
+  }));
+  if (
+    form.instructor &&
+    !instructorOptions.some((o) => o.value === form.instructor)
+  ) {
+    instructorOptions.unshift({
+      value: form.instructor,
+      label: form.instructor,
+    });
+  }
 
   useEffect(() => {
     if (!isCreateOpen || !prefillTraining) return;
@@ -2345,7 +2099,6 @@ function TreinamentosTab({
 
   const closeEditDialog = () => {
     setEditingTraining(null);
-    setEditStep(0);
     setForm(emptyForm);
     setEditingAttachments([]);
     setIsUploadingEditAttachments(false);
@@ -2357,7 +2110,7 @@ function TreinamentosTab({
     setIsUploadingReviewAttachments(false);
     setReviewForm({
       evaluationDate: new Date().toISOString().split("T")[0],
-      score: 0,
+      score: "",
       isEffective: true,
       resultLevel: 0,
       comments: "",
@@ -2391,14 +2144,14 @@ function TreinamentosTab({
     closeCreateDialog();
   };
 
-  const openEdit = (t: EmployeeTraining) => {
+  const openComplete = (t: EmployeeTraining) => {
     setEditingTraining(t);
-    setEditStep(0);
     setForm({
       title: t.title,
       description: t.description || "",
       objective: t.objective || "",
       institution: t.institution || "",
+      instructor: t.instructor || "",
       targetCompetencyName: t.targetCompetencyName || "",
       targetCompetencyType:
         t.targetCompetencyType ||
@@ -2410,6 +2163,7 @@ function TreinamentosTab({
       completionDate: t.completionDate || "",
       expirationDate: t.expirationDate || "",
       status: t.status,
+      notApplicableReason: t.notApplicableReason || "",
     });
     setEditingAttachments(t.attachments || []);
   };
@@ -2425,6 +2179,7 @@ function TreinamentosTab({
         description: form.description || undefined,
         objective: form.objective || undefined,
         institution: form.institution || undefined,
+        instructor: form.instructor || undefined,
         targetCompetencyName: form.targetCompetencyName || undefined,
         targetCompetencyType: form.targetCompetencyName
           ? form.targetCompetencyType
@@ -2438,6 +2193,7 @@ function TreinamentosTab({
         completionDate: form.completionDate || undefined,
         expirationDate: form.expirationDate || undefined,
         status: form.status as UpdateTrainingBodyStatus,
+        notApplicableReason: form.notApplicableReason || undefined,
         attachments: editingAttachments,
       },
     });
@@ -2445,12 +2201,16 @@ function TreinamentosTab({
     closeEditDialog();
   };
 
-  const handleDelete = async (trainId: number) => {
-    if (!confirm("Excluir este treinamento? Esta ação não pode ser desfeita."))
-      return;
+  const confirmDelete = async () => {
+    if (!deleteTraining) return;
     try {
-      await deleteMutation.mutateAsync({ orgId, empId, trainId });
+      await deleteMutation.mutateAsync({
+        orgId,
+        empId,
+        trainId: deleteTraining.id,
+      });
       invalidate();
+      setDeleteTraining(null);
     } catch {
       toast({
         title: "Não foi possível excluir o treinamento",
@@ -2466,7 +2226,7 @@ function TreinamentosTab({
     setReviewForm({
       evaluationDate:
         latestReview?.evaluationDate || new Date().toISOString().split("T")[0],
-      score: latestReview?.score || 0,
+      score: latestReview?.score != null ? String(latestReview.score) : "",
       isEffective: latestReview?.isEffective ?? true,
       resultLevel:
         latestReview?.resultLevel || training.targetCompetencyLevel || 0,
@@ -2478,13 +2238,27 @@ function TreinamentosTab({
   const handleCreateReview = async () => {
     if (!reviewTraining) return;
 
+    const parsedScore =
+      reviewForm.score.trim() === "" ? undefined : Number(reviewForm.score);
+    if (
+      parsedScore !== undefined &&
+      (!Number.isFinite(parsedScore) || parsedScore < 0 || parsedScore > 10)
+    ) {
+      toast({
+        title: "Nota inválida",
+        description: "A nota deve estar entre 0 e 10.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     await reviewMutation.mutateAsync({
       orgId,
       empId,
       trainId: reviewTraining.id,
       data: {
         evaluationDate: reviewForm.evaluationDate,
-        score: reviewForm.score || undefined,
+        score: parsedScore,
         isEffective: reviewForm.isEffective,
         resultLevel: reviewForm.resultLevel || undefined,
         comments: reviewForm.comments || undefined,
@@ -2518,19 +2292,19 @@ function TreinamentosTab({
             >
               {(() => {
                 const trainingAttachments = t.attachments || [];
+                const isConcluido =
+                  t.status === CreateTrainingBodyStatusValues.concluido;
                 const effectivenessStatus = t.latestEffectivenessReview
                   ? t.latestEffectivenessReview.isEffective
                     ? "effective"
                     : "ineffective"
-                  : t.evaluationMethod || t.targetCompetencyName
+                  : isConcluido &&
+                      (t.evaluationMethod || t.targetCompetencyName)
                     ? "pending"
                     : null;
                 return (
                   <div className="flex items-start justify-between">
-                    <div
-                      className={cn("flex-1", editable ? "cursor-pointer" : "")}
-                      onClick={() => editable && openEdit(t)}
-                    >
+                    <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <p className="text-[13px] font-medium text-foreground">
                           {t.title}
@@ -2560,6 +2334,15 @@ function TreinamentosTab({
                           {t.description}
                         </p>
                       )}
+                      {t.status === CreateTrainingBodyStatusValues.nao_aplicavel &&
+                        t.notApplicableReason && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            <span className="font-medium text-foreground">
+                              Motivo:
+                            </span>{" "}
+                            {t.notApplicableReason}
+                          </p>
+                        )}
                       {t.objective && (
                         <p className="text-xs text-muted-foreground mt-2">
                           <span className="font-medium text-foreground">
@@ -2592,6 +2375,7 @@ function TreinamentosTab({
                       )}
                       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                         {t.institution && <span>{t.institution}</span>}
+                        {t.instructor && <span>Instrutor: {t.instructor}</span>}
                         <TrainingWorkloadCell hours={t.workloadHours} />
                         {t.completionDate && (
                           <span>Concluído: {t.completionDate}</span>
@@ -2611,7 +2395,7 @@ function TreinamentosTab({
                               : "Ineficaz"}{" "}
                             em {t.latestEffectivenessReview.evaluationDate}
                             {t.latestEffectivenessReview.score != null
-                              ? ` · nota ${t.latestEffectivenessReview.score}`
+                              ? ` · nota ${formatKpiNumber(t.latestEffectivenessReview.score)}`
                               : ""}
                             {t.latestEffectivenessReview.resultLevel != null
                               ? ` · nível ${t.latestEffectivenessReview.resultLevel}`
@@ -2675,7 +2459,7 @@ function TreinamentosTab({
                                   ) : null}
                                   {review.score != null ? (
                                     <span className="text-muted-foreground">
-                                      · nota {review.score}
+                                      · nota {formatKpiNumber(review.score)}
                                     </span>
                                   ) : null}
                                   {review.resultLevel != null ? (
@@ -2709,6 +2493,68 @@ function TreinamentosTab({
                     {editable && (
                       <TooltipProvider delayDuration={200}>
                         <div className="flex items-center gap-1">
+                          {isConcluido && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className="inline-flex"
+                                  tabIndex={t.completionDate ? undefined : 0}
+                                >
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0"
+                                    aria-label="Baixar certificado"
+                                    disabled={!t.completionDate}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void downloadTrainingCertificate({
+                                      orgName: orgName ?? "",
+                                      employeeName: employeeName ?? "",
+                                      employeeCpf,
+                                      employeePosition,
+                                      title: t.title,
+                                      completionDate: t.completionDate,
+                                      workloadHours: t.workloadHours,
+                                      institution: t.institution,
+                                      instructor: t.instructor,
+                                      expirationDate: t.expirationDate,
+                                      competencyName: t.targetCompetencyName,
+                                    });
+                                  }}
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {t.completionDate
+                                  ? "Baixar certificado"
+                                  : "Informe a data de conclusão para emitir o certificado"}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          {isConcluido && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  aria-label="Avaliar eficácia"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openReviewDialog(t);
+                                  }}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Avaliar eficácia</TooltipContent>
+                            </Tooltip>
+                          )}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -2716,34 +2562,16 @@ function TreinamentosTab({
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 w-7 p-0"
-                                aria-label="Registrar eficácia"
+                                aria-label="Registrar conclusão"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openReviewDialog(t);
+                                  openComplete(t);
                                 }}
                               >
-                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <CalendarCheck className="h-3.5 w-3.5" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Registrar eficácia</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                aria-label="Editar"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openEdit(t);
-                                }}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Editar</TooltipContent>
+                            <TooltipContent>Registrar conclusão</TooltipContent>
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -2752,16 +2580,16 @@ function TreinamentosTab({
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                                aria-label="Excluir"
+                                aria-label="Remover da ficha"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDelete(t.id);
+                                  setDeleteTraining(t);
                                 }}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Excluir</TooltipContent>
+                            <TooltipContent>Remover da ficha</TooltipContent>
                           </Tooltip>
                         </div>
                       </TooltipProvider>
@@ -2831,50 +2659,78 @@ function TreinamentosTab({
         onOpenChange={(open) => {
           if (!open) closeEditDialog();
         }}
-        title="Editar Treinamento"
-        description={descriptions[editStep]}
+        title="Registrar conclusão"
+        description={
+          editingTraining
+            ? `Treinamento "${editingTraining.title}"`
+            : "Registro do colaborador"
+        }
         size="lg"
       >
-        <DialogStepTabs
-          steps={steps}
-          step={editStep}
-          onStepChange={setEditStep}
-        />
-        <TrainingFormStep
-          form={form}
-          setForm={setForm}
-          step={editStep}
-          attachments={editingAttachments}
-          onUpload={(files) => {
-            setIsUploadingEditAttachments(true);
-            void uploadEmployeeRecordFiles(
-              files,
-              editingAttachments.length,
-              (uploads) =>
-                setEditingAttachments((current) => [...current, ...uploads]),
-              () => setIsUploadingEditAttachments(false),
-            );
-          }}
-          onRemoveAttachment={(objectPath) => {
-            setEditingAttachments((current) =>
-              current.filter(
-                (attachment) => attachment.objectPath !== objectPath,
-              ),
-            );
-          }}
-          uploading={isUploadingEditAttachments}
-        />
-        <DialogStepFooter
-          step={editStep}
-          totalSteps={steps.length}
-          onBack={() => setEditStep((current) => current - 1)}
-          onCancel={closeEditDialog}
-          onNext={() => setEditStep((current) => current + 1)}
-          onSubmit={handleUpdate}
-          submitLabel="Atualizar"
-          isPending={updateMutation.isPending}
-          disabled={!form.title}
-        />
+        <div className="space-y-5">
+          <p className="text-xs text-muted-foreground">
+            Atualize o andamento deste treinamento na ficha do colaborador. Para
+            corrigir o nome ou o conteúdo do treinamento, edite no catálogo — a
+            alteração vale para todos.
+          </p>
+          <RegistrarConclusaoForm
+            form={form}
+            onChange={(next) =>
+              setForm((current) => ({ ...current, ...next }))
+            }
+            instructorOptions={instructorOptions}
+            instructorSearch={instructorSearch}
+            onInstructorSearchChange={setInstructorSearch}
+          />
+          <ProfileItemAttachmentsField
+            attachments={mapRecordAttachmentItems(
+              editingAttachments,
+              (objectPath) => {
+                setEditingAttachments((current) =>
+                  current.filter(
+                    (attachment) => attachment.objectPath !== objectPath,
+                  ),
+                );
+              },
+            )}
+            onUpload={(files) => {
+              setIsUploadingEditAttachments(true);
+              void uploadEmployeeRecordFiles(
+                files,
+                editingAttachments.length,
+                (uploads) =>
+                  setEditingAttachments((current) => [...current, ...uploads]),
+                () => setIsUploadingEditAttachments(false),
+              );
+            }}
+            uploading={isUploadingEditAttachments}
+            emptyText="Anexe o certificado ou evidência de conclusão."
+            accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={closeEditDialog}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleUpdate}
+              disabled={
+                updateMutation.isPending ||
+                isUploadingEditAttachments ||
+                (form.status === CreateTrainingBodyStatusValues.nao_aplicavel &&
+                  !form.notApplicableReason.trim())
+              }
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </div>
       </Dialog>
 
       <Dialog
@@ -2914,13 +2770,15 @@ function TreinamentosTab({
               </Label>
               <Input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 max={10}
+                step={0.5}
                 value={reviewForm.score}
                 onChange={(e) =>
                   setReviewForm((current) => ({
                     ...current,
-                    score: Number(e.target.value),
+                    score: e.target.value,
                   }))
                 }
                 className="mt-1"
@@ -3021,6 +2879,43 @@ function TreinamentosTab({
               disabled={!reviewForm.evaluationDate}
             >
               Registrar eficácia
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={editable && !!deleteTraining}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTraining(null);
+        }}
+        title="Remover treinamento da ficha"
+        description={deleteTraining ? `"${deleteTraining.title}"` : undefined}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-[13px] text-muted-foreground">
+            Isto remove este treinamento da ficha
+            {employeeName ? ` de ${employeeName}` : " deste colaborador"}. Não
+            afeta os outros colaboradores nem o catálogo de treinamentos.
+          </p>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteTraining(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              Remover
             </Button>
           </DialogFooter>
         </div>
@@ -3421,18 +3316,16 @@ function ConscientizacaoTab({
 }
 
 export default function ColaboradorDetailPage() {
-  const { user } = useAuth();
+  const { user, organization } = useAuth();
   const { canWriteModule, hasModuleAccess } = usePermissions();
   const orgId = user?.organizationId;
+  const orgName = organization?.tradeName || organization?.name || "";
   const canWriteEmployees = canWriteModule("employees");
   const canAccessGovernance = hasModuleAccess("governance");
   const params = useParams<{ id: string }>();
   const empId = Number(params?.id);
   const [location, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<
-    "dados" | "competencias" | "treinamentos" | "conscientizacao"
-  >("dados");
 
   const { data: employee, isLoading, error } = useGetEmployee(orgId!, empId);
   const { data: units = [] } = useListUnits(orgId!);
@@ -3475,17 +3368,32 @@ export default function ColaboradorDetailPage() {
       queryKey: getGetEmployeeQueryKey(orgId!, empId),
     });
 
+  // Painel único: não há mais abas para trocar. `?tab=` (usado por outras
+  // telas, ex. treinamentos.tsx "Abrir competência") agora rola até a seção
+  // correspondente em vez de trocar de aba — a seção já está sempre visível.
+  // Rola só UMA vez por valor de `?tab=`: o efeito depende de `employee` para
+  // esperar as seções existirem no DOM (navegação fria), mas sem este guard ele
+  // re-rolaria a cada refetch (toda mutation invalida o employee) — puxando o
+  // usuário de volta pra seção do deep-link no meio de uma edição.
+  const scrolledTabRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!employee) return;
     const requestedTab = searchParams.get("tab");
-    if (
-      requestedTab === "competencias" ||
-      requestedTab === "treinamentos" ||
-      requestedTab === "conscientizacao" ||
-      requestedTab === "dados"
-    ) {
-      setActiveTab(requestedTab);
-    }
-  }, [searchParams]);
+    if (!requestedTab || requestedTab === scrolledTabRef.current) return;
+    const sectionId =
+      requestedTab === "competencias"
+        ? "secao-competencias"
+        : requestedTab === "treinamentos"
+          ? "secao-treinamentos"
+          : requestedTab === "conscientizacao"
+            ? "secao-conscientizacao"
+            : requestedTab === "dados"
+              ? "secao-dados"
+              : null;
+    if (!sectionId) return;
+    document.getElementById(sectionId)?.scrollIntoView({ block: "start" });
+    scrolledTabRef.current = requestedTab;
+  }, [searchParams, employee]);
 
   useEffect(() => {
     if (searchParams.get("createTraining") !== "1") return;
@@ -3506,36 +3414,8 @@ export default function ColaboradorDetailPage() {
         : undefined,
       evaluationMethod: searchParams.get("evaluationMethod") || undefined,
     });
-    setActiveTab("treinamentos");
     setTrainingCreateOpen(true);
   }, [searchParams]);
-
-  const handleFieldSave = async (key: string, val: string | number | null) => {
-    if (Object.hasOwn(REQUIRED_EMPLOYEE_FIELDS, key)) {
-      const normalizedValue = typeof val === "string" ? val.trim() : val;
-      if (normalizedValue == null || normalizedValue === "") {
-        toast({
-          title: `${REQUIRED_EMPLOYEE_FIELDS[key]} obrigatório`,
-          description: `Preencha ${REQUIRED_EMPLOYEE_FIELDS[key].toLowerCase()} antes de salvar.`,
-          variant: "destructive",
-        });
-        return;
-      }
-      val = normalizedValue;
-    }
-
-    const data: Record<string, string | number | null | undefined> = {};
-    if (key === "unitId") {
-      data.unitId = val ? Number(val) : null;
-    } else {
-      data[key] = val;
-    }
-    await updateMutation.mutateAsync({ orgId: orgId!, empId, data });
-    invalidate();
-    queryClient.invalidateQueries({
-      queryKey: getListEmployeesQueryKey(orgId!),
-    });
-  };
 
   const handleArchive = async () => {
     if (
@@ -3563,42 +3443,9 @@ export default function ColaboradorDetailPage() {
   const headerActions = React.useMemo(() => {
     if (!employee) return null;
 
-    const addButton = canWriteEmployees
-      ? (() => {
-          switch (activeTab) {
-            case "competencias":
-              return (
-                <HeaderActionButton
-                  size="sm"
-                  onClick={() => setCompCreateOpen(true)}
-                  label="Nova Competência"
-                  icon={<Plus className="h-3.5 w-3.5" />}
-                />
-              );
-            case "treinamentos":
-              return (
-                <HeaderActionButton
-                  size="sm"
-                  onClick={() => setTrainingCreateOpen(true)}
-                  label="Novo Treinamento"
-                  icon={<Plus className="h-3.5 w-3.5" />}
-                />
-              );
-            case "conscientizacao":
-              return (
-                <HeaderActionButton
-                  size="sm"
-                  onClick={() => setAwarenessCreateOpen(true)}
-                  label="Novo Registro"
-                  icon={<Plus className="h-3.5 w-3.5" />}
-                />
-              );
-            default:
-              return null;
-          }
-        })()
-      : null;
-
+    // Painel único: "Nova Competência" / "Novo Treinamento" / "Novo Registro"
+    // deixam de ser contextuais por aba e passam a viver junto do título de
+    // cada seção (mesmo padrão de "+ Item" / "+ Vincular" já usado no painel).
     return (
       <div className="flex items-center gap-2">
         <Link href="/aprendizagem/colaboradores">
@@ -3644,7 +3491,6 @@ export default function ColaboradorDetailPage() {
             />
           </Link>
         ) : null}
-        {addButton}
       </div>
     );
   }, [
@@ -3653,7 +3499,6 @@ export default function ColaboradorDetailPage() {
     canWriteEmployees,
     employeePositionRecord,
     handleArchive,
-    activeTab,
   ]);
 
   useHeaderActions(headerActions);
@@ -3683,171 +3528,31 @@ export default function ColaboradorDetailPage() {
     );
   }
 
-  const tabs = [
-    { key: "dados" as const, label: "Dados", icon: User },
-    {
-      key: "competencias" as const,
-      label: "Competências",
-      icon: Award,
-      count: employee.competencies?.length,
-    },
-    {
-      key: "treinamentos" as const,
-      label: "Treinamentos",
-      icon: GraduationCap,
-      count: employee.trainings?.length,
-    },
-    {
-      key: "conscientizacao" as const,
-      label: "Conscientização",
-      icon: Lightbulb,
-      count: employee.awareness?.length,
-    },
-  ];
-
   return (
     <>
-      <div className="space-y-10">
-        <div className="mb-3">
-          <div className="flex items-center gap-6 border-b border-border">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer hover:text-foreground",
-                  activeTab === tab.key
-                    ? "text-foreground font-semibold after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:bg-foreground after:rounded-full"
-                    : "text-muted-foreground",
-                )}
-              >
-                <tab.icon className="h-3.5 w-3.5" />
-                {tab.label}
-                {tab.count !== undefined && tab.count > 0 && (
-                  <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="space-y-8">
+        <FichaHeader
+          name={employee.name}
+          position={employee.position}
+          contractLabel={CONTRACT_LABELS[employee.contractType]}
+          department={employee.department}
+          unitName={employee.unitName}
+          trainings={employee.trainings ?? []}
+        />
 
-        {activeTab === "dados" && (
-          <div className="space-y-10">
-            <div>
-              <OverviewSectionTitle title="Informações Pessoais" />
-              <div className="grid gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
-                <InlineField
-                  label="Nome completo *"
-                  value={employee.name}
-                  fieldKey="name"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="CPF"
-                  value={employee.cpf}
-                  fieldKey="cpf"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="E-mail"
-                  value={employee.email}
-                  fieldKey="email"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Telefone"
-                  value={employee.phone}
-                  fieldKey="phone"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-              </div>
-            </div>
+        <div id="secao-dados" className="space-y-8">
+          <DadosCards
+            employee={employee}
+            gestor={
+              (employee.managers ?? []).map((m) => m.name).join(", ") ||
+              undefined
+            }
+            onEdit={
+              canWriteEmployees ? () => setEditModalOpen(true) : undefined
+            }
+          />
 
-            <div>
-              <OverviewSectionTitle title="Informações Profissionais" />
-              <div className="grid gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
-                <InlineField
-                  label="Cargo"
-                  value={employee.position}
-                  fieldKey="position"
-                  type="select"
-                  options={[
-                    { value: "", label: "Selecionar cargo" },
-                    ...positions.map((position) => ({
-                      value: position.name,
-                      label: position.name,
-                    })),
-                  ]}
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Departamento"
-                  value={employee.department}
-                  fieldKey="department"
-                  type="select"
-                  options={[
-                    { value: "", label: "Selecionar departamento" },
-                    ...departments.map((department) => ({
-                      value: department.name,
-                      label: department.name,
-                    })),
-                  ]}
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Tipo de Contrato"
-                  value={employee.contractType}
-                  fieldKey="contractType"
-                  type="select"
-                  options={[
-                    { value: "clt", label: "CLT" },
-                    { value: "pj", label: "PJ" },
-                    { value: "intern", label: "Estagiário" },
-                    { value: "temporary", label: "Temporário" },
-                  ]}
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Status"
-                  value={employee.status}
-                  fieldKey="status"
-                  type="select"
-                  options={[
-                    { value: "active", label: "Ativo" },
-                    { value: "inactive", label: "Inativo" },
-                    { value: "on_leave", label: "Afastado" },
-                  ]}
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Data de Admissão *"
-                  value={employee.admissionDate}
-                  fieldKey="admissionDate"
-                  type="date"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-                <InlineField
-                  label="Data de Desligamento"
-                  value={employee.terminationDate}
-                  fieldKey="terminationDate"
-                  type="date"
-                  editable={canWriteEmployees}
-                  onSave={handleFieldSave}
-                />
-              </div>
-            </div>
-
+          <div className="grid gap-8 md:grid-cols-2">
             <EmployeeProfileItemsSection
               title="Experiências profissionais"
               emptyText="Liste experiências anteriores e adicione anexos quando necessário."
@@ -3873,18 +3578,70 @@ export default function ColaboradorDetailPage() {
               empId={empId}
               editable={canWriteEmployees}
             />
-
-            <LinkedUnitsSection
-              linkedUnits={employee.units || []}
-              allUnits={units}
-              orgId={orgId}
-              empId={empId}
-              editable={canWriteEmployees}
-            />
           </div>
-        )}
 
-        {activeTab === "competencias" && (
+          <LinkedUnitsSection
+            linkedUnits={employee.units || []}
+            allUnits={units}
+            orgId={orgId}
+            empId={empId}
+            editable={canWriteEmployees}
+          />
+        </div>
+
+        <FormacaoQualificacoes
+          education={employee.education}
+          requiredEducation={employeePositionRecord?.education ?? null}
+          conformance={employee.competencyConformance ?? null}
+        />
+
+        <div id="secao-treinamentos">
+          <OverviewSectionTitle
+            title="Treinamentos"
+            action={
+              canWriteEmployees ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setTrainingCreateOpen(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Novo Treinamento
+                </Button>
+              ) : undefined
+            }
+          />
+          <TreinamentosTab
+            trainings={employee.trainings || []}
+            orgId={orgId}
+            empId={empId}
+            employeeName={employee.name}
+            employeeCpf={employee.cpf}
+            employeePosition={employee.position}
+            orgName={orgName}
+            editable={canWriteEmployees}
+            createOpen={trainingCreateOpen}
+            onCreateOpenChange={handleTrainingCreateOpenChange}
+            prefillTraining={queryTrainingPrefill}
+          />
+        </div>
+
+        <div id="secao-competencias">
+          <OverviewSectionTitle
+            title="Competências"
+            action={
+              canWriteEmployees ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCompCreateOpen(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Nova Competência
+                </Button>
+              ) : undefined
+            }
+          />
           <CompetenciasTab
             competencies={employee.competencies || []}
             orgId={orgId}
@@ -3892,24 +3649,25 @@ export default function ColaboradorDetailPage() {
             editable={canWriteEmployees}
             createOpen={compCreateOpen}
             onCreateOpenChange={setCompCreateOpen}
-            employeePosition={employee.position}
-            positions={positions}
           />
-        )}
+        </div>
 
-        {activeTab === "treinamentos" && (
-          <TreinamentosTab
-            trainings={employee.trainings || []}
-            orgId={orgId}
-            empId={empId}
-            editable={canWriteEmployees}
-            createOpen={trainingCreateOpen}
-            onCreateOpenChange={handleTrainingCreateOpenChange}
-            prefillTraining={queryTrainingPrefill}
+        <div id="secao-conscientizacao">
+          <OverviewSectionTitle
+            title="Conscientização"
+            action={
+              canWriteEmployees ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAwarenessCreateOpen(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Novo Registro
+                </Button>
+              ) : undefined
+            }
           />
-        )}
-
-        {activeTab === "conscientizacao" && (
           <ConscientizacaoTab
             awareness={employee.awareness || []}
             orgId={orgId}
@@ -3918,7 +3676,7 @@ export default function ColaboradorDetailPage() {
             createOpen={awarenessCreateOpen}
             onCreateOpenChange={setAwarenessCreateOpen}
           />
-        )}
+        </div>
       </div>
 
       <Dialog

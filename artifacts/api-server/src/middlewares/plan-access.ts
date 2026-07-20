@@ -6,6 +6,7 @@ import { Request, Response, NextFunction } from "express";
 import { and, eq } from "drizzle-orm";
 import { actionPlansTable, db, type ActionPlanSourceModule } from "@workspace/db";
 import { userHasModuleAccess, type AppModule } from "./auth";
+import { isPlanCoResponsible } from "../services/action-plans/responsibles";
 
 /**
  * Module that owns each action-plan origin. The hub (`actionPlans`) sees every
@@ -26,14 +27,17 @@ export const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
   road_safety: "roadSafety",
   incident: "roadSafety",
   manual: "actionPlans",
+  improvement: "actionPlans",
+  corrective: "actionPlans",
+  norm_requirement: "actionPlans",
 };
 
 /**
  * Guards every `/:planId` route. Without it the hub gate would be bypassable by
  * anyone in the org who guesses a plan id. A plan belongs to whoever holds the
  * hub module, holds the module that owns its origin, or is personally assigned
- * to it — the responsible and the effectiveness evaluator reach their own plans
- * from "Suas Pendências" without ever holding `actionPlans`.
+ * to it — o ponto focal, os co-responsáveis e o avaliador da eficácia alcançam os
+ * próprios planos a partir de "Suas Pendências" sem nunca ter `actionPlans`.
  *
  * Registered after `requireAuth`. Unknown ids and malformed params fall through
  * untouched so the routes keep answering 404/400 exactly as before.
@@ -56,11 +60,14 @@ export function requirePlanAccess() {
     if (!plan) { next(); return; }
 
     const userId = req.auth!.userId;
+    // Ordem importa: os checks de módulo saem do cache de auth (30s), então o
+    // curto-circuito evita a consulta à junção para quem já entra pelo módulo.
     const allowed =
       plan.responsibleUserId === userId ||
       plan.effectivenessEvaluatorUserId === userId ||
       (await userHasModuleAccess(req.auth!, "actionPlans")) ||
-      (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule]));
+      (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule])) ||
+      (await isPlanCoResponsible(planId, userId));
     if (!allowed) { res.status(403).json({ error: "Sem acesso a este plano de ação" }); return; }
 
     next();

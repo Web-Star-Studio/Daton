@@ -1561,8 +1561,64 @@ export const ListEmployeesResponse = zod.object({
       terminationDate: zod.string().nullish(),
       status: zod.enum(["active", "inactive", "on_leave"]),
       unitName: zod.string().nullish(),
+      managers: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            name: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+        ),
       trainingCompletionPercent: zod.number().nullish(),
-      competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+      competencyGapStatus: zod
+        .enum(["ok", "gap", "critical", "indeterminado"])
+        .nullish()
+        .describe(
+          "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+        ),
+      competencyConformance: zod
+        .object({
+          positionName: zod.string().nullable(),
+          requirements: zod.array(
+            zod.object({
+              competencyName: zod.string(),
+              competencyType: zod.enum([
+                "formacao",
+                "experiencia",
+                "habilidade",
+              ]),
+              requiredLevel: zod.number(),
+              acquiredLevel: zod.number(),
+              status: zod
+                .enum(["atende", "gap", "nao_classificado"])
+                .describe(
+                  "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                ),
+              source: zod.enum(["manual", "treinamento"]).nullable(),
+              evidence: zod
+                .object({
+                  trainingId: zod.number(),
+                  title: zod.string(),
+                  completionDate: zod.string().nullable(),
+                  expirationDate: zod.string().nullable(),
+                })
+                .nullable(),
+              gapLevel: zod.number(),
+              critical: zod.boolean(),
+            }),
+          ),
+          gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+        })
+        .describe(
+          "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+        )
+        .nullish()
+        .describe(
+          "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+        ),
       createdAt: zod.string().datetime({}),
       updatedAt: zod.string().datetime({}),
     }),
@@ -1700,18 +1756,37 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
   unitId: zod.coerce.number().optional(),
   department: zod.coerce.string().optional(),
   position: zod.coerce.string().optional(),
-  status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
+  status: zod
+    .enum(["pendente", "concluido", "vencido", "nao_aplicavel"])
+    .optional(),
   expiringWithinDays: zod.coerce.number().min(1).optional(),
   effectivenessStatus: zod
     .enum(["pending", "in_review", "effective", "ineffective"])
     .optional(),
   scope: zod.enum(["needs_evaluation", "all"]).optional(),
   year: zod.coerce.number().optional(),
-  norm: zod.coerce.string().optional(),
+  norm: zod.coerce
+    .string()
+    .optional()
+    .describe("Deprecated — use normId. Kept for backward compatibility."),
+  normId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "Filtro por id da norma do catálogo (norm_ids do item vinculado).",
+    ),
   evaluatorRole: zod
     .enum(["gestor", "rh", "instrutor", "colaborador"])
     .optional(),
   boardColumn: zod.enum(["pendentes", "em_avaliacao", "concluidas"]).optional(),
+  onlyProgramado: zod.coerce.boolean().optional(),
+  realizadoInCurrentMonth: zod.coerce.boolean().optional(),
+  onlyPendenteSemTurma: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "Filtra a lista para pendentes sem turma ativa vinculada (pendente ∧ não programado).",
+    ),
   page: zod.coerce.number().min(1).optional(),
   pageSize: zod.coerce
     .number()
@@ -1730,10 +1805,21 @@ export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewO
 export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneResultLevelMin = 0;
 export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneResultLevelMax = 5;
 
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneBehaviorMax = 5;
+
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneResultMax = 5;
+
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneTransferMax = 5;
+
 export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
 
 export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
   new RegExp("^\/objects\/uploads\/.+");
+export const listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneBehaviorMax = 5;
+
+export const listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneResultMax = 5;
+
+export const listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneTransferMax = 5;
 
 export const ListOrganizationTrainingsResponse = zod.object({
   data: zod.array(
@@ -1752,6 +1838,7 @@ export const ListOrganizationTrainingsResponse = zod.object({
       description: zod.string().nullish(),
       objective: zod.string().nullish(),
       institution: zod.string().nullish(),
+      instructor: zod.string().nullish(),
       targetCompetencyName: zod.string().nullish(),
       targetCompetencyType: zod
         .enum(["formacao", "experiencia", "habilidade"])
@@ -1762,7 +1849,13 @@ export const ListOrganizationTrainingsResponse = zod.object({
       workloadHours: zod.number().nullish(),
       completionDate: zod.string().nullish(),
       expirationDate: zod.string().nullish(),
-      status: zod.enum(["pendente", "concluido", "vencido"]),
+      status: zod.enum(["pendente", "concluido", "vencido", "nao_aplicavel"]),
+      notApplicableReason: zod
+        .string()
+        .nullish()
+        .describe(
+          "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+        ),
       effectivenessStatus: zod
         .enum(["pending", "in_review", "effective", "ineffective"])
         .nullish(),
@@ -1809,6 +1902,31 @@ export const ListOrganizationTrainingsResponse = zod.object({
             )
             .nullish(),
           comments: zod.string().nullish(),
+          criteria: zod
+            .object({
+              behavior: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneBehaviorMax,
+                ),
+              result: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneResultMax,
+                ),
+              transfer: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneTransferMax,
+                ),
+            })
+            .describe(
+              "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+            )
+            .nullish(),
           attachments: zod.array(
             zod.object({
               fileName: zod.string(),
@@ -1827,6 +1945,44 @@ export const ListOrganizationTrainingsResponse = zod.object({
           ),
           createdAt: zod.string().datetime({}).optional(),
         })
+        .nullish(),
+      effectivenessDraft: zod
+        .object({
+          id: zod.number(),
+          evaluatorUserId: zod.number(),
+          evaluatorName: zod.string().nullish(),
+          evaluatorRole: zod.string().nullish(),
+          criteria: zod
+            .object({
+              behavior: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneBehaviorMax,
+                ),
+              result: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneResultMax,
+                ),
+              transfer: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneTransferMax,
+                ),
+            })
+            .describe(
+              "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+            )
+            .nullish(),
+          comments: zod.string().nullish(),
+          updatedAt: zod.string().datetime({}).optional(),
+        })
+        .describe(
+          "Preenchimento parcial da avaliação de eficácia, salvo pelo avaliador e usado para reidratar o wizard.",
+        )
         .nullish(),
       effectivenessDueDate: zod.string().date().nullish(),
       effectivenessAssignedRole: zod
@@ -1861,6 +2017,7 @@ export const ListOrganizationTrainingsResponse = zod.object({
     eficazes: zod.number().optional(),
     naoEficazes: zod.number().optional(),
     eficazPercent: zod.number().nullish(),
+    realizadoMes: zod.number().optional(),
   }),
 });
 
@@ -2141,6 +2298,12 @@ export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneScor
 export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneResultLevelMin = 0;
 export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneResultLevelMax = 5;
 
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneBehaviorMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneResultMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneTransferMax = 5;
+
 export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
 
 export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
@@ -2150,6 +2313,12 @@ export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemScoreMax
 
 export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemResultLevelMin = 0;
 export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemResultLevelMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneBehaviorMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneResultMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneTransferMax = 5;
 
 export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemAttachmentsItemFileSizeMax = 20971520;
 
@@ -2194,8 +2363,60 @@ export const GetEmployeeResponse = zod
     terminationDate: zod.string().nullish(),
     status: zod.enum(["active", "inactive", "on_leave"]),
     unitName: zod.string().nullish(),
+    managers: zod
+      .array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+        }),
+      )
+      .optional()
+      .describe(
+        "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+      ),
     trainingCompletionPercent: zod.number().nullish(),
-    competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+    competencyGapStatus: zod
+      .enum(["ok", "gap", "critical", "indeterminado"])
+      .nullish()
+      .describe(
+        "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+      ),
+    competencyConformance: zod
+      .object({
+        positionName: zod.string().nullable(),
+        requirements: zod.array(
+          zod.object({
+            competencyName: zod.string(),
+            competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+            requiredLevel: zod.number(),
+            acquiredLevel: zod.number(),
+            status: zod
+              .enum(["atende", "gap", "nao_classificado"])
+              .describe(
+                "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+              ),
+            source: zod.enum(["manual", "treinamento"]).nullable(),
+            evidence: zod
+              .object({
+                trainingId: zod.number(),
+                title: zod.string(),
+                completionDate: zod.string().nullable(),
+                expirationDate: zod.string().nullable(),
+              })
+              .nullable(),
+            gapLevel: zod.number(),
+            critical: zod.boolean(),
+          }),
+        ),
+        gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+      })
+      .describe(
+        "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+      )
+      .nullish()
+      .describe(
+        "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -2258,6 +2479,7 @@ export const GetEmployeeResponse = zod
             description: zod.string().nullish(),
             objective: zod.string().nullish(),
             institution: zod.string().nullish(),
+            instructor: zod.string().nullish(),
             targetCompetencyName: zod.string().nullish(),
             targetCompetencyType: zod
               .enum(["formacao", "experiencia", "habilidade"])
@@ -2268,7 +2490,18 @@ export const GetEmployeeResponse = zod
             workloadHours: zod.number().nullish(),
             completionDate: zod.string().nullish(),
             expirationDate: zod.string().nullish(),
-            status: zod.enum(["pendente", "concluido", "vencido"]),
+            status: zod.enum([
+              "pendente",
+              "concluido",
+              "vencido",
+              "nao_aplicavel",
+            ]),
+            notApplicableReason: zod
+              .string()
+              .nullish()
+              .describe(
+                "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+              ),
             attachments: zod.array(
               zod.object({
                 fileName: zod.string(),
@@ -2312,6 +2545,31 @@ export const GetEmployeeResponse = zod
                   )
                   .nullish(),
                 comments: zod.string().nullish(),
+                criteria: zod
+                  .object({
+                    behavior: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneBehaviorMax,
+                      ),
+                    result: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneResultMax,
+                      ),
+                    transfer: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneTransferMax,
+                      ),
+                  })
+                  .describe(
+                    "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+                  )
+                  .nullish(),
                 attachments: zod.array(
                   zod.object({
                     fileName: zod.string(),
@@ -2358,6 +2616,31 @@ export const GetEmployeeResponse = zod
                   )
                   .nullish(),
                 comments: zod.string().nullish(),
+                criteria: zod
+                  .object({
+                    behavior: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneBehaviorMax,
+                      ),
+                    result: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneResultMax,
+                      ),
+                    transfer: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneTransferMax,
+                      ),
+                  })
+                  .describe(
+                    "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+                  )
+                  .nullish(),
                 attachments: zod.array(
                   zod.object({
                     fileName: zod.string(),
@@ -2532,8 +2815,60 @@ export const UpdateEmployeeResponse = zod.object({
   terminationDate: zod.string().nullish(),
   status: zod.enum(["active", "inactive", "on_leave"]),
   unitName: zod.string().nullish(),
+  managers: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+    ),
   trainingCompletionPercent: zod.number().nullish(),
-  competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+  competencyGapStatus: zod
+    .enum(["ok", "gap", "critical", "indeterminado"])
+    .nullish()
+    .describe(
+      "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+    ),
+  competencyConformance: zod
+    .object({
+      positionName: zod.string().nullable(),
+      requirements: zod.array(
+        zod.object({
+          competencyName: zod.string(),
+          competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+          requiredLevel: zod.number(),
+          acquiredLevel: zod.number(),
+          status: zod
+            .enum(["atende", "gap", "nao_classificado"])
+            .describe(
+              "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+            ),
+          source: zod.enum(["manual", "treinamento"]).nullable(),
+          evidence: zod
+            .object({
+              trainingId: zod.number(),
+              title: zod.string(),
+              completionDate: zod.string().nullable(),
+              expirationDate: zod.string().nullable(),
+            })
+            .nullable(),
+          gapLevel: zod.number(),
+          critical: zod.boolean(),
+        }),
+      ),
+      gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+    })
+    .describe(
+      "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+    )
+    .nullish()
+    .describe(
+      "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+    ),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -2774,6 +3109,12 @@ export const listTrainingsResponseLatestEffectivenessReviewOneScoreMax = 10;
 export const listTrainingsResponseLatestEffectivenessReviewOneResultLevelMin = 0;
 export const listTrainingsResponseLatestEffectivenessReviewOneResultLevelMax = 5;
 
+export const listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax = 5;
+
+export const listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneResultMax = 5;
+
+export const listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneTransferMax = 5;
+
 export const listTrainingsResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
 
 export const listTrainingsResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
@@ -2783,6 +3124,12 @@ export const listTrainingsResponseEffectivenessReviewsItemScoreMax = 10;
 
 export const listTrainingsResponseEffectivenessReviewsItemResultLevelMin = 0;
 export const listTrainingsResponseEffectivenessReviewsItemResultLevelMax = 5;
+
+export const listTrainingsResponseEffectivenessReviewsItemCriteriaOneBehaviorMax = 5;
+
+export const listTrainingsResponseEffectivenessReviewsItemCriteriaOneResultMax = 5;
+
+export const listTrainingsResponseEffectivenessReviewsItemCriteriaOneTransferMax = 5;
 
 export const listTrainingsResponseEffectivenessReviewsItemAttachmentsItemFileSizeMax = 20971520;
 
@@ -2798,6 +3145,7 @@ export const ListTrainingsResponseItem = zod.object({
   description: zod.string().nullish(),
   objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -2808,7 +3156,13 @@ export const ListTrainingsResponseItem = zod.object({
   workloadHours: zod.number().nullish(),
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
-  status: zod.enum(["pendente", "concluido", "vencido"]),
+  status: zod.enum(["pendente", "concluido", "vencido", "nao_aplicavel"]),
+  notApplicableReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+    ),
   attachments: zod.array(
     zod.object({
       fileName: zod.string(),
@@ -2840,6 +3194,31 @@ export const ListTrainingsResponseItem = zod.object({
         .max(listTrainingsResponseLatestEffectivenessReviewOneResultLevelMax)
         .nullish(),
       comments: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
       attachments: zod.array(
         zod.object({
           fileName: zod.string(),
@@ -2878,6 +3257,31 @@ export const ListTrainingsResponseItem = zod.object({
         .max(listTrainingsResponseEffectivenessReviewsItemResultLevelMax)
         .nullish(),
       comments: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseEffectivenessReviewsItemCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseEffectivenessReviewsItemCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseEffectivenessReviewsItemCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
       attachments: zod.array(
         zod.object({
           fileName: zod.string(),
@@ -2931,6 +3335,7 @@ export const CreateTrainingBody = zod.object({
   description: zod.string().optional(),
   objective: zod.string().optional(),
   institution: zod.string().optional(),
+  instructor: zod.string().optional(),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -2945,7 +3350,15 @@ export const CreateTrainingBody = zod.object({
   workloadHours: zod.number().optional(),
   completionDate: zod.string().optional(),
   expirationDate: zod.string().optional(),
-  status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
+  status: zod
+    .enum(["pendente", "concluido", "vencido", "nao_aplicavel"])
+    .optional(),
+  notApplicableReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+    ),
   attachments: zod
     .array(
       zod.object({
@@ -2987,6 +3400,7 @@ export const UpdateTrainingBody = zod.object({
   description: zod.string().optional(),
   objective: zod.string().optional(),
   institution: zod.string().optional(),
+  instructor: zod.string().optional(),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -3001,7 +3415,15 @@ export const UpdateTrainingBody = zod.object({
   workloadHours: zod.number().optional(),
   completionDate: zod.string().optional(),
   expirationDate: zod.string().optional(),
-  status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
+  status: zod
+    .enum(["pendente", "concluido", "vencido", "nao_aplicavel"])
+    .optional(),
+  notApplicableReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+    ),
   attachments: zod
     .array(
       zod.object({
@@ -3030,6 +3452,12 @@ export const updateTrainingResponseLatestEffectivenessReviewOneScoreMax = 10;
 export const updateTrainingResponseLatestEffectivenessReviewOneResultLevelMin = 0;
 export const updateTrainingResponseLatestEffectivenessReviewOneResultLevelMax = 5;
 
+export const updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax = 5;
+
+export const updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneResultMax = 5;
+
+export const updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneTransferMax = 5;
+
 export const updateTrainingResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
 
 export const updateTrainingResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
@@ -3039,6 +3467,12 @@ export const updateTrainingResponseEffectivenessReviewsItemScoreMax = 10;
 
 export const updateTrainingResponseEffectivenessReviewsItemResultLevelMin = 0;
 export const updateTrainingResponseEffectivenessReviewsItemResultLevelMax = 5;
+
+export const updateTrainingResponseEffectivenessReviewsItemCriteriaOneBehaviorMax = 5;
+
+export const updateTrainingResponseEffectivenessReviewsItemCriteriaOneResultMax = 5;
+
+export const updateTrainingResponseEffectivenessReviewsItemCriteriaOneTransferMax = 5;
 
 export const updateTrainingResponseEffectivenessReviewsItemAttachmentsItemFileSizeMax = 20971520;
 
@@ -3054,6 +3488,7 @@ export const UpdateTrainingResponse = zod.object({
   description: zod.string().nullish(),
   objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -3064,7 +3499,13 @@ export const UpdateTrainingResponse = zod.object({
   workloadHours: zod.number().nullish(),
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
-  status: zod.enum(["pendente", "concluido", "vencido"]),
+  status: zod.enum(["pendente", "concluido", "vencido", "nao_aplicavel"]),
+  notApplicableReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+    ),
   attachments: zod.array(
     zod.object({
       fileName: zod.string(),
@@ -3096,6 +3537,31 @@ export const UpdateTrainingResponse = zod.object({
         .max(updateTrainingResponseLatestEffectivenessReviewOneResultLevelMax)
         .nullish(),
       comments: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
       attachments: zod.array(
         zod.object({
           fileName: zod.string(),
@@ -3134,6 +3600,31 @@ export const UpdateTrainingResponse = zod.object({
         .max(updateTrainingResponseEffectivenessReviewsItemResultLevelMax)
         .nullish(),
       comments: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseEffectivenessReviewsItemCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseEffectivenessReviewsItemCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseEffectivenessReviewsItemCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
       attachments: zod.array(
         zod.object({
           fileName: zod.string(),
@@ -3190,10 +3681,21 @@ export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneScor
 export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMin = 0;
 export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMax = 5;
 
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax = 5;
+
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneResultMax = 5;
+
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneTransferMax = 5;
+
 export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
 
 export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
   new RegExp("^\/objects\/uploads\/.+");
+export const assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneBehaviorMax = 5;
+
+export const assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneResultMax = 5;
+
+export const assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneTransferMax = 5;
 
 export const AssignTrainingEffectivenessResponse = zod.object({
   catalogItemId: zod.number().nullish(),
@@ -3210,6 +3712,7 @@ export const AssignTrainingEffectivenessResponse = zod.object({
   description: zod.string().nullish(),
   objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
     .enum(["formacao", "experiencia", "habilidade"])
@@ -3220,7 +3723,13 @@ export const AssignTrainingEffectivenessResponse = zod.object({
   workloadHours: zod.number().nullish(),
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
-  status: zod.enum(["pendente", "concluido", "vencido"]),
+  status: zod.enum(["pendente", "concluido", "vencido", "nao_aplicavel"]),
+  notApplicableReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA.",
+    ),
   effectivenessStatus: zod
     .enum(["pending", "in_review", "effective", "ineffective"])
     .nullish(),
@@ -3265,6 +3774,31 @@ export const AssignTrainingEffectivenessResponse = zod.object({
         )
         .nullish(),
       comments: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
       attachments: zod.array(
         zod.object({
           fileName: zod.string(),
@@ -3283,6 +3817,44 @@ export const AssignTrainingEffectivenessResponse = zod.object({
       ),
       createdAt: zod.string().datetime({}).optional(),
     })
+    .nullish(),
+  effectivenessDraft: zod
+    .object({
+      id: zod.number(),
+      evaluatorUserId: zod.number(),
+      evaluatorName: zod.string().nullish(),
+      evaluatorRole: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
+      comments: zod.string().nullish(),
+      updatedAt: zod.string().datetime({}).optional(),
+    })
+    .describe(
+      "Preenchimento parcial da avaliação de eficácia, salvo pelo avaliador e usado para reidratar o wizard.",
+    )
     .nullish(),
   effectivenessDueDate: zod.string().date().nullish(),
   effectivenessAssignedRole: zod
@@ -3309,6 +3881,12 @@ export const listTrainingEffectivenessReviewsResponseScoreMax = 10;
 export const listTrainingEffectivenessReviewsResponseResultLevelMin = 0;
 export const listTrainingEffectivenessReviewsResponseResultLevelMax = 5;
 
+export const listTrainingEffectivenessReviewsResponseCriteriaOneBehaviorMax = 5;
+
+export const listTrainingEffectivenessReviewsResponseCriteriaOneResultMax = 5;
+
+export const listTrainingEffectivenessReviewsResponseCriteriaOneTransferMax = 5;
+
 export const listTrainingEffectivenessReviewsResponseAttachmentsItemFileSizeMax = 20971520;
 
 export const listTrainingEffectivenessReviewsResponseAttachmentsItemObjectPathRegExp =
@@ -3332,6 +3910,25 @@ export const ListTrainingEffectivenessReviewsResponseItem = zod.object({
     .max(listTrainingEffectivenessReviewsResponseResultLevelMax)
     .nullish(),
   comments: zod.string().nullish(),
+  criteria: zod
+    .object({
+      behavior: zod
+        .number()
+        .min(1)
+        .max(listTrainingEffectivenessReviewsResponseCriteriaOneBehaviorMax),
+      result: zod
+        .number()
+        .min(1)
+        .max(listTrainingEffectivenessReviewsResponseCriteriaOneResultMax),
+      transfer: zod
+        .number()
+        .min(1)
+        .max(listTrainingEffectivenessReviewsResponseCriteriaOneTransferMax),
+    })
+    .describe(
+      "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+    )
+    .nullish(),
   attachments: zod.array(
     zod.object({
       fileName: zod.string(),
@@ -3369,6 +3966,13 @@ export const createTrainingEffectivenessReviewBodyScoreMax = 10;
 export const createTrainingEffectivenessReviewBodyResultLevelMin = 0;
 export const createTrainingEffectivenessReviewBodyResultLevelMax = 5;
 
+export const createTrainingEffectivenessReviewBodyStatusDefault = `final`;
+export const createTrainingEffectivenessReviewBodyCriteriaBehaviorMax = 5;
+
+export const createTrainingEffectivenessReviewBodyCriteriaResultMax = 5;
+
+export const createTrainingEffectivenessReviewBodyCriteriaTransferMax = 5;
+
 export const createTrainingEffectivenessReviewBodyAttachmentsItemFileSizeMax = 20971520;
 
 export const createTrainingEffectivenessReviewBodyAttachmentsItemObjectPathRegExp =
@@ -3392,6 +3996,31 @@ export const CreateTrainingEffectivenessReviewBody = zod.object({
   evaluatorRole: zod
     .enum(["gestor", "rh", "instrutor", "colaborador"])
     .optional(),
+  status: zod
+    .enum(["draft", "final"])
+    .default(createTrainingEffectivenessReviewBodyStatusDefault)
+    .describe(
+      "'draft' grava o preenchimento parcial do wizard sem concluir a avaliação (não concede competência e mantém o card em \"Em avaliação\"). Substitui o rascunho anterior do mesmo avaliador.",
+    ),
+  criteria: zod
+    .object({
+      behavior: zod
+        .number()
+        .min(1)
+        .max(createTrainingEffectivenessReviewBodyCriteriaBehaviorMax),
+      result: zod
+        .number()
+        .min(1)
+        .max(createTrainingEffectivenessReviewBodyCriteriaResultMax),
+      transfer: zod
+        .number()
+        .min(1)
+        .max(createTrainingEffectivenessReviewBodyCriteriaTransferMax),
+    })
+    .optional()
+    .describe(
+      "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+    ),
   attachments: zod
     .array(
       zod.object({
@@ -3805,6 +4434,9 @@ export const ListPositionsResponseItem = zod.object({
   level: zod.string().nullish(),
   minSalary: zod.number().nullish(),
   maxSalary: zod.number().nullish(),
+  area: zod.string().nullish(),
+  principalNormId: zod.number().nullish(),
+  competencyCount: zod.number().optional(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });
@@ -3827,6 +4459,8 @@ export const CreatePositionBody = zod.object({
   level: zod.string().optional(),
   minSalary: zod.number().optional(),
   maxSalary: zod.number().optional(),
+  area: zod.string().optional(),
+  principalNormId: zod.number().nullish(),
 });
 
 /**
@@ -3848,6 +4482,8 @@ export const ImportPositionsBody = zod.object({
       level: zod.string().optional(),
       minSalary: zod.number().optional(),
       maxSalary: zod.number().optional(),
+      area: zod.string().optional(),
+      principalNormId: zod.number().nullish(),
     }),
   ),
   conflictStrategy: zod
@@ -3874,6 +4510,8 @@ export const UpdatePositionBody = zod.object({
   level: zod.string().optional(),
   minSalary: zod.number().optional(),
   maxSalary: zod.number().optional(),
+  area: zod.string().optional(),
+  principalNormId: zod.number().nullish(),
 });
 
 export const UpdatePositionResponse = zod.object({
@@ -3888,6 +4526,9 @@ export const UpdatePositionResponse = zod.object({
   level: zod.string().nullish(),
   minSalary: zod.number().nullish(),
   maxSalary: zod.number().nullish(),
+  area: zod.string().nullish(),
+  principalNormId: zod.number().nullish(),
+  competencyCount: zod.number().optional(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });
@@ -4471,8 +5112,64 @@ export const GetDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -4750,8 +5447,64 @@ export const UpdateDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5076,8 +5829,64 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5417,8 +6226,64 @@ export const SubmitDocumentForReviewResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5674,8 +6539,64 @@ export const ApproveDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -5931,8 +6852,64 @@ export const RejectDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -6184,8 +7161,64 @@ export const ReviseDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -6437,8 +7470,64 @@ export const DistributeDocumentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -6710,8 +7799,64 @@ export const UpdateDocumentContentResponse = zod.object({
         terminationDate: zod.string().nullish(),
         status: zod.enum(["active", "inactive", "on_leave"]),
         unitName: zod.string().nullish(),
+        managers: zod
+          .array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          )
+          .optional()
+          .describe(
+            "Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem\/gestão de unidades). Presente apenas na resposta de GET \/employees\/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor.",
+          ),
         trainingCompletionPercent: zod.number().nullish(),
-        competencyGapStatus: zod.enum(["ok", "gap", "critical"]).optional(),
+        competencyGapStatus: zod
+          .enum(["ok", "gap", "critical", "indeterminado"])
+          .nullish()
+          .describe(
+            "`indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.",
+          ),
+        competencyConformance: zod
+          .object({
+            positionName: zod.string().nullable(),
+            requirements: zod.array(
+              zod.object({
+                competencyName: zod.string(),
+                competencyType: zod.enum([
+                  "formacao",
+                  "experiencia",
+                  "habilidade",
+                ]),
+                requiredLevel: zod.number(),
+                acquiredLevel: zod.number(),
+                status: zod
+                  .enum(["atende", "gap", "nao_classificado"])
+                  .describe(
+                    "`nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).",
+                  ),
+                source: zod.enum(["manual", "treinamento"]).nullable(),
+                evidence: zod
+                  .object({
+                    trainingId: zod.number(),
+                    title: zod.string(),
+                    completionDate: zod.string().nullable(),
+                    expirationDate: zod.string().nullable(),
+                  })
+                  .nullable(),
+                gapLevel: zod.number(),
+                critical: zod.boolean(),
+              }),
+            ),
+            gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
+          })
+          .describe(
+            "Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts\/api-server\/src\/services\/aprendizagem\/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de \/competency-gaps.",
+          )
+          .nullish()
+          .describe(
+            "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       }),
@@ -18353,6 +19498,77 @@ export const UpdateNormResponse = zod
   );
 
 /**
+ * @summary List the organization's effectiveness verification method catalog
+ */
+export const ListEffectivenessMethodsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListEffectivenessMethodsResponseItem = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+export const ListEffectivenessMethodsResponse = zod.array(
+  ListEffectivenessMethodsResponseItem,
+);
+
+/**
+ * @summary Add a method to the organization's effectiveness verification method catalog
+ */
+export const CreateEffectivenessMethodParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateEffectivenessMethodBody = zod.object({
+  label: zod.string().min(1),
+});
+
+export const CreateEffectivenessMethodResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+
+/**
+ * @summary Update an effectiveness verification method (label, active flag or sort order)
+ */
+export const UpdateEffectivenessMethodParams = zod.object({
+  orgId: zod.coerce.number(),
+  methodId: zod.coerce.number(),
+});
+
+export const UpdateEffectivenessMethodBody = zod.object({
+  label: zod.string().min(1).optional(),
+  active: zod.boolean().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateEffectivenessMethodResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+
+/**
  * @summary List action plans in the organization with filters
  */
 export const ListActionPlansParams = zod.object({
@@ -18369,6 +19585,9 @@ export const ListActionPlansQueryParams = zod.object({
       "kpi",
       "swot",
       "manual",
+      "improvement",
+      "corrective",
+      "norm_requirement",
       "nonconformity",
       "audit_finding",
       "risk",
@@ -18384,6 +19603,9 @@ export const ListActionPlansQueryParams = zod.object({
     .number()
     .optional()
     .describe("When sourceModule=kpi, filter by linked monthly value id"),
+  actionType: zod.enum(["corrective", "preventive", "improvement"]).optional(),
+  effectiveness: zod.enum(["effective", "ineffective", "pending"]).optional(),
+  dueWindow: zod.enum(["overdue", "due_soon"]).optional(),
 });
 
 export const listActionPlansResponseSourceRefKpiMonthMax = 12;
@@ -18398,6 +19620,9 @@ export const ListActionPlansResponseItem = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18431,7 +19656,7 @@ export const ListActionPlansResponseItem = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -18468,6 +19693,20 @@ export const ListActionPlansResponseItem = zod.object({
     .optional(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   evidencesCount: zod.number().min(listActionPlansResponseEvidencesCountMin),
   actionsTotal: zod.number().optional(),
@@ -18510,6 +19749,9 @@ export const CreateActionPlanBody = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18543,7 +19785,7 @@ export const CreateActionPlanBody = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   actionType: zod.enum(["corrective", "preventive", "improvement"]).optional(),
   title: zod.string().min(1),
@@ -18727,21 +19969,15 @@ export const CreateActionPlanBody = zod.object({
     .nullish(),
   rootCause: zod.string().nullish(),
   responsibleUserId: zod.number().nullish(),
+  coResponsibleUserIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe(
+      "Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
-  effectivenessMethod: zod
-    .union([
-      zod.enum([
-        "indicator",
-        "internal_audit",
-        "field_inspection",
-        "training",
-        "sampling",
-        "risk_reduction",
-      ]),
-      zod.null(),
-    ])
-    .optional(),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   odsNumbers: zod.array(zod.number()).nullish(),
@@ -18795,6 +20031,9 @@ export const GetActionPlanResponse = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -18828,7 +20067,7 @@ export const GetActionPlanResponse = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -19039,6 +20278,20 @@ export const GetActionPlanResponse = zod.object({
   rootCause: zod.string().nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
@@ -19054,7 +20307,11 @@ export const GetActionPlanResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -19309,22 +20566,16 @@ export const UpdateActionPlanBody = zod.object({
     .nullish(),
   rootCause: zod.string().nullish(),
   responsibleUserId: zod.number().nullish(),
+  coResponsibleUserIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe(
+      "Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
-  effectivenessMethod: zod
-    .union([
-      zod.enum([
-        "indicator",
-        "internal_audit",
-        "field_inspection",
-        "training",
-        "sampling",
-        "risk_reduction",
-      ]),
-      zod.null(),
-    ])
-    .optional(),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessResult: zod
@@ -19376,6 +20627,9 @@ export const UpdateActionPlanResponse = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -19409,7 +20663,7 @@ export const UpdateActionPlanResponse = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -19620,6 +20874,20 @@ export const UpdateActionPlanResponse = zod.object({
   rootCause: zod.string().nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
@@ -19635,7 +20903,11 @@ export const UpdateActionPlanResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -19938,6 +21210,9 @@ export const RestoreActionPlanPlanningResponse = zod.object({
     "kpi",
     "swot",
     "manual",
+    "improvement",
+    "corrective",
+    "norm_requirement",
     "nonconformity",
     "audit_finding",
     "risk",
@@ -19971,7 +21246,7 @@ export const RestoreActionPlanPlanningResponse = zod.object({
       racLabel: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.",
     ),
   sourceContext: zod
     .object({
@@ -20182,6 +21457,20 @@ export const RestoreActionPlanPlanningResponse = zod.object({
   rootCause: zod.string().nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
+  coResponsibles: zod
+    .array(
+      zod
+        .object({
+          userId: zod.number(),
+          name: zod.string(),
+        })
+        .describe(
+          'Co-responsável do plano — um dos \"outros responsáveis\", além do ponto focal.',
+        ),
+    )
+    .describe(
+      "Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há.",
+    ),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
@@ -20197,7 +21486,11 @@ export const RestoreActionPlanPlanningResponse = zod.object({
       ]),
       zod.null(),
     ])
-    .optional(),
+    .optional()
+    .describe(
+      "Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.",
+    ),
+  effectivenessMethodId: zod.number().nullish(),
   effectivenessDueDate: zod.string().datetime({}).nullish(),
   effectivenessEvaluatorUserId: zod.number().nullish(),
   effectivenessEvaluatorUserName: zod.string().nullish(),
@@ -20266,6 +21559,9 @@ export const SuggestActionPlanDraftBody = zod
         "kpi",
         "swot",
         "manual",
+        "improvement",
+        "corrective",
+        "norm_requirement",
         "nonconformity",
         "audit_finding",
         "risk",
@@ -20744,7 +22040,16 @@ export const ListTrainingCatalogParams = zod.object({
 
 export const ListTrainingCatalogQueryParams = zod.object({
   search: zod.coerce.string().optional(),
-  norm: zod.coerce.string().optional(),
+  norm: zod.coerce
+    .string()
+    .optional()
+    .describe("Deprecated — use normId. Kept for backward compatibility."),
+  normId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "Filter by a regulatory norm id (matches items whose normIds contains it).",
+    ),
   category: zod.coerce.string().optional(),
   modality: zod.coerce.string().optional(),
   status: zod.coerce.string().optional(),
@@ -20761,15 +22066,47 @@ export const ListTrainingCatalogResponse = zod.object({
         title: zod.string(),
         category: zod.string().nullish(),
         modality: zod.string().nullish(),
-        norm: zod.string().nullish(),
-        clause: zod.string().nullish(),
+        norm: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — use normIds. Kept for backward compatibility.",
+          ),
+        clause: zod
+          .string()
+          .nullish()
+          .describe(
+            "Deprecated — clause moved into the managed norm catalog label.",
+          ),
+        normIds: zod.array(zod.number()),
         workloadHours: zod.number().nullish(),
         validityMonths: zod.number().nullish(),
         isMandatory: zod.boolean(),
         status: zod.string(),
+        evidenceType: zod
+          .enum(["capacitacao", "habilitacao", "conscientizacao"])
+          .nullish()
+          .describe(
+            "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
+          ),
         targetCompetencyName: zod.string().nullish(),
         targetCompetencyType: zod.string().nullish(),
         targetCompetencyLevel: zod.number().nullish(),
+        targetCompetencies: zod
+          .array(
+            zod
+              .object({
+                name: zod.string(),
+                type: zod.string(),
+                level: zod.number(),
+              })
+              .describe(
+                "Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.",
+              ),
+          )
+          .describe(
+            "Lista canônica de competências que este item comprova (ISO 10015) — um treino pode comprovar várias. As colunas targetCompetencyName\/Type\/Level (singulares) são legado e espelham o primeiro item desta lista.",
+          ),
         defaultInstructor: zod.string().nullish(),
         objective: zod.string().nullish(),
         programContent: zod.string().nullish(),
@@ -20800,13 +22137,36 @@ export const CreateTrainingCatalogItemBody = zod.object({
   modality: zod.string().optional(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
+  normIds: zod.array(zod.number()).optional(),
   workloadHours: zod.number().optional(),
   validityMonths: zod.number().nullish(),
   isMandatory: zod.boolean().optional(),
   status: zod.string().optional(),
+  evidenceType: zod
+    .enum(["capacitacao", "habilitacao", "conscientizacao"])
+    .nullish()
+    .describe(
+      "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
+    ),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod.string().optional(),
   targetCompetencyLevel: zod.number().optional(),
+  targetCompetencies: zod
+    .array(
+      zod
+        .object({
+          name: zod.string(),
+          type: zod.string(),
+          level: zod.number(),
+        })
+        .describe(
+          "Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.",
+        ),
+    )
+    .optional()
+    .describe(
+      "Lista canônica de competências que este item comprova (ISO 10015). Quando informada, o servidor espelha o primeiro item nas colunas targetCompetencyName\/Type\/Level (legado).",
+    ),
   defaultInstructor: zod.string().optional(),
   objective: zod.string().optional(),
   programContent: zod.string().optional(),
@@ -20828,15 +22188,45 @@ export const GetTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
-    norm: zod.string().nullish(),
-    clause: zod.string().nullish(),
+    norm: zod
+      .string()
+      .nullish()
+      .describe("Deprecated — use normIds. Kept for backward compatibility."),
+    clause: zod
+      .string()
+      .nullish()
+      .describe(
+        "Deprecated — clause moved into the managed norm catalog label.",
+      ),
+    normIds: zod.array(zod.number()),
     workloadHours: zod.number().nullish(),
     validityMonths: zod.number().nullish(),
     isMandatory: zod.boolean(),
     status: zod.string(),
+    evidenceType: zod
+      .enum(["capacitacao", "habilitacao", "conscientizacao"])
+      .nullish()
+      .describe(
+        "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
+      ),
     targetCompetencyName: zod.string().nullish(),
     targetCompetencyType: zod.string().nullish(),
     targetCompetencyLevel: zod.number().nullish(),
+    targetCompetencies: zod
+      .array(
+        zod
+          .object({
+            name: zod.string(),
+            type: zod.string(),
+            level: zod.number(),
+          })
+          .describe(
+            "Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.",
+          ),
+      )
+      .describe(
+        "Lista canônica de competências que este item comprova (ISO 10015) — um treino pode comprovar várias. As colunas targetCompetencyName\/Type\/Level (singulares) são legado e espelham o primeiro item desta lista.",
+      ),
     defaultInstructor: zod.string().nullish(),
     objective: zod.string().nullish(),
     programContent: zod.string().nullish(),
@@ -20860,13 +22250,36 @@ export const UpdateTrainingCatalogItemBody = zod.object({
   modality: zod.string().optional(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
+  normIds: zod.array(zod.number()).optional(),
   workloadHours: zod.number().optional(),
   validityMonths: zod.number().nullish(),
   isMandatory: zod.boolean().optional(),
   status: zod.string().optional(),
+  evidenceType: zod
+    .enum(["capacitacao", "habilitacao", "conscientizacao"])
+    .nullish()
+    .describe(
+      "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
+    ),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod.string().optional(),
   targetCompetencyLevel: zod.number().optional(),
+  targetCompetencies: zod
+    .array(
+      zod
+        .object({
+          name: zod.string(),
+          type: zod.string(),
+          level: zod.number(),
+        })
+        .describe(
+          "Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.",
+        ),
+    )
+    .optional()
+    .describe(
+      "Lista canônica de competências que este item comprova (ISO 10015). Quando informada, o servidor espelha o primeiro item nas colunas targetCompetencyName\/Type\/Level (legado).",
+    ),
   defaultInstructor: zod.string().optional(),
   objective: zod.string().optional(),
   programContent: zod.string().optional(),
@@ -20880,15 +22293,45 @@ export const UpdateTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
-    norm: zod.string().nullish(),
-    clause: zod.string().nullish(),
+    norm: zod
+      .string()
+      .nullish()
+      .describe("Deprecated — use normIds. Kept for backward compatibility."),
+    clause: zod
+      .string()
+      .nullish()
+      .describe(
+        "Deprecated — clause moved into the managed norm catalog label.",
+      ),
+    normIds: zod.array(zod.number()),
     workloadHours: zod.number().nullish(),
     validityMonths: zod.number().nullish(),
     isMandatory: zod.boolean(),
     status: zod.string(),
+    evidenceType: zod
+      .enum(["capacitacao", "habilitacao", "conscientizacao"])
+      .nullish()
+      .describe(
+        "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
+      ),
     targetCompetencyName: zod.string().nullish(),
     targetCompetencyType: zod.string().nullish(),
     targetCompetencyLevel: zod.number().nullish(),
+    targetCompetencies: zod
+      .array(
+        zod
+          .object({
+            name: zod.string(),
+            type: zod.string(),
+            level: zod.number(),
+          })
+          .describe(
+            "Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.",
+          ),
+      )
+      .describe(
+        "Lista canônica de competências que este item comprova (ISO 10015) — um treino pode comprovar várias. As colunas targetCompetencyName\/Type\/Level (singulares) são legado e espelham o primeiro item desta lista.",
+      ),
     defaultInstructor: zod.string().nullish(),
     objective: zod.string().nullish(),
     programContent: zod.string().nullish(),
@@ -20904,6 +22347,17 @@ export const UpdateTrainingCatalogItemResponse = zod
 export const DeleteTrainingCatalogItemParams = zod.object({
   orgId: zod.coerce.number(),
   itemId: zod.coerce.number(),
+});
+
+export const deleteTrainingCatalogItemQueryCascadeDefault = false;
+
+export const DeleteTrainingCatalogItemQueryParams = zod.object({
+  cascade: zod.coerce
+    .boolean()
+    .default(deleteTrainingCatalogItemQueryCascadeDefault)
+    .describe(
+      "When true, also deletes linked requirements\/classes\/PAT items and not-yet-completed employee trainings. Completed employee trainings are preserved (unlinked, not deleted).",
+    ),
 });
 
 /**
@@ -21230,6 +22684,18 @@ export const ListTrainingClassesResponse = zod.object({
           }),
         ),
         participantCount: zod.number().optional(),
+        approvedCount: zod
+          .number()
+          .optional()
+          .describe(
+            'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+          ),
+        confirmedCount: zod
+          .number()
+          .optional()
+          .describe(
+            'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
+          ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
       })
@@ -21243,6 +22709,9 @@ export const ListTrainingClassesResponse = zod.object({
 export const CreateTrainingClassParams = zod.object({
   orgId: zod.coerce.number(),
 });
+
+export const createTrainingClassBodyMinScoreMin = 0;
+export const createTrainingClassBodyMinScoreMax = 10;
 
 export const createTrainingClassBodyAttachmentsItemFileSizeMax = 20971520;
 
@@ -21261,7 +22730,11 @@ export const CreateTrainingClassBody = zod.object({
   modality: zod.string().optional(),
   workloadHours: zod.number().optional(),
   capacity: zod.number().optional(),
-  minScore: zod.number().optional(),
+  minScore: zod
+    .number()
+    .min(createTrainingClassBodyMinScoreMin)
+    .max(createTrainingClassBodyMinScoreMax)
+    .optional(),
   status: zod.string().optional(),
   notes: zod.string().optional(),
   attachments: zod
@@ -21293,6 +22766,8 @@ export const getTrainingClassResponseOneAttachmentsItemFileSizeMax = 20971520;
 
 export const getTrainingClassResponseOneAttachmentsItemObjectPathRegExp =
   new RegExp("^\/objects\/uploads\/.+");
+export const getTrainingClassResponseTwoParticipantsItemScoreMin = 0;
+export const getTrainingClassResponseTwoParticipantsItemScoreMax = 10;
 
 export const GetTrainingClassResponse = zod
   .object({
@@ -21324,6 +22799,18 @@ export const GetTrainingClassResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
+    approvedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
+    confirmedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -21337,7 +22824,11 @@ export const GetTrainingClassResponse = zod
           employeeId: zod.number(),
           employeeName: zod.string().nullish(),
           attendance: zod.string().nullish(),
-          score: zod.number().nullish(),
+          score: zod
+            .number()
+            .min(getTrainingClassResponseTwoParticipantsItemScoreMin)
+            .max(getTrainingClassResponseTwoParticipantsItemScoreMax)
+            .nullish(),
           result: zod.string().nullish(),
           employeeTrainingId: zod.number().nullish(),
           createdAt: zod.string().datetime({}),
@@ -21353,6 +22844,9 @@ export const UpdateTrainingClassParams = zod.object({
   orgId: zod.coerce.number(),
   id: zod.coerce.number(),
 });
+
+export const updateTrainingClassBodyMinScoreMin = 0;
+export const updateTrainingClassBodyMinScoreMax = 10;
 
 export const updateTrainingClassBodyAttachmentsItemFileSizeMax = 20971520;
 
@@ -21370,7 +22864,11 @@ export const UpdateTrainingClassBody = zod.object({
   modality: zod.string().optional(),
   workloadHours: zod.number().optional(),
   capacity: zod.number().optional(),
-  minScore: zod.number().optional(),
+  minScore: zod
+    .number()
+    .min(updateTrainingClassBodyMinScoreMin)
+    .max(updateTrainingClassBodyMinScoreMax)
+    .optional(),
   status: zod.string().optional(),
   notes: zod.string().optional(),
   attachments: zod
@@ -21425,6 +22923,18 @@ export const UpdateTrainingClassResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
+    approvedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
+    confirmedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -21454,6 +22964,8 @@ export const addTrainingClassParticipantsResponseOneAttachmentsItemFileSizeMax =
 
 export const addTrainingClassParticipantsResponseOneAttachmentsItemObjectPathRegExp =
   new RegExp("^\/objects\/uploads\/.+");
+export const addTrainingClassParticipantsResponseTwoParticipantsItemScoreMin = 0;
+export const addTrainingClassParticipantsResponseTwoParticipantsItemScoreMax = 10;
 
 export const AddTrainingClassParticipantsResponse = zod
   .object({
@@ -21489,6 +23001,18 @@ export const AddTrainingClassParticipantsResponse = zod
       }),
     ),
     participantCount: zod.number().optional(),
+    approvedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
+    confirmedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -21502,7 +23026,15 @@ export const AddTrainingClassParticipantsResponse = zod
           employeeId: zod.number(),
           employeeName: zod.string().nullish(),
           attendance: zod.string().nullish(),
-          score: zod.number().nullish(),
+          score: zod
+            .number()
+            .min(
+              addTrainingClassParticipantsResponseTwoParticipantsItemScoreMin,
+            )
+            .max(
+              addTrainingClassParticipantsResponseTwoParticipantsItemScoreMax,
+            )
+            .nullish(),
           result: zod.string().nullish(),
           employeeTrainingId: zod.number().nullish(),
           createdAt: zod.string().datetime({}),
@@ -21520,11 +23052,21 @@ export const UpdateTrainingClassParticipantParams = zod.object({
   participantId: zod.coerce.number(),
 });
 
+export const updateTrainingClassParticipantBodyScoreMin = 0;
+export const updateTrainingClassParticipantBodyScoreMax = 10;
+
 export const UpdateTrainingClassParticipantBody = zod.object({
   attendance: zod.string().nullish(),
-  score: zod.number().nullish(),
+  score: zod
+    .number()
+    .min(updateTrainingClassParticipantBodyScoreMin)
+    .max(updateTrainingClassParticipantBodyScoreMax)
+    .nullish(),
   result: zod.string().nullish(),
 });
+
+export const updateTrainingClassParticipantResponseScoreMin = 0;
+export const updateTrainingClassParticipantResponseScoreMax = 10;
 
 export const UpdateTrainingClassParticipantResponse = zod.object({
   id: zod.number(),
@@ -21532,7 +23074,11 @@ export const UpdateTrainingClassParticipantResponse = zod.object({
   employeeId: zod.number(),
   employeeName: zod.string().nullish(),
   attendance: zod.string().nullish(),
-  score: zod.number().nullish(),
+  score: zod
+    .number()
+    .min(updateTrainingClassParticipantResponseScoreMin)
+    .max(updateTrainingClassParticipantResponseScoreMax)
+    .nullish(),
   result: zod.string().nullish(),
   employeeTrainingId: zod.number().nullish(),
   createdAt: zod.string().datetime({}),
@@ -21680,7 +23226,34 @@ export const GetLearningDashboardSummaryResponse = zod.object({
     effectiveness: zod.number().nullable(),
     criticalGaps: zod.number().nullable(),
     expiredTrainings: zod.number().nullable(),
+    mandatoryCoverage: zod
+      .number()
+      .nullable()
+      .describe("% de obrigatoriedades concluídas (ISO 9001 §7.2)"),
+    hoursPerEmployee: zod
+      .number()
+      .nullable()
+      .describe("Horas de treinamento ÷ colaboradores ativos (ISO 10015 §4.3)"),
   }),
+  targets: zod.array(
+    zod
+      .object({
+        metric: zod.enum([
+          "pat_completion",
+          "effectiveness_overall",
+          "mandatory_coverage",
+          "hours_per_employee",
+          "critical_gaps",
+          "expired_trainings",
+        ]),
+        goal: zod.number(),
+        tolerance: zod.number(),
+        direction: zod.enum(["up", "down"]),
+      })
+      .describe(
+        "Meta\/direção de uma métrica do LMS. Vem da configuração do módulo KPI da organização quando os indicadores foram ativados; caso contrário, do padrão do sistema.",
+      ),
+  ),
   byUnit: zod.array(
     zod.object({
       unitId: zod.number(),

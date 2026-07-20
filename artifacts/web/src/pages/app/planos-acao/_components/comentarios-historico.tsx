@@ -23,6 +23,13 @@ import {
 } from "@/lib/action-plans-client";
 import { diffPlanningFields, type PlanningBlock } from "./planning-versions";
 
+/** O log grava a chave crua do campo; a tela é lida por auditor, não por
+ *  programador. Traduzimos o que esta entrega toca. */
+const FIELD_LABELS: Record<string, string> = {
+  pontoFocal: "Ponto focal",
+  coResponsibles: "Co-responsáveis",
+};
+
 const ACTION_META: Record<string, { label: string; icon: typeof Pencil; tone: string }> = {
   created: { label: "Plano de ação criado", icon: Plus, tone: "text-blue-600 dark:text-blue-400" },
   updated: { label: "Atualização", icon: Pencil, tone: "text-muted-foreground" },
@@ -84,7 +91,7 @@ export function describeChanges(entry: { changes?: unknown }): string | null {
 
   for (const [field, { from, to }] of Object.entries(c.fields)) {
     if (field === "planning") continue;
-    parts.push(`${field}: ${fmt(from)} → ${fmt(to)}`);
+    parts.push(`${FIELD_LABELS[field] ?? field}: ${fmt(from)} → ${fmt(to)}`);
   }
 
   return parts.length ? parts.join(" · ") : null;

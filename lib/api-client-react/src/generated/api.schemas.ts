@@ -6,6 +6,28 @@
  * OpenAPI spec version: 0.1.0
  */
 /**
+ * Uma competência-alvo comprovada por um item do catálogo (ISO 10015). Um item pode comprovar várias — a lista canônica é `TrainingCatalogItem.targetCompetencies`.
+ */
+export interface CompetencyTarget {
+  name: string;
+  type: string;
+  level: number;
+}
+
+/**
+ * O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
+ */
+export type TrainingCatalogItemEvidenceType =
+  | (typeof TrainingCatalogItemEvidenceType)[keyof typeof TrainingCatalogItemEvidenceType]
+  | null;
+
+export const TrainingCatalogItemEvidenceType = {
+  capacitacao: "capacitacao",
+  habilitacao: "habilitacao",
+  conscientizacao: "conscientizacao",
+} as const;
+
+/**
  * Item do catálogo de treinamentos (definição reutilizável).
  */
 export interface TrainingCatalogItem {
@@ -14,15 +36,28 @@ export interface TrainingCatalogItem {
   title: string;
   category?: string | null;
   modality?: string | null;
+  /**
+   * Deprecated — use normIds. Kept for backward compatibility.
+   * @deprecated
+   */
   norm?: string | null;
+  /**
+   * Deprecated — clause moved into the managed norm catalog label.
+   * @deprecated
+   */
   clause?: string | null;
+  normIds: number[];
   workloadHours?: number | null;
   validityMonths?: number | null;
   isMandatory: boolean;
   status: string;
+  /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
+  evidenceType?: TrainingCatalogItemEvidenceType;
   targetCompetencyName?: string | null;
   targetCompetencyType?: string | null;
   targetCompetencyLevel?: number | null;
+  /** Lista canônica de competências que este item comprova (ISO 10015) — um treino pode comprovar várias. As colunas targetCompetencyName/Type/Level (singulares) são legado e espelham o primeiro item desta lista. */
+  targetCompetencies: CompetencyTarget[];
   defaultInstructor?: string | null;
   objective?: string | null;
   programContent?: string | null;
@@ -31,40 +66,80 @@ export interface TrainingCatalogItem {
   updatedAt: string;
 }
 
+/**
+ * O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
+ */
+export type CreateTrainingCatalogItemBodyEvidenceType =
+  | (typeof CreateTrainingCatalogItemBodyEvidenceType)[keyof typeof CreateTrainingCatalogItemBodyEvidenceType]
+  | null;
+
+export const CreateTrainingCatalogItemBodyEvidenceType = {
+  capacitacao: "capacitacao",
+  habilitacao: "habilitacao",
+  conscientizacao: "conscientizacao",
+} as const;
+
 export interface CreateTrainingCatalogItemBody {
   /** @minLength 1 */
   title: string;
   category?: string;
   modality?: string;
+  /** @deprecated */
   norm?: string;
+  /** @deprecated */
   clause?: string;
+  normIds?: number[];
   workloadHours?: number;
   validityMonths?: number | null;
   isMandatory?: boolean;
   status?: string;
+  /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
+  evidenceType?: CreateTrainingCatalogItemBodyEvidenceType;
   targetCompetencyName?: string;
   targetCompetencyType?: string;
   targetCompetencyLevel?: number;
+  /** Lista canônica de competências que este item comprova (ISO 10015). Quando informada, o servidor espelha o primeiro item nas colunas targetCompetencyName/Type/Level (legado). */
+  targetCompetencies?: CompetencyTarget[];
   defaultInstructor?: string;
   objective?: string;
   programContent?: string;
   evaluationMethod?: string;
 }
 
+/**
+ * O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
+ */
+export type UpdateTrainingCatalogItemBodyEvidenceType =
+  | (typeof UpdateTrainingCatalogItemBodyEvidenceType)[keyof typeof UpdateTrainingCatalogItemBodyEvidenceType]
+  | null;
+
+export const UpdateTrainingCatalogItemBodyEvidenceType = {
+  capacitacao: "capacitacao",
+  habilitacao: "habilitacao",
+  conscientizacao: "conscientizacao",
+} as const;
+
 export interface UpdateTrainingCatalogItemBody {
   /** @minLength 1 */
   title?: string;
   category?: string;
   modality?: string;
+  /** @deprecated */
   norm?: string;
+  /** @deprecated */
   clause?: string;
+  normIds?: number[];
   workloadHours?: number;
   validityMonths?: number | null;
   isMandatory?: boolean;
   status?: string;
+  /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
+  evidenceType?: UpdateTrainingCatalogItemBodyEvidenceType;
   targetCompetencyName?: string;
   targetCompetencyType?: string;
   targetCompetencyLevel?: number;
+  /** Lista canônica de competências que este item comprova (ISO 10015). Quando informada, o servidor espelha o primeiro item nas colunas targetCompetencyName/Type/Level (legado). */
+  targetCompetencies?: CompetencyTarget[];
   defaultInstructor?: string;
   objective?: string;
   programContent?: string;
@@ -212,6 +287,10 @@ export interface TrainingClass {
   notes?: string | null;
   attachments: EmployeeRecordAttachment[];
   participantCount?: number;
+  /** Participantes aprovados (result = "aprovado"). Exibido como "Realizados" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um. */
+  approvedCount?: number;
+  /** Participantes com presença confirmada (attendance = "presente") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem. */
+  confirmedCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -222,6 +301,10 @@ export interface TrainingClassParticipant {
   employeeId: number;
   employeeName?: string | null;
   attendance?: string | null;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
   score?: number | null;
   result?: string | null;
   employeeTrainingId?: number | null;
@@ -243,6 +326,10 @@ export interface CreateTrainingClassBody {
   modality?: string;
   workloadHours?: number;
   capacity?: number;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
   minScore?: number;
   status?: string;
   notes?: string;
@@ -260,6 +347,10 @@ export interface UpdateTrainingClassBody {
   modality?: string;
   workloadHours?: number;
   capacity?: number;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
   minScore?: number;
   status?: string;
   notes?: string;
@@ -273,6 +364,10 @@ export interface AddTrainingClassParticipantsBody {
 
 export interface UpdateTrainingClassParticipantBody {
   attendance?: string | null;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
   score?: number | null;
   result?: string | null;
 }
@@ -1202,14 +1297,93 @@ export const EmployeeStatus = {
   on_leave: "on_leave",
 } as const;
 
+export type EmployeeManagersItem = {
+  id: number;
+  name: string;
+};
+
+/**
+ * `indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado.
+ */
 export type EmployeeCompetencyGapStatus =
-  (typeof EmployeeCompetencyGapStatus)[keyof typeof EmployeeCompetencyGapStatus];
+  | (typeof EmployeeCompetencyGapStatus)[keyof typeof EmployeeCompetencyGapStatus]
+  | null;
 
 export const EmployeeCompetencyGapStatus = {
   ok: "ok",
   gap: "gap",
   critical: "critical",
+  indeterminado: "indeterminado",
 } as const;
+
+export type EmployeeCompetencyConformanceRequirementsItemCompetencyType =
+  (typeof EmployeeCompetencyConformanceRequirementsItemCompetencyType)[keyof typeof EmployeeCompetencyConformanceRequirementsItemCompetencyType];
+
+export const EmployeeCompetencyConformanceRequirementsItemCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
+/**
+ * `nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗).
+ */
+export type EmployeeCompetencyConformanceRequirementsItemStatus =
+  (typeof EmployeeCompetencyConformanceRequirementsItemStatus)[keyof typeof EmployeeCompetencyConformanceRequirementsItemStatus];
+
+export const EmployeeCompetencyConformanceRequirementsItemStatus = {
+  atende: "atende",
+  gap: "gap",
+  nao_classificado: "nao_classificado",
+} as const;
+
+export type EmployeeCompetencyConformanceRequirementsItemSource =
+  | (typeof EmployeeCompetencyConformanceRequirementsItemSource)[keyof typeof EmployeeCompetencyConformanceRequirementsItemSource]
+  | null;
+
+export const EmployeeCompetencyConformanceRequirementsItemSource = {
+  manual: "manual",
+  treinamento: "treinamento",
+} as const;
+
+export type EmployeeCompetencyConformanceGapStatus =
+  (typeof EmployeeCompetencyConformanceGapStatus)[keyof typeof EmployeeCompetencyConformanceGapStatus];
+
+export const EmployeeCompetencyConformanceGapStatus = {
+  ok: "ok",
+  gap: "gap",
+  critical: "critical",
+  indeterminado: "indeterminado",
+} as const;
+
+export type EmployeeCompetencyConformanceRequirementsItemEvidence = {
+  trainingId: number;
+  title: string;
+  completionDate: string | null;
+  expirationDate: string | null;
+} | null;
+
+export type EmployeeCompetencyConformanceRequirementsItem = {
+  competencyName: string;
+  competencyType: EmployeeCompetencyConformanceRequirementsItemCompetencyType;
+  requiredLevel: number;
+  acquiredLevel: number;
+  /** `nao_classificado` = não há atestado manual nem item de catálogo classificado que possa provar a competência. Não é lacuna — é ausência de dado (nunca deve ser tratado como ✗). */
+  status: EmployeeCompetencyConformanceRequirementsItemStatus;
+  source: EmployeeCompetencyConformanceRequirementsItemSource;
+  evidence: EmployeeCompetencyConformanceRequirementsItemEvidence;
+  gapLevel: number;
+  critical: boolean;
+};
+
+/**
+ * Espelha `EmployeeConformance` do resolvedor de competência (resolveEmployeeCompetencies, artifacts/api-server/src/services/aprendizagem/competency-resolver.ts) — o mesmo motor que produz `competencyGapStatus` na listagem e os itens de /competency-gaps.
+ */
+export interface EmployeeCompetencyConformance {
+  positionName: string | null;
+  requirements: EmployeeCompetencyConformanceRequirementsItem[];
+  gapStatus: EmployeeCompetencyConformanceGapStatus;
+}
 
 export interface Employee {
   /** Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar). */
@@ -1231,8 +1405,13 @@ export interface Employee {
   terminationDate?: string | null;
   status: EmployeeStatus;
   unitName?: string | null;
+  /** Gestores da filial do colaborador (tabela unit_managers, mesmo mecanismo usado pela listagem/gestão de unidades). Presente apenas na resposta de GET /employees/:empId (detalhe); [] quando o colaborador não tem filial ou a filial não tem gestor. */
+  managers?: EmployeeManagersItem[];
   trainingCompletionPercent?: number | null;
+  /** `indeterminado` = o cargo tem requisitos, mas nenhum item de catálogo classificado poderia comprová-los. Não é lacuna — é ausência de dado. */
   competencyGapStatus?: EmployeeCompetencyGapStatus;
+  /** Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por /competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET /employees/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado. */
+  competencyConformance?: EmployeeCompetencyConformance | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1314,7 +1493,29 @@ export const EmployeeTrainingStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
+
+/**
+ * Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.
+ */
+export interface TrainingEffectivenessCriteria {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  behavior: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  result: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  transfer: number;
+}
 
 export interface TrainingEffectivenessReview {
   id: number;
@@ -1334,6 +1535,7 @@ export interface TrainingEffectivenessReview {
    */
   resultLevel?: number | null;
   comments?: string | null;
+  criteria?: TrainingEffectivenessCriteria | null;
   attachments: EmployeeRecordAttachment[];
   createdAt?: string;
 }
@@ -1347,6 +1549,7 @@ export interface EmployeeTraining {
   description?: string | null;
   objective?: string | null;
   institution?: string | null;
+  instructor?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: EmployeeTrainingTargetCompetencyType;
   targetCompetencyLevel?: number | null;
@@ -1356,6 +1559,8 @@ export interface EmployeeTraining {
   completionDate?: string | null;
   expirationDate?: string | null;
   status: EmployeeTrainingStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
   effectivenessReviews: TrainingEffectivenessReview[];
@@ -1380,6 +1585,7 @@ export const OrganizationTrainingStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
 
 export type OrganizationTrainingEffectivenessStatus =
@@ -1404,6 +1610,19 @@ export const OrganizationTrainingEffectivenessAssignedRole = {
   colaborador: "colaborador",
 } as const;
 
+/**
+ * Preenchimento parcial da avaliação de eficácia, salvo pelo avaliador e usado para reidratar o wizard.
+ */
+export interface TrainingEffectivenessDraft {
+  id: number;
+  evaluatorUserId: number;
+  evaluatorName?: string | null;
+  evaluatorRole?: string | null;
+  criteria?: TrainingEffectivenessCriteria | null;
+  comments?: string | null;
+  updatedAt?: string;
+}
+
 export interface OrganizationTraining {
   catalogItemId?: number | null;
   dueDate?: string | null;
@@ -1419,6 +1638,7 @@ export interface OrganizationTraining {
   description?: string | null;
   objective?: string | null;
   institution?: string | null;
+  instructor?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: OrganizationTrainingTargetCompetencyType;
   targetCompetencyLevel?: number | null;
@@ -1428,9 +1648,12 @@ export interface OrganizationTraining {
   completionDate?: string | null;
   expirationDate?: string | null;
   status: OrganizationTrainingStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
+  effectivenessDraft?: TrainingEffectivenessDraft | null;
   effectivenessDueDate?: string | null;
   effectivenessAssignedRole?: OrganizationTrainingEffectivenessAssignedRole;
   reviewerCount: number;
@@ -1560,6 +1783,7 @@ export type PaginatedOrganizationTrainingsStats = {
   eficazes?: number;
   naoEficazes?: number;
   eficazPercent?: number | null;
+  realizadoMes?: number;
 };
 
 export interface PaginatedOrganizationTrainings {
@@ -1794,6 +2018,7 @@ export const CreateTrainingBodyStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
 
 export interface CreateTrainingBody {
@@ -1803,6 +2028,7 @@ export interface CreateTrainingBody {
   description?: string;
   objective?: string;
   institution?: string;
+  instructor?: string;
   targetCompetencyName?: string;
   targetCompetencyType?: CreateTrainingBodyTargetCompetencyType;
   /**
@@ -1817,6 +2043,8 @@ export interface CreateTrainingBody {
   completionDate?: string;
   expirationDate?: string;
   status?: CreateTrainingBodyStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
 }
@@ -1879,6 +2107,7 @@ export const UpdateTrainingBodyStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
 
 export interface UpdateTrainingBody {
@@ -1886,6 +2115,7 @@ export interface UpdateTrainingBody {
   description?: string;
   objective?: string;
   institution?: string;
+  instructor?: string;
   targetCompetencyName?: string;
   targetCompetencyType?: UpdateTrainingBodyTargetCompetencyType;
   /**
@@ -1900,6 +2130,8 @@ export interface UpdateTrainingBody {
   completionDate?: string;
   expirationDate?: string;
   status?: UpdateTrainingBodyStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
 }
@@ -1928,6 +2160,17 @@ export const CreateTrainingEffectivenessReviewBodyEvaluatorRole = {
   colaborador: "colaborador",
 } as const;
 
+/**
+ * 'draft' grava o preenchimento parcial do wizard sem concluir a avaliação (não concede competência e mantém o card em "Em avaliação"). Substitui o rascunho anterior do mesmo avaliador.
+ */
+export type CreateTrainingEffectivenessReviewBodyStatus =
+  (typeof CreateTrainingEffectivenessReviewBodyStatus)[keyof typeof CreateTrainingEffectivenessReviewBodyStatus];
+
+export const CreateTrainingEffectivenessReviewBodyStatus = {
+  draft: "draft",
+  final: "final",
+} as const;
+
 export interface CreateTrainingEffectivenessReviewBody {
   evaluationDate: string;
   /**
@@ -1943,6 +2186,9 @@ export interface CreateTrainingEffectivenessReviewBody {
   resultLevel?: number;
   comments?: string;
   evaluatorRole?: CreateTrainingEffectivenessReviewBodyEvaluatorRole;
+  /** 'draft' grava o preenchimento parcial do wizard sem concluir a avaliação (não concede competência e mantém o card em "Em avaliação"). Substitui o rascunho anterior do mesmo avaliador. */
+  status?: CreateTrainingEffectivenessReviewBodyStatus;
+  criteria?: TrainingEffectivenessCriteria;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
 }
@@ -2042,6 +2288,9 @@ export interface Position {
   level?: string | null;
   minSalary?: number | null;
   maxSalary?: number | null;
+  area?: string | null;
+  principalNormId?: number | null;
+  competencyCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -2056,6 +2305,8 @@ export interface CreatePositionBody {
   level?: string;
   minSalary?: number;
   maxSalary?: number;
+  area?: string;
+  principalNormId?: number | null;
 }
 
 export interface UpdatePositionBody {
@@ -2068,6 +2319,8 @@ export interface UpdatePositionBody {
   level?: string;
   minSalary?: number;
   maxSalary?: number;
+  area?: string;
+  principalNormId?: number | null;
 }
 
 /**
@@ -4519,6 +4772,29 @@ export interface UpdateRegulatoryNormBody {
   sortOrder?: number;
 }
 
+/**
+ * Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).
+ */
+export interface EffectivenessMethod {
+  id: number;
+  organizationId: number;
+  label: string;
+  active: boolean;
+  sortOrder: number;
+}
+
+export interface CreateEffectivenessMethodBody {
+  /** @minLength 1 */
+  label: string;
+}
+
+export interface UpdateEffectivenessMethodBody {
+  /** @minLength 1 */
+  label?: string;
+  active?: boolean;
+  sortOrder?: number;
+}
+
 export type ActionPlanSourceModule =
   (typeof ActionPlanSourceModule)[keyof typeof ActionPlanSourceModule];
 
@@ -4526,6 +4802,9 @@ export const ActionPlanSourceModule = {
   kpi: "kpi",
   swot: "swot",
   manual: "manual",
+  improvement: "improvement",
+  corrective: "corrective",
+  norm_requirement: "norm_requirement",
   nonconformity: "nonconformity",
   audit_finding: "audit_finding",
   risk: "risk",
@@ -4564,6 +4843,23 @@ export const ActionPlanEffectivenessResult = {
   effective: "effective",
   ineffective: "ineffective",
   pending: "pending",
+} as const;
+
+export type ActionPlanEffectivenessFilter =
+  (typeof ActionPlanEffectivenessFilter)[keyof typeof ActionPlanEffectivenessFilter];
+
+export const ActionPlanEffectivenessFilter = {
+  effective: "effective",
+  ineffective: "ineffective",
+  pending: "pending",
+} as const;
+
+export type ActionPlanDueWindow =
+  (typeof ActionPlanDueWindow)[keyof typeof ActionPlanDueWindow];
+
+export const ActionPlanDueWindow = {
+  overdue: "overdue",
+  due_soon: "due_soon",
 } as const;
 
 export type ActionPlanAnalysisMethodKey =
@@ -4901,7 +5197,7 @@ export interface ActionPlanNormRef {
 }
 
 /**
- * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.
+ * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required. The free-form origins — manual, incident, rac, improvement, corrective and norm_requirement — require no upstream entity; the three created inside the action-plans module itself (improvement, corrective, norm_requirement) may carry manualContext as free-text context instead.
  */
 export interface ActionPlanSourceRef {
   kpiMonthlyValueId?: number;
@@ -4967,6 +5263,14 @@ export interface ActionPlanEvidence {
   uploadedAt: string;
 }
 
+/**
+ * Co-responsável do plano — um dos "outros responsáveis", além do ponto focal.
+ */
+export interface ActionPlanCoResponsible {
+  userId: number;
+  name: string;
+}
+
 export interface ActionPlan {
   id: number;
   organizationId: number;
@@ -5013,13 +5317,21 @@ export interface ActionPlan {
   responsibleUserId?: number | null;
   /** @nullable */
   responsibleUserName?: string | null;
+  /** Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há. */
+  coResponsibles: ActionPlanCoResponsible[];
   /** @nullable */
   dueDate?: string | null;
   /** @nullable */
   correctiveActionDescription?: string | null;
   /** @nullable */
   correctiveActionCompletedAt?: string | null;
+  /**
+   * Legado: código fixo do método, anterior ao catálogo. Só leitura — use effectivenessMethodId.
+   * @deprecated
+   */
   effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  /** @nullable */
+  effectivenessMethodId?: number | null;
   /** @nullable */
   effectivenessDueDate?: string | null;
   /** @nullable */
@@ -5076,6 +5388,8 @@ export interface ActionPlanListItem {
   responsibleUserId?: number | null;
   /** @nullable */
   responsibleUserName?: string | null;
+  /** Os outros responsáveis do plano, além do ponto focal (responsibleUserId). Vazio quando não há. */
+  coResponsibles: ActionPlanCoResponsible[];
   /** @nullable */
   dueDate?: string | null;
   /** @minimum 0 */
@@ -5113,9 +5427,11 @@ export interface CreateActionPlanBody {
   analyses?: ActionPlanAnalysis[] | null;
   rootCause?: string | null;
   responsibleUserId?: number | null;
+  /** Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal. */
+  coResponsibleUserIds?: number[] | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
-  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessMethodId?: number | null;
   effectivenessDueDate?: string | null;
   effectivenessEvaluatorUserId?: number | null;
   odsNumbers?: number[] | null;
@@ -5149,10 +5465,12 @@ export interface UpdateActionPlanBody {
   analyses?: ActionPlanAnalysis[] | null;
   rootCause?: string | null;
   responsibleUserId?: number | null;
+  /** Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal. */
+  coResponsibleUserIds?: number[] | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
   correctiveActionCompletedAt?: string | null;
-  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessMethodId?: number | null;
   effectivenessDueDate?: string | null;
   effectivenessEvaluatorUserId?: number | null;
   effectivenessResult?: ActionPlanEffectivenessResult | null;
@@ -6738,6 +7056,40 @@ export interface LearningSummaryCards {
   effectiveness: number | null;
   criticalGaps: number | null;
   expiredTrainings: number | null;
+  /** % de obrigatoriedades concluídas (ISO 9001 §7.2) */
+  mandatoryCoverage: number | null;
+  /** Horas de treinamento ÷ colaboradores ativos (ISO 10015 §4.3) */
+  hoursPerEmployee: number | null;
+}
+
+export type LearningSummaryTargetMetric =
+  (typeof LearningSummaryTargetMetric)[keyof typeof LearningSummaryTargetMetric];
+
+export const LearningSummaryTargetMetric = {
+  pat_completion: "pat_completion",
+  effectiveness_overall: "effectiveness_overall",
+  mandatory_coverage: "mandatory_coverage",
+  hours_per_employee: "hours_per_employee",
+  critical_gaps: "critical_gaps",
+  expired_trainings: "expired_trainings",
+} as const;
+
+export type LearningSummaryTargetDirection =
+  (typeof LearningSummaryTargetDirection)[keyof typeof LearningSummaryTargetDirection];
+
+export const LearningSummaryTargetDirection = {
+  up: "up",
+  down: "down",
+} as const;
+
+/**
+ * Meta/direção de uma métrica do LMS. Vem da configuração do módulo KPI da organização quando os indicadores foram ativados; caso contrário, do padrão do sistema.
+ */
+export interface LearningSummaryTarget {
+  metric: LearningSummaryTargetMetric;
+  goal: number;
+  tolerance: number;
+  direction: LearningSummaryTargetDirection;
 }
 
 export type LearningSummaryUnitRowStatus =
@@ -6778,6 +7130,7 @@ export interface LearningSummaryPendingRow {
 
 export interface LearningSummary {
   cards: LearningSummaryCards;
+  targets: LearningSummaryTarget[];
   byUnit: LearningSummaryUnitRow[];
   byNorm: LearningSummaryNormRow[];
   expired: LearningSummaryExpiredRow[];
@@ -6857,9 +7210,22 @@ export type ListOrganizationTrainingsParams = {
   effectivenessStatus?: ListOrganizationTrainingsEffectivenessStatus;
   scope?: ListOrganizationTrainingsScope;
   year?: number;
+  /**
+   * Deprecated — use normId. Kept for backward compatibility.
+   */
   norm?: string;
+  /**
+   * Filtro por id da norma do catálogo (norm_ids do item vinculado).
+   */
+  normId?: number;
   evaluatorRole?: ListOrganizationTrainingsEvaluatorRole;
   boardColumn?: ListOrganizationTrainingsBoardColumn;
+  onlyProgramado?: boolean;
+  realizadoInCurrentMonth?: boolean;
+  /**
+   * Filtra a lista para pendentes sem turma ativa vinculada (pendente ∧ não programado).
+   */
+  onlyPendenteSemTurma?: boolean;
   /**
    * @minimum 1
    */
@@ -6878,6 +7244,7 @@ export const ListOrganizationTrainingsStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
 
 export type ListOrganizationTrainingsEffectivenessStatus =
@@ -7158,6 +7525,9 @@ export type ListActionPlansParams = {
    * When sourceModule=kpi, filter by linked monthly value id
    */
   sourceKpiMonthlyValueId?: number;
+  actionType?: ActionPlanType;
+  effectiveness?: ActionPlanEffectivenessFilter;
+  dueWindow?: ActionPlanDueWindow;
 };
 
 export type RestoreActionPlanPlanningBody = {
@@ -7167,12 +7537,26 @@ export type RestoreActionPlanPlanningBody = {
 
 export type ListTrainingCatalogParams = {
   search?: string;
+  /**
+   * Deprecated — use normId. Kept for backward compatibility.
+   */
   norm?: string;
+  /**
+   * Filter by a regulatory norm id (matches items whose normIds contains it).
+   */
+  normId?: number;
   category?: string;
   modality?: string;
   status?: string;
   page?: number;
   pageSize?: number;
+};
+
+export type DeleteTrainingCatalogItemParams = {
+  /**
+   * When true, also deletes linked requirements/classes/PAT items and not-yet-completed employee trainings. Completed employee trainings are preserved (unlinked, not deleted).
+   */
+  cascade?: boolean;
 };
 
 export type ListCompetencyCatalog200 = {
