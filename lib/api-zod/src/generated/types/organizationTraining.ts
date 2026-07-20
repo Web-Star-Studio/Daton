@@ -38,6 +38,8 @@ export interface OrganizationTraining {
   completionDate?: string | null;
   expirationDate?: string | null;
   status: OrganizationTrainingStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;

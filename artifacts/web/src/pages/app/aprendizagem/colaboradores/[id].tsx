@@ -64,7 +64,6 @@ import { ProfileItemAttachmentsField } from "@/components/employees/profile-item
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -108,6 +107,7 @@ import { useLocation } from "wouter";
 import { FichaHeader } from "./_components/FichaHeader";
 import { DadosCards } from "./_components/DadosCards";
 import { FormacaoQualificacoes } from "./_components/FormacaoQualificacoes";
+import { RegistrarConclusaoForm } from "./_components/RegistrarConclusaoForm";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -127,6 +127,7 @@ const TRAINING_STATUS: Record<string, string> = {
   pendente: "Pendente",
   concluido: "Concluído",
   vencido: "Vencido",
+  nao_aplicavel: "Não aplicável",
 };
 
 const TRAINING_STATUS_COLORS: Record<string, string> = {
@@ -136,6 +137,8 @@ const TRAINING_STATUS_COLORS: Record<string, string> = {
     "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
   vencido:
     "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+  // Neutro: ausência de obrigação, não é sucesso nem alerta.
+  nao_aplicavel: "bg-muted text-muted-foreground border-border",
 };
 
 const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {
@@ -1915,6 +1918,7 @@ type TrainingForm = {
   completionDate: string;
   expirationDate: string;
   status: CreateTrainingBodyStatus;
+  notApplicableReason: string;
 };
 type AwarenessForm = {
   topic: string;
@@ -2020,6 +2024,7 @@ function TreinamentosTab({
     completionDate: "",
     expirationDate: "",
     status: CreateTrainingBodyStatusValues.pendente,
+    notApplicableReason: "",
   };
   const [form, setForm] = useState(emptyForm);
   // score fica como string enquanto o usuário digita (estado controlado) —
@@ -2158,6 +2163,7 @@ function TreinamentosTab({
       completionDate: t.completionDate || "",
       expirationDate: t.expirationDate || "",
       status: t.status,
+      notApplicableReason: t.notApplicableReason || "",
     });
     setEditingAttachments(t.attachments || []);
   };
@@ -2187,6 +2193,7 @@ function TreinamentosTab({
         completionDate: form.completionDate || undefined,
         expirationDate: form.expirationDate || undefined,
         status: form.status as UpdateTrainingBodyStatus,
+        notApplicableReason: form.notApplicableReason || undefined,
         attachments: editingAttachments,
       },
     });
@@ -2327,6 +2334,15 @@ function TreinamentosTab({
                           {t.description}
                         </p>
                       )}
+                      {t.status === CreateTrainingBodyStatusValues.nao_aplicavel &&
+                        t.notApplicableReason && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            <span className="font-medium text-foreground">
+                              Motivo:
+                            </span>{" "}
+                            {t.notApplicableReason}
+                          </p>
+                        )}
                       {t.objective && (
                         <p className="text-xs text-muted-foreground mt-2">
                           <span className="font-medium text-foreground">
@@ -2657,87 +2673,15 @@ function TreinamentosTab({
             corrigir o nome ou o conteúdo do treinamento, edite no catálogo — a
             alteração vale para todos.
           </p>
-          <div className="grid gap-5 md:grid-cols-2">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">
-                Status *
-              </Label>
-              <Select
-                value={form.status}
-                onChange={(e) =>
-                  setForm((current) => ({
-                    ...current,
-                    status: e.target.value as CreateTrainingBodyStatus,
-                  }))
-                }
-                className="mt-1 h-10 text-[13px]"
-              >
-                <option value={CreateTrainingBodyStatusValues.pendente}>
-                  Pendente
-                </option>
-                <option value={CreateTrainingBodyStatusValues.concluido}>
-                  Concluído
-                </option>
-                <option value={CreateTrainingBodyStatusValues.vencido}>
-                  Vencido
-                </option>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">
-                Data de conclusão
-              </Label>
-              <Input
-                type="date"
-                value={form.completionDate}
-                onChange={(e) =>
-                  setForm((current) => ({
-                    ...current,
-                    completionDate: e.target.value,
-                  }))
-                }
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">
-                Validade
-              </Label>
-              <Input
-                type="date"
-                value={form.expirationDate}
-                onChange={(e) =>
-                  setForm((current) => ({
-                    ...current,
-                    expirationDate: e.target.value,
-                  }))
-                }
-                className="mt-1"
-              />
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">
-              Instrutor
-            </Label>
-            <SearchableSelect
-              value={form.instructor}
-              options={instructorOptions}
-              placeholder="Escolha um funcionário ou digite um nome..."
-              searchValue={instructorSearch}
-              onSearchChange={setInstructorSearch}
-              onChange={(name) =>
-                setForm((current) => ({ ...current, instructor: name }))
-              }
-              onCreateOption={(name) =>
-                setForm((current) => ({ ...current, instructor: name }))
-              }
-              createOptionLabel={(input) => `Usar “${input}” (externo)`}
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Funcionário da lista ou o nome de um palestrante externo.
-            </p>
-          </div>
+          <RegistrarConclusaoForm
+            form={form}
+            onChange={(next) =>
+              setForm((current) => ({ ...current, ...next }))
+            }
+            instructorOptions={instructorOptions}
+            instructorSearch={instructorSearch}
+            onInstructorSearchChange={setInstructorSearch}
+          />
           <ProfileItemAttachmentsField
             attachments={mapRecordAttachmentItems(
               editingAttachments,
@@ -2776,7 +2720,12 @@ function TreinamentosTab({
               type="button"
               size="sm"
               onClick={handleUpdate}
-              disabled={updateMutation.isPending || isUploadingEditAttachments}
+              disabled={
+                updateMutation.isPending ||
+                isUploadingEditAttachments ||
+                (form.status === CreateTrainingBodyStatusValues.nao_aplicavel &&
+                  !form.notApplicableReason.trim())
+              }
             >
               Salvar
             </Button>

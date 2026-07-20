@@ -438,7 +438,7 @@ export async function computeLearningSummary(args: {
     eq(employeesTable.organizationId, orgId),
     isNotNull(employeeTrainingsTable.expirationDate),
     lte(employeeTrainingsTable.expirationDate, periodEnd),
-    sql`${employeeTrainingsTable.status} <> 'concluido'`,
+    sql`${employeeTrainingsTable.status} not in ('concluido', 'nao_aplicavel')`,
   ];
   if (unitId !== undefined) {
     expiredConditions.push(eq(employeesTable.unitId, unitId));

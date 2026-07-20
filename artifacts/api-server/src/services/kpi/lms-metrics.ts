@@ -1,4 +1,4 @@
-import { and, count, eq, gte, isNotNull, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, isNotNull, lte, ne, sql } from "drizzle-orm";
 import {
   annualTrainingProgramTable,
   db,
@@ -239,6 +239,11 @@ export async function computeLmsMetric(args: {
           eq(trainingEffectivenessReviewsTable.status, "final"),
           gte(trainingEffectivenessReviewsTable.evaluationDate, start),
           lte(trainingEffectivenessReviewsTable.evaluationDate, end),
+          // "Não aplicável" é invisível para toda contagem de obrigação:
+          // eficácia só faz sentido sobre treino realizado, e NA nunca é
+          // realizado. Sem este filtro, marcar NA um treino que já tinha
+          // review continua inflando/reduzindo numerador e denominador aqui.
+          ne(employeeTrainingsTable.status, "nao_aplicavel"),
           employeeUnitFilter,
         ),
       );
@@ -262,6 +267,9 @@ export async function computeLmsMetric(args: {
         and(
           eq(employeesTable.organizationId, orgId),
           isNotNull(employeeTrainingsTable.requirementId),
+          // "Não aplicável" é invisível para toda contagem de obrigação: não
+          // entra em numerador nem em denominador de cobertura.
+          ne(employeeTrainingsTable.status, "nao_aplicavel"),
           employeeUnitFilter,
         ),
       );
@@ -317,7 +325,7 @@ export async function computeLmsMetric(args: {
           eq(employeesTable.organizationId, orgId),
           isNotNull(employeeTrainingsTable.expirationDate),
           lte(employeeTrainingsTable.expirationDate, end),
-          sql`${employeeTrainingsTable.status} <> 'concluido'`,
+          sql`${employeeTrainingsTable.status} not in ('concluido', 'nao_aplicavel')`,
           employeeUnitFilter,
         ),
       );
