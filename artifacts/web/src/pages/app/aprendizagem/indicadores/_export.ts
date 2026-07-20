@@ -378,12 +378,10 @@ export function buildLearningIndicatorsPdf(input: LmsExportInput): jsPDF {
   }
 
   // ── Treinamentos vencidos ──
-  // `expired` é a posição de HOJE e não acompanha o exercício selecionado.
-  // Num relatório de ano fechado, listá-la ao lado de um card year-scoped
-  // colocaria vencimentos futuros dentro de um "Exercício 2024". Só sai
-  // quando a contagem do exercício é positiva, e com o período no título.
-  if (summary.expired.length > 0 && (summary.cards.expiredTrainings ?? 0) > 0) {
-    sectionTitle("Treinamentos vencidos · posição atual");
+  // Recortado pelo mesmo fim de período dos cards, então já pertence ao
+  // exercício do relatório — não precisa mais da ressalva de "posição atual".
+  if (summary.expired.length > 0) {
+    sectionTitle("Treinamentos vencidos");
     autoTable(doc, {
       startY: y,
       head: [["Colaborador", "Filial", "Treinamento", "Vencimento"]],
@@ -514,16 +512,13 @@ export function exportLearningIndicatorsToExcel(input: LmsExportInput): void {
 
   appendSheet(
     wb,
-    "Vencidos (hoje)",
-    // Mesma ressalva do PDF: posição atual, não do exercício selecionado.
-    (summary.cards.expiredTrainings ?? 0) > 0
-      ? summary.expired.map((r) => ({
-          Colaborador: r.employeeName,
-          Filial: r.unitName ?? "",
-          Treinamento: r.title,
-          Vencimento: fmtDate(r.expirationDate),
-        }))
-      : [],
+    "Vencidos",
+    summary.expired.map((r) => ({
+      Colaborador: r.employeeName,
+      Filial: r.unitName ?? "",
+      Treinamento: r.title,
+      Vencimento: fmtDate(r.expirationDate),
+    })),
   );
 
   appendSheet(

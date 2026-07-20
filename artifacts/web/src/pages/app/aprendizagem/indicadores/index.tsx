@@ -642,17 +642,14 @@ export default function AprendizagemIndicadoresPage() {
                   >
                     {summary?.cards.expiredTrainings ?? "—"}
                   </div>
-                  {/* A amostra só aparece quando a contagem do exercício é
-                      positiva: `expired` é a lista de vencidos DE HOJE e não
-                      acompanha o filtro de ano, então exibi-la ao lado de um
-                      "0" de um exercício passado seria contraditório. */}
-                  {(summary?.cards.expiredTrainings ?? 0) > 0 &&
-                    summary!.expired.length > 0 && (
-                      <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                        {summary!.expired[0]!.employeeName} ·{" "}
-                        {summary!.expired[0]!.title}
-                      </p>
-                    )}
+                  {/* `expired` agora é recortado pelo mesmo fim de período da
+                      contagem, então a amostra nunca contradiz o número. */}
+                  {summary && summary.expired.length > 0 && (
+                    <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                      {summary.expired[0]!.employeeName} ·{" "}
+                      {summary.expired[0]!.title}
+                    </p>
+                  )}
                 </div>
                 <div className="rounded-xl border bg-card p-4 shadow-sm">
                   <div className="text-[13px] font-semibold">
