@@ -238,6 +238,68 @@ describe("trainingEffectivenessPendenciaProvider", () => {
     expect(items).toHaveLength(0);
   });
 
+  it("analista nunca vira dono: cai para o admin (não pode registrar a avaliação)", async () => {
+    const ctx = await createTestContext({ seed: "pend-ef-analyst" });
+    contexts.push(ctx);
+    // Filial cujo único gestor é analista → conta como filial sem gestor.
+    const unit = await createUnit(ctx, `Filial ${ctx.prefix}`);
+    const analystManager = await createTestUser(ctx, {
+      role: "analyst",
+      suffix: "gestor-analista",
+    });
+    await db.insert(unitManagersTable).values({
+      organizationId: ctx.organizationId,
+      unitId: unit.id,
+      userId: analystManager.id,
+    });
+    const employee = await createEmployee(ctx, {
+      name: `Colab ${ctx.prefix}`,
+      unitId: unit.id,
+    });
+    // E um colaborador cujo usuário vinculado é analista.
+    const analystColab = await createTestUser(ctx, {
+      role: "analyst",
+      suffix: "colab-analista",
+    });
+    await db
+      .update(usersTable)
+      .set({ employeeId: employee.id })
+      .where(eq(usersTable.id, analystColab.id));
+
+    const gestorId = await seedTraining(employee.id, {
+      effectivenessAssignedRole: "gestor",
+      effectivenessDueDate: "2026-06-20",
+    });
+    const colabId = await seedTraining(employee.id, {
+      effectivenessAssignedRole: "colaborador",
+      effectivenessDueDate: "2026-06-20",
+    });
+
+    for (const analyst of [analystManager, analystColab]) {
+      const items = await trainingEffectivenessPendenciaProvider.listPending({
+        orgId: ctx.organizationId,
+        responsibleUserIds: [analyst.id],
+        now: NOW,
+        dueSoonDays: 7,
+      });
+      expect(items).toHaveLength(0);
+    }
+
+    const forAdmin = await trainingEffectivenessPendenciaProvider.listPending({
+      orgId: ctx.organizationId,
+      responsibleUserIds: [ctx.userId],
+      now: NOW,
+      dueSoonDays: 7,
+    });
+    const byId = new Map(forAdmin.map((i) => [i.id, i]));
+    expect(byId.get(`training_effectiveness:${gestorId}`)?.meta?.resolvedVia).toBe(
+      "fallback_admin",
+    );
+    expect(byId.get(`training_effectiveness:${colabId}`)?.meta?.resolvedVia).toBe(
+      "fallback_admin",
+    );
+  });
+
   it("treino 'Não aplicável' não gera pendência — nem atribuído, nem no agregado", async () => {
     const ctx = await createTestContext({ seed: "pend-ef-na" });
     contexts.push(ctx);

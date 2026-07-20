@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, isNotNull, lt } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lt } from "drizzle-orm";
 import {
   db,
   employeesTable,
@@ -48,6 +48,12 @@ interface OrgDirectory {
   usersByEmployeeId: Map<number, number[]>;
   /** unit_id → usuários gestores da filial (unit_managers). */
   managersByUnitId: Map<number, number[]>;
+  /**
+   * Analistas: `requireWriteAccess()` os rejeita com 403 no POST de
+   * effectiveness-reviews, então atribuir a pendência a eles produziria um card
+   * visível e impossível de resolver. Nunca são donos — ver resolveOwners.
+   */
+  readOnlyUserIds: Set<number>;
 }
 
 /**
@@ -63,37 +69,32 @@ interface OrgDirectory {
  *                 employee_trainings.instructor, não um usuário)
  *
  * Quando a resolução específica vem vazia (filial sem gestor cadastrado,
- * colaborador sem usuário), o item cai para os admins em vez de sumir: uma
+ * colaborador sem usuário) — ou resolve apenas em analistas, que não podem
+ * registrar a avaliação — o item cai para os admins em vez de sumir: uma
  * pendência sem dono é uma pendência que ninguém cobra.
  */
 async function loadOrgDirectory(orgId: number): Promise<OrgDirectory> {
-  const [admins, linkedUsers, managers] = await Promise.all([
+  const [orgUsers, managers] = await Promise.all([
     db
-      .select({ id: usersTable.id })
+      .select({
+        id: usersTable.id,
+        role: usersTable.role,
+        employeeId: usersTable.employeeId,
+      })
       .from(usersTable)
-      .where(
-        and(
-          eq(usersTable.organizationId, orgId),
-          inArray(usersTable.role, ADMIN_ROLES),
-        ),
-      ),
-    db
-      .select({ id: usersTable.id, employeeId: usersTable.employeeId })
-      .from(usersTable)
-      .where(
-        and(
-          eq(usersTable.organizationId, orgId),
-          isNotNull(usersTable.employeeId),
-        ),
-      ),
+      .where(eq(usersTable.organizationId, orgId)),
     db
       .select({ unitId: unitManagersTable.unitId, userId: unitManagersTable.userId })
       .from(unitManagersTable)
       .where(eq(unitManagersTable.organizationId, orgId)),
   ]);
 
+  const adminIds: number[] = [];
+  const readOnlyUserIds = new Set<number>();
   const usersByEmployeeId = new Map<number, number[]>();
-  for (const u of linkedUsers) {
+  for (const u of orgUsers) {
+    if (ADMIN_ROLES.includes(u.role)) adminIds.push(u.id);
+    if (u.role === "analyst") readOnlyUserIds.add(u.id);
     if (u.employeeId == null) continue;
     const list = usersByEmployeeId.get(u.employeeId);
     if (list) list.push(u.id);
@@ -107,19 +108,24 @@ async function loadOrgDirectory(orgId: number): Promise<OrgDirectory> {
     else managersByUnitId.set(m.unitId, [m.userId]);
   }
 
-  return { adminIds: admins.map((a) => a.id), usersByEmployeeId, managersByUnitId };
+  return { adminIds, usersByEmployeeId, managersByUnitId, readOnlyUserIds };
 }
 
 function resolveOwners(
   row: { assignedRole: string | null; employeeId: number; unitId: number | null },
   dir: OrgDirectory,
 ): { owners: number[]; via: ResolvedVia } {
+  // Analista é filtrado ANTES do teste de "resolveu": uma filial cujo único
+  // gestor é analista conta como filial sem gestor e cai para os admins, senão
+  // o card ficaria visível para quem toma 403 ao tentar resolvê-lo.
+  const writable = (ids: number[]) => ids.filter((id) => !dir.readOnlyUserIds.has(id));
+
   if (row.assignedRole === "colaborador") {
-    const owners = dir.usersByEmployeeId.get(row.employeeId) ?? [];
+    const owners = writable(dir.usersByEmployeeId.get(row.employeeId) ?? []);
     if (owners.length > 0) return { owners, via: "colaborador" };
   }
   if (row.assignedRole === "gestor" && row.unitId !== null) {
-    const owners = dir.managersByUnitId.get(row.unitId) ?? [];
+    const owners = writable(dir.managersByUnitId.get(row.unitId) ?? []);
     if (owners.length > 0) return { owners, via: "gestor" };
   }
   return { owners: dir.adminIds, via: "fallback_admin" };
