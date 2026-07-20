@@ -225,6 +225,24 @@ export const boardNeedsEvaluationScope = or(
   boardHasDraftExists,
 )!;
 
+// ─── Gestão de Treinamentos — contagens programado/realizadoMes (SP6/B T1) ──
+// Programado = pendente ∩ participante de turma ativa (agendada|em_andamento) do mesmo item.
+export const isProgramado = sql`(
+  ${employeeTrainingsTable.status} = 'pendente' and exists (
+    select 1 from training_class_participants tcp
+    join training_classes tc on tc.id = tcp.class_id
+    where tcp.employee_id = ${employeeTrainingsTable.employeeId}
+      and tc.catalog_item_id = ${employeeTrainingsTable.catalogItemId}
+      and tc.status in ('agendada', 'em_andamento')
+  )
+)`;
+// Realizado no mês = concluído com completion_date dentro do mês corrente.
+export const isRealizadoMes = sql`(
+  ${employeeTrainingsTable.status} = 'concluido'
+  and ${employeeTrainingsTable.completionDate} >= date_trunc('month', current_date)
+  and ${employeeTrainingsTable.completionDate} < date_trunc('month', current_date) + interval '1 month'
+)`;
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const router: IRouter = Router();
@@ -1758,6 +1776,21 @@ router.get(
       boardColumn: z
         .enum(["pendentes", "em_avaliacao", "concluidas"])
         .optional(),
+      /** Filtra a lista para "programados": pendente ∩ participante de turma ativa. */
+      onlyProgramado: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((v) => v === "true"),
+      /** Filtra a lista para concluídos com completion_date no mês corrente. */
+      realizadoInCurrentMonth: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((v) => v === "true"),
+      /** Filtra a lista para "pendentes sem turma": pendente ∧ NÃO programado. */
+      onlyPendenteSemTurma: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((v) => v === "true"),
     }).safeParse(req.query);
     if (!query.success) {
       res.status(400).json({ error: query.error.message });
@@ -1842,6 +1875,19 @@ router.get(
       } else {
         conditions.push(eq(employeeTrainingsTable.status, st));
       }
+    }
+    if (query.data.onlyProgramado) {
+      conditions.push(isProgramado);
+    }
+    if (query.data.realizadoInCurrentMonth) {
+      conditions.push(isRealizadoMes);
+    }
+    if (query.data.onlyPendenteSemTurma) {
+      // Reusa o fragmento isProgramado (que já embute status = 'pendente')
+      // em vez de duplicar a lógica do EXISTS.
+      conditions.push(
+        sql`(${employeeTrainingsTable.status} = 'pendente' and not (${isProgramado}))`,
+      );
     }
     if (query.data.year) {
       conditions.push(
@@ -2061,6 +2107,14 @@ router.get(
           and ${latestEvalDate} <= ${employeeTrainingsTable.effectivenessDueDate}
         )::int`,
         withDueDateCount: sql<number>`count(*) filter (where ${boardConcluidas} and ${employeeTrainingsTable.effectivenessDueDate} is not null)::int`,
+        // NB: `programadoCount` foi removido deste agregado — `isProgramado` é um
+        // EXISTS correlacionado e, dentro de um `count(*) filter` (SELECT list),
+        // o planner não consegue achatá-lo em semi-join; vira SubPlan por linha
+        // (medido ~6,5s / 1,15M buffer hits em 50k linhas). O mesmo fragmento no
+        // WHERE (params onlyProgramado/onlyPendenteSemTurma abaixo) é achatado em
+        // Hash Semi Join (~60ms / ~800 buffers) — use esse caminho para contar
+        // programados, nunca reintroduza aqui.
+        realizadoMesCount: sql<number>`count(*) filter (where ${isRealizadoMes})::int`,
       })
       .from(employeeTrainingsTable)
       .innerJoin(
@@ -2090,6 +2144,7 @@ router.get(
       vencido: statsRow?.vencidoCount ?? 0,
       effectivenessPending: statsRow?.effectivenessPendingCount ?? 0,
       onTimePercent,
+      realizadoMes: statsRow?.realizadoMesCount ?? 0,
       // Novos campos de board (T2)
       boardCounts: {
         pendentes: statsRow?.boardPendentesCount ?? 0,
@@ -2141,6 +2196,14 @@ router.get(
         workloadHours: row.workloadHours,
         completionDate: row.completionDate,
         expirationDate: row.expirationDate,
+        // Estes 3 já vinham no SELECT e são declarados no schema de
+        // OrganizationTraining, mas o mapper não os emitia — a lista saía sempre
+        // com null. Sem eles a Gestão de Treinamentos não consegue resolver
+        // Norma (catalogItemId → catálogo) nem Crítico (requirementId →
+        // obrigatoriedade), e o vencimento perde o fallback de prazo.
+        catalogItemId: row.catalogItemId,
+        requirementId: row.requirementId,
+        dueDate: row.dueDate,
         status: derivedStatus,
         effectivenessStatus,
         effectivenessDueDate: row.effectivenessDueDate || null,

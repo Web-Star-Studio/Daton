@@ -1152,6 +1152,19 @@ paths:
           schema:
             type: string
             enum: [pendentes, em_avaliacao, concluidas]
+        - name: onlyProgramado
+          in: query
+          required: false
+          schema: { type: boolean }
+        - name: realizadoInCurrentMonth
+          in: query
+          required: false
+          schema: { type: boolean }
+        - name: onlyPendenteSemTurma
+          in: query
+          required: false
+          description: "Filtra a lista para pendentes sem turma ativa vinculada (pendente ∧ não programado)."
+          schema: { type: boolean }
         - name: page
           in: query
           schema:
@@ -11200,8 +11213,15 @@ components:
           type: integer
           description: >-
             Participantes aprovados (result = "aprovado"). Exibido como
-            "Realizados" na ficha do catálogo. Presente só na listagem; a rota
-            de detalhe devolve os participantes com o resultado de cada um.
+            "Realizados" na ficha do catálogo e na Gestão de Treinamentos.
+            Presente só na listagem; a rota de detalhe devolve os participantes
+            com o resultado de cada um.
+        confirmedCount:
+          type: integer
+          description: >-
+            Participantes com presença confirmada (attendance = "presente") —
+            passo intermediário do funil Inscritos → Confirmados → Realizados.
+            Presente só na listagem.
         createdAt:
           type: string
           format: date-time
@@ -13596,6 +13616,8 @@ components:
             eficazPercent:
               type: number
               nullable: true
+            realizadoMes:
+              type: integer
           required:
             - total
             - pendente

@@ -1777,6 +1777,14 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
     .enum(["gestor", "rh", "instrutor", "colaborador"])
     .optional(),
   boardColumn: zod.enum(["pendentes", "em_avaliacao", "concluidas"]).optional(),
+  onlyProgramado: zod.coerce.boolean().optional(),
+  realizadoInCurrentMonth: zod.coerce.boolean().optional(),
+  onlyPendenteSemTurma: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "Filtra a lista para pendentes sem turma ativa vinculada (pendente ∧ não programado).",
+    ),
   page: zod.coerce.number().min(1).optional(),
   pageSize: zod.coerce
     .number()
@@ -2001,6 +2009,7 @@ export const ListOrganizationTrainingsResponse = zod.object({
     eficazes: zod.number().optional(),
     naoEficazes: zod.number().optional(),
     eficazPercent: zod.number().nullish(),
+    realizadoMes: zod.number().optional(),
   }),
 });
 
@@ -21702,7 +21711,13 @@ export const ListTrainingClassesResponse = zod.object({
           .number()
           .optional()
           .describe(
-            'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+            'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+          ),
+        confirmedCount: zod
+          .number()
+          .optional()
+          .describe(
+            'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
           ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -21811,7 +21826,13 @@ export const GetTrainingClassResponse = zod
       .number()
       .optional()
       .describe(
-        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
+    confirmedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
       ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
@@ -21929,7 +21950,13 @@ export const UpdateTrainingClassResponse = zod
       .number()
       .optional()
       .describe(
-        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
+    confirmedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
       ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
@@ -22001,7 +22028,13 @@ export const AddTrainingClassParticipantsResponse = zod
       .number()
       .optional()
       .describe(
-        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+        'Participantes aprovados (result = \"aprovado\"). Exibido como \"Realizados\" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um.',
+      ),
+    confirmedCount: zod
+      .number()
+      .optional()
+      .describe(
+        'Participantes com presença confirmada (attendance = \"presente\") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem.',
       ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),

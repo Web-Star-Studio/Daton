@@ -287,8 +287,10 @@ export interface TrainingClass {
   notes?: string | null;
   attachments: EmployeeRecordAttachment[];
   participantCount?: number;
-  /** Participantes aprovados (result = "aprovado"). Exibido como "Realizados" na ficha do catálogo. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um. */
+  /** Participantes aprovados (result = "aprovado"). Exibido como "Realizados" na ficha do catálogo e na Gestão de Treinamentos. Presente só na listagem; a rota de detalhe devolve os participantes com o resultado de cada um. */
   approvedCount?: number;
+  /** Participantes com presença confirmada (attendance = "presente") — passo intermediário do funil Inscritos → Confirmados → Realizados. Presente só na listagem. */
+  confirmedCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1775,6 +1777,7 @@ export type PaginatedOrganizationTrainingsStats = {
   eficazes?: number;
   naoEficazes?: number;
   eficazPercent?: number | null;
+  realizadoMes?: number;
 };
 
 export interface PaginatedOrganizationTrainings {
@@ -6887,6 +6890,12 @@ export type ListOrganizationTrainingsParams = {
   normId?: number;
   evaluatorRole?: ListOrganizationTrainingsEvaluatorRole;
   boardColumn?: ListOrganizationTrainingsBoardColumn;
+  onlyProgramado?: boolean;
+  realizadoInCurrentMonth?: boolean;
+  /**
+   * Filtra a lista para pendentes sem turma ativa vinculada (pendente ∧ não programado).
+   */
+  onlyPendenteSemTurma?: boolean;
   /**
    * @minimum 1
    */
