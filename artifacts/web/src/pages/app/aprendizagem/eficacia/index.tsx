@@ -2,8 +2,6 @@ import React, { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListOrganizationTrainings,
-  useCreateTrainingEffectivenessReview,
-  useAssignTrainingEffectiveness,
   useListUnits,
   getListOrganizationTrainingsQueryKey,
   getListUnitsQueryKey,
@@ -15,18 +13,19 @@ import type {
 } from "@workspace/api-client-react";
 import { usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
 import { formatKpiNumber } from "@/lib/kpi-client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
+import {
+  AvaliacaoEficaciaWizard,
+  ROLE_OPTIONS,
+} from "./_components/avaliacao-wizard";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -43,26 +42,15 @@ function daysUntil(dateStr: string): number {
   return Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-/** Return local date string YYYY-MM-DD without UTC shift. */
-function localDateToday(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
-
 /** Format a date-only ISO string (YYYY-MM-DD) as DD/MM/AA without timezone shift. */
 function fmtDateShort(iso: string): string {
   const [y, m, d] = iso.slice(0, 10).split("-");
   return `${d}/${m}/${y?.slice(2)}`;
 }
 
-/**
- * Nota de eficácia (0–10) a partir da média dos 3 critérios Kirkpatrick (1–5).
- * `avg * 2` leva da escala 1–5 para 0–10; duas casas é o que a coluna
- * numeric(4,2) guarda e o que a tela exibe (ex.: média 3,67 → 7,33).
- */
-export function computeEffectivenessScore(avg: number): number {
-  return Math.round(avg * 2 * 100) / 100;
-}
+// Implementação única no wizard; reexportado aqui porque é o ponto de import
+// histórico da página (e do teste unitário da nota).
+export { computeEffectivenessScore } from "./_components/avaliacao-wizard";
 
 function UrgencyBadge({ dueDate }: { dueDate?: string | null }) {
   if (!dueDate) return null;
@@ -109,29 +97,6 @@ function RoleBadge({ role }: { role?: string | null }) {
   );
 }
 
-// ─── Criteria ───────────────────────────────────────────────────────────────
-
-const CRITERIA = [
-  { key: "behavior", label: "Aplica no dia a dia (comportamento · L3)" },
-  {
-    key: "result",
-    label: "Melhorou o desempenho / reduziu incidentes (resultado · L4)",
-  },
-  {
-    key: "transfer",
-    label: "Multiplica o conhecimento para a equipe (transferência)",
-  },
-] as const;
-
-type CriteriaKey = (typeof CRITERIA)[number]["key"];
-
-const ROLE_OPTIONS = [
-  { value: "gestor", label: "Gestor" },
-  { value: "rh", label: "RH" },
-  { value: "instrutor", label: "Instrutor" },
-  { value: "colaborador", label: "Colaborador" },
-] as const;
-
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function EficaciaPage() {
@@ -143,7 +108,6 @@ export default function EficaciaPage() {
   const { canWriteModule } = usePermissions();
   const canWrite = canWriteModule("employees");
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   // ── Filter state ──────────────────────────────────────────────────────────
 
@@ -311,115 +275,28 @@ export default function EficaciaPage() {
       });
   };
 
-  // ── Review modal (Kirkpatrick) ────────────────────────────────────────────
+  // ── Wizard de avaliação (Contexto → Critérios → Resultado) ────────────────
+  // Um único alvo: "Iniciar avaliação" e "Registrar avaliação" abrem o mesmo
+  // wizard, que decide em qual passo entrar. Antes eram dois diálogos soltos e
+  // iniciar a avaliação devolvia o avaliador ao board sem nada preenchido.
 
-  const reviewMutation = useCreateTrainingEffectivenessReview();
-  const [target, setTarget] = useState<OrganizationTraining | null>(null);
-  const [scores, setScores] = useState<Record<CriteriaKey, number>>({
-    behavior: 3,
-    result: 3,
-    transfer: 3,
-  });
-  const [comments, setComments] = useState("");
-
-  const openEval = (t: OrganizationTraining) => {
-    setTarget(t);
-    setScores({ behavior: 3, result: 3, transfer: 3 });
-    setComments("");
-  };
-
-  const avg = (scores.behavior + scores.result + scores.transfer) / 3;
-  const isEffective = avg >= 3;
-
-  const handleSaveReview = async () => {
-    if (!orgId || !target) return;
-    try {
-      await reviewMutation.mutateAsync({
-        orgId,
-        empId: target.employeeId,
-        trainId: target.id,
-        data: {
-          evaluationDate: localDateToday(),
-          // avg é a média de 3 critérios Kirkpatrick (1–5); ×2 leva à escala 0–10.
-          // Duas casas: é o que a coluna numeric(4,2) guarda e o que a tela exibe.
-          score: computeEffectivenessScore(avg),
-          isEffective,
-          resultLevel: Math.round(avg), // 1–5
-          comments: comments || undefined,
-          evaluatorRole:
-            (target.effectivenessAssignedRole as
-              | "gestor"
-              | "rh"
-              | "instrutor"
-              | "colaborador"
-              | undefined) ?? undefined,
-        },
-      });
-      invalidate();
-      setTarget(null);
-      toast({
-        title: "Avaliação registrada",
-        description: isEffective
-          ? "Resultado: Eficaz"
-          : "Resultado: Não eficaz",
-      });
-    } catch {
-      toast({
-        title: "Erro ao salvar avaliação",
-        description: "Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // ── Assign dialog ("Iniciar avaliação") ───────────────────────────────────
-
-  const assignMutation = useAssignTrainingEffectiveness();
-  const [assignTarget, setAssignTarget] = useState<OrganizationTraining | null>(
+  const [wizardTarget, setWizardTarget] = useState<OrganizationTraining | null>(
     null,
   );
-  const [assignRole, setAssignRole] = useState<string>("gestor");
-  const [assignDueDate, setAssignDueDate] = useState<string>("");
 
-  const openAssign = (t: OrganizationTraining) => {
-    setAssignTarget(t);
-    setAssignRole("gestor");
-    // default: 30 days from today
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    setAssignDueDate(d.toISOString().slice(0, 10));
-  };
+  // O wizard reidrata do rascunho que vem no próprio card; após cada gravação a
+  // lista é invalidada, então repescamos a versão fresca do treinamento para o
+  // wizard não continuar com o rascunho antigo em mãos.
+  const wizardTraining = useMemo(() => {
+    if (!wizardTarget) return null;
+    const fresh = [
+      ...(resultPendentes?.data ?? []),
+      ...(resultEmAvaliacao?.data ?? []),
+      ...(resultConcluidas?.data ?? []),
+    ].find((t) => t.id === wizardTarget.id);
+    return fresh ?? wizardTarget;
+  }, [wizardTarget, resultPendentes, resultEmAvaliacao, resultConcluidas]);
 
-  const handleSaveAssign = async () => {
-    if (!orgId || !assignTarget || !assignDueDate) return;
-    try {
-      await assignMutation.mutateAsync({
-        orgId,
-        empId: assignTarget.employeeId,
-        trainId: assignTarget.id,
-        data: {
-          evaluatorRole: assignRole as
-            | "gestor"
-            | "rh"
-            | "instrutor"
-            | "colaborador",
-          dueDate: assignDueDate,
-        },
-      });
-      invalidate();
-      setAssignTarget(null);
-      toast({
-        title: "Avaliação iniciada",
-        description: "Card movido para Em avaliação.",
-      });
-    } catch {
-      toast({
-        title: "Erro ao iniciar avaliação",
-        description: "Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -535,22 +412,14 @@ export default function EficaciaPage() {
                   </Badge>
                 </div>
                 {canWrite ? (
-                  <div className="mt-2 flex flex-col gap-1.5">
+                  <div className="mt-2">
                     <Button
                       size="sm"
                       variant="outline"
                       className="w-full"
-                      onClick={() => openAssign(t)}
+                      onClick={() => setWizardTarget(t)}
                     >
                       Iniciar avaliação
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="w-full text-muted-foreground"
-                      onClick={() => openEval(t)}
-                    >
-                      Registrar avaliação
                     </Button>
                   </div>
                 ) : null}
@@ -591,6 +460,11 @@ export default function EficaciaPage() {
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <RoleBadge role={t.effectivenessAssignedRole} />
                     <UrgencyBadge dueDate={t.effectivenessDueDate} />
+                    {t.effectivenessDraft ? (
+                      <Badge className="bg-blue-50 text-blue-700 border-blue-200">
+                        Preenchimento iniciado
+                      </Badge>
+                    ) : null}
                   </div>
                   {days != null && days >= 0 ? (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -602,9 +476,11 @@ export default function EficaciaPage() {
                       size="sm"
                       variant="outline"
                       className="mt-2 w-full"
-                      onClick={() => openEval(t)}
+                      onClick={() => setWizardTarget(t)}
                     >
-                      Registrar avaliação
+                      {t.effectivenessDraft
+                        ? "Continuar avaliação"
+                        : "Avaliar agora"}
                     </Button>
                   ) : null}
                 </div>
@@ -708,124 +584,17 @@ export default function EficaciaPage() {
         </div>
       )}
 
-      {/* Dialog: Iniciar avaliação (assign) */}
-      <Dialog
-        open={!!assignTarget}
-        onOpenChange={(o) => !o && setAssignTarget(null)}
-        title="Iniciar avaliação"
-        description={
-          assignTarget
-            ? `${assignTarget.employeeName} · ${assignTarget.title}`
-            : ""
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">
-              Papel do avaliador
-            </Label>
-            <Select
-              value={assignRole}
-              onChange={(e) => setAssignRole(e.target.value)}
-              className="mt-1 w-full"
-            >
-              {ROLE_OPTIONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">
-              Prazo para avaliação
-            </Label>
-            <input
-              type="date"
-              value={assignDueDate}
-              onChange={(e) => setAssignDueDate(e.target.value)}
-              className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setAssignTarget(null)}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={() => void handleSaveAssign()}
-            disabled={assignMutation.isPending || !assignDueDate}
-          >
-            Iniciar avaliação
-          </Button>
-        </DialogFooter>
-      </Dialog>
-
-      {/* Dialog: Registrar avaliação (Kirkpatrick) */}
-      <Dialog
-        open={!!target}
-        onOpenChange={(o) => !o && setTarget(null)}
-        title="Avaliação de eficácia"
-        description={target ? `${target.employeeName} · ${target.title}` : ""}
-        size="lg"
-      >
-        <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Avalie os critérios (1–5). Resultado eficaz quando a média ≥ 3.
-          </p>
-          {CRITERIA.map((c) => (
-            <div key={c.key} className="flex items-center gap-2">
-              <span className="flex-1 text-sm">{c.label}</span>
-              <Select
-                value={String(scores[c.key])}
-                onChange={(e) =>
-                  setScores((s) => ({ ...s, [c.key]: Number(e.target.value) }))
-                }
-                className="w-auto"
-              >
-                {[5, 4, 3, 2, 1].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          ))}
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">
-              Observação
-            </Label>
-            <Textarea
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              rows={2}
-              className="mt-1"
-            />
-          </div>
-          <div
-            className={cn(
-              "rounded-lg px-3 py-2 text-sm",
-              isEffective
-                ? "bg-green-50 text-green-800"
-                : "bg-red-50 text-red-800",
-            )}
-          >
-            Média atual: <strong>{avg.toFixed(1)}/5</strong> · Resultado:{" "}
-            <strong>{isEffective ? "Eficaz" : "Não eficaz"}</strong>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setTarget(null)}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={() => void handleSaveReview()}
-            disabled={reviewMutation.isPending}
-          >
-            Salvar avaliação
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      {wizardTraining ? (
+        <AvaliacaoEficaciaWizard
+          // Remonta ao trocar de card: o passo/rascunho é estado interno e não
+          // pode vazar de uma avaliação para outra.
+          key={wizardTraining.id}
+          orgId={orgId ?? 0}
+          training={wizardTraining}
+          onClose={() => setWizardTarget(null)}
+          onSaved={invalidate}
+        />
+      ) : null}
     </div>
   );
 }
