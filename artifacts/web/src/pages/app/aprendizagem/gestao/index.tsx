@@ -24,6 +24,11 @@ import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/select";
 import { trainingDeadline } from "./_lib/format";
 import { buildCatalogMeta } from "./_lib/catalog-meta";
+import {
+  buildColaboradorRows,
+  buildTurmaRows,
+  exportGestaoXlsx,
+} from "./_export";
 import { PorColaboradorTable } from "./_components/PorColaboradorTable";
 import { PorTurmaTable } from "./_components/PorTurmaTable";
 import { MetricCards } from "./_components/MetricCards";
@@ -306,6 +311,29 @@ export default function AprendizagemGestaoPage() {
             </Select>
           </>
         ) : null}
+        <button
+          type="button"
+          onClick={() => {
+            if (tab === "turma") {
+              exportGestaoXlsx(
+                "turma",
+                buildTurmaRows(classes, catalogTitle, unitName),
+              );
+            } else {
+              exportGestaoXlsx(
+                "colaborador",
+                buildColaboradorRows(
+                  tab === "prazo" ? rowsByDeadline : rows,
+                  catalogMeta,
+                  requirementCriticalById,
+                ),
+              );
+            }
+          }}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+        >
+          Exportar
+        </button>
       </div>
 
       {/* ── Metric cards (clicáveis) ─────────────────────────────────────── */}
