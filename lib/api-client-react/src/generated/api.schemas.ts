@@ -1493,6 +1493,7 @@ export const EmployeeTrainingStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
 
 /**
@@ -1558,6 +1559,8 @@ export interface EmployeeTraining {
   completionDate?: string | null;
   expirationDate?: string | null;
   status: EmployeeTrainingStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
   effectivenessReviews: TrainingEffectivenessReview[];
@@ -1582,6 +1585,7 @@ export const OrganizationTrainingStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
 
 export type OrganizationTrainingEffectivenessStatus =
@@ -1644,6 +1648,8 @@ export interface OrganizationTraining {
   completionDate?: string | null;
   expirationDate?: string | null;
   status: OrganizationTrainingStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
@@ -2012,6 +2018,7 @@ export const CreateTrainingBodyStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
 
 export interface CreateTrainingBody {
@@ -2036,6 +2043,8 @@ export interface CreateTrainingBody {
   completionDate?: string;
   expirationDate?: string;
   status?: CreateTrainingBodyStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
 }
@@ -2098,6 +2107,7 @@ export const UpdateTrainingBodyStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
 
 export interface UpdateTrainingBody {
@@ -2120,6 +2130,8 @@ export interface UpdateTrainingBody {
   completionDate?: string;
   expirationDate?: string;
   status?: UpdateTrainingBodyStatus;
+  /** Motivo obrigatório quando status = nao_aplicavel. A API rejeita NA sem motivo e limpa o campo quando o status deixa de ser NA. */
+  notApplicableReason?: string | null;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
 }
@@ -6914,6 +6926,7 @@ export const ListOrganizationTrainingsStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
 
 export type ListOrganizationTrainingsEffectivenessStatus =

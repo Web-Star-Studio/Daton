@@ -13,4 +13,5 @@ export const CreateTrainingBodyStatus = {
   pendente: "pendente",
   concluido: "concluido",
   vencido: "vencido",
+  nao_aplicavel: "nao_aplicavel",
 } as const;
