@@ -2068,6 +2068,14 @@ router.get(
         workloadHours: row.workloadHours,
         completionDate: row.completionDate,
         expirationDate: row.expirationDate,
+        // Estes 3 já vinham no SELECT e são declarados no schema de
+        // OrganizationTraining, mas o mapper não os emitia — a lista saía sempre
+        // com null. Sem eles a Gestão de Treinamentos não consegue resolver
+        // Norma (catalogItemId → catálogo) nem Crítico (requirementId →
+        // obrigatoriedade), e o vencimento perde o fallback de prazo.
+        catalogItemId: row.catalogItemId,
+        requirementId: row.requirementId,
+        dueDate: row.dueDate,
         status: derivedStatus,
         effectivenessStatus,
         effectivenessDueDate: row.effectivenessDueDate || null,
