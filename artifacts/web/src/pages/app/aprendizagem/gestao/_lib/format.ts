@@ -39,18 +39,26 @@ export function trainingDeadline(t: OrganizationTraining): string | null {
 
 // ─── Badges ───────────────────────────────────────────────────────────────
 
-export const STATUS_BADGE: Record<OrganizationTrainingStatus, string> = {
+// `Record<string, …>` e não `Record<OrganizationTrainingStatus, …>`: além dos
+// status do contrato, a base tem registros históricos com `em_andamento`,
+// vindos da carga do sistema antigo. Ele não é selecionável em lugar nenhum e
+// não entra em contagem alguma — só precisa de rótulo para não aparecer cru
+// (ou como badge vazio) na tela.
+export const STATUS_BADGE: Record<string, string> = {
   pendente: "bg-blue-50 text-blue-700 border-blue-200",
   concluido: "bg-green-50 text-green-700 border-green-200",
   vencido: "bg-red-50 text-red-700 border-red-200",
   // Neutro: ausência de obrigação, não é sucesso nem alerta.
   nao_aplicavel: "bg-muted text-muted-foreground border-border",
+  // Legado da carga: não é estado do v2, só histórico.
+  em_andamento: "bg-muted text-muted-foreground border-border",
 };
-export const STATUS_LABEL: Record<OrganizationTrainingStatus, string> = {
+export const STATUS_LABEL: Record<string, string> = {
   pendente: "Pendente",
   concluido: "Concluído",
   vencido: "Vencido",
   nao_aplicavel: "Não aplicável",
+  em_andamento: "Em andamento",
 };
 
 /** Badges de status de TURMA (distintos do status de treinamento acima). */

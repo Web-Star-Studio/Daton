@@ -128,6 +128,9 @@ const TRAINING_STATUS: Record<string, string> = {
   concluido: "Concluído",
   vencido: "Vencido",
   nao_aplicavel: "Não aplicável",
+  // Legado da carga do sistema antigo: não é estado do v2 nem selecionável,
+  // só histórico que precisa de rótulo para não aparecer cru na ficha.
+  em_andamento: "Em andamento",
 };
 
 const TRAINING_STATUS_COLORS: Record<string, string> = {
