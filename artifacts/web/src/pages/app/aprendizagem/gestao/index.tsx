@@ -33,7 +33,7 @@ import {
 } from "./_export";
 import { PorColaboradorTable } from "./_components/PorColaboradorTable";
 import { PorTurmaTable } from "./_components/PorTurmaTable";
-import { MetricCards } from "./_components/MetricCards";
+import { MetricCards, type CardStatusFilter } from "./_components/MetricCards";
 import { StatusPills } from "./_components/StatusPills";
 import { PorPrazoPanel, type PrazoItem } from "./_components/PorPrazoPanel";
 
@@ -49,13 +49,9 @@ function toPrazoItem(t: OrganizationTraining): PrazoItem {
 
 // ─── Filter / tab types ─────────────────────────────────────────────────────
 
-type StatusFilter =
-  | ""
-  | "vencido"
-  | "a_vencer"
-  | "pendente"
-  | "programado"
-  | "realizado";
+// Reusa a união exportada por MetricCards (evita drift entre os dois lugares
+// que representam o mesmo filtro de status).
+type StatusFilter = CardStatusFilter;
 type Tab = "colaborador" | "turma" | "prazo";
 
 const TABS: Array<{ value: Tab; label: string }> = [
@@ -104,15 +100,21 @@ export default function AprendizagemGestaoPage() {
   // ── Shared filter params (sem status) ──────────────────────────────────────
   // Na aba de turmas, Cargo/Norma ficam ocultos e não se aplicam às turmas; os
   // cards de status também os ignoram ali, para as contagens baterem com a
-  // lista exibida (review #139).
+  // lista exibida (review #139). `search` também entra aqui pelo mesmo
+  // princípio: se não fizer parte de `baseParams`, os cards e os buckets do
+  // "Por prazo" continuam mostrando os totais gerais enquanto a lista já foi
+  // filtrada pela busca (review final).
   const onClassTab = tab === "turma";
   const baseParams = {
     unitId: filial ? Number(filial) : undefined,
     position: onClassTab ? undefined : cargo || undefined,
     normId: onClassTab || !normId ? undefined : Number(normId),
+    search: search.trim() || undefined,
   };
 
-  // ── Query de contagem (metric cards): stats vencido/pendente/concluido ──────
+  // ── Query de contagem (metric cards): stats vencido/pendente/programado/
+  // realizadoMes exibidos nos cards e usados no total do bucket "Pendentes
+  // sem turma" (não há mais card "concluído") ──────────────────────────────
   const countParams: ListOrganizationTrainingsParams = {
     ...baseParams,
     pageSize: 1,
@@ -195,56 +197,34 @@ export default function AprendizagemGestaoPage() {
     [aVencerBucketResult],
   );
 
-  // "Pendentes sem turma" = pendente ∧ não programado. Não há flag por linha,
-  // então buscamos os pendentes e excluímos os ids que aparecem entre os
-  // programados (ver task-8-brief.md). Total exibido = stats.pendente -
-  // stats.programado (Task 1), não o tamanho da lista filtrada (que é só a
-  // amostra top-N para exibição compacta).
-  const pendentesBucketParams: ListOrganizationTrainingsParams = {
+  // "Pendentes sem turma" = pendente ∧ não programado, filtrado no backend
+  // (param `onlyPendenteSemTurma`) — uma única query exata, sem buscar
+  // programados no cliente para subtrair por id (o corte em 50 pendentes
+  // podia esvaziar a coluna com badge > 0 quando os primeiros N pendentes
+  // eram todos programados; ver review final). Total exibido continua
+  // stats.pendente - stats.programado.
+  const pendentesSemTurmaBucketParams: ListOrganizationTrainingsParams = {
     ...baseParams,
-    status: "pendente",
-    pageSize: 50,
+    onlyPendenteSemTurma: true,
+    pageSize: 5,
   };
-  const { data: pendentesBucketResult } = useListOrganizationTrainings(
+  const { data: pendentesSemTurmaBucketResult } = useListOrganizationTrainings(
     orgId,
-    pendentesBucketParams,
+    pendentesSemTurmaBucketParams,
     {
       query: {
         enabled: enabled && onPrazoTab,
         queryKey: getListOrganizationTrainingsQueryKey(
           orgId,
-          pendentesBucketParams,
+          pendentesSemTurmaBucketParams,
         ),
       },
     },
   );
-  const programadoBucketParams: ListOrganizationTrainingsParams = {
-    ...baseParams,
-    onlyProgramado: true,
-    pageSize: 500,
-  };
-  const { data: programadoBucketResult } = useListOrganizationTrainings(
-    orgId,
-    programadoBucketParams,
-    {
-      query: {
-        enabled: enabled && onPrazoTab,
-        queryKey: getListOrganizationTrainingsQueryKey(
-          orgId,
-          programadoBucketParams,
-        ),
-      },
-    },
+  const pendentesSemTurmaItems = useMemo(
+    () => (pendentesSemTurmaBucketResult?.data ?? []).map(toPrazoItem),
+    [pendentesSemTurmaBucketResult],
   );
-  const pendentesSemTurmaItems = useMemo(() => {
-    const programadoIds = new Set(
-      (programadoBucketResult?.data ?? []).map((t) => t.id),
-    );
-    return (pendentesBucketResult?.data ?? [])
-      .filter((t) => !programadoIds.has(t.id))
-      .slice(0, 5)
-      .map(toPrazoItem);
-  }, [pendentesBucketResult, programadoBucketResult]);
 
   // ── Query principal (Por colaborador / Por prazo) ───────────────────────────
   const mainParams: ListOrganizationTrainingsParams = {
@@ -256,7 +236,6 @@ export default function AprendizagemGestaoPage() {
     expiringWithinDays: statusFilter === "a_vencer" ? 30 : undefined,
     onlyProgramado: statusFilter === "programado" ? true : undefined,
     realizadoInCurrentMonth: statusFilter === "realizado" ? true : undefined,
-    search: search.trim() || undefined,
     page: 1,
     pageSize,
   };
@@ -370,9 +349,12 @@ export default function AprendizagemGestaoPage() {
 
   const toggleStatus = (s: StatusFilter) => {
     setStatusFilter((prev) => (prev === s ? "" : s));
-    // Os cards são status de treinamento; na aba de turmas o filtro não se
-    // aplica, então leva o usuário à visão por colaborador (review #139).
-    if (tab === "turma") setTab("colaborador");
+    // Os cards são status de treinamento; nem a aba de turmas (o filtro não
+    // se aplica) nem a aba "Por prazo" (painel de buckets fixos, ignora
+    // statusFilter) reagem ao clique — leva o usuário à visão por
+    // colaborador, onde o filtro realmente muda a lista (review #139 e
+    // review final).
+    if (tab === "turma" || tab === "prazo") setTab("colaborador");
   };
 
   return (
@@ -467,6 +449,7 @@ export default function AprendizagemGestaoPage() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Buscar colaborador..."
+        aria-label="Buscar colaborador"
         className="w-full max-w-xs rounded-md border px-3 py-1.5 text-sm sm:w-auto"
       />
 
