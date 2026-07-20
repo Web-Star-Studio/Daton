@@ -350,3 +350,80 @@ describe("Eficácia — rascunho com múltiplos avaliadores", () => {
     expect(item.effectivenessStatus).toBe("effective");
   });
 });
+
+/**
+ * Coerência SQL × JS: a coluna do board e o `effectivenessStatus` serializado
+ * têm de contar a mesma história. O caso limite é um rascunho SEM atribuição
+ * prévia — a rota aceita `status: "draft"` direto, sem passar pelo endpoint de
+ * atribuição, então não basta confiar que a UI sempre grava papel+prazo antes.
+ */
+describe("Eficácia — rascunho sem atribuição não desalinha board e status", () => {
+  it("outro avaliador vê in_review (não pending) e segue em em_avaliacao, sem ver o rascunho", async () => {
+    const ctx = await createTestContext({ seed: "eff-draft-align" });
+    contexts.push(ctx);
+    const unit = await createUnit(ctx, "Filial align");
+    const employee = await createEmployee(ctx, {
+      name: "Rita Align",
+      unitId: unit.id,
+    });
+    // Sem effectivenessAssignedRole e sem effectivenessDueDate de propósito:
+    // o único sinal de "em avaliação" será o rascunho.
+    const [training] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: "Treino align",
+        status: "concluido",
+        completionDate: "2025-03-01",
+        evaluationMethod: "prova",
+      })
+      .returning();
+
+    await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${employee.id}/trainings/${training!.id}/effectiveness-reviews`,
+      )
+      .set(authHeader(ctx))
+      .send({
+        evaluationDate: "2025-04-01",
+        score: 8,
+        isEffective: true,
+        resultLevel: 4,
+        comments: "Rascunho sem atribuição",
+        criteria: { behavior: 4, result: 4, transfer: 4 },
+        status: "draft",
+      });
+
+    const other = await createTestUser(ctx, {
+      role: "org_admin",
+      suffix: "aval-align",
+    });
+    const otherAuth = { Authorization: `Bearer ${other.token}` };
+
+    // A linha volta na coluna em_avaliacao…
+    const col = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?boardColumn=em_avaliacao&scope=needs_evaluation`,
+      )
+      .set(otherAuth);
+    const inColumn = col.body.data.find(
+      (t: { id: number }) => t.id === training!.id,
+    );
+    expect(inColumn).toBeDefined();
+
+    // …e o status serializado tem de concordar com a coluna.
+    expect(inColumn.effectivenessStatus).toBe("in_review");
+    // Mas o conteúdo do rascunho alheio continua invisível.
+    expect(inColumn.effectivenessDraft).toBeNull();
+
+    // O filtro por status também não pode divergir.
+    const byStatus = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?effectivenessStatus=in_review&scope=needs_evaluation`,
+      )
+      .set(otherAuth);
+    expect(
+      byStatus.body.data.some((t: { id: number }) => t.id === training!.id),
+    ).toBe(true);
+  });
+});
