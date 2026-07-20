@@ -1,4 +1,5 @@
 import request from "supertest";
+import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { db, employeeTrainingsTable, trainingCatalogTable, trainingEffectivenessReviewsTable, annualTrainingProgramTable, kpiIndicatorsTable, kpiYearConfigsTable } from "@workspace/db";
 import app from "../../src/app";
@@ -382,5 +383,86 @@ describe("GET learning/summary — recorte por exercício e carry-forward da met
       };
     expect(rowIn(y2024).effectiveness).toBe(100); // review de 2024, eficaz
     expect(rowIn(y2026).effectiveness).toBeNull(); // nenhuma review em 2026
+  });
+});
+
+describe("GET learning/summary — rascunho de eficácia não conta como avaliação", () => {
+  it("mantém o treinamento em pendências e fora da eficácia enquanto a avaliação é rascunho", async () => {
+    const ctx = await createTestContext({ seed: "lrn-draft" });
+    contexts.push(ctx);
+
+    const unit = await createUnit(ctx, "Filial Rascunho");
+    const employee = await createEmployee(ctx, {
+      name: "Carla Rascunho",
+      unitId: unit.id,
+    });
+
+    const [catalog] = await db
+      .insert(trainingCatalogTable)
+      .values({
+        organizationId: ctx.organizationId,
+        title: "NR-10",
+        norm: "NORMA-RASCUNHO",
+      })
+      .returning({ id: trainingCatalogTable.id });
+
+    const [training] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: "Treinamento em avaliação",
+        status: "concluido",
+        completionDate: "2026-02-10",
+        catalogItemId: catalog.id,
+      })
+      .returning({ id: employeeTrainingsTable.id });
+
+    const get = async () =>
+      (
+        await request(app)
+          .get(
+            `/api/organizations/${ctx.organizationId}/learning/summary?year=2026`,
+          )
+          .set(authHeader(ctx))
+      ).body;
+
+    const isPending = (body: { pendingEffectiveness: { title: string }[] }) =>
+      body.pendingEffectiveness.some(
+        (p) => p.title === "Treinamento em avaliação",
+      );
+    const normRow = (body: { byNorm: { norm: string }[] }) =>
+      body.byNorm.find((n) => n.norm === "NORMA-RASCUNHO");
+
+    // Sem avaliação nenhuma: é pendência e não há norma no gráfico.
+    const semReview = await get();
+    expect(isPending(semReview)).toBe(true);
+    expect(normRow(semReview)).toBeUndefined();
+
+    // Rascunho aberto: NÃO pode tirar da pendência nem entrar no gráfico.
+    const [draft] = await db
+      .insert(trainingEffectivenessReviewsTable)
+      .values({
+        trainingId: training.id,
+        evaluatorUserId: ctx.userId,
+        evaluationDate: "2026-02-20",
+        isEffective: true,
+        status: "draft",
+      })
+      .returning({ id: trainingEffectivenessReviewsTable.id });
+
+    const comRascunho = await get();
+    expect(isPending(comRascunho)).toBe(true);
+    expect(normRow(comRascunho)).toBeUndefined();
+
+    // Finalizada: sai da pendência e passa a contar na eficácia.
+    await db
+      .update(trainingEffectivenessReviewsTable)
+      .set({ status: "final" })
+      .where(eq(trainingEffectivenessReviewsTable.id, draft.id));
+
+    const finalizada = await get();
+    expect(isPending(finalizada)).toBe(false);
+    expect(normRow(finalizada)).toBeDefined();
+    expect(normRow(finalizada)?.effectiveness).toBe(100);
   });
 });
