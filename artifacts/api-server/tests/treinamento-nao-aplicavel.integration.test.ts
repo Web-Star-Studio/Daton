@@ -259,6 +259,44 @@ describe("Treinamento status nao_aplicavel — motivo obrigatório", () => {
     expect(semTurma.body.data.length).toBe(0);
   });
 
+  // Regressão: `stats.total` era `count(*)` cru, sem excluir nao_aplicavel —
+  // única contagem do statsRow que não passava por `notNaoAplicavel`. Isso
+  // inflava o "Total" exibido em Minha área e em Colaboradores > Treinamentos
+  // e quebrava a invariante total === pendente+concluido+vencido, que é
+  // exatamente a incoerência que a regra central (NA fora de toda contagem
+  // de obrigação) existe para evitar.
+  it("stats.total exclui nao_aplicavel e bate com pendente+concluido+vencido", async () => {
+    const ctx = await createTestContext({ seed: "na-fora-do-total" });
+    contexts.push(ctx);
+    const emp = await createEmployee(ctx, { name: `${ctx.prefix} Total` });
+
+    await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({ title: `${ctx.prefix} NR-01 concluido`, status: "concluido" });
+    await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({ title: `${ctx.prefix} NR-06 pendente`, status: "pendente" });
+    await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({
+        title: `${ctx.prefix} NR-33 na`,
+        status: "nao_aplicavel",
+        notApplicableReason: "Não executa espaço confinado",
+      });
+
+    const res = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings?pageSize=50`)
+      .set(authHeader(ctx));
+    expect(res.status).toBe(200);
+    expect(res.body.stats.total).toBe(2);
+    expect(res.body.stats.total).toBe(
+      res.body.stats.pendente + res.body.stats.concluido + res.body.stats.vencido,
+    );
+  });
+
   // Regressão adicional (achada ao confirmar o código, fora da lista original
   // do brief): `expiringWithinDays` — usado tanto no filtro quanto no bucket
   // "a vencer" do painel "Por prazo" — não checava o status e contaria um NA

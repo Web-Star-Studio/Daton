@@ -2128,16 +2128,20 @@ router.get(
 
     const [statsRow] = await db
       .select({
-        total: sql<number>`count(*)::int`,
+        // NA é invisível para toda contagem de obrigação — total precisa
+        // excluir nao_aplicavel também, senão diverge da soma
+        // pendente+concluido+vencido (ver notNaoAplicavel abaixo).
+        total: sql<number>`count(*) filter (where ${notNaoAplicavel})::int`,
         // Board column counts
         boardPendentesCount: sql<number>`count(*) filter (where ${boardPendentes})::int`,
         boardEmAvaliacaoCount: sql<number>`count(*) filter (where ${boardEmAvaliacao})::int`,
         boardConcluidasCount: sql<number>`count(*) filter (where ${boardConcluidas})::int`,
         // Legacy training-status stats (replicating deriveTrainingStatus logic).
-        // Todas as três somam `notNaoAplicavel`: NA é invisível para toda
-        // contagem de obrigação (não é pendência, não vence, não é
-        // realizado). Em pendenteCount/concluidoCount a igualdade exata de
-        // status já exclui NA — mantido por consistência/documentação.
+        // Junto com `total` acima, todas as quatro somam `notNaoAplicavel`:
+        // NA é invisível para toda contagem de obrigação (não é pendência,
+        // não vence, não é realizado, não entra no total). Em
+        // pendenteCount/concluidoCount a igualdade exata de status já exclui
+        // NA — mantido por consistência/documentação.
         pendenteCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'pendente' and ${notNaoAplicavel})::int`,
         concluidoCount: sql<number>`count(*) filter (where ${employeeTrainingsTable.status} = 'concluido' and (${employeeTrainingsTable.expirationDate} is null or ${employeeTrainingsTable.expirationDate} >= current_date) and ${notNaoAplicavel})::int`,
         vencidoCount: sql<number>`count(*) filter (where (${employeeTrainingsTable.status} = 'vencido' or (${employeeTrainingsTable.expirationDate} is not null and ${employeeTrainingsTable.expirationDate} < current_date)) and ${notNaoAplicavel})::int`,
