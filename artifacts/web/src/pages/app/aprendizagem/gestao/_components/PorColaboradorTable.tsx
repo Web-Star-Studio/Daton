@@ -105,13 +105,17 @@ export function PorColaboradorTable({
                 <td className="px-4 py-2">{t.title}</td>
                 <td className="px-4 py-2 text-muted-foreground">{normLabel}</td>
                 <td className="px-4 py-2">
+                  {/* Fallback: sem ele, um status fora do contrato (ex.: o
+                      `em_andamento` histórico da carga) renderizava um badge
+                      VAZIO — pior que mostrar o valor cru. */}
                   <Badge
                     className={cn(
                       "border",
-                      STATUS_BADGE[t.status as OrganizationTrainingStatus],
+                      STATUS_BADGE[t.status] ??
+                        "bg-muted text-muted-foreground border-border",
                     )}
                   >
-                    {STATUS_LABEL[t.status as OrganizationTrainingStatus]}
+                    {STATUS_LABEL[t.status] ?? t.status}
                   </Badge>
                 </td>
                 <td className="px-4 py-2 text-muted-foreground">

@@ -19,12 +19,15 @@ const TRAINING_STATUS_BADGE: Record<string, string> = {
   vencido: "bg-red-50 text-red-700",
   // Neutro: ausência de obrigação, não é sucesso nem alerta.
   nao_aplicavel: "bg-muted text-muted-foreground",
+  em_andamento: "bg-muted text-muted-foreground",
 };
 
 // A API devolve o status cru (ex.: "concluido"); só nao_aplicavel precisa de
 // rótulo traduzido aqui — os demais já são palavras legíveis em pt-BR.
 const TRAINING_STATUS_LABEL: Record<string, string> = {
   nao_aplicavel: "Não aplicável",
+  // Legado da carga: histórico, não é estado do v2.
+  em_andamento: "Em andamento",
 };
 
 export default function MinhaAreaPage() {

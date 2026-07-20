@@ -110,6 +110,8 @@ const TRAINING_STATUS_LABELS: Record<string, string> = {
   concluido: "Concluido",
   vencido: "Vencido",
   nao_aplicavel: "Não aplicável",
+  // Legado da carga: histórico, não é estado do v2.
+  em_andamento: "Em andamento",
 };
 
 const TRAINING_STATUS_BADGE_VARIANT: Record<
