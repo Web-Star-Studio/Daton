@@ -1,4 +1,4 @@
-import { and, count, eq, gte, isNotNull, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, isNotNull, lte, ne, sql } from "drizzle-orm";
 import {
   annualTrainingProgramTable,
   db,
@@ -258,6 +258,9 @@ export async function computeLmsMetric(args: {
         and(
           eq(employeesTable.organizationId, orgId),
           isNotNull(employeeTrainingsTable.requirementId),
+          // "Não aplicável" é invisível para toda contagem de obrigação: não
+          // entra em numerador nem em denominador de cobertura.
+          ne(employeeTrainingsTable.status, "nao_aplicavel"),
           employeeUnitFilter,
         ),
       );

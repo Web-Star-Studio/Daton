@@ -155,6 +155,15 @@ export const boardHasDraftExists = exists(
     ),
 );
 
+// "Não aplicável" é invisível para toda contagem de obrigação: não é
+// pendência, não vence, não é realizado, não entra em numerador nem
+// denominador. Vale para os fragmentos deste arquivo (board de eficácia e
+// stats da Gestão de Treinamentos) — outros módulos (lms-metrics.ts,
+// training-catalog.ts, learning-summary.ts) reimplementam a mesma regra
+// como `status not in ('concluido', 'nao_aplicavel')` literal; ao tocar
+// naqueles, use a MESMA grafia.
+export const notNaoAplicavel = sql`${employeeTrainingsTable.status} <> 'nao_aplicavel'`;
+
 /**
  * Coluna "Concluídas": treinamentos com review registrado.
  * SQL: hasReview
@@ -182,12 +191,20 @@ export const boardEmAvaliacao = and(
  * SQL: NOT hasReview
  *      AND effectiveness_assigned_role IS NULL
  *      AND effectiveness_due_date IS NULL
+ *      AND status <> 'nao_aplicavel'
+ *
+ * NA nunca é "realizado", então eficácia não se aplica: sem o filtro, um
+ * treino marcado Não aplicável (mas com evaluationMethod/targetCompetencyName
+ * herdados do catálogo) serializava effectivenessStatus "pending" e inflava
+ * stats.effectivenessPending. Ver getEffectivenessStatus, que precisa da
+ * mesma exclusão do lado JS.
  */
 export const boardPendentes = and(
   not(boardHasReviewExists),
   not(boardHasDraftExists),
   isNull(employeeTrainingsTable.effectivenessAssignedRole),
   isNull(employeeTrainingsTable.effectivenessDueDate),
+  notNaoAplicavel,
 )!;
 
 /**
@@ -242,10 +259,6 @@ export const isRealizadoMes = sql`(
   and ${employeeTrainingsTable.completionDate} >= date_trunc('month', current_date)
   and ${employeeTrainingsTable.completionDate} < date_trunc('month', current_date) + interval '1 month'
 )`;
-// "Não aplicável" é invisível para toda contagem de obrigação: não é
-// pendência, não vence, não é realizado, não entra em numerador nem
-// denominador. Todo cálculo de obrigação deve compor este fragmento.
-export const notNaoAplicavel = sql`${employeeTrainingsTable.status} <> 'nao_aplicavel'`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -394,7 +407,14 @@ function getEffectivenessStatus(
   // "pending": critério de eficácia presente. O `||` trata string vazia como
   // ausente (falsy) — a contraparte SQL é `boardHasPendingCriteria` (não-nulo E
   // não-vazio), mantida idêntica a esta regra. Ver #115.
-  if (training.evaluationMethod || training.targetCompetencyName) {
+  // NA nunca é "realizado" — eficácia não se aplica — mesma exclusão do lado
+  // SQL em `boardPendentes` (notNaoAplicavel). Sem isto, um treino marcado
+  // Não aplicável mas com evaluationMethod/targetCompetencyName herdados do
+  // catálogo serializava "pending" e entrava em stats.effectivenessPending.
+  if (
+    training.status !== "nao_aplicavel" &&
+    (training.evaluationMethod || training.targetCompetencyName)
+  ) {
     return "pending";
   }
 
