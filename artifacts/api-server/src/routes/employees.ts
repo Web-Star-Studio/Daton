@@ -1666,6 +1666,11 @@ router.get(
         .enum(["true", "false"])
         .optional()
         .transform((v) => v === "true"),
+      /** Filtra a lista para "pendentes sem turma": pendente ∧ NÃO programado. */
+      onlyPendenteSemTurma: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((v) => v === "true"),
     }).safeParse(req.query);
     if (!query.success) {
       res.status(400).json({ error: query.error.message });
@@ -1756,6 +1761,13 @@ router.get(
     }
     if (query.data.realizadoInCurrentMonth) {
       conditions.push(isRealizadoMes);
+    }
+    if (query.data.onlyPendenteSemTurma) {
+      // Reusa o fragmento isProgramado (que já embute status = 'pendente')
+      // em vez de duplicar a lógica do EXISTS.
+      conditions.push(
+        sql`(${employeeTrainingsTable.status} = 'pendente' and not (${isProgramado}))`,
+      );
     }
     if (query.data.year) {
       conditions.push(

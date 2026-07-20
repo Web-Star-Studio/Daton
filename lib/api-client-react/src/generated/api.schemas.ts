@@ -6807,6 +6807,10 @@ export type ListOrganizationTrainingsParams = {
   onlyProgramado?: boolean;
   realizadoInCurrentMonth?: boolean;
   /**
+   * Filtra a lista para pendentes sem turma ativa vinculada (pendente ∧ não programado).
+   */
+  onlyPendenteSemTurma?: boolean;
+  /**
    * @minimum 1
    */
   page?: number;

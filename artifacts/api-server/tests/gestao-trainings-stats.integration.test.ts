@@ -114,6 +114,34 @@ describe("GET employees/trainings — stats programado/realizadoMes", () => {
     expect(res.body.data[0].status).toBe("concluido");
   });
 
+  it("onlyPendenteSemTurma retorna só o pendente sem turma ativa (exclui o programado)", async () => {
+    const ctx = await createTestContext({
+      seed: "trainings-pendente-sem-turma",
+    });
+    contexts.push(ctx);
+    await seedProgramadoERealizado(ctx);
+
+    // Pendente adicional, sem nenhuma turma vinculada — deve aparecer no filtro.
+    const emp2 = await createEmployee(ctx, {
+      name: `${ctx.prefix} Beltrano`,
+    });
+    await db.insert(employeeTrainingsTable).values({
+      employeeId: emp2.id,
+      title: `${ctx.prefix} NR-10`,
+      status: "pendente",
+    });
+
+    const res = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?onlyPendenteSemTurma=true&pageSize=50`,
+      )
+      .set(authHeader(ctx));
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBe(1);
+    expect(res.body.data[0].title).toBe(`${ctx.prefix} NR-10`);
+    expect(res.body.data[0].status).toBe("pendente");
+  });
+
   it("onlyProgramado=false não filtra a lista (string 'false' não deve virar truthy)", async () => {
     const ctx = await createTestContext({
       seed: "trainings-only-programado-false",

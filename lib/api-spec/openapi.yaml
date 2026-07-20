@@ -1160,6 +1160,11 @@ paths:
           in: query
           required: false
           schema: { type: boolean }
+        - name: onlyPendenteSemTurma
+          in: query
+          required: false
+          description: "Filtra a lista para pendentes sem turma ativa vinculada (pendente ∧ não programado)."
+          schema: { type: boolean }
         - name: page
           in: query
           schema:

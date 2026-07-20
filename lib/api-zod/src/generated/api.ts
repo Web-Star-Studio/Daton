@@ -1779,6 +1779,12 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
   boardColumn: zod.enum(["pendentes", "em_avaliacao", "concluidas"]).optional(),
   onlyProgramado: zod.coerce.boolean().optional(),
   realizadoInCurrentMonth: zod.coerce.boolean().optional(),
+  onlyPendenteSemTurma: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "Filtra a lista para pendentes sem turma ativa vinculada (pendente ∧ não programado).",
+    ),
   page: zod.coerce.number().min(1).optional(),
   pageSize: zod.coerce
     .number()
