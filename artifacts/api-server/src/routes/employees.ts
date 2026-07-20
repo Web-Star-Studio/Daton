@@ -309,6 +309,8 @@ function deriveTrainingStatus(
   status: string,
   expirationDate: string | null,
 ): string {
+  // "Não aplicável" não vence: é um registro fora de qualquer obrigação.
+  if (status === "nao_aplicavel") return status;
   if (expirationDate) {
     const expDate = new Date(expirationDate);
     if (expDate < new Date()) {

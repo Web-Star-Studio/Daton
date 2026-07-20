@@ -134,4 +134,80 @@ describe("Treinamento status nao_aplicavel — motivo obrigatório", () => {
       "Colaborador não entra em espaço confinado",
     );
   });
+
+  // Regressão: deriveTrainingStatus sobrescrevia o status para "vencido"
+  // sempre que expirationDate já tinha passado, SEM checar se o status
+  // vigente era nao_aplicavel. Um treino NA com validade antiga voltava como
+  // "vencido" em toda resposta (inclusive a do próprio PATCH que acabou de
+  // marcá-lo como NA) — corrompendo qualquer contagem de obrigação a jusante.
+  it("nao_aplicavel com expirationDate no passado não vira vencido (POST, PATCH e listagem)", async () => {
+    const ctx = await createTestContext({ seed: "na-nao-vence" });
+    contexts.push(ctx);
+    const emp = await createEmployee(ctx, { name: `${ctx.prefix} Vencido` });
+
+    const criado = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({
+        title: `${ctx.prefix} NR-06`,
+        status: "nao_aplicavel",
+        notApplicableReason: "EPI não se aplica à função",
+        expirationDate: "2020-01-01",
+      });
+    expect(criado.status).toBe(201);
+    expect(criado.body.status).toBe("nao_aplicavel");
+
+    const patch = await request(app)
+      .patch(
+        `/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings/${criado.body.id}`,
+      )
+      .set(authHeader(ctx))
+      .send({
+        status: "nao_aplicavel",
+        notApplicableReason: "EPI não se aplica à função",
+        expirationDate: "2020-01-01",
+      });
+    expect(patch.status).toBe(200);
+    expect(patch.body.status).toBe("nao_aplicavel");
+
+    const listagem = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings?pageSize=50`)
+      .set(authHeader(ctx));
+    expect(listagem.status).toBe(200);
+    const listagemRow = listagem.body.data.find(
+      (t: { id: number }) => t.id === criado.body.id,
+    );
+    expect(listagemRow?.status).toBe("nao_aplicavel");
+  });
+
+  // Regressão: o mapper de /effectiveness-assignment foi corrigido para
+  // emitir notApplicableReason, mas nenhum teste cobria isso — este módulo já
+  // perdeu campo em mapper manual duas vezes (ver testes acima).
+  it("effectiveness-assignment devolve notApplicableReason na resposta", async () => {
+    const ctx = await createTestContext({ seed: "na-effectiveness-assignment" });
+    contexts.push(ctx);
+    const emp = await createEmployee(ctx, { name: `${ctx.prefix} Eficacia` });
+
+    const criado = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings`)
+      .set(authHeader(ctx))
+      .send({
+        title: `${ctx.prefix} NR-20`,
+        status: "nao_aplicavel",
+        notApplicableReason: "Função não manuseia inflamáveis",
+      });
+    expect(criado.status).toBe(201);
+
+    const assignment = await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${emp.id}/trainings/${criado.body.id}/effectiveness-assignment`,
+      )
+      .set(authHeader(ctx))
+      .send({ evaluatorRole: "gestor", dueDate: "2026-08-01" });
+    expect(assignment.status).toBe(200);
+    expect(assignment.body.status).toBe("nao_aplicavel");
+    expect(assignment.body.notApplicableReason).toBe(
+      "Função não manuseia inflamáveis",
+    );
+  });
 });
