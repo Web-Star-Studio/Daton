@@ -1777,6 +1777,8 @@ export const ListOrganizationTrainingsQueryParams = zod.object({
     .enum(["gestor", "rh", "instrutor", "colaborador"])
     .optional(),
   boardColumn: zod.enum(["pendentes", "em_avaliacao", "concluidas"]).optional(),
+  onlyProgramado: zod.coerce.boolean().optional(),
+  realizadoInCurrentMonth: zod.coerce.boolean().optional(),
   page: zod.coerce.number().min(1).optional(),
   pageSize: zod.coerce
     .number()
@@ -1927,6 +1929,8 @@ export const ListOrganizationTrainingsResponse = zod.object({
     eficazes: zod.number().optional(),
     naoEficazes: zod.number().optional(),
     eficazPercent: zod.number().nullish(),
+    programado: zod.number().optional(),
+    realizadoMes: zod.number().optional(),
   }),
 });
 

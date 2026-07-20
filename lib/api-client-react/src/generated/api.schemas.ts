@@ -1737,6 +1737,8 @@ export type PaginatedOrganizationTrainingsStats = {
   eficazes?: number;
   naoEficazes?: number;
   eficazPercent?: number | null;
+  programado?: number;
+  realizadoMes?: number;
 };
 
 export interface PaginatedOrganizationTrainings {
@@ -6800,6 +6802,8 @@ export type ListOrganizationTrainingsParams = {
   normId?: number;
   evaluatorRole?: ListOrganizationTrainingsEvaluatorRole;
   boardColumn?: ListOrganizationTrainingsBoardColumn;
+  onlyProgramado?: boolean;
+  realizadoInCurrentMonth?: boolean;
   /**
    * @minimum 1
    */

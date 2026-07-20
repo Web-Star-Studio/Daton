@@ -195,6 +195,24 @@ export const boardNeedsEvaluationScope = or(
   boardHasReviewExists,
 )!;
 
+// ─── Gestão de Treinamentos — contagens programado/realizadoMes (SP6/B T1) ──
+// Programado = pendente ∩ participante de turma ativa (agendada|em_andamento) do mesmo item.
+export const isProgramado = sql`(
+  ${employeeTrainingsTable.status} = 'pendente' and exists (
+    select 1 from training_class_participants tcp
+    join training_classes tc on tc.id = tcp.class_id
+    where tcp.employee_id = ${employeeTrainingsTable.employeeId}
+      and tc.catalog_item_id = ${employeeTrainingsTable.catalogItemId}
+      and tc.status in ('agendada', 'em_andamento')
+  )
+)`;
+// Realizado no mês = concluído com completion_date dentro do mês corrente.
+export const isRealizadoMes = sql`(
+  ${employeeTrainingsTable.status} = 'concluido'
+  and ${employeeTrainingsTable.completionDate} >= date_trunc('month', current_date)
+  and ${employeeTrainingsTable.completionDate} < date_trunc('month', current_date) + interval '1 month'
+)`;
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const router: IRouter = Router();
@@ -1638,6 +1656,10 @@ router.get(
       boardColumn: z
         .enum(["pendentes", "em_avaliacao", "concluidas"])
         .optional(),
+      /** Filtra a lista para "programados": pendente ∩ participante de turma ativa. */
+      onlyProgramado: z.coerce.boolean().optional(),
+      /** Filtra a lista para concluídos com completion_date no mês corrente. */
+      realizadoInCurrentMonth: z.coerce.boolean().optional(),
     }).safeParse(req.query);
     if (!query.success) {
       res.status(400).json({ error: query.error.message });
@@ -1722,6 +1744,12 @@ router.get(
       } else {
         conditions.push(eq(employeeTrainingsTable.status, st));
       }
+    }
+    if (query.data.onlyProgramado) {
+      conditions.push(isProgramado);
+    }
+    if (query.data.realizadoInCurrentMonth) {
+      conditions.push(isRealizadoMes);
     }
     if (query.data.year) {
       conditions.push(
@@ -1938,6 +1966,8 @@ router.get(
           and ${latestEvalDate} <= ${employeeTrainingsTable.effectivenessDueDate}
         )::int`,
         withDueDateCount: sql<number>`count(*) filter (where ${boardConcluidas} and ${employeeTrainingsTable.effectivenessDueDate} is not null)::int`,
+        programadoCount: sql<number>`count(*) filter (where ${isProgramado})::int`,
+        realizadoMesCount: sql<number>`count(*) filter (where ${isRealizadoMes})::int`,
       })
       .from(employeeTrainingsTable)
       .innerJoin(
@@ -1967,6 +1997,8 @@ router.get(
       vencido: statsRow?.vencidoCount ?? 0,
       effectivenessPending: statsRow?.effectivenessPendingCount ?? 0,
       onTimePercent,
+      programado: statsRow?.programadoCount ?? 0,
+      realizadoMes: statsRow?.realizadoMesCount ?? 0,
       // Novos campos de board (T2)
       boardCounts: {
         pendentes: statsRow?.boardPendentesCount ?? 0,

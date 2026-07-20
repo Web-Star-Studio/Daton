@@ -1152,6 +1152,14 @@ paths:
           schema:
             type: string
             enum: [pendentes, em_avaliacao, concluidas]
+        - name: onlyProgramado
+          in: query
+          required: false
+          schema: { type: boolean }
+        - name: realizadoInCurrentMonth
+          in: query
+          required: false
+          schema: { type: boolean }
         - name: page
           in: query
           schema:
@@ -13529,6 +13537,10 @@ components:
             eficazPercent:
               type: number
               nullable: true
+            programado:
+              type: integer
+            realizadoMes:
+              type: integer
           required:
             - total
             - pendente

@@ -1,0 +1,116 @@
+import request from "supertest";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  db,
+  employeeTrainingsTable,
+  trainingCatalogTable,
+  trainingClassesTable,
+  trainingClassParticipantsTable,
+} from "@workspace/db";
+import app from "../src/app";
+import {
+  authHeader,
+  cleanupTestContext,
+  createEmployee,
+  createTestContext,
+  type TestOrgContext,
+} from "../../../tests/support/backend";
+
+const contexts: TestOrgContext[] = [];
+
+afterEach(async () => {
+  await Promise.all(contexts.splice(0).map((c) => cleanupTestContext(c)));
+});
+
+/**
+ * Semeia um cenário com 1 treino "programado" (pendente ∩ participante de
+ * turma ativa) e 1 treino "realizado no mês" (concluído com completionDate
+ * no mês corrente) para o mesmo colaborador.
+ */
+async function seedProgramadoERealizado(ctx: TestOrgContext) {
+  const [cat] = await db
+    .insert(trainingCatalogTable)
+    .values({
+      organizationId: ctx.organizationId,
+      title: `${ctx.prefix} NR-35`,
+      status: "ativo",
+    })
+    .returning();
+  const emp = await createEmployee(ctx, { name: `${ctx.prefix} Fulano` });
+
+  // treino pendente com turma ativa → programado
+  await db.insert(employeeTrainingsTable).values({
+    employeeId: emp.id,
+    title: `${ctx.prefix} NR-35`,
+    status: "pendente",
+    catalogItemId: cat.id,
+  });
+  const [cls] = await db
+    .insert(trainingClassesTable)
+    .values({
+      organizationId: ctx.organizationId,
+      catalogItemId: cat.id,
+      startDate: "2026-07-25",
+      status: "agendada",
+    })
+    .returning();
+  await db.insert(trainingClassParticipantsTable).values({
+    classId: cls.id,
+    employeeId: emp.id,
+  });
+
+  // treino concluído neste mês → realizadoMes
+  await db.insert(employeeTrainingsTable).values({
+    employeeId: emp.id,
+    title: `${ctx.prefix} Integração`,
+    status: "concluido",
+    completionDate: new Date().toISOString().slice(0, 10),
+  });
+}
+
+describe("GET employees/trainings — stats programado/realizadoMes", () => {
+  it("conta programado e realizadoMes", async () => {
+    const ctx = await createTestContext({ seed: "trainings-stats" });
+    contexts.push(ctx);
+    await seedProgramadoERealizado(ctx);
+
+    const res = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?pageSize=1`,
+      )
+      .set(authHeader(ctx));
+    expect(res.status).toBe(200);
+    expect(res.body.stats.programado).toBe(1);
+    expect(res.body.stats.realizadoMes).toBe(1);
+  });
+
+  it("onlyProgramado filtra a lista para pendentes com turma ativa", async () => {
+    const ctx = await createTestContext({ seed: "trainings-only-programado" });
+    contexts.push(ctx);
+    await seedProgramadoERealizado(ctx);
+
+    const res = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?onlyProgramado=true&pageSize=50`,
+      )
+      .set(authHeader(ctx));
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBe(1);
+    expect(res.body.data[0].status).toBe("pendente");
+  });
+
+  it("realizadoInCurrentMonth filtra concluídos do mês", async () => {
+    const ctx = await createTestContext({ seed: "trainings-realizado-mes" });
+    contexts.push(ctx);
+    await seedProgramadoERealizado(ctx);
+
+    const res = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?realizadoInCurrentMonth=true&pageSize=50`,
+      )
+      .set(authHeader(ctx));
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBe(1);
+    expect(res.body.data[0].status).toBe("concluido");
+  });
+});

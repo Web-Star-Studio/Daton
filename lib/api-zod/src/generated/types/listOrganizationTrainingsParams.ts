@@ -35,6 +35,8 @@ export type ListOrganizationTrainingsParams = {
   normId?: number;
   evaluatorRole?: ListOrganizationTrainingsEvaluatorRole;
   boardColumn?: ListOrganizationTrainingsBoardColumn;
+  onlyProgramado?: boolean;
+  realizadoInCurrentMonth?: boolean;
   /**
    * @minimum 1
    */
