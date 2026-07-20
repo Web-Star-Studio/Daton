@@ -14,6 +14,8 @@ import {
   db,
   employeesTable,
   employeeTrainingsTable,
+  kpiIndicatorsTable,
+  kpiYearConfigsTable,
   regulatoryNormsTable,
   trainingCatalogTable,
   trainingEffectivenessReviewsTable,
@@ -22,6 +24,8 @@ import {
 import {
   computeCriticalGapCountsByUnit,
   computeLmsMetric,
+  LMS_INDICATOR_DEFS,
+  type LmsMetricKey,
 } from "../kpi/lms-metrics";
 
 type Database = Pick<typeof db, "select">;
@@ -50,6 +54,24 @@ export interface LearningSummaryCards {
   effectiveness: number | null;
   criticalGaps: number | null;
   expiredTrainings: number | null;
+  /** % de obrigatoriedades concluídas (ISO 9001 §7.2). */
+  mandatoryCoverage: number | null;
+  /** Horas de treinamento ÷ colaboradores ativos (ISO 10015 §4.3). */
+  hoursPerEmployee: number | null;
+}
+
+/**
+ * Meta e direção de cada métrica, para a tela desenhar semáforo/progresso sem
+ * duplicar constantes do backend. A meta preferida é a que a organização
+ * configurou no módulo KPI (`kpi_year_configs`); só caímos no padrão de
+ * `LMS_INDICATOR_DEFS` quando os indicadores ainda não foram ativados — assim
+ * um org que editou a própria meta não vê um "Meta 80%" fantasma na tela.
+ */
+export interface LearningSummaryTarget {
+  metric: LmsMetricKey;
+  goal: number;
+  tolerance: number;
+  direction: "up" | "down";
 }
 
 export interface LearningSummaryUnitRow {
@@ -80,10 +102,67 @@ export interface LearningSummaryPendingRow {
 
 export interface LearningSummary {
   cards: LearningSummaryCards;
+  targets: LearningSummaryTarget[];
   byUnit: LearningSummaryUnitRow[];
   byNorm: LearningSummaryNormRow[];
   expired: LearningSummaryExpiredRow[];
   pendingEffectiveness: LearningSummaryPendingRow[];
+}
+
+/**
+ * Resolve meta/tolerância por métrica: parte dos padrões de
+ * `LMS_INDICATOR_DEFS` e sobrescreve com o que a organização configurou no
+ * módulo KPI para o ano pedido.
+ */
+async function resolveTargets(
+  orgId: number,
+  year: number,
+  database: Database,
+): Promise<LearningSummaryTarget[]> {
+  const configured = await database
+    .select({
+      metric: kpiIndicatorsTable.computedMetric,
+      goal: kpiYearConfigsTable.goal,
+      tolerance: kpiYearConfigsTable.tolerance,
+      direction: kpiIndicatorsTable.direction,
+    })
+    .from(kpiIndicatorsTable)
+    .innerJoin(
+      kpiYearConfigsTable,
+      and(
+        eq(kpiYearConfigsTable.indicatorId, kpiIndicatorsTable.id),
+        eq(kpiYearConfigsTable.year, year),
+      ),
+    )
+    .where(
+      and(
+        eq(kpiIndicatorsTable.organizationId, orgId),
+        eq(kpiIndicatorsTable.computedSource, "lms"),
+      ),
+    );
+
+  const byMetric = new Map(configured.map((r) => [r.metric, r]));
+
+  return LMS_INDICATOR_DEFS.map((def) => {
+    const override = byMetric.get(def.metric);
+    // `goal`/`tolerance` são numeric → chegam como string; null quando o
+    // usuário limpou o campo, caso em que o padrão continua valendo.
+    const goal = override?.goal != null ? Number(override.goal) : null;
+    const tolerance =
+      override?.tolerance != null ? Number(override.tolerance) : null;
+    return {
+      metric: def.metric,
+      goal: goal !== null && Number.isFinite(goal) ? goal : def.goal,
+      tolerance:
+        tolerance !== null && Number.isFinite(tolerance)
+          ? tolerance
+          : def.tolerance,
+      direction:
+        override?.direction === "up" || override?.direction === "down"
+          ? override.direction
+          : def.direction,
+    };
+  });
 }
 
 export async function computeLearningSummary(args: {
@@ -99,38 +178,32 @@ export async function computeLearningSummary(args: {
   const currentYear = now.getUTCFullYear();
   const today = now.toISOString().slice(0, 10);
 
-  // ─── CARDS (escopo corporativo, mês corrente) ──────────────────────────────
-  const [patCompletion, effectiveness, criticalGaps, expiredTrainings] =
-    await Promise.all([
-      computeLmsMetric({
-        orgId,
-        metric: "pat_completion",
-        year: currentYear,
-        month: currentMonth,
-        database,
-      }),
-      computeLmsMetric({
-        orgId,
-        metric: "effectiveness_overall",
-        year: currentYear,
-        month: currentMonth,
-        database,
-      }),
-      computeLmsMetric({
-        orgId,
-        metric: "critical_gaps",
-        year: currentYear,
-        month: currentMonth,
-        database,
-      }),
-      computeLmsMetric({
-        orgId,
-        metric: "expired_trainings",
-        year: currentYear,
-        month: currentMonth,
-        database,
-      }),
-    ]);
+  // ─── CARDS ─────────────────────────────────────────────────────────────────
+  // Seguem o mesmo recorte do resto da tela (ano + filial). Antes eram fixos em
+  // "corporativo, mês corrente" e ignoravam ambos os filtros — o que fazia o
+  // topo da tela contradizer a tabela logo abaixo quando se filtrava por filial.
+  // Para um ano passado o acumulado é o ano inteiro (mês 12); para o ano
+  // corrente, o mês atual.
+  const cardsMonth = year === currentYear ? currentMonth : 12;
+  const metricArgs = { orgId, year, month: cardsMonth, unitId, database };
+
+  const [
+    patCompletion,
+    effectiveness,
+    criticalGaps,
+    expiredTrainings,
+    mandatoryCoverage,
+    hoursPerEmployee,
+  ] = await Promise.all([
+    computeLmsMetric({ ...metricArgs, metric: "pat_completion" }),
+    computeLmsMetric({ ...metricArgs, metric: "effectiveness_overall" }),
+    computeLmsMetric({ ...metricArgs, metric: "critical_gaps" }),
+    computeLmsMetric({ ...metricArgs, metric: "expired_trainings" }),
+    computeLmsMetric({ ...metricArgs, metric: "mandatory_coverage" }),
+    computeLmsMetric({ ...metricArgs, metric: "hours_per_employee" }),
+  ]);
+
+  const targets = await resolveTargets(orgId, year, database);
 
   // ─── BY UNIT ────────────────────────────────────────────────────────────────
   const unitConditions = [eq(unitsTable.organizationId, orgId)];
@@ -369,7 +442,10 @@ export async function computeLearningSummary(args: {
       effectiveness,
       criticalGaps,
       expiredTrainings,
+      mandatoryCoverage,
+      hoursPerEmployee,
     },
+    targets,
     byUnit,
     byNorm,
     expired,

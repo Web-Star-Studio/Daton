@@ -11,4 +11,8 @@ export interface LearningSummaryCards {
   effectiveness: number | null;
   criticalGaps: number | null;
   expiredTrainings: number | null;
+  /** % de obrigatoriedades concluídas (ISO 9001 §7.2) */
+  mandatoryCoverage: number | null;
+  /** Horas de treinamento ÷ colaboradores ativos (ISO 10015 §4.3) */
+  hoursPerEmployee: number | null;
 }

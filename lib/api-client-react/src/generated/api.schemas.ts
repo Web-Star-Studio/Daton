@@ -6671,6 +6671,40 @@ export interface LearningSummaryCards {
   effectiveness: number | null;
   criticalGaps: number | null;
   expiredTrainings: number | null;
+  /** % de obrigatoriedades concluídas (ISO 9001 §7.2) */
+  mandatoryCoverage: number | null;
+  /** Horas de treinamento ÷ colaboradores ativos (ISO 10015 §4.3) */
+  hoursPerEmployee: number | null;
+}
+
+export type LearningSummaryTargetMetric =
+  (typeof LearningSummaryTargetMetric)[keyof typeof LearningSummaryTargetMetric];
+
+export const LearningSummaryTargetMetric = {
+  pat_completion: "pat_completion",
+  effectiveness_overall: "effectiveness_overall",
+  mandatory_coverage: "mandatory_coverage",
+  hours_per_employee: "hours_per_employee",
+  critical_gaps: "critical_gaps",
+  expired_trainings: "expired_trainings",
+} as const;
+
+export type LearningSummaryTargetDirection =
+  (typeof LearningSummaryTargetDirection)[keyof typeof LearningSummaryTargetDirection];
+
+export const LearningSummaryTargetDirection = {
+  up: "up",
+  down: "down",
+} as const;
+
+/**
+ * Meta/direção de uma métrica do LMS. Vem da configuração do módulo KPI da organização quando os indicadores foram ativados; caso contrário, do padrão do sistema.
+ */
+export interface LearningSummaryTarget {
+  metric: LearningSummaryTargetMetric;
+  goal: number;
+  tolerance: number;
+  direction: LearningSummaryTargetDirection;
 }
 
 export type LearningSummaryUnitRowStatus =
@@ -6711,6 +6745,7 @@ export interface LearningSummaryPendingRow {
 
 export interface LearningSummary {
   cards: LearningSummaryCards;
+  targets: LearningSummaryTarget[];
   byUnit: LearningSummaryUnitRow[];
   byNorm: LearningSummaryNormRow[];
   expired: LearningSummaryExpiredRow[];
