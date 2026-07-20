@@ -82,3 +82,38 @@ export function levelBucket(level: number): number {
   if (level >= 3) return 3;
   return 1;
 }
+
+export type CompetencyBankLookupItem = {
+  name: string;
+  competencyType?: string | null;
+};
+
+/**
+ * Acha um item do catálogo por nome (caixa/espaços-nas-pontas insensível).
+ * Nome vazio (após trim) nunca casa — mesmo que algum item tenha nome vazio.
+ */
+export function findBankItemByName<T extends CompetencyBankLookupItem>(
+  items: T[],
+  name: string,
+): T | undefined {
+  const target = name.trim().toLowerCase();
+  if (!target) return undefined;
+  return items.find((i) => i.name.trim().toLowerCase() === target);
+}
+
+/**
+ * Decide qual `competencyType` gravar ao vincular uma competência a um cargo.
+ * O tipo é propriedade da COMPETÊNCIA (catálogo), não do vínculo: para uma
+ * competência já existente, usa o tipo dela no catálogo — não o que porventura
+ * esteja em `chosenType` (que só é editável no fluxo "criar na hora"). Se a
+ * competência não existe no catálogo, ou existe mas sem tipo definido, usa
+ * `chosenType`.
+ */
+export function resolveLinkedCompetencyType(
+  bankItems: CompetencyBankLookupItem[],
+  name: string,
+  chosenType: string,
+): string {
+  const existing = findBankItemByName(bankItems, name);
+  return existing?.competencyType || chosenType;
+}

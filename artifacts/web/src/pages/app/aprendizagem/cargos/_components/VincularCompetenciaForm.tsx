@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { COMPETENCY_TYPE_LABELS } from "../cargos-utils";
+import { COMPETENCY_TYPE_LABELS, findBankItemByName } from "../cargos-utils";
 
 /**
  * Taxonomia CHA (conhecimento/habilidade/atitude) — só aparece como escolha do
@@ -52,11 +52,7 @@ export function VincularCompetenciaForm({
   submitting?: boolean;
 }) {
   const trimmedName = value.competencyName.trim();
-  const existing = trimmedName
-    ? bankItems.find(
-        (i) => i.name.trim().toLowerCase() === trimmedName.toLowerCase(),
-      )
-    : undefined;
+  const existing = findBankItemByName(bankItems, trimmedName);
   // Fluxo "criar na hora": o nome digitado não casa com nada do catálogo.
   const isNew = !!trimmedName && !existing;
 

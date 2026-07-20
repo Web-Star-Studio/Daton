@@ -27,6 +27,8 @@ import {
   levelBadgeClass,
   isCritical,
   levelBucket,
+  findBankItemByName,
+  resolveLinkedCompetencyType,
 } from "./cargos-utils";
 
 const LEVEL_OPTIONS = [
@@ -85,11 +87,12 @@ export function CargoCompetenciasTab({
       // O tipo é propriedade da COMPETÊNCIA (catálogo), não do vínculo: para uma
       // competência já existente, usa o tipo dela no catálogo — não o que porventura
       // esteja em `link.competencyType` (que só é editável no fluxo "criar na hora").
-      const existing = bankItems.find(
-        (i) => i.name.trim().toLowerCase() === name.toLowerCase(),
-      );
-      const competencyType = (existing?.competencyType || link.competencyType) as
-        CreatePositionCompetencyRequirementBodyCompetencyType;
+      const existing = findBankItemByName(bankItems, name);
+      const competencyType = resolveLinkedCompetencyType(
+        bankItems,
+        name,
+        link.competencyType,
+      ) as CreatePositionCompetencyRequirementBodyCompetencyType;
       if (!existing) {
         // Criar-na-hora: a competência não existe no banco, cadastra antes de
         // vincular (assim fica reutilizável em outros cargos), com o tipo CHA
