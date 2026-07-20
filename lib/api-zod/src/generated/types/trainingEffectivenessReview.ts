@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
+import type { TrainingEffectivenessCriteria } from "./trainingEffectivenessCriteria";
 
 export interface TrainingEffectivenessReview {
   id: number;
@@ -25,6 +26,7 @@ export interface TrainingEffectivenessReview {
    */
   resultLevel?: number | null;
   comments?: string | null;
+  criteria?: TrainingEffectivenessCriteria | null;
   attachments: EmployeeRecordAttachment[];
   createdAt?: string;
 }

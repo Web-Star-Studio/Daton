@@ -1803,10 +1803,21 @@ export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewO
 export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneResultLevelMin = 0;
 export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneResultLevelMax = 5;
 
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneBehaviorMax = 5;
+
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneResultMax = 5;
+
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneTransferMax = 5;
+
 export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
 
 export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
   new RegExp("^\/objects\/uploads\/.+");
+export const listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneBehaviorMax = 5;
+
+export const listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneResultMax = 5;
+
+export const listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneTransferMax = 5;
 
 export const ListOrganizationTrainingsResponse = zod.object({
   data: zod.array(
@@ -1883,6 +1894,31 @@ export const ListOrganizationTrainingsResponse = zod.object({
             )
             .nullish(),
           comments: zod.string().nullish(),
+          criteria: zod
+            .object({
+              behavior: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneBehaviorMax,
+                ),
+              result: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneResultMax,
+                ),
+              transfer: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneCriteriaOneTransferMax,
+                ),
+            })
+            .describe(
+              "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+            )
+            .nullish(),
           attachments: zod.array(
             zod.object({
               fileName: zod.string(),
@@ -1901,6 +1937,44 @@ export const ListOrganizationTrainingsResponse = zod.object({
           ),
           createdAt: zod.string().datetime({}).optional(),
         })
+        .nullish(),
+      effectivenessDraft: zod
+        .object({
+          id: zod.number(),
+          evaluatorUserId: zod.number(),
+          evaluatorName: zod.string().nullish(),
+          evaluatorRole: zod.string().nullish(),
+          criteria: zod
+            .object({
+              behavior: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneBehaviorMax,
+                ),
+              result: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneResultMax,
+                ),
+              transfer: zod
+                .number()
+                .min(1)
+                .max(
+                  listOrganizationTrainingsResponseDataItemEffectivenessDraftOneCriteriaOneTransferMax,
+                ),
+            })
+            .describe(
+              "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+            )
+            .nullish(),
+          comments: zod.string().nullish(),
+          updatedAt: zod.string().datetime({}).optional(),
+        })
+        .describe(
+          "Preenchimento parcial da avaliação de eficácia, salvo pelo avaliador e usado para reidratar o wizard.",
+        )
         .nullish(),
       effectivenessDueDate: zod.string().date().nullish(),
       effectivenessAssignedRole: zod
@@ -2216,6 +2290,12 @@ export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneScor
 export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneResultLevelMin = 0;
 export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneResultLevelMax = 5;
 
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneBehaviorMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneResultMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneTransferMax = 5;
+
 export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
 
 export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
@@ -2225,6 +2305,12 @@ export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemScoreMax
 
 export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemResultLevelMin = 0;
 export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemResultLevelMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneBehaviorMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneResultMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneTransferMax = 5;
 
 export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemAttachmentsItemFileSizeMax = 20971520;
 
@@ -2440,6 +2526,31 @@ export const GetEmployeeResponse = zod
                   )
                   .nullish(),
                 comments: zod.string().nullish(),
+                criteria: zod
+                  .object({
+                    behavior: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneBehaviorMax,
+                      ),
+                    result: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneResultMax,
+                      ),
+                    transfer: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneCriteriaOneTransferMax,
+                      ),
+                  })
+                  .describe(
+                    "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+                  )
+                  .nullish(),
                 attachments: zod.array(
                   zod.object({
                     fileName: zod.string(),
@@ -2486,6 +2597,31 @@ export const GetEmployeeResponse = zod
                   )
                   .nullish(),
                 comments: zod.string().nullish(),
+                criteria: zod
+                  .object({
+                    behavior: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneBehaviorMax,
+                      ),
+                    result: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneResultMax,
+                      ),
+                    transfer: zod
+                      .number()
+                      .min(1)
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemCriteriaOneTransferMax,
+                      ),
+                  })
+                  .describe(
+                    "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+                  )
+                  .nullish(),
                 attachments: zod.array(
                   zod.object({
                     fileName: zod.string(),
@@ -2954,6 +3090,12 @@ export const listTrainingsResponseLatestEffectivenessReviewOneScoreMax = 10;
 export const listTrainingsResponseLatestEffectivenessReviewOneResultLevelMin = 0;
 export const listTrainingsResponseLatestEffectivenessReviewOneResultLevelMax = 5;
 
+export const listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax = 5;
+
+export const listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneResultMax = 5;
+
+export const listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneTransferMax = 5;
+
 export const listTrainingsResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
 
 export const listTrainingsResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
@@ -2963,6 +3105,12 @@ export const listTrainingsResponseEffectivenessReviewsItemScoreMax = 10;
 
 export const listTrainingsResponseEffectivenessReviewsItemResultLevelMin = 0;
 export const listTrainingsResponseEffectivenessReviewsItemResultLevelMax = 5;
+
+export const listTrainingsResponseEffectivenessReviewsItemCriteriaOneBehaviorMax = 5;
+
+export const listTrainingsResponseEffectivenessReviewsItemCriteriaOneResultMax = 5;
+
+export const listTrainingsResponseEffectivenessReviewsItemCriteriaOneTransferMax = 5;
 
 export const listTrainingsResponseEffectivenessReviewsItemAttachmentsItemFileSizeMax = 20971520;
 
@@ -3021,6 +3169,31 @@ export const ListTrainingsResponseItem = zod.object({
         .max(listTrainingsResponseLatestEffectivenessReviewOneResultLevelMax)
         .nullish(),
       comments: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseLatestEffectivenessReviewOneCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
       attachments: zod.array(
         zod.object({
           fileName: zod.string(),
@@ -3059,6 +3232,31 @@ export const ListTrainingsResponseItem = zod.object({
         .max(listTrainingsResponseEffectivenessReviewsItemResultLevelMax)
         .nullish(),
       comments: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseEffectivenessReviewsItemCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseEffectivenessReviewsItemCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              listTrainingsResponseEffectivenessReviewsItemCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
       attachments: zod.array(
         zod.object({
           fileName: zod.string(),
@@ -3213,6 +3411,12 @@ export const updateTrainingResponseLatestEffectivenessReviewOneScoreMax = 10;
 export const updateTrainingResponseLatestEffectivenessReviewOneResultLevelMin = 0;
 export const updateTrainingResponseLatestEffectivenessReviewOneResultLevelMax = 5;
 
+export const updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax = 5;
+
+export const updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneResultMax = 5;
+
+export const updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneTransferMax = 5;
+
 export const updateTrainingResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
 
 export const updateTrainingResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
@@ -3222,6 +3426,12 @@ export const updateTrainingResponseEffectivenessReviewsItemScoreMax = 10;
 
 export const updateTrainingResponseEffectivenessReviewsItemResultLevelMin = 0;
 export const updateTrainingResponseEffectivenessReviewsItemResultLevelMax = 5;
+
+export const updateTrainingResponseEffectivenessReviewsItemCriteriaOneBehaviorMax = 5;
+
+export const updateTrainingResponseEffectivenessReviewsItemCriteriaOneResultMax = 5;
+
+export const updateTrainingResponseEffectivenessReviewsItemCriteriaOneTransferMax = 5;
 
 export const updateTrainingResponseEffectivenessReviewsItemAttachmentsItemFileSizeMax = 20971520;
 
@@ -3280,6 +3490,31 @@ export const UpdateTrainingResponse = zod.object({
         .max(updateTrainingResponseLatestEffectivenessReviewOneResultLevelMax)
         .nullish(),
       comments: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseLatestEffectivenessReviewOneCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
       attachments: zod.array(
         zod.object({
           fileName: zod.string(),
@@ -3318,6 +3553,31 @@ export const UpdateTrainingResponse = zod.object({
         .max(updateTrainingResponseEffectivenessReviewsItemResultLevelMax)
         .nullish(),
       comments: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseEffectivenessReviewsItemCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseEffectivenessReviewsItemCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              updateTrainingResponseEffectivenessReviewsItemCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
       attachments: zod.array(
         zod.object({
           fileName: zod.string(),
@@ -3374,10 +3634,21 @@ export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneScor
 export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMin = 0;
 export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneResultLevelMax = 5;
 
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax = 5;
+
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneResultMax = 5;
+
+export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneTransferMax = 5;
+
 export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
 
 export const assignTrainingEffectivenessResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
   new RegExp("^\/objects\/uploads\/.+");
+export const assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneBehaviorMax = 5;
+
+export const assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneResultMax = 5;
+
+export const assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneTransferMax = 5;
 
 export const AssignTrainingEffectivenessResponse = zod.object({
   catalogItemId: zod.number().nullish(),
@@ -3450,6 +3721,31 @@ export const AssignTrainingEffectivenessResponse = zod.object({
         )
         .nullish(),
       comments: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseLatestEffectivenessReviewOneCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
       attachments: zod.array(
         zod.object({
           fileName: zod.string(),
@@ -3468,6 +3764,44 @@ export const AssignTrainingEffectivenessResponse = zod.object({
       ),
       createdAt: zod.string().datetime({}).optional(),
     })
+    .nullish(),
+  effectivenessDraft: zod
+    .object({
+      id: zod.number(),
+      evaluatorUserId: zod.number(),
+      evaluatorName: zod.string().nullish(),
+      evaluatorRole: zod.string().nullish(),
+      criteria: zod
+        .object({
+          behavior: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneBehaviorMax,
+            ),
+          result: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneResultMax,
+            ),
+          transfer: zod
+            .number()
+            .min(1)
+            .max(
+              assignTrainingEffectivenessResponseEffectivenessDraftOneCriteriaOneTransferMax,
+            ),
+        })
+        .describe(
+          "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+        )
+        .nullish(),
+      comments: zod.string().nullish(),
+      updatedAt: zod.string().datetime({}).optional(),
+    })
+    .describe(
+      "Preenchimento parcial da avaliação de eficácia, salvo pelo avaliador e usado para reidratar o wizard.",
+    )
     .nullish(),
   effectivenessDueDate: zod.string().date().nullish(),
   effectivenessAssignedRole: zod
@@ -3494,6 +3828,12 @@ export const listTrainingEffectivenessReviewsResponseScoreMax = 10;
 export const listTrainingEffectivenessReviewsResponseResultLevelMin = 0;
 export const listTrainingEffectivenessReviewsResponseResultLevelMax = 5;
 
+export const listTrainingEffectivenessReviewsResponseCriteriaOneBehaviorMax = 5;
+
+export const listTrainingEffectivenessReviewsResponseCriteriaOneResultMax = 5;
+
+export const listTrainingEffectivenessReviewsResponseCriteriaOneTransferMax = 5;
+
 export const listTrainingEffectivenessReviewsResponseAttachmentsItemFileSizeMax = 20971520;
 
 export const listTrainingEffectivenessReviewsResponseAttachmentsItemObjectPathRegExp =
@@ -3517,6 +3857,25 @@ export const ListTrainingEffectivenessReviewsResponseItem = zod.object({
     .max(listTrainingEffectivenessReviewsResponseResultLevelMax)
     .nullish(),
   comments: zod.string().nullish(),
+  criteria: zod
+    .object({
+      behavior: zod
+        .number()
+        .min(1)
+        .max(listTrainingEffectivenessReviewsResponseCriteriaOneBehaviorMax),
+      result: zod
+        .number()
+        .min(1)
+        .max(listTrainingEffectivenessReviewsResponseCriteriaOneResultMax),
+      transfer: zod
+        .number()
+        .min(1)
+        .max(listTrainingEffectivenessReviewsResponseCriteriaOneTransferMax),
+    })
+    .describe(
+      "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+    )
+    .nullish(),
   attachments: zod.array(
     zod.object({
       fileName: zod.string(),
@@ -3554,6 +3913,13 @@ export const createTrainingEffectivenessReviewBodyScoreMax = 10;
 export const createTrainingEffectivenessReviewBodyResultLevelMin = 0;
 export const createTrainingEffectivenessReviewBodyResultLevelMax = 5;
 
+export const createTrainingEffectivenessReviewBodyStatusDefault = `final`;
+export const createTrainingEffectivenessReviewBodyCriteriaBehaviorMax = 5;
+
+export const createTrainingEffectivenessReviewBodyCriteriaResultMax = 5;
+
+export const createTrainingEffectivenessReviewBodyCriteriaTransferMax = 5;
+
 export const createTrainingEffectivenessReviewBodyAttachmentsItemFileSizeMax = 20971520;
 
 export const createTrainingEffectivenessReviewBodyAttachmentsItemObjectPathRegExp =
@@ -3577,6 +3943,31 @@ export const CreateTrainingEffectivenessReviewBody = zod.object({
   evaluatorRole: zod
     .enum(["gestor", "rh", "instrutor", "colaborador"])
     .optional(),
+  status: zod
+    .enum(["draft", "final"])
+    .default(createTrainingEffectivenessReviewBodyStatusDefault)
+    .describe(
+      "'draft' grava o preenchimento parcial do wizard sem concluir a avaliação (não concede competência e mantém o card em \"Em avaliação\"). Substitui o rascunho anterior do mesmo avaliador.",
+    ),
+  criteria: zod
+    .object({
+      behavior: zod
+        .number()
+        .min(1)
+        .max(createTrainingEffectivenessReviewBodyCriteriaBehaviorMax),
+      result: zod
+        .number()
+        .min(1)
+        .max(createTrainingEffectivenessReviewBodyCriteriaResultMax),
+      transfer: zod
+        .number()
+        .min(1)
+        .max(createTrainingEffectivenessReviewBodyCriteriaTransferMax),
+    })
+    .optional()
+    .describe(
+      "Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento), result = L4 (resultado), transfer = transferência para a equipe.",
+    ),
   attachments: zod
     .array(
       zod.object({
