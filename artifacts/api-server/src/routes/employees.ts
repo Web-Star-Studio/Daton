@@ -123,9 +123,34 @@ export const boardHasReviewExists = exists(
     .select({ one: sql<number>`1` })
     .from(trainingEffectivenessReviewsTable)
     .where(
-      eq(
-        trainingEffectivenessReviewsTable.trainingId,
-        employeeTrainingsTable.id,
+      and(
+        eq(
+          trainingEffectivenessReviewsTable.trainingId,
+          employeeTrainingsTable.id,
+        ),
+        // Rascunho NÃO conclui a avaliação: a linha existe apenas para guardar o
+        // preenchimento parcial. Sem este filtro o primeiro autosave do wizard
+        // jogaria o card direto para "Concluídas".
+        eq(trainingEffectivenessReviewsTable.status, "final"),
+      ),
+    ),
+);
+
+/**
+ * EXISTS: o treinamento tem um rascunho de avaliação em aberto (preenchimento
+ * iniciado e não finalizado). É o que dá sentido literal a "Em avaliação".
+ */
+export const boardHasDraftExists = exists(
+  db
+    .select({ one: sql<number>`1` })
+    .from(trainingEffectivenessReviewsTable)
+    .where(
+      and(
+        eq(
+          trainingEffectivenessReviewsTable.trainingId,
+          employeeTrainingsTable.id,
+        ),
+        eq(trainingEffectivenessReviewsTable.status, "draft"),
       ),
     ),
 );
@@ -146,6 +171,9 @@ export const boardEmAvaliacao = and(
   or(
     isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
     isNotNull(employeeTrainingsTable.effectivenessDueDate),
+    // Rascunho sem atribuição: acontece quando a avaliação é preenchida direto
+    // da coluna "Pendentes" e o avaliador fecha o wizard no meio.
+    boardHasDraftExists,
   )!,
 )!;
 
@@ -157,6 +185,7 @@ export const boardEmAvaliacao = and(
  */
 export const boardPendentes = and(
   not(boardHasReviewExists),
+  not(boardHasDraftExists),
   isNull(employeeTrainingsTable.effectivenessAssignedRole),
   isNull(employeeTrainingsTable.effectivenessDueDate),
 )!;
@@ -193,7 +222,26 @@ export const boardNeedsEvaluationScope = or(
   isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
   isNotNull(employeeTrainingsTable.effectivenessDueDate),
   boardHasReviewExists,
+  boardHasDraftExists,
 )!;
+
+// ─── Gestão de Treinamentos — contagens programado/realizadoMes (SP6/B T1) ──
+// Programado = pendente ∩ participante de turma ativa (agendada|em_andamento) do mesmo item.
+export const isProgramado = sql`(
+  ${employeeTrainingsTable.status} = 'pendente' and exists (
+    select 1 from training_class_participants tcp
+    join training_classes tc on tc.id = tcp.class_id
+    where tcp.employee_id = ${employeeTrainingsTable.employeeId}
+      and tc.catalog_item_id = ${employeeTrainingsTable.catalogItemId}
+      and tc.status in ('agendada', 'em_andamento')
+  )
+)`;
+// Realizado no mês = concluído com completion_date dentro do mês corrente.
+export const isRealizadoMes = sql`(
+  ${employeeTrainingsTable.status} = 'concluido'
+  and ${employeeTrainingsTable.completionDate} >= date_trunc('month', current_date)
+  and ${employeeTrainingsTable.completionDate} < date_trunc('month', current_date) + interval '1 month'
+)`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -299,6 +347,7 @@ function toIsoDateTime(
 function getEffectivenessStatus(
   reviews: TrainingReviewRow[],
   training: typeof employeeTrainingsTable.$inferSelect,
+  draft?: TrainingReviewRow | null,
 ): "pending" | "in_review" | "effective" | "ineffective" | null {
   if (reviews.length > 0) {
     return reviews[0]?.isEffective ? "effective" : "ineffective";
@@ -306,7 +355,10 @@ function getEffectivenessStatus(
 
   if (
     training.effectivenessAssignedRole != null ||
-    training.effectivenessDueDate != null
+    training.effectivenessDueDate != null ||
+    // Rascunho em aberto é "em avaliação" mesmo sem atribuição formal — espelha
+    // `boardEmAvaliacao` no SQL.
+    draft != null
   ) {
     return "in_review";
   }
@@ -333,6 +385,7 @@ function formatTrainingEffectivenessReview(review: TrainingReviewRow) {
     isEffective: review.isEffective,
     resultLevel: review.resultLevel,
     comments: review.comments,
+    criteria: review.criteria ?? null,
     attachments: formatEmployeeRecordAttachments(review.attachments),
     createdAt: toIsoDateTime(review.createdAt),
   };
@@ -849,6 +902,8 @@ async function loadTrainingReviewRows(
       attachments: trainingEffectivenessReviewsTable.attachments,
       legacyV1Id: trainingEffectivenessReviewsTable.legacyV1Id,
       evaluatorRole: trainingEffectivenessReviewsTable.evaluatorRole,
+      status: trainingEffectivenessReviewsTable.status,
+      criteria: trainingEffectivenessReviewsTable.criteria,
       createdAt: trainingEffectivenessReviewsTable.createdAt,
       evaluatorName: usersTable.name,
     })
@@ -857,7 +912,14 @@ async function loadTrainingReviewRows(
       usersTable,
       eq(trainingEffectivenessReviewsTable.evaluatorUserId, usersTable.id),
     )
-    .where(inArray(trainingEffectivenessReviewsTable.trainingId, trainingIds))
+    .where(
+      and(
+        inArray(trainingEffectivenessReviewsTable.trainingId, trainingIds),
+        // Rascunhos são carregados à parte (`loadTrainingDraftRows`): todo call
+        // site desta função trata a lista como "avaliações registradas".
+        eq(trainingEffectivenessReviewsTable.status, "final"),
+      ),
+    )
     .orderBy(
       sql`${trainingEffectivenessReviewsTable.evaluationDate} desc`,
       sql`${trainingEffectivenessReviewsTable.createdAt} desc`,
@@ -871,6 +933,68 @@ async function loadTrainingReviewRows(
   }
 
   return reviewMap;
+}
+
+/**
+ * Rascunhos de eficácia em aberto, por treinamento. Um rascunho é sempre do
+ * avaliador que o abriu (há no máximo um por treino+avaliador), e serve para o
+ * wizard reidratar o preenchimento parcial em vez de zerar tudo.
+ */
+async function loadTrainingDraftRows(
+  trainingIds: number[],
+): Promise<Map<number, TrainingReviewRow>> {
+  if (trainingIds.length === 0) return new Map();
+
+  const rows = await db
+    .select({
+      id: trainingEffectivenessReviewsTable.id,
+      trainingId: trainingEffectivenessReviewsTable.trainingId,
+      evaluatorUserId: trainingEffectivenessReviewsTable.evaluatorUserId,
+      evaluationDate: trainingEffectivenessReviewsTable.evaluationDate,
+      score: trainingEffectivenessReviewsTable.score,
+      isEffective: trainingEffectivenessReviewsTable.isEffective,
+      resultLevel: trainingEffectivenessReviewsTable.resultLevel,
+      comments: trainingEffectivenessReviewsTable.comments,
+      attachments: trainingEffectivenessReviewsTable.attachments,
+      legacyV1Id: trainingEffectivenessReviewsTable.legacyV1Id,
+      evaluatorRole: trainingEffectivenessReviewsTable.evaluatorRole,
+      status: trainingEffectivenessReviewsTable.status,
+      criteria: trainingEffectivenessReviewsTable.criteria,
+      createdAt: trainingEffectivenessReviewsTable.createdAt,
+      evaluatorName: usersTable.name,
+    })
+    .from(trainingEffectivenessReviewsTable)
+    .leftJoin(
+      usersTable,
+      eq(trainingEffectivenessReviewsTable.evaluatorUserId, usersTable.id),
+    )
+    .where(
+      and(
+        inArray(trainingEffectivenessReviewsTable.trainingId, trainingIds),
+        eq(trainingEffectivenessReviewsTable.status, "draft"),
+      ),
+    )
+    .orderBy(sql`${trainingEffectivenessReviewsTable.createdAt} desc`);
+
+  const draftMap = new Map<number, TrainingReviewRow>();
+  for (const row of rows) {
+    // Mais recente vence: o ORDER BY já garante que o 1º de cada treino é o novo.
+    if (!draftMap.has(row.trainingId)) draftMap.set(row.trainingId, row);
+  }
+  return draftMap;
+}
+
+/** Serializa o rascunho para o wizard reidratar (critérios + observação). */
+function formatTrainingEffectivenessDraft(draft: TrainingReviewRow) {
+  return {
+    id: draft.id,
+    evaluatorUserId: draft.evaluatorUserId,
+    evaluatorName: draft.evaluatorName || null,
+    evaluatorRole: draft.evaluatorRole || null,
+    criteria: draft.criteria ?? null,
+    comments: draft.comments ?? null,
+    updatedAt: toIsoDateTime(draft.createdAt),
+  };
 }
 
 async function loadAwarenessReferenceMaps(
@@ -1638,6 +1762,21 @@ router.get(
       boardColumn: z
         .enum(["pendentes", "em_avaliacao", "concluidas"])
         .optional(),
+      /** Filtra a lista para "programados": pendente ∩ participante de turma ativa. */
+      onlyProgramado: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((v) => v === "true"),
+      /** Filtra a lista para concluídos com completion_date no mês corrente. */
+      realizadoInCurrentMonth: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((v) => v === "true"),
+      /** Filtra a lista para "pendentes sem turma": pendente ∧ NÃO programado. */
+      onlyPendenteSemTurma: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((v) => v === "true"),
     }).safeParse(req.query);
     if (!query.success) {
       res.status(400).json({ error: query.error.message });
@@ -1722,6 +1861,19 @@ router.get(
       } else {
         conditions.push(eq(employeeTrainingsTable.status, st));
       }
+    }
+    if (query.data.onlyProgramado) {
+      conditions.push(isProgramado);
+    }
+    if (query.data.realizadoInCurrentMonth) {
+      conditions.push(isRealizadoMes);
+    }
+    if (query.data.onlyPendenteSemTurma) {
+      // Reusa o fragmento isProgramado (que já embute status = 'pendente')
+      // em vez de duplicar a lógica do EXISTS.
+      conditions.push(
+        sql`(${employeeTrainingsTable.status} = 'pendente' and not (${isProgramado}))`,
+      );
     }
     if (query.data.year) {
       conditions.push(
@@ -1938,6 +2090,14 @@ router.get(
           and ${latestEvalDate} <= ${employeeTrainingsTable.effectivenessDueDate}
         )::int`,
         withDueDateCount: sql<number>`count(*) filter (where ${boardConcluidas} and ${employeeTrainingsTable.effectivenessDueDate} is not null)::int`,
+        // NB: `programadoCount` foi removido deste agregado — `isProgramado` é um
+        // EXISTS correlacionado e, dentro de um `count(*) filter` (SELECT list),
+        // o planner não consegue achatá-lo em semi-join; vira SubPlan por linha
+        // (medido ~6,5s / 1,15M buffer hits em 50k linhas). O mesmo fragmento no
+        // WHERE (params onlyProgramado/onlyPendenteSemTurma abaixo) é achatado em
+        // Hash Semi Join (~60ms / ~800 buffers) — use esse caminho para contar
+        // programados, nunca reintroduza aqui.
+        realizadoMesCount: sql<number>`count(*) filter (where ${isRealizadoMes})::int`,
       })
       .from(employeeTrainingsTable)
       .innerJoin(
@@ -1967,6 +2127,7 @@ router.get(
       vencido: statsRow?.vencidoCount ?? 0,
       effectivenessPending: statsRow?.effectivenessPendingCount ?? 0,
       onTimePercent,
+      realizadoMes: statsRow?.realizadoMesCount ?? 0,
       // Novos campos de board (T2)
       boardCounts: {
         pendentes: statsRow?.boardPendentesCount ?? 0,
@@ -1982,15 +2143,19 @@ router.get(
     const reviewsByTrainingId = await loadTrainingReviewRows(
       rows.map((row) => row.id),
     );
+    const draftsByTrainingId = await loadTrainingDraftRows(
+      rows.map((row) => row.id),
+    );
 
     // ── Formatar linha (efectivenessStatus e expiringWithinDays já estão no SQL) ─
     const pageData = rows.map((row) => {
       const reviews = reviewsByTrainingId.get(row.id) || [];
+      const draft = draftsByTrainingId.get(row.id) || null;
       const derivedStatus = deriveTrainingStatus(
         row.status,
         row.expirationDate,
       );
-      const effectivenessStatus = getEffectivenessStatus(reviews, row);
+      const effectivenessStatus = getEffectivenessStatus(reviews, row, draft);
 
       return {
         id: row.id,
@@ -2013,6 +2178,14 @@ router.get(
         workloadHours: row.workloadHours,
         completionDate: row.completionDate,
         expirationDate: row.expirationDate,
+        // Estes 3 já vinham no SELECT e são declarados no schema de
+        // OrganizationTraining, mas o mapper não os emitia — a lista saía sempre
+        // com null. Sem eles a Gestão de Treinamentos não consegue resolver
+        // Norma (catalogItemId → catálogo) nem Crítico (requirementId →
+        // obrigatoriedade), e o vencimento perde o fallback de prazo.
+        catalogItemId: row.catalogItemId,
+        requirementId: row.requirementId,
+        dueDate: row.dueDate,
         status: derivedStatus,
         effectivenessStatus,
         effectivenessDueDate: row.effectivenessDueDate || null,
@@ -2031,6 +2204,9 @@ router.get(
         attachments: formatEmployeeRecordAttachments(row.attachments),
         latestEffectivenessReview: reviews[0]
           ? formatTrainingEffectivenessReview(reviews[0])
+          : null,
+        effectivenessDraft: draft
+          ? formatTrainingEffectivenessDraft(draft)
           : null,
         createdAt: toIsoDateTime(row.createdAt),
         updatedAt: toIsoDateTime(row.updatedAt),
@@ -3413,6 +3589,8 @@ router.post(
 
     const reviews = await loadTrainingReviewRows([updatedRow.id]);
     const trainingReviews = reviews.get(updatedRow.id) || [];
+    const drafts = await loadTrainingDraftRows([updatedRow.id]);
+    const trainingDraft = drafts.get(updatedRow.id) || null;
     const derivedStatus = deriveTrainingStatus(
       updatedRow.status,
       updatedRow.expirationDate,
@@ -3420,6 +3598,7 @@ router.post(
     const effectivenessStatus = getEffectivenessStatus(
       trainingReviews,
       updatedRow,
+      trainingDraft,
     );
 
     res.json({
@@ -3462,6 +3641,9 @@ router.post(
       attachments: formatEmployeeRecordAttachments(updatedRow.attachments),
       latestEffectivenessReview: trainingReviews[0]
         ? formatTrainingEffectivenessReview(trainingReviews[0])
+        : null,
+      effectivenessDraft: trainingDraft
+        ? formatTrainingEffectivenessDraft(trainingDraft)
         : null,
       createdAt: toIsoDateTime(updatedRow.createdAt),
       updatedAt: toIsoDateTime(updatedRow.updatedAt),
@@ -3577,7 +3759,27 @@ router.post(
         | undefined) ??
       null;
 
+    // 'draft' = autosave do wizard (preenchimento parcial). Não conclui a
+    // avaliação, não concede competência e é substituído a cada gravação.
+    const isDraft = body.data.status === "draft";
+
     const review = await db.transaction(async (tx) => {
+      // Um avaliador tem no máximo um rascunho por treino. Tanto o autosave
+      // seguinte quanto a finalização começam removendo o anterior — assim o
+      // rascunho nunca sobrevive à avaliação que ele originou.
+      await tx
+        .delete(trainingEffectivenessReviewsTable)
+        .where(
+          and(
+            eq(trainingEffectivenessReviewsTable.trainingId, training.id),
+            eq(
+              trainingEffectivenessReviewsTable.evaluatorUserId,
+              req.auth!.userId,
+            ),
+            eq(trainingEffectivenessReviewsTable.status, "draft"),
+          ),
+        );
+
       const [createdReview] = await tx
         .insert(trainingEffectivenessReviewsTable)
         .values({
@@ -3588,12 +3790,14 @@ router.post(
           isEffective: body.data.isEffective,
           resultLevel: body.data.resultLevel,
           comments: body.data.comments?.trim() || null,
+          criteria: body.data.criteria ?? null,
+          status: isDraft ? "draft" : "final",
           attachments: attachments || [],
           evaluatorRole: evaluatorRole ?? undefined,
         })
         .returning();
 
-      if (body.data.isEffective) {
+      if (!isDraft && body.data.isEffective) {
         // Um item do catálogo pode comprovar VÁRIAS competências
         // (training_catalog.target_competencies). Carrega a lista completa
         // do item (uma vez, fora de qualquer loop) quando o treino vem de

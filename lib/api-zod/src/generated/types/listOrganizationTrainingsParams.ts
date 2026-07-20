@@ -35,6 +35,12 @@ export type ListOrganizationTrainingsParams = {
   normId?: number;
   evaluatorRole?: ListOrganizationTrainingsEvaluatorRole;
   boardColumn?: ListOrganizationTrainingsBoardColumn;
+  onlyProgramado?: boolean;
+  realizadoInCurrentMonth?: boolean;
+  /**
+   * Filtra a lista para pendentes sem turma ativa vinculada (pendente ∧ não programado).
+   */
+  onlyPendenteSemTurma?: boolean;
   /**
    * @minimum 1
    */

@@ -1152,6 +1152,19 @@ paths:
           schema:
             type: string
             enum: [pendentes, em_avaliacao, concluidas]
+        - name: onlyProgramado
+          in: query
+          required: false
+          schema: { type: boolean }
+        - name: realizadoInCurrentMonth
+          in: query
+          required: false
+          schema: { type: boolean }
+        - name: onlyPendenteSemTurma
+          in: query
+          required: false
+          description: "Filtra a lista para pendentes sem turma ativa vinculada (pendente ∧ não programado)."
+          schema: { type: boolean }
         - name: page
           in: query
           schema:
@@ -11200,8 +11213,15 @@ components:
           type: integer
           description: >-
             Participantes aprovados (result = "aprovado"). Exibido como
-            "Realizados" na ficha do catálogo. Presente só na listagem; a rota
-            de detalhe devolve os participantes com o resultado de cada um.
+            "Realizados" na ficha do catálogo e na Gestão de Treinamentos.
+            Presente só na listagem; a rota de detalhe devolve os participantes
+            com o resultado de cada um.
+        confirmedCount:
+          type: integer
+          description: >-
+            Participantes com presença confirmada (attendance = "presente") —
+            passo intermediário do funil Inscritos → Confirmados → Realizados.
+            Presente só na listagem.
         createdAt:
           type: string
           format: date-time
@@ -13195,6 +13215,10 @@ components:
           allOf:
             - $ref: "#/components/schemas/TrainingEffectivenessReview"
           nullable: true
+        effectivenessDraft:
+          allOf:
+            - $ref: "#/components/schemas/TrainingEffectivenessDraft"
+          nullable: true
         effectivenessDueDate:
           type: string
           format: date
@@ -13315,6 +13339,10 @@ components:
         comments:
           type: string
           nullable: true
+        criteria:
+          allOf:
+            - $ref: "#/components/schemas/TrainingEffectivenessCriteria"
+          nullable: true
         attachments:
           type: array
           items:
@@ -13328,6 +13356,59 @@ components:
         - evaluatorUserId
         - evaluationDate
         - attachments
+
+    TrainingEffectivenessCriteria:
+      type: object
+      description: >-
+        Notas por critério Kirkpatrick (1–5). behavior = L3 (comportamento),
+        result = L4 (resultado), transfer = transferência para a equipe.
+      required:
+        - behavior
+        - result
+        - transfer
+      properties:
+        behavior:
+          type: integer
+          minimum: 1
+          maximum: 5
+        result:
+          type: integer
+          minimum: 1
+          maximum: 5
+        transfer:
+          type: integer
+          minimum: 1
+          maximum: 5
+
+    TrainingEffectivenessDraft:
+      type: object
+      description: >-
+        Preenchimento parcial da avaliação de eficácia, salvo pelo avaliador e
+        usado para reidratar o wizard.
+      required:
+        - id
+        - evaluatorUserId
+      properties:
+        id:
+          type: integer
+        evaluatorUserId:
+          type: integer
+        evaluatorName:
+          type: string
+          nullable: true
+        evaluatorRole:
+          type: string
+          nullable: true
+        criteria:
+          allOf:
+            - $ref: "#/components/schemas/TrainingEffectivenessCriteria"
+          nullable: true
+        comments:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
 
     EmployeePositionChange:
       type: object
@@ -13535,6 +13616,8 @@ components:
             eficazPercent:
               type: number
               nullable: true
+            realizadoMes:
+              type: integer
           required:
             - total
             - pendente
@@ -14062,6 +14145,16 @@ components:
         evaluatorRole:
           type: string
           enum: [gestor, rh, instrutor, colaborador]
+        status:
+          type: string
+          enum: [draft, final]
+          default: final
+          description: >-
+            'draft' grava o preenchimento parcial do wizard sem concluir a
+            avaliação (não concede competência e mantém o card em "Em
+            avaliação"). Substitui o rascunho anterior do mesmo avaliador.
+        criteria:
+          $ref: "#/components/schemas/TrainingEffectivenessCriteria"
         attachments:
           type: array
           maxItems: 10
