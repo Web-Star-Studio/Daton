@@ -20,7 +20,6 @@ import {
 } from "@/lib/norms-client";
 import type {
   ListOrganizationTrainingsParams,
-  ListOrganizationTrainingsStatus,
   TrainingClass,
 } from "@workspace/api-client-react";
 import { usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
@@ -31,6 +30,8 @@ import { Select } from "@/components/ui/select";
 import { formatDate, trainingDeadline } from "./_lib/format";
 import { buildCatalogMeta } from "./_lib/catalog-meta";
 import { PorColaboradorTable } from "./_components/PorColaboradorTable";
+import { MetricCards } from "./_components/MetricCards";
+import { StatusPills } from "./_components/StatusPills";
 
 // ─── Badges ───────────────────────────────────────────────────────────────
 
@@ -49,7 +50,13 @@ const CLASS_STATUS_LABEL: Record<string, string> = {
 
 // ─── Filter / tab types ─────────────────────────────────────────────────────
 
-type StatusFilter = "" | "vencido" | "a_vencer" | "pendente" | "concluido";
+type StatusFilter =
+  | ""
+  | "vencido"
+  | "a_vencer"
+  | "pendente"
+  | "programado"
+  | "realizado";
 type Tab = "colaborador" | "turma" | "prazo";
 
 const TABS: Array<{ value: Tab; label: string }> = [
@@ -75,6 +82,7 @@ export default function AprendizagemGestaoPage() {
   const [cargo, setCargo] = useState<string>(""); // position name
   const [normId, setNormId] = useState<string>(""); // id da norma do catálogo
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
+  const [search, setSearch] = useState("");
   const [tab, setTab] = useState<Tab>("colaborador");
   const [pageSize, setPageSize] = useState(100);
 
@@ -140,17 +148,16 @@ export default function AprendizagemGestaoPage() {
   const aVencerCount = expiringResult?.pagination.total ?? 0;
 
   // ── Query principal (Por colaborador / Por prazo) ───────────────────────────
-  const isAVencer = statusFilter === "a_vencer";
-  const statusParam: ListOrganizationTrainingsStatus | undefined =
-    statusFilter === "vencido" ||
-    statusFilter === "pendente" ||
-    statusFilter === "concluido"
-      ? statusFilter
-      : undefined;
   const mainParams: ListOrganizationTrainingsParams = {
     ...baseParams,
-    status: isAVencer ? undefined : statusParam,
-    expiringWithinDays: isAVencer ? 30 : undefined,
+    status:
+      statusFilter === "vencido" || statusFilter === "pendente"
+        ? statusFilter
+        : undefined,
+    expiringWithinDays: statusFilter === "a_vencer" ? 30 : undefined,
+    onlyProgramado: statusFilter === "programado" ? true : undefined,
+    realizadoInCurrentMonth: statusFilter === "realizado" ? true : undefined,
+    search: search.trim() || undefined,
     page: 1,
     pageSize,
   };
@@ -321,36 +328,25 @@ export default function AprendizagemGestaoPage() {
       </div>
 
       {/* ── Metric cards (clicáveis) ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <MetricCard
-          label="Vencidos"
-          value={stats?.vencido ?? 0}
-          accent="text-red-700"
-          active={statusFilter === "vencido"}
-          onClick={() => toggleStatus("vencido")}
-        />
-        <MetricCard
-          label="A vencer em 30 dias"
-          value={aVencerCount}
-          accent="text-amber-700"
-          active={statusFilter === "a_vencer"}
-          onClick={() => toggleStatus("a_vencer")}
-        />
-        <MetricCard
-          label="Pendentes"
-          value={stats?.pendente ?? 0}
-          accent="text-blue-700"
-          active={statusFilter === "pendente"}
-          onClick={() => toggleStatus("pendente")}
-        />
-        <MetricCard
-          label="Concluídos"
-          value={stats?.concluido ?? 0}
-          accent="text-green-700"
-          active={statusFilter === "concluido"}
-          onClick={() => toggleStatus("concluido")}
-        />
-      </div>
+      <MetricCards
+        counts={{
+          vencido: stats?.vencido ?? 0,
+          aVencer: aVencerCount,
+          pendente: stats?.pendente ?? 0,
+          programado: stats?.programado ?? 0,
+          realizadoMes: stats?.realizadoMes ?? 0,
+        }}
+        active={statusFilter}
+        onToggle={toggleStatus}
+      />
+      <StatusPills active={statusFilter} onToggle={toggleStatus} />
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Buscar colaborador..."
+        className="w-full max-w-xs rounded-md border px-3 py-1.5 text-sm sm:w-auto"
+      />
 
       {/* ── Abas ─────────────────────────────────────────────────────────── */}
       <div className="flex gap-1 border-b">
@@ -488,34 +484,6 @@ export default function AprendizagemGestaoPage() {
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
-
-function MetricCard({
-  label,
-  value,
-  accent,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  accent?: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-xl border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/40",
-        active ? "border-primary ring-2 ring-primary" : "",
-      )}
-    >
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn("mt-1 text-2xl font-semibold", accent)}>{value}</div>
-    </button>
-  );
-}
 
 function ResultsFooter({
   shown,
