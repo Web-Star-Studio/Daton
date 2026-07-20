@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import {
   db,
   usersTable,
+  type ActionPlanAnalysis,
   type ActionPlan as DbActionPlan,
   type ActionPlanAction as DbActionPlanAction,
   type ActionPlanActivityLogEntry as DbActionPlanActivity,
@@ -78,6 +79,28 @@ export function serializeActivityEntry(e: DbActionPlanActivity) {
   };
 }
 
+/**
+ * As tratativas do plano, com queda para o formato legado.
+ *
+ * Plano criado antes desta feature guarda a cadeia de porquês em `root_cause_whys` (coluna
+ * mantida como rede de rollback). O serializer novo só devolve `analyses`, então SEM esta
+ * queda os porquês que a equipe já tinha escrito sumiriam da tela — o dado continuaria no
+ * banco, mas invisível para o usuário.
+ *
+ * Compõe na LEITURA em vez de exigir um backfill manual: o plano legado aparece como a
+ * tratativa `five_whys` e, no primeiro save que toque as tratativas, passa a existir no
+ * formato novo sozinho. Só entra em ação quando `analyses` está vazio — plano já migrado
+ * nunca passa por aqui, e nada é escrito no caminho de leitura.
+ */
+function composeAnalyses(p: DbActionPlan): ActionPlanAnalysis[] | null {
+  if (p.analyses && p.analyses.length > 0) return p.analyses;
+  const whys = (p.rootCauseWhys ?? []).filter(
+    (w): w is string => typeof w === "string" && w.trim() !== "",
+  );
+  if (whys.length === 0) return p.analyses ?? null;
+  return [{ key: "five_whys", data: { whys } }];
+}
+
 export function serializePlan(
   p: DbActionPlan,
   sourceContext: SourceContext,
@@ -107,7 +130,7 @@ export function serializePlan(
     gutTendency: p.gutTendency ?? null,
     gutScore: gutScore(p.gutGravity, p.gutUrgency, p.gutTendency),
     rootCause: p.rootCause ?? null,
-    analyses: p.analyses ?? null,
+    analyses: composeAnalyses(p),
     responsibleUserId: p.responsibleUserId ?? null,
     responsibleUserName: extras.responsibleUserName,
     dueDate: p.dueDate ? p.dueDate.toISOString() : null,

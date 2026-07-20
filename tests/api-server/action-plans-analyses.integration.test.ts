@@ -1,6 +1,8 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import app from "../../artifacts/api-server/src/app";
+import { db, actionPlansTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import {
   authHeader,
   cleanupTestContext,
@@ -135,5 +137,51 @@ describe("tratativas no plano", () => {
     expect(planning?.changes.fields.planning.to.analyses).toEqual([
       { key: "five_whys", data: { whys: ["a"] } },
     ]);
+  });
+
+  it("plano LEGADO (root_cause_whys, sem analyses) aparece como tratativa five_whys", async () => {
+    const context = await createTestContext({ seed: "plan-analyses-legacy" });
+    contexts.push(context);
+
+    const created = await createPlan(context, {});
+    expect(created.status).toBe(201);
+
+    // Estado de um plano criado ANTES desta feature: a cadeia mora na coluna legada
+    // e `analyses` nunca foi preenchido.
+    await db
+      .update(actionPlansTable)
+      .set({ analyses: null, rootCauseWhys: ["Primeiro porquê", "Segundo porquê"] })
+      .where(eq(actionPlansTable.id, created.body.id));
+
+    const lido = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${created.body.id}`)
+      .set(authHeader(context));
+
+    expect(lido.status).toBe(200);
+    // Sem esta queda, os porquês já escritos pela equipe sumiriam da tela.
+    expect(lido.body.analyses).toEqual([
+      { key: "five_whys", data: { whys: ["Primeiro porquê", "Segundo porquê"] } },
+    ]);
+  });
+
+  it("plano já migrado NÃO é sobrescrito pela queda ao legado", async () => {
+    const context = await createTestContext({ seed: "plan-analyses-nolegacy" });
+    contexts.push(context);
+
+    const created = await createPlan(context, {
+      analyses: [{ key: "a3", data: { goal: "Meta atual" } }],
+    });
+    expect(created.status).toBe(201);
+
+    await db
+      .update(actionPlansTable)
+      .set({ rootCauseWhys: ["porquê legado que não deve aparecer"] })
+      .where(eq(actionPlansTable.id, created.body.id));
+
+    const lido = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${created.body.id}`)
+      .set(authHeader(context));
+
+    expect(lido.body.analyses).toEqual([{ key: "a3", data: { goal: "Meta atual" } }]);
   });
 });
