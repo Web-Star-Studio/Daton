@@ -13,6 +13,7 @@ import {
   cleanupTestContext,
   createEmployee,
   createTestContext,
+  createTestUser,
   createUnit,
   type TestOrgContext,
 } from "../../../../tests/support/backend";
@@ -198,5 +199,231 @@ describe("Eficácia — rascunho (status=draft)", () => {
     expect(
       concluidas.body.data.some((t: { id: number }) => t.id === training.id),
     ).toBe(false);
+  });
+});
+
+/**
+ * Multi-avaliador: um mesmo treinamento pode ter gestor, RH, instrutor e
+ * colaborador avaliando. Estes testes cobrem os dois vazamentos que o rascunho
+ * abriu quando ele foi introduzido sem escopo por avaliador.
+ */
+describe("Eficácia — rascunho com múltiplos avaliadores", () => {
+  it("rascunho de um avaliador NÃO vaza para outro", async () => {
+    const ctx = await createTestContext({ seed: "eff-draft-multi-a" });
+    contexts.push(ctx);
+    const unit = await createUnit(ctx, "Filial multi-a");
+    const employee = await createEmployee(ctx, {
+      name: "Rita Multi",
+      unitId: unit.id,
+    });
+    const [training] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: "Treino multi-a",
+        status: "concluido",
+        completionDate: "2025-03-01",
+        evaluationMethod: "prova",
+        effectivenessAssignedRole: "gestor",
+        effectivenessDueDate: "2025-06-01",
+      })
+      .returning();
+
+    // Avaliador A grava um rascunho com anotações próprias.
+    await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${employee.id}/trainings/${training!.id}/effectiveness-reviews`,
+      )
+      .set(authHeader(ctx))
+      .send({
+        evaluationDate: "2025-04-01",
+        score: 8,
+        isEffective: true,
+        resultLevel: 4,
+        comments: "Anotações privadas do avaliador A",
+        criteria: { behavior: 4, result: 4, transfer: 4 },
+        status: "draft",
+      });
+
+    // Avaliador B (outra conta da mesma org) lista o board.
+    const other = await createTestUser(ctx, {
+      role: "org_admin",
+      suffix: "aval-b",
+    });
+    const list = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings`)
+      .set({ Authorization: `Bearer ${other.token}` });
+
+    const item = list.body.data.find(
+      (t: { id: number }) => t.id === training!.id,
+    );
+    expect(item).toBeDefined();
+    // B enxerga que está em avaliação, mas nunca o conteúdo do rascunho de A.
+    expect(item.effectivenessStatus).toBe("in_review");
+    expect(item.effectivenessDraft).toBeNull();
+
+    // E A continua enxergando o próprio rascunho.
+    const mine = await request(app)
+      .get(`/api/organizations/${ctx.organizationId}/employees/trainings`)
+      .set(authHeader(ctx));
+    const mineItem = mine.body.data.find(
+      (t: { id: number }) => t.id === training!.id,
+    );
+    expect(mineItem.effectivenessDraft).not.toBeNull();
+    expect(mineItem.effectivenessDraft.comments).toBe(
+      "Anotações privadas do avaliador A",
+    );
+  });
+
+  it("rascunho mais recente de outro avaliador não sequestra as stats da avaliação final", async () => {
+    const ctx = await createTestContext({ seed: "eff-draft-multi-b" });
+    contexts.push(ctx);
+    const unit = await createUnit(ctx, "Filial multi-b");
+    const employee = await createEmployee(ctx, {
+      name: "Rita Stats",
+      unitId: unit.id,
+    });
+    const [training] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: "Treino multi-b",
+        status: "concluido",
+        completionDate: "2025-03-01",
+        evaluationMethod: "prova",
+        effectivenessDueDate: "2025-06-01",
+      })
+      .returning();
+
+    const other = await createTestUser(ctx, {
+      role: "org_admin",
+      suffix: "aval-c",
+    });
+
+    // Final: EFICAZ, avaliada dentro do prazo.
+    await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${employee.id}/trainings/${training!.id}/effectiveness-reviews`,
+      )
+      .set(authHeader(ctx))
+      .send({
+        evaluationDate: "2025-05-01",
+        score: 8,
+        isEffective: true,
+        resultLevel: 4,
+        criteria: { behavior: 4, result: 4, transfer: 4 },
+        status: "final",
+      });
+
+    // Rascunho de OUTRO avaliador, mais recente e com veredito oposto — e com
+    // data fora do prazo. Se as subqueries de "última review" não filtrarem
+    // status='final', ele rouba tanto o veredito quanto o cálculo de prazo.
+    await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${employee.id}/trainings/${training!.id}/effectiveness-reviews`,
+      )
+      .set({ Authorization: `Bearer ${other.token}` })
+      .send({
+        evaluationDate: "2025-09-01",
+        score: 2,
+        isEffective: false,
+        resultLevel: 1,
+        criteria: { behavior: 1, result: 1, transfer: 1 },
+        status: "draft",
+      });
+
+    const list = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?scope=needs_evaluation`,
+      )
+      .set(authHeader(ctx));
+
+    // Veredito continua o da avaliação final.
+    expect(list.body.stats.eficazes).toBe(1);
+    expect(list.body.stats.naoEficazes).toBe(0);
+    // E o prazo também: 2025-05-01 <= 2025-06-01 ⇒ 100% no prazo.
+    expect(list.body.stats.onTimePercent).toBe(100);
+
+    const item = list.body.data.find(
+      (t: { id: number }) => t.id === training!.id,
+    );
+    expect(item.effectivenessStatus).toBe("effective");
+  });
+});
+
+/**
+ * Coerência SQL × JS: a coluna do board e o `effectivenessStatus` serializado
+ * têm de contar a mesma história. O caso limite é um rascunho SEM atribuição
+ * prévia — a rota aceita `status: "draft"` direto, sem passar pelo endpoint de
+ * atribuição, então não basta confiar que a UI sempre grava papel+prazo antes.
+ */
+describe("Eficácia — rascunho sem atribuição não desalinha board e status", () => {
+  it("outro avaliador vê in_review (não pending) e segue em em_avaliacao, sem ver o rascunho", async () => {
+    const ctx = await createTestContext({ seed: "eff-draft-align" });
+    contexts.push(ctx);
+    const unit = await createUnit(ctx, "Filial align");
+    const employee = await createEmployee(ctx, {
+      name: "Rita Align",
+      unitId: unit.id,
+    });
+    // Sem effectivenessAssignedRole e sem effectivenessDueDate de propósito:
+    // o único sinal de "em avaliação" será o rascunho.
+    const [training] = await db
+      .insert(employeeTrainingsTable)
+      .values({
+        employeeId: employee.id,
+        title: "Treino align",
+        status: "concluido",
+        completionDate: "2025-03-01",
+        evaluationMethod: "prova",
+      })
+      .returning();
+
+    await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${employee.id}/trainings/${training!.id}/effectiveness-reviews`,
+      )
+      .set(authHeader(ctx))
+      .send({
+        evaluationDate: "2025-04-01",
+        score: 8,
+        isEffective: true,
+        resultLevel: 4,
+        comments: "Rascunho sem atribuição",
+        criteria: { behavior: 4, result: 4, transfer: 4 },
+        status: "draft",
+      });
+
+    const other = await createTestUser(ctx, {
+      role: "org_admin",
+      suffix: "aval-align",
+    });
+    const otherAuth = { Authorization: `Bearer ${other.token}` };
+
+    // A linha volta na coluna em_avaliacao…
+    const col = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?boardColumn=em_avaliacao&scope=needs_evaluation`,
+      )
+      .set(otherAuth);
+    const inColumn = col.body.data.find(
+      (t: { id: number }) => t.id === training!.id,
+    );
+    expect(inColumn).toBeDefined();
+
+    // …e o status serializado tem de concordar com a coluna.
+    expect(inColumn.effectivenessStatus).toBe("in_review");
+    // Mas o conteúdo do rascunho alheio continua invisível.
+    expect(inColumn.effectivenessDraft).toBeNull();
+
+    // O filtro por status também não pode divergir.
+    const byStatus = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?effectivenessStatus=in_review&scope=needs_evaluation`,
+      )
+      .set(otherAuth);
+    expect(
+      byStatus.body.data.some((t: { id: number }) => t.id === training!.id),
+    ).toBe(true);
   });
 });
