@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
@@ -129,8 +129,8 @@ export default function TurmasPage() {
 
   const { data: catalogResult, isLoading: catalogLoading } =
     useAllTrainingCatalog(orgId ?? 0, undefined, {
-    query: { enabled: !!orgId },
-  });
+      query: { enabled: !!orgId },
+    });
   const catalogItems = catalogResult?.data ?? [];
   const catalogTitle = useMemo(
     () => new Map(catalogItems.map((c) => [c.id, c.title])),
@@ -139,7 +139,10 @@ export default function TurmasPage() {
   const { data: units = [], isLoading: unitsLoading } = useListUnits(
     orgId ?? 0,
   );
-  const unitName = useMemo(() => new Map(units.map((u) => [u.id, u.name])), [units]);
+  const unitName = useMemo(
+    () => new Map(units.map((u) => [u.id, u.name])),
+    [units],
+  );
 
   const invalidateList = () => {
     if (orgId)
@@ -182,6 +185,24 @@ export default function TurmasPage() {
     setOpen(true);
   };
 
+  // Chegada do "Abrir turma" da ficha do catálogo: ?novaTurma=<catalogItemId>
+  // abre o stepper já com o treinamento selecionado. Só dispara uma vez, e o
+  // parâmetro sai da URL para um F5 (ou voltar) não reabrir o diálogo.
+  // Espera `canWrite` em vez de consumir o parâmetro: as permissões podem
+  // resolver depois do primeiro render, e consumir antes engoliria a intenção.
+  const prefilledFromUrl = useRef(false);
+  useEffect(() => {
+    if (prefilledFromUrl.current || !canWrite) return;
+    const raw = new URLSearchParams(window.location.search).get("novaTurma");
+    if (!raw || !/^\d+$/.test(raw)) return;
+    prefilledFromUrl.current = true;
+    window.history.replaceState({}, "", window.location.pathname);
+    setForm({ ...EMPTY_FORM, catalogItemId: raw });
+    setSelectedEmployees([]);
+    setStep(1);
+    setOpen(true);
+  }, [canWrite]);
+
   useHeaderActions(
     canWrite ? (
       <HeaderActionButton
@@ -208,7 +229,9 @@ export default function TurmasPage() {
         location: form.location || undefined,
         instructor: form.instructor || undefined,
         modality: form.modality || undefined,
-        workloadHours: form.workloadHours ? Number(form.workloadHours) : undefined,
+        workloadHours: form.workloadHours
+          ? Number(form.workloadHours)
+          : undefined,
         capacity: form.capacity ? Number(form.capacity) : undefined,
         minScore: form.minScore ? Number(form.minScore) : undefined,
         status: form.status,
@@ -264,7 +287,9 @@ export default function TurmasPage() {
       <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
         <div className="rounded-xl border bg-card shadow-sm">
           {isLoading ? (
-            <p className="px-4 py-8 text-sm text-muted-foreground">Carregando...</p>
+            <p className="px-4 py-8 text-sm text-muted-foreground">
+              Carregando...
+            </p>
           ) : classes.length === 0 ? (
             <p className="px-4 py-12 text-center text-sm text-muted-foreground">
               Nenhuma turma{canWrite ? " — clique em “Nova turma”." : "."}
@@ -290,7 +315,8 @@ export default function TurmasPage() {
                     onClick={() => setSelectedId(c.id)}
                   >
                     <td className="px-4 py-2 font-medium">
-                      {catalogTitle.get(c.catalogItemId) ?? `#${c.catalogItemId}`}
+                      {catalogTitle.get(c.catalogItemId) ??
+                        `#${c.catalogItemId}`}
                       {c.code ? ` — ${c.code}` : ""}
                     </td>
                     <td className="px-4 py-2 text-muted-foreground">
@@ -371,7 +397,10 @@ export default function TurmasPage() {
                           ? `${selectedCatalogItem.validityMonths} meses`
                           : "Sem validade",
                       ],
-                      ["Instrutor padrão", selectedCatalogItem.defaultInstructor ?? null],
+                      [
+                        "Instrutor padrão",
+                        selectedCatalogItem.defaultInstructor ?? null,
+                      ],
                     ] as [string, string | null][]
                   ).map(([label, value]) => (
                     <div key={label}>
@@ -416,7 +445,9 @@ export default function TurmasPage() {
               <Input
                 type="date"
                 value={form.startDate}
-                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, startDate: e.target.value })
+                }
               />
             </Field>
             <Field label="Data de término">

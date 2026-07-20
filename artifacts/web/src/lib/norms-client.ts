@@ -16,6 +16,22 @@ export function buildNormLabelMap(
   return new Map(norms.map((n) => [n.id, n.label]));
 }
 
+/**
+ * Forma curta de um rótulo de norma, para caber em espaços apertados (o badge
+ * do card do catálogo). O rótulo é texto livre por organização, e a convenção
+ * usada é "código · descrição" ("NR-11 · Transporte e Movimentação de
+ * Materiais") — nesses casos só o código identifica a norma, e a descrição
+ * estourava o cabeçalho do card, espremendo o título.
+ *
+ * Sem separador (ex.: "ISO 9001") devolve o rótulo inteiro: quem chama ainda
+ * precisa truncar no CSS, já que um rótulo longo sem separador continua longo.
+ * O rótulo completo fica no `title` do badge e na ficha.
+ */
+export function shortNormLabel(label: string): string {
+  const head = label.split(/\s+[·•—–|]\s+/)[0]?.trim();
+  return head || label.trim();
+}
+
 /** The organization's full norm catalog (active + inactive), for management screens. */
 export function useAllNorms(orgId: number) {
   return useListNorms(orgId, {
