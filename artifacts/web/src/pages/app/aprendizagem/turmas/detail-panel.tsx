@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetTrainingClass,
   useUpdateTrainingClassParticipant,
-  useCompleteTrainingClass,
   useUpdateTrainingClass,
   getGetTrainingClassQueryKey,
 } from "@workspace/api-client-react";
@@ -20,6 +19,8 @@ import {
 } from "@/lib/uploads";
 import { resolveApiUrl } from "@/lib/api";
 import { AddParticipantsDialog } from "./add-participants-dialog";
+import { ScoreInput } from "./score-input";
+import { EncerrarTurmaDialog } from "./encerrar-turma-dialog";
 
 type Tab = "presenca" | "notas" | "evidencias";
 
@@ -55,6 +56,7 @@ export function TurmaDetailPanel({
   const [tab, setTab] = useState<Tab>("presenca");
   const [uploading, setUploading] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [encerrarOpen, setEncerrarOpen] = useState(false);
 
   const { data: detail, isLoading } = useGetTrainingClass(orgId, classId, {
     query: {
@@ -64,7 +66,6 @@ export function TurmaDetailPanel({
   });
 
   const updateParticipant = useUpdateTrainingClassParticipant();
-  const completeMutation = useCompleteTrainingClass();
   const updateClass = useUpdateTrainingClass();
 
   const invalidateDetail = () => {
@@ -106,41 +107,6 @@ export function TurmaDetailPanel({
     } catch {
       toast({
         title: "Erro ao salvar nota",
-        description: "Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleComplete = async () => {
-    try {
-      const res = await completeMutation.mutateAsync({ orgId, id: classId });
-      invalidateDetail();
-      onChanged();
-      if (res.completed > 0) {
-        toast({
-          title: "Turma concluída",
-          description: `${res.completed} treino(s) registrado(s) como concluído(s).`,
-        });
-        return;
-      }
-      // Zero tem duas causas bem diferentes, e tratá-las igual é o que deixava o
-      // operador no escuro: (a) ninguém marcado "Presente" — só presente vira
-      // registro, então nada foi gerado e é preciso agir; (b) todos os presentes
-      // já haviam sido processados numa execução anterior — nada a fazer.
-      const anyPresent = (detail?.participants ?? []).some(
-        (p) => p.attendance === "presente",
-      );
-      toast({
-        title: anyPresent ? "Nada a atualizar" : "Nenhum registro gerado",
-        description: anyPresent
-          ? "Todos os participantes presentes já tinham registro de treinamento."
-          : "Marque a presença dos participantes: só quem está como “Presente” gera registro de treinamento.",
-        variant: anyPresent ? undefined : "destructive",
-      });
-    } catch {
-      toast({
-        title: "Erro ao concluir turma",
         description: "Tente novamente.",
         variant: "destructive",
       });
@@ -209,18 +175,17 @@ export function TurmaDetailPanel({
             <Button
               size="sm"
               variant={isDone ? "outline" : "default"}
-              onClick={() => void handleComplete()}
-              disabled={completeMutation.isPending}
-              // Reexecutar é seguro: completeTrainingClass pula quem já está
-              // concluído e só processa os pendentes (recém-inscritos ou que
-              // acabaram de ser marcados como presentes).
+              onClick={() => setEncerrarOpen(true)}
+              // Reabrir numa turma já realizada é seguro: o assistente regrava
+              // só o que mudou e completeTrainingClass pula quem já está
+              // concluído, então nada é duplicado.
               title={
                 isDone
-                  ? "Gera o registro de treinamento para participantes presentes que ainda não foram processados."
+                  ? "Revisar presença e notas e gerar os registros que ainda faltam."
                   : undefined
               }
             >
-              {isDone ? "Atualizar conclusão" : "Concluir turma"}
+              {isDone ? "Revisar encerramento" : "Encerrar turma"}
             </Button>
           ) : null}
         </div>
@@ -401,53 +366,23 @@ export function TurmaDetailPanel({
           }}
         />
       ) : null}
-    </div>
-  );
-}
 
-// Controlled score input that stays in sync with refetched data.
-export function ScoreInput({
-  score,
-  disabled,
-  onSave,
-}: {
-  score: number | null;
-  disabled: boolean;
-  onSave: (v: number) => void;
-}) {
-  const [val, setVal] = useState(score != null ? String(score) : "");
-  useEffect(() => {
-    setVal(score != null ? String(score) : "");
-  }, [score]);
-  return (
-    <Input
-      type="number"
-      inputMode="decimal"
-      min={0}
-      max={10}
-      step={0.5}
-      value={val}
-      disabled={disabled}
-      className="h-8 w-20"
-      onChange={(e) => setVal(e.target.value)}
-      onBlur={() => {
-        if (val === "" || val === String(score ?? "")) return;
-        const parsed = Number(val);
-        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10) {
-          // Valor inválido: volta ao que estava, em vez de gravar lixo — mas
-          // avisa, senão o número digitado some sem explicação (achado 3 da
-          // revisão de fix/score-precisao-nota).
-          toast({
-            title: "Nota inválida",
-            description: "A nota deve estar entre 0 e 10.",
-            variant: "destructive",
-          });
-          setVal(score != null ? String(score) : "");
-          return;
-        }
-        onSave(parsed);
-      }}
-    />
+      {canWrite ? (
+        <EncerrarTurmaDialog
+          orgId={orgId}
+          classId={classId}
+          open={encerrarOpen}
+          onOpenChange={setEncerrarOpen}
+          participants={participants}
+          minScore={detail.minScore}
+          isDone={isDone}
+          onDone={() => {
+            invalidateDetail();
+            onChanged();
+          }}
+        />
+      ) : null}
+    </div>
   );
 }
 
