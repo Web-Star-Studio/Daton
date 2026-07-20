@@ -2,6 +2,7 @@ import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { cn } from "@/lib/utils";
 
 export type ColunaTexto<R> = {
   kind: "text";
@@ -25,8 +26,18 @@ export type ColunaCalculada<R> = {
 };
 export type Coluna<R> = ColunaTexto<R> | ColunaSelect<R> | ColunaCalculada<R>;
 
-/** Tabela de linhas com colunas tipadas. Nada de campo aberto onde há vocabulário fechado:
- *  a coluna `select` só aceita os valores que ela oferece, e a `computed` o usuário não digita. */
+/**
+ * Linhas com campos tipados — nada de campo aberto onde há vocabulário fechado: a coluna
+ * `select` só aceita os valores que ela oferece, e a `computed` o usuário não digita.
+ *
+ * Renderiza EMPILHADO (um bloco por linha, cada campo rotulado), não como tabela larga: a
+ * coluna da ficha nunca passa de ~438px, e um FMEA de 9 colunas ali virava rolagem
+ * horizontal que escondia justamente o RPN. Empilhado, tudo fica visível e legível — e os
+ * rótulos longos dos selects (ex.: "8 — Perda total de função") cabem inteiros.
+ *
+ * Quando a primeira coluna é `computed`, ela vira o TÍTULO do bloco em vez de mais um campo
+ * — é o caso das 4 dimensões fixas do Kepner-Tregoe.
+ */
 export function TabelaEstruturada<R extends { id: string }>({
   colunas,
   rows,
@@ -50,101 +61,82 @@ export function TabelaEstruturada<R extends { id: string }>({
   const setCell = (id: string, key: string, value: unknown) =>
     onChange(rows.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
 
+  const [primeira, ...demais] = colunas;
+  const tituloCol = primeira?.kind === "computed" ? primeira : null;
+  const campos = tituloCol ? demais : colunas;
+
   return (
     <div className="space-y-2">
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[720px] text-[13px]">
-          <thead>
-            <tr className="border-b bg-muted/40">
-              {colunas.map((c) => (
-                <th
-                  key={c.header}
-                  className="px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
-                  style={c.width ? { width: c.width } : undefined}
-                >
-                  {c.header}
-                </th>
-              ))}
-              {!readOnly && !fixedRows && <th className="w-8" />}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} className={rowClassName?.(row)}>
-                {colunas.map((coluna) => (
-                  <td
-                    key={coluna.header}
-                    className="border-t px-1.5 py-1 align-top"
-                  >
-                    {coluna.kind === "computed" ? (
-                      <div className="px-1 py-1.5">{coluna.render(row)}</div>
-                    ) : coluna.kind === "select" ? (
-                      <SearchableSelect
-                        value={
-                          (row[coluna.key] as string | undefined)?.toString() ??
-                          ""
-                        }
-                        onChange={(v) =>
-                          setCell(row.id, coluna.key, v || undefined)
-                        }
-                        options={coluna.options}
-                        placeholder="—"
-                        searchPlaceholder="Buscar..."
-                        emptyMessage="Sem opções"
-                        disabled={readOnly}
-                      />
-                    ) : (
-                      <Input
-                        className="h-8 border-0 bg-transparent px-1 text-[13px] shadow-none focus-visible:ring-1"
-                        value={(row[coluna.key] as string | undefined) ?? ""}
-                        placeholder={coluna.placeholder}
-                        readOnly={readOnly}
-                        onChange={(e) =>
-                          setCell(row.id, coluna.key, e.target.value)
-                        }
-                      />
-                    )}
-                  </td>
-                ))}
-                {!readOnly && !fixedRows && (
-                  <td className="border-t px-1 py-1 align-top">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground"
-                      aria-label="Remover linha"
-                      onClick={() =>
-                        onChange(rows.filter((r) => r.id !== row.id))
-                      }
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </td>
+      {rows.length === 0 ? (
+        <p className="rounded-lg border border-dashed px-3 py-4 text-center text-[13px] text-muted-foreground">
+          Nenhuma linha ainda.
+        </p>
+      ) : (
+        rows.map((row) => (
+          <div
+            key={row.id}
+            className={cn("rounded-lg border bg-background p-2.5", rowClassName?.(row))}
+          >
+            {(tituloCol || (!readOnly && !fixedRows)) && (
+              <div className="mb-1.5 flex items-start justify-between gap-2">
+                {tituloCol ? (
+                  <p className="text-[12px] font-semibold text-foreground">
+                    {tituloCol.render(row)}
+                  </p>
+                ) : (
+                  <span />
                 )}
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td
-                  colSpan={colunas.length + 1}
-                  className="border-t px-3 py-4 text-center text-[13px] text-muted-foreground"
-                >
-                  Nenhuma linha ainda.
-                </td>
-              </tr>
+                {!readOnly && !fixedRows && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="-mr-1 -mt-1 h-6 w-6 shrink-0 text-muted-foreground"
+                    aria-label="Remover linha"
+                    onClick={() => onChange(rows.filter((r) => r.id !== row.id))}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
+
+            <div className="space-y-1.5">
+              {campos.map((coluna) => (
+                <div key={coluna.header}>
+                  <label className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {coluna.header}
+                  </label>
+                  {coluna.kind === "computed" ? (
+                    <div className="text-[13px]">{coluna.render(row)}</div>
+                  ) : coluna.kind === "select" ? (
+                    <SearchableSelect
+                      value={(row[coluna.key] as string | undefined)?.toString() ?? ""}
+                      onChange={(v) => setCell(row.id, coluna.key, v || undefined)}
+                      options={coluna.options}
+                      placeholder="—"
+                      searchPlaceholder="Buscar..."
+                      emptyMessage="Sem opções"
+                      disabled={readOnly}
+                    />
+                  ) : (
+                    <Input
+                      className="h-8 text-[13px]"
+                      value={(row[coluna.key] as string | undefined) ?? ""}
+                      placeholder={coluna.placeholder}
+                      readOnly={readOnly}
+                      onChange={(e) => setCell(row.id, coluna.key, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+
       {!readOnly && !fixedRows && onAdd && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-xs"
-          onClick={onAdd}
-        >
+        <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={onAdd}>
           <Plus className="mr-1 h-3.5 w-3.5" />
           {addLabel}
         </Button>

@@ -317,8 +317,11 @@ export function AcoesDoPlano({
                         </Badge>
                       )}
                     </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                      <div>
+                    {/* A coluna da ficha nunca passa de ~438px, então 3 colunas apertariam os
+                        controles (o "Selecione"/"Em andamento" truncava). Quem ocupa a linha
+                        inteira (nomes são longos); Quando e Status dividem a de baixo. */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="col-span-2">
                         <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                           Quem
                         </label>
