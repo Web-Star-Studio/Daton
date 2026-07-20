@@ -229,17 +229,30 @@ export const boardHasPendingCriteria = or(
  * alguma configuração de avaliação de eficácia ou já possuem uma review.
  * Espelha o conjunto de estados NÃO-nulos de `getEffectivenessStatus`:
  * pending (critério presente) + in_review (papel OU **prazo** atribuído) + review.
- * SQL: (critério de pending presente — ver boardHasPendingCriteria)
- *      OR effectiveness_assigned_role IS NOT NULL
- *      OR effectiveness_due_date IS NOT NULL   -- in_review por prazo (SQL×JS, #115)
- *      OR EXISTS (review)
+ * SQL: status <> 'nao_aplicavel'
+ *      AND (
+ *        (critério de pending presente — ver boardHasPendingCriteria)
+ *        OR effectiveness_assigned_role IS NOT NULL
+ *        OR effectiveness_due_date IS NOT NULL   -- in_review por prazo (SQL×JS, #115)
+ *        OR EXISTS (review)
+ *        OR EXISTS (rascunho)
+ *      )
+ *
+ * NA nunca é "realizado", então eficácia não se aplica: sem o filtro, um
+ * treino marcado Não aplicável mas com evaluationMethod/targetCompetencyName
+ * (ou effectivenessAssignedRole/effectivenessDueDate) herdados do catálogo
+ * antes da marcação continuava entrando no board — o RH marca NA justamente
+ * para parar de ser cobrado por aquele item. Ver notNaoAplicavel.
  */
-export const boardNeedsEvaluationScope = or(
-  boardHasPendingCriteria,
-  isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
-  isNotNull(employeeTrainingsTable.effectivenessDueDate),
-  boardHasReviewExists,
-  boardHasDraftExists,
+export const boardNeedsEvaluationScope = and(
+  notNaoAplicavel,
+  or(
+    boardHasPendingCriteria,
+    isNotNull(employeeTrainingsTable.effectivenessAssignedRole),
+    isNotNull(employeeTrainingsTable.effectivenessDueDate),
+    boardHasReviewExists,
+    boardHasDraftExists,
+  ),
 )!;
 
 // ─── Gestão de Treinamentos — contagens programado/realizadoMes (SP6/B T1) ──

@@ -621,4 +621,113 @@ describe("Treinamento status nao_aplicavel — motivo obrigatório", () => {
     expect(row).toBeDefined();
     expect(row.trainingCompletionPercent).toBe(100);
   });
+
+  // Regressão (último ajuste): boardNeedsEvaluationScope — o gate que decide
+  // quais treinos entram no board via `scope=needs_evaluation` — era um OR de
+  // 5 condições e nenhuma olhava o status. Um treino NA com critério de
+  // eficácia (evaluationMethod herdado do catálogo, OU
+  // effectivenessAssignedRole/effectivenessDueDate já atribuídos ANTES da
+  // marcação como NA — o PATCH não limpa esses campos) continuava entrando no
+  // escopo do board mesmo depois do RH marcar "Não aplicável" justamente para
+  // parar de ser cobrado por aquele item. Avaliação de eficácia só faz
+  // sentido sobre treino realizado — NA nunca é.
+  it("NA com critério de eficácia não aparece em scope=needs_evaluation (nem em data, nem nas contagens do board)", async () => {
+    const ctx = await createTestContext({
+      seed: "na-fora-do-scope-needs-evaluation",
+    });
+    contexts.push(ctx);
+
+    const catalogItem = await request(app)
+      .post(`/api/organizations/${ctx.organizationId}/training-catalog`)
+      .set(authHeader(ctx))
+      .send({
+        title: `${ctx.prefix} NR-35 scope`,
+        evaluationMethod: "Prova prática",
+      });
+    expect(catalogItem.status).toBe(201);
+
+    // A: NA desde a criação, com evaluationMethod herdado do catálogo.
+    const empA = await createEmployee(ctx, { name: `${ctx.prefix} Scope A` });
+    const trainingA = await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${empA.id}/trainings`,
+      )
+      .set(authHeader(ctx))
+      .send({
+        catalogItemId: catalogItem.body.id,
+        status: "nao_aplicavel",
+        notApplicableReason: "Colaborador não exerce a atividade",
+      });
+    expect(trainingA.status).toBe(201);
+    expect(trainingA.body.status).toBe("nao_aplicavel");
+    expect(trainingA.body.evaluationMethod).toBe("Prova prática");
+
+    // B (controle): pendente normal com o mesmo critério herdado — precisa
+    // continuar aparecendo, para provar que o filtro exclui só o NA.
+    const empB = await createEmployee(ctx, { name: `${ctx.prefix} Scope B` });
+    const trainingB = await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${empB.id}/trainings`,
+      )
+      .set(authHeader(ctx))
+      .send({ catalogItemId: catalogItem.body.id });
+    expect(trainingB.status).toBe(201);
+    expect(trainingB.body.status).toBe("pendente");
+
+    // C: já tinha effectivenessAssignedRole/effectivenessDueDate atribuídos
+    // (via effectiveness-assignment) ANTES de ser marcado NA.
+    const empC = await createEmployee(ctx, { name: `${ctx.prefix} Scope C` });
+    const trainingC = await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${empC.id}/trainings`,
+      )
+      .set(authHeader(ctx))
+      .send({ title: `${ctx.prefix} NR-20 scope` });
+    expect(trainingC.status).toBe(201);
+
+    const assignment = await request(app)
+      .post(
+        `/api/organizations/${ctx.organizationId}/employees/${empC.id}/trainings/${trainingC.body.id}/effectiveness-assignment`,
+      )
+      .set(authHeader(ctx))
+      .send({ evaluatorRole: "gestor", dueDate: "2026-08-01" });
+    expect(assignment.status).toBe(200);
+    expect(assignment.body.effectivenessAssignedRole).toBe("gestor");
+
+    const markNA = await request(app)
+      .patch(
+        `/api/organizations/${ctx.organizationId}/employees/${empC.id}/trainings/${trainingC.body.id}`,
+      )
+      .set(authHeader(ctx))
+      .send({
+        status: "nao_aplicavel",
+        notApplicableReason: "Função foi extinta",
+      });
+    expect(markNA.status).toBe(200);
+    expect(markNA.body.status).toBe("nao_aplicavel");
+    // O PATCH não limpa a atribuição — o campo continua preenchido no banco,
+    // exatamente o caso que o brief pede para cobrir.
+    expect(markNA.body.effectivenessAssignedRole).toBe("gestor");
+
+    const board = await request(app)
+      .get(
+        `/api/organizations/${ctx.organizationId}/employees/trainings?scope=needs_evaluation&pageSize=50`,
+      )
+      .set(authHeader(ctx));
+    expect(board.status).toBe(200);
+
+    const ids = board.body.data.map((t: { id: number }) => t.id);
+    expect(ids).not.toContain(trainingA.body.id);
+    expect(ids).not.toContain(trainingC.body.id);
+    expect(ids).toContain(trainingB.body.id);
+
+    // pagination.total é o COUNT com as mesmas condições da listagem (scope
+    // incluso, sem boardColumn) — é onde o vazamento pré-fix aparecia: A e C
+    // matavam alguma das 5 condições do OR e entravam no total mesmo NA.
+    expect(board.body.pagination.total).toBe(1);
+    // Contagens do board (mesmo conjunto filtrado pelo scope): só B conta.
+    expect(board.body.stats.boardCounts.pendentes).toBe(1);
+    expect(board.body.stats.boardCounts.emAvaliacao).toBe(0);
+    expect(board.body.stats.boardCounts.concluidas).toBe(0);
+  });
 });
