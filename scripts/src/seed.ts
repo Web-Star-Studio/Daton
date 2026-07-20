@@ -897,7 +897,7 @@ async function seed() {
       {
         employeeId: roberto.id,
         name: "Auditoria Interna ISO 9001",
-        type: "formacao",
+        type: "habilidade",
         requiredLevel: 5,
         acquiredLevel: 5,
         evidence: "Lead Auditor certificado IRCA",
@@ -924,7 +924,7 @@ async function seed() {
       {
         employeeId: juliana.id,
         name: "Metrologia Básica",
-        type: "formacao",
+        type: "conhecimento",
         requiredLevel: 3,
         acquiredLevel: 2,
         evidence: "Curso SENAI em andamento",
@@ -952,7 +952,7 @@ async function seed() {
       {
         employeeId: ricardo.id,
         name: "NR-10 Segurança Elétrica",
-        type: "formacao",
+        type: "conhecimento",
         requiredLevel: 3,
         acquiredLevel: 3,
         evidence: "Certificado NR-10 válido",

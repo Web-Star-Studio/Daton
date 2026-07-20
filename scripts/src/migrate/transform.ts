@@ -41,13 +41,33 @@ export function arrayToText(arr: string[] | null): string | null {
   return arr.join("\n");
 }
 
-/** Transform v1 competency_category to v2 type */
+/**
+ * Transform v1 competency_category to v2 type.
+ *
+ * O v2 só reconhece três valores — o CHA real (`conhecimento`, `habilidade`,
+ * `atitude`) do enum do contrato (`lib/api-spec/openapi.yaml`). `formacao` e
+ * `experiencia` foram removidos do enum. Esta função alimenta
+ * `employee_competencies` (via `migrate-employee-competencies.ts`), tabela que
+ * — diferente de `position_competency_requirements`, cuja migração já rodou
+ * limpa em produção — ainda carrega linhas legadas exatamente nesses dois
+ * valores banidos. Sem o ramo de "atitude" abaixo esta função nunca
+ * conseguia produzir esse valor, e o fallback devolvia "formacao": a próxima
+ * carga de cliente reintroduziria em silêncio o valor que esta entrega existe
+ * para eliminar. Qualquer valor devolvido aqui PRECISA existir no enum do
+ * contrato.
+ */
 export function transformCompetencyType(category: string | null): string {
-  if (!category) return "formacao";
+  if (!category) return "conhecimento";
   const lower = category.toLowerCase();
   if (lower.includes("habilidade") || lower.includes("skill")) return "habilidade";
   if (lower.includes("conhecimento") || lower.includes("knowledge")) return "conhecimento";
-  return "formacao";
+  if (lower.includes("atitude") || lower.includes("attitude")) return "atitude";
+  // "formação"/"experiência" (removidos do enum) e qualquer categoria
+  // desconhecida caem aqui. "conhecimento" é o padrão mais defensável: no v1
+  // essas categorias descreviam majoritariamente cursos e certificações
+  // formais — aquisição de conhecimento — e é o mesmo valor que já era usado
+  // como fallback de "conhecimento"/"knowledge" acima.
+  return "conhecimento";
 }
 
 /**
