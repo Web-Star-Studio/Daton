@@ -120,6 +120,7 @@ const CONTRACT_LABELS: Record<string, string> = {
   pj: "PJ",
   intern: "Estagiário",
   temporary: "Temporário",
+  terceirizado: "Terceirizado",
 };
 
 const TRAINING_STATUS: Record<string, string> = {
@@ -3422,6 +3423,10 @@ export default function ColaboradorDetailPage() {
   // telas, ex. treinamentos.tsx "Abrir competência") agora rola até a seção
   // correspondente em vez de trocar de aba — a seção já está sempre visível.
   useEffect(() => {
+    // As seções só existem no DOM depois que `employee` carrega — por isso o
+    // efeito depende de `employee`: numa navegação fria (deep-link vindo de
+    // outra tela) ele re-dispara quando o dado chega, e aí a seção existe.
+    if (!employee) return;
     const requestedTab = searchParams.get("tab");
     const sectionId =
       requestedTab === "competencias"
@@ -3435,7 +3440,7 @@ export default function ColaboradorDetailPage() {
               : null;
     if (!sectionId) return;
     document.getElementById(sectionId)?.scrollIntoView({ block: "start" });
-  }, [searchParams]);
+  }, [searchParams, employee]);
 
   useEffect(() => {
     if (searchParams.get("createTraining") !== "1") return;
