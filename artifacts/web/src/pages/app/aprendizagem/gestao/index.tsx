@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link } from "wouter";
 import {
   useListOrganizationTrainings,
   getListOrganizationTrainingsQueryKey,
@@ -18,35 +17,17 @@ import {
   useAllNorms,
   buildNormLabelMap,
 } from "@/lib/norms-client";
-import type {
-  ListOrganizationTrainingsParams,
-  TrainingClass,
-} from "@workspace/api-client-react";
+import type { ListOrganizationTrainingsParams } from "@workspace/api-client-react";
 import { usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
-import { formatDate, trainingDeadline } from "./_lib/format";
+import { trainingDeadline } from "./_lib/format";
 import { buildCatalogMeta } from "./_lib/catalog-meta";
 import { PorColaboradorTable } from "./_components/PorColaboradorTable";
+import { PorTurmaTable } from "./_components/PorTurmaTable";
 import { MetricCards } from "./_components/MetricCards";
 import { StatusPills } from "./_components/StatusPills";
-
-// ─── Badges ───────────────────────────────────────────────────────────────
-
-const CLASS_STATUS_BADGE: Record<string, string> = {
-  agendada: "bg-amber-50 text-amber-700",
-  em_andamento: "bg-blue-50 text-blue-700",
-  realizada: "bg-green-50 text-green-700",
-  cancelada: "bg-muted text-muted-foreground",
-};
-const CLASS_STATUS_LABEL: Record<string, string> = {
-  agendada: "Agendada",
-  em_andamento: "Em andamento",
-  realizada: "Realizada",
-  cancelada: "Cancelada",
-};
 
 // ─── Filter / tab types ─────────────────────────────────────────────────────
 
@@ -414,69 +395,13 @@ export default function AprendizagemGestaoPage() {
 
       {tab === "turma" ? (
         <div className="rounded-xl border bg-card shadow-sm">
-          {classLoading ? (
-            <p className="px-4 py-8 text-sm text-muted-foreground">
-              Carregando...
-            </p>
-          ) : classError ? (
-            <p className="px-4 py-8 text-center text-sm text-red-600">
-              Não foi possível carregar as turmas.
-            </p>
-          ) : classes.length === 0 ? (
-            <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-              Nenhuma turma encontrada para os filtros selecionados.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b text-left text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2 font-medium">Turma</th>
-                    <th className="px-4 py-2 font-medium">Treinamento</th>
-                    <th className="px-4 py-2 font-medium">Data</th>
-                    <th className="px-4 py-2 font-medium">Filial</th>
-                    <th className="px-4 py-2 font-medium">Inscritos</th>
-                    <th className="px-4 py-2 font-medium">Status</th>
-                    <th className="px-4 py-2 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {classes.map((c: TrainingClass) => (
-                    <tr
-                      key={c.id}
-                      className="border-b last:border-0 hover:bg-muted/40"
-                    >
-                      <td className="px-4 py-2 font-medium">{c.code ?? "—"}</td>
-                      <td className="px-4 py-2">
-                        {catalogTitle.get(c.catalogItemId) ??
-                          `#${c.catalogItemId}`}
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">
-                        {formatDate(c.startDate)}
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">
-                        {c.unitId ? (unitName.get(c.unitId) ?? "—") : "—"}
-                      </td>
-                      <td className="px-4 py-2">{c.participantCount ?? 0}</td>
-                      <td className="px-4 py-2">
-                        <Badge className={CLASS_STATUS_BADGE[c.status] ?? ""}>
-                          {CLASS_STATUS_LABEL[c.status] ?? c.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <Link
-                          href="/aprendizagem/turmas"
-                          className="text-xs font-medium text-blue-600 hover:underline"
-                        >
-                          Abrir
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <PorTurmaTable
+            classes={classes}
+            catalogTitleById={catalogTitle}
+            unitNameById={unitName}
+            loading={classLoading}
+            error={classError}
+          />
         </div>
       ) : null}
     </div>

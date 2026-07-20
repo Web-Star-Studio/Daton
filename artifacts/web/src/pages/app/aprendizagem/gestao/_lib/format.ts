@@ -49,3 +49,17 @@ export const STATUS_LABEL: Record<OrganizationTrainingStatus, string> = {
   concluido: "Concluído",
   vencido: "Vencido",
 };
+
+/** Badges de status de TURMA (distintos do status de treinamento acima). */
+export const CLASS_STATUS_BADGE: Record<string, string> = {
+  agendada: "bg-amber-50 text-amber-700",
+  em_andamento: "bg-blue-50 text-blue-700",
+  realizada: "bg-green-50 text-green-700",
+  cancelada: "bg-muted text-muted-foreground",
+};
+export const CLASS_STATUS_LABEL: Record<string, string> = {
+  agendada: "Agendada",
+  em_andamento: "Em andamento",
+  realizada: "Realizada",
+  cancelada: "Cancelada",
+};
