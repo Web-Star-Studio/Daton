@@ -1,7 +1,44 @@
-import { AlertTriangle, CheckCircle2, HelpCircle, XCircle } from "lucide-react";
-import type { EmployeeCompetencyConformance } from "@workspace/api-client-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  HelpCircle,
+  Pencil,
+  Plus,
+  XCircle,
+} from "lucide-react";
+import type {
+  EmployeeCompetencyConformance,
+  EmployeeCompetencyConformanceRequirementsItem,
+} from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { compareEducation } from "../_lib/ficha-derivations";
+
+// Tipo de um item de `conformance.requirements` — reexportado com nome curto
+// porque é a interface que a Task 5 (wiring de evidência) consome via
+// `onAttachEvidence`/`onEditEvidence`.
+export type RequirementRow = EmployeeCompetencyConformanceRequirementsItem;
+
+// Botão discreto de ação usado nas linhas `gap` e `nao_classificado` — não
+// herda o tom (emerald/red/muted) da linha de propósito: é uma ação neutra
+// de "abrir formulário", não um veredito.
+function EvidenceButton({
+  onClick,
+  label = "Evidência",
+}: {
+  onClick: () => void;
+  label?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-card/70 px-2 py-1 text-[10px] font-medium text-foreground/80 transition-colors hover:bg-card hover:text-foreground"
+    >
+      <Plus className="h-3 w-3" />
+      {label}
+    </button>
+  );
+}
 
 // Mesmo motor de apresentação do bloco "Conformidade do Cargo" em [id].tsx
 // (CompetenciasTab): três estados por requisito — "atende" (✓), "gap" (✗) e
@@ -61,10 +98,18 @@ export function FormacaoQualificacoes({
   education,
   requiredEducation,
   conformance,
+  editable,
+  onAttachEvidence,
+  onEditEvidence,
 }: {
   education?: string | null;
   requiredEducation?: string | null;
   conformance: EmployeeCompetencyConformance | null;
+  // Quando ausente/false, o componente renderiza exatamente como antes (sem
+  // botões) — a Task 5 é quem liga estas props a um fluxo de verdade.
+  editable?: boolean;
+  onAttachEvidence?: (req: RequirementRow) => void;
+  onEditEvidence?: (req: RequirementRow) => void;
 }) {
   const veredito = compareEducation(education, requiredEducation);
   const requirements = conformance?.requirements ?? [];
@@ -82,6 +127,10 @@ export function FormacaoQualificacoes({
   // "nao_classificado" NÃO é lacuna (invariante da Fase 1) — ele fica fora do
   // selo, da barra e do denominador. O selo vermelho só acende com lacuna real.
   const hasGaps = veredito === "gap" || gapItems.length > 0;
+  // Selo verde só quando algo foi de fato avaliado (progressDenom > 0) e não
+  // há lacuna — senão "Requisitos atendidos" é enganoso quando nada foi
+  // avaliado ainda (ex.: cargo com requisitos só "nao_classificado").
+  const isUnevaluated = !hasGaps && progressDenom === 0;
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card p-5 space-y-5">
@@ -94,10 +143,16 @@ export function FormacaoQualificacoes({
             "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium shrink-0",
             hasGaps
               ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
-              : "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+              : isUnevaluated
+                ? "bg-muted text-muted-foreground"
+                : "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
           )}
         >
-          {hasGaps ? "Gaps encontrados" : "Requisitos atendidos"}
+          {hasGaps
+            ? "Gaps encontrados"
+            : isUnevaluated
+              ? "Sem avaliação ainda"
+              : "Requisitos atendidos"}
         </span>
       </div>
 
@@ -115,6 +170,9 @@ export function FormacaoQualificacoes({
         <h4 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
           Competências do cargo
         </h4>
+        <p className="text-[11px] text-muted-foreground">
+          Exigidas pelo cargo · anexe a evidência de cada uma
+        </p>
 
         {conformance === null || requirements.length === 0 ? (
           <div className="bg-muted/20 border border-border/40 rounded-xl p-4 flex items-center gap-2 text-xs text-muted-foreground">
@@ -170,9 +228,16 @@ export function FormacaoQualificacoes({
                           {item.competencyName}
                         </span>
                       </div>
-                      <span className="text-[11px] text-muted-foreground shrink-0 ml-3">
-                        Não avaliável — treinamento não classificado
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0 ml-3">
+                        <span className="text-[11px] text-muted-foreground">
+                          Não avaliável — treinamento não classificado
+                        </span>
+                        {editable && (
+                          <EvidenceButton
+                            onClick={() => onAttachEvidence?.(item)}
+                          />
+                        )}
+                      </div>
                     </div>
                   );
                 }
@@ -204,16 +269,41 @@ export function FormacaoQualificacoes({
                         {item.competencyName}
                       </span>
                     </div>
-                    <span
-                      className={cn(
-                        "text-[11px] shrink-0 ml-3",
-                        matched
-                          ? "text-emerald-700 dark:text-emerald-300"
-                          : "text-red-700 dark:text-red-300",
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <span
+                        className={cn(
+                          "text-[11px]",
+                          matched
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-red-700 dark:text-red-300",
+                        )}
+                      >
+                        Nível: {item.acquiredLevel}/{item.requiredLevel}
+                      </span>
+                      {editable && !matched && (
+                        <EvidenceButton
+                          onClick={() => onAttachEvidence?.(item)}
+                        />
                       )}
-                    >
-                      Nível: {item.acquiredLevel}/{item.requiredLevel}
-                    </span>
+                      {editable && matched && item.source === "manual" && (
+                        <button
+                          type="button"
+                          onClick={() => onEditEvidence?.(item)}
+                          aria-label="Editar evidência"
+                          className="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-emerald-700 transition-colors hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {editable && matched && item.source === "treinamento" && (
+                        <span className="truncate text-[10px] text-emerald-700/80 dark:text-emerald-300/80">
+                          via treinamento
+                          {item.evidence?.title
+                            ? ` · ${item.evidence.title}`
+                            : ""}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
