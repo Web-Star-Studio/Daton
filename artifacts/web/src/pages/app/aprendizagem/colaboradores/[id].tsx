@@ -106,9 +106,17 @@ import {
 import { useLocation } from "wouter";
 import { FichaHeader } from "./_components/FichaHeader";
 import { DadosCards } from "./_components/DadosCards";
-import { FormacaoQualificacoes } from "./_components/FormacaoQualificacoes";
+import {
+  FormacaoQualificacoes,
+  type RequirementRow,
+} from "./_components/FormacaoQualificacoes";
 import { RegistrarConclusaoForm } from "./_components/RegistrarConclusaoForm";
+import { RegistrarEvidenciaDialog } from "./_components/RegistrarEvidenciaDialog";
 import { toChaCompetencyType } from "./_lib/ficha-derivations";
+import {
+  uploadEmployeeRecordFiles,
+  mapRecordAttachmentItems,
+} from "./_lib/employee-record-attachments";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -302,62 +310,6 @@ function DialogStepFooter({
       )}
     </DialogFooter>
   );
-}
-
-async function uploadEmployeeRecordFiles(
-  files: FileList | null,
-  existingCount: number,
-  onSuccess: (uploads: UploadedFileRef[]) => void,
-  onSettled: () => void,
-) {
-  if (!files?.length) {
-    onSettled();
-    return;
-  }
-
-  const selectedFiles = Array.from(files);
-  const validationError = validateProfileItemUploadSelection(
-    selectedFiles,
-    existingCount,
-  );
-  if (validationError) {
-    toast({
-      title: "Limite de anexos excedido",
-      description: validationError,
-      variant: "destructive",
-    });
-    onSettled();
-    return;
-  }
-
-  try {
-    const uploadedFiles = await uploadFilesToStorage(selectedFiles);
-    onSuccess(uploadedFiles);
-  } catch (error) {
-    toast({
-      title: "Falha ao enviar anexo",
-      description:
-        error instanceof Error
-          ? error.message
-          : "Não foi possível enviar o arquivo.",
-      variant: "destructive",
-    });
-  } finally {
-    onSettled();
-  }
-}
-
-function mapRecordAttachmentItems(
-  attachments: Array<EmployeeRecordAttachment | UploadedFileRef> | undefined,
-  onRemove?: (objectPath: string) => void,
-) {
-  return (attachments || []).map((attachment) => ({
-    id: attachment.objectPath,
-    fileName: attachment.fileName,
-    fileSize: attachment.fileSize,
-    objectPath: attachment.objectPath,
-    onRemove: onRemove ? () => onRemove(attachment.objectPath) : undefined,
-  }));
 }
 
 function EmployeeProfileItemsSection({
@@ -2065,10 +2017,12 @@ function TreinamentosTab({
       },
     },
   );
-  const instructorOptions = (instructorEmployeesResult?.data ?? []).map((e) => ({
-    value: e.name,
-    label: e.name,
-  }));
+  const instructorOptions = (instructorEmployeesResult?.data ?? []).map(
+    (e) => ({
+      value: e.name,
+      label: e.name,
+    }),
+  );
   if (
     form.instructor &&
     !instructorOptions.some((o) => o.value === form.instructor)
@@ -2346,7 +2300,8 @@ function TreinamentosTab({
                           {t.description}
                         </p>
                       )}
-                      {t.status === CreateTrainingBodyStatusValues.nao_aplicavel &&
+                      {t.status ===
+                        CreateTrainingBodyStatusValues.nao_aplicavel &&
                         t.notApplicableReason && (
                           <p className="text-xs text-muted-foreground mt-1">
                             <span className="font-medium text-foreground">
@@ -2522,20 +2477,20 @@ function TreinamentosTab({
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       void downloadTrainingCertificate({
-                                      orgName: orgName ?? "",
-                                      employeeName: employeeName ?? "",
-                                      employeeCpf,
-                                      employeePosition,
-                                      title: t.title,
-                                      completionDate: t.completionDate,
-                                      workloadHours: t.workloadHours,
-                                      institution: t.institution,
-                                      instructor: t.instructor,
-                                      expirationDate: t.expirationDate,
-                                      competencyName: t.targetCompetencyName,
-                                    });
-                                  }}
-                                >
+                                        orgName: orgName ?? "",
+                                        employeeName: employeeName ?? "",
+                                        employeeCpf,
+                                        employeePosition,
+                                        title: t.title,
+                                        completionDate: t.completionDate,
+                                        workloadHours: t.workloadHours,
+                                        institution: t.institution,
+                                        instructor: t.instructor,
+                                        expirationDate: t.expirationDate,
+                                        competencyName: t.targetCompetencyName,
+                                      });
+                                    }}
+                                  >
                                     <Download className="h-3.5 w-3.5" />
                                   </Button>
                                 </span>
@@ -2687,9 +2642,7 @@ function TreinamentosTab({
           </p>
           <RegistrarConclusaoForm
             form={form}
-            onChange={(next) =>
-              setForm((current) => ({ ...current, ...next }))
-            }
+            onChange={(next) => setForm((current) => ({ ...current, ...next }))}
             instructorOptions={instructorOptions}
             instructorSearch={instructorSearch}
             onInstructorSearchChange={setInstructorSearch}
@@ -3365,6 +3318,14 @@ export default function ColaboradorDetailPage() {
   const [compCreateOpen, setCompCreateOpen] = useState(false);
   const [trainingCreateOpen, setTrainingCreateOpen] = useState(false);
   const [awarenessCreateOpen, setAwarenessCreateOpen] = useState(false);
+  // Requisito de "Competências do cargo" (Formação e qualificações) sendo
+  // anexado/editado — `existing` só existe no modo edição (linha "atende" +
+  // source manual), buscado por `manualCompetencyId` no array já carregado
+  // do colaborador (nenhuma query extra).
+  const [evidenceTarget, setEvidenceTarget] = useState<{
+    requirement: RequirementRow;
+    existing?: EmployeeCompetency;
+  } | null>(null);
   const [queryTrainingPrefill, setQueryTrainingPrefill] =
     useState<TrainingPrefill | null>(null);
   const searchParams = useMemo(
@@ -3605,6 +3566,16 @@ export default function ColaboradorDetailPage() {
           education={employee.education}
           requiredEducation={employeePositionRecord?.education ?? null}
           conformance={employee.competencyConformance ?? null}
+          editable={canWriteEmployees}
+          onAttachEvidence={(requirement) => setEvidenceTarget({ requirement })}
+          onEditEvidence={(requirement) =>
+            setEvidenceTarget({
+              requirement,
+              existing: (employee.competencies || []).find(
+                (comp) => comp.id === requirement.manualCompetencyId,
+              ),
+            })
+          }
         />
 
         <div id="secao-treinamentos">
@@ -3727,6 +3698,25 @@ export default function ColaboradorDetailPage() {
           />
         )}
       </Dialog>
+
+      {evidenceTarget && (
+        <RegistrarEvidenciaDialog
+          open={!!evidenceTarget}
+          onOpenChange={(open) => {
+            if (!open) setEvidenceTarget(null);
+          }}
+          requirement={evidenceTarget.requirement}
+          existingCompetency={evidenceTarget.existing}
+          orgId={orgId}
+          empId={empId}
+          onSuccess={() => {
+            queryClient.invalidateQueries({
+              queryKey: getGetEmployeeQueryKey(orgId, empId),
+            });
+            setEvidenceTarget(null);
+          }}
+        />
+      )}
     </>
   );
 }
