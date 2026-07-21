@@ -34,6 +34,10 @@ import {
   useAllTrainingCatalog,
   selectPickerCatalogItems,
 } from "@/lib/training-catalog-client";
+import {
+  findBankItemByName,
+  resolveLinkedCompetencyType,
+} from "@/pages/app/aprendizagem/cargos/cargos-utils";
 import type {
   CreateTrainingBodyStatus,
   CreateTrainingBodyTargetCompetencyType,
@@ -843,24 +847,18 @@ export default function ColaboradoresTreinamentosPage() {
   }));
   const competencyNames = competencyOptions.map((o) => o.value);
   const createCompetencyMutation = useCreateCompetencyCatalogItem();
-  const handleCreateCompetencyInline = (name: string) => {
+  // Só estaciona o nome digitado no form — NÃO cria o item de catálogo aqui.
+  // A criação (quando a competência for mesmo nova) acontece no SUBMIT do
+  // requisito (handleSubmitRequirement), com o tipo CHA que o usuário
+  // efetivamente confirmar no seletor "Tipo" deste diálogo. Mesmo padrão de
+  // cargo-competencias-tab.tsx::handleLink. Um fix anterior criava o item
+  // aqui com "conhecimento" fixo — regressão: o usuário escolhia
+  // Habilidade/Atitude no seletor e o catálogo (fonte única do tipo) saía
+  // como Conhecimento mesmo assim.
+  const handleStageNewCompetencyName = (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     setRequirementForm((f) => ({ ...f, competencyName: trimmed }));
-    if (orgId)
-      createCompetencyMutation.mutate(
-        // Tipo CHA é obrigatório na competência do catálogo (contrato aceita
-        // vazio na criação, mas o vínculo com um cargo rejeita "" com 400 —
-        // ver resolveLinkedCompetencyType em cargos-utils.ts). "conhecimento"
-        // é o mesmo default do fluxo "criar na hora" em cargo-competencias-tab.
-        { orgId, data: { name: trimmed, competencyType: "conhecimento" } },
-        {
-          onSuccess: () =>
-            queryClient.invalidateQueries({
-              queryKey: getListCompetencyCatalogQueryKey(orgId),
-            }),
-        },
-      );
   };
   const { data: departments = [] } = useListDepartments(orgId ?? 0, {
     query: {
@@ -1088,6 +1086,34 @@ export default function ColaboradoresTreinamentosPage() {
   const handleSubmitRequirement = async () => {
     const posId = Number(selectedPositionId);
     if (!posId) return;
+    const name = requirementForm.competencyName.trim();
+    if (!name) return;
+
+    const catalogItems = competencyCatalogResult?.data ?? [];
+    const existing = findBankItemByName(catalogItems, name);
+    // Fonte única do tipo é o catálogo: para uma competência já existente,
+    // usa o tipo dela no catálogo — não o que porventura esteja selecionado
+    // no seletor "Tipo" (o backend derivaria isso de qualquer forma; manter
+    // o front coerente evita mostrar, antes de salvar, um tipo diferente do
+    // que vai valer depois). Só uma competência nova usa o tipo escolhido.
+    const competencyType = resolveLinkedCompetencyType(
+      catalogItems,
+      name,
+      requirementForm.competencyType,
+    ) as PositionCompetencyRequirement["competencyType"];
+
+    if (!existing && orgId) {
+      // Criar-na-hora: a competência ainda não existe no catálogo — cadastra
+      // antes de gravar o requisito, com o tipo CHA escolhido pelo usuário
+      // (não mais fixo em "conhecimento" — ver handleStageNewCompetencyName).
+      await createCompetencyMutation.mutateAsync({
+        orgId,
+        data: { name, competencyType },
+      });
+      await queryClient.invalidateQueries({
+        queryKey: getListCompetencyCatalogQueryKey(orgId),
+      });
+    }
 
     if (editingRequirement) {
       await updateRequirementMutation.mutateAsync({
@@ -1095,8 +1121,8 @@ export default function ColaboradoresTreinamentosPage() {
         posId,
         requirementId: editingRequirement.id,
         data: {
-          competencyName: requirementForm.competencyName,
-          competencyType: requirementForm.competencyType,
+          competencyName: name,
+          competencyType,
           requiredLevel: requirementForm.requiredLevel,
           notes: requirementForm.notes || undefined,
           sortOrder: requirementForm.sortOrder,
@@ -1107,8 +1133,8 @@ export default function ColaboradoresTreinamentosPage() {
         orgId: orgId ?? 0,
         posId,
         data: {
-          competencyName: requirementForm.competencyName,
-          competencyType: requirementForm.competencyType,
+          competencyName: name,
+          competencyType,
           requiredLevel: requirementForm.requiredLevel,
           notes: requirementForm.notes || undefined,
           sortOrder: requirementForm.sortOrder,
@@ -1550,11 +1576,12 @@ export default function ColaboradoresTreinamentosPage() {
         value={requirementForm}
         onChange={setRequirementForm}
         competencyOptions={competencyOptions}
-        onCreateCompetency={handleCreateCompetencyInline}
+        onCreateCompetency={handleStageNewCompetencyName}
         onSubmit={handleSubmitRequirement}
         pending={
           createRequirementMutation.isPending ||
-          updateRequirementMutation.isPending
+          updateRequirementMutation.isPending ||
+          createCompetencyMutation.isPending
         }
         title={editingRequirement ? "Editar requisito" : "Novo requisito"}
       />
