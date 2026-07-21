@@ -76,7 +76,7 @@ export function RegistrarEvidenciaDialog({
           competencyType: requirement.competencyType,
           requiredLevel: requirement.requiredLevel,
           acquiredLevel,
-          evidence: evidence || undefined,
+          evidence: evidence.trim() || undefined,
           attachments,
         },
       });

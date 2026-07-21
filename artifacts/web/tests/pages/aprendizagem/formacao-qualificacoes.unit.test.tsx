@@ -37,9 +37,11 @@ const conformance = {
   ],
 } as never;
 
-// Um requisito de cada estado acionável: nao_classificado, gap, atende+manual
-// e atende+treinamento — cobre as 4 combinações que a Task 5 vai consumir via
-// onAttachEvidence/onEditEvidence.
+// Um requisito de cada estado acionável — cobre as combinações que a linha
+// da tabela precisa rotear corretamente: a ação (editar vs. anexar) segue a
+// PRESENÇA de `manualCompetencyId`, nunca status/source isolados (ver PR de
+// revisão: reabrir "+ Evidência" em cima de um atestado manual existente
+// apagava a evidência silenciosamente).
 const actionableConformance = {
   positionName: "Analista",
   gapStatus: "critical",
@@ -55,6 +57,8 @@ const actionableConformance = {
       manualCompetencyId: null,
     },
     {
+      // gap sem atestado manual -> "+ Evidência" (anexar em branco é seguro,
+      // não existe nada pra perder).
       competencyName: "Com Gap",
       competencyType: "habilidade",
       requiredLevel: 3,
@@ -62,7 +66,20 @@ const actionableConformance = {
       status: "gap",
       source: "manual",
       evidence: null,
-      manualCompetencyId: 10,
+      manualCompetencyId: null,
+    },
+    {
+      // gap PARCIAL que já tem atestado manual (nível insuficiente) -> lápis
+      // / editar, nunca "+ Evidência" (senão reabre em branco e apaga o que
+      // já foi registrado). Este é o caso do Important #1 da revisão.
+      competencyName: "Gap com Atestado",
+      competencyType: "habilidade",
+      requiredLevel: 4,
+      acquiredLevel: 2,
+      status: "gap",
+      source: "manual",
+      evidence: null,
+      manualCompetencyId: 12,
     },
     {
       competencyName: "Atende Manual",
@@ -75,6 +92,8 @@ const actionableConformance = {
       manualCompetencyId: 11,
     },
     {
+      // atende via treinamento mas SEM atestado manual próprio -> só o hint
+      // "via treinamento", nenhum botão de ação.
       competencyName: "Atende Treinamento",
       competencyType: "atitude",
       requiredLevel: 1,
@@ -88,6 +107,24 @@ const actionableConformance = {
         expirationDate: null,
       },
       manualCompetencyId: null,
+    },
+    {
+      // atende via treinamento MAS também tem atestado manual -> hint "via
+      // treinamento" E lápis (editável). Este é o caso do Important #2 da
+      // revisão.
+      competencyName: "Atende Treinamento com Atestado",
+      competencyType: "atitude",
+      requiredLevel: 1,
+      acquiredLevel: 1,
+      status: "atende",
+      source: "treinamento",
+      evidence: {
+        trainingId: 6,
+        title: "Curso Y",
+        completionDate: null,
+        expirationDate: null,
+      },
+      manualCompetencyId: 13,
     },
   ],
 } as never;
@@ -175,8 +212,9 @@ describe("FormacaoQualificacoes", () => {
       />,
     );
 
-    // nao_classificado e gap -> botão "Evidência" (nome exato, para não casar
-    // com o botão "Editar evidência" da linha atende+manual).
+    // Sem atestado manual (nao_classificado ou gap com
+    // manualCompetencyId null) -> botão "Evidência" (nome exato, para não
+    // casar com o botão "Editar evidência").
     const evidenceButtons = screen.getAllByRole("button", {
       name: /^Evidência$/i,
     });
@@ -194,20 +232,41 @@ describe("FormacaoQualificacoes", () => {
       expect.objectContaining({ competencyName: "Com Gap" }),
     );
 
-    // atende + manual -> controle de editar
-    const editButton = screen.getByRole("button", { name: /editar/i });
-    await user.click(editButton);
+    // Com atestado manual (manualCompetencyId != null) -> lápis / editar,
+    // mesmo em linha "gap" parcial ou "atende + treinamento". A ação roteia
+    // pela presença do atestado, não pelo status/source da linha.
+    const editButtons = screen.getAllByRole("button", { name: /editar/i });
+    expect(editButtons).toHaveLength(3);
+
+    await user.click(editButtons[0]);
     expect(onEditEvidence).toHaveBeenCalledTimes(1);
     expect(onEditEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({ competencyName: "Gap com Atestado" }),
+    );
+
+    await user.click(editButtons[1]);
+    expect(onEditEvidence).toHaveBeenCalledTimes(2);
+    expect(onEditEvidence).toHaveBeenLastCalledWith(
       expect.objectContaining({ competencyName: "Atende Manual" }),
     );
 
-    // atende + treinamento -> hint textual, sem botão de evidência
+    await user.click(editButtons[2]);
+    expect(onEditEvidence).toHaveBeenCalledTimes(3);
+    expect(onEditEvidence).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        competencyName: "Atende Treinamento com Atestado",
+      }),
+    );
+
+    // atende + treinamento sem atestado manual -> só hint textual, sem botão
     expect(screen.getByText(/via treinamento · Curso X/i)).toBeInTheDocument();
 
-    // total de botões = 2 (evidência) + 1 (editar) = 3, nada extra na linha
-    // "atende + treinamento"
-    expect(screen.getAllByRole("button")).toHaveLength(3);
+    // atende + treinamento COM atestado manual -> hint textual E lápis
+    // aparecem juntos na mesma linha.
+    expect(screen.getByText(/via treinamento · Curso Y/i)).toBeInTheDocument();
+
+    // total de botões = 2 (evidência) + 3 (editar) = 5
+    expect(screen.getAllByRole("button")).toHaveLength(5);
   });
 
   it("0 requisitos avaliados -> selo neutro, não 'Requisitos atendidos'", () => {

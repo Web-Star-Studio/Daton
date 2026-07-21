@@ -21,13 +21,7 @@ export type RequirementRow = EmployeeCompetencyConformanceRequirementsItem;
 // Botão discreto de ação usado nas linhas `gap` e `nao_classificado` — não
 // herda o tom (emerald/red/muted) da linha de propósito: é uma ação neutra
 // de "abrir formulário", não um veredito.
-function EvidenceButton({
-  onClick,
-  label = "Evidência",
-}: {
-  onClick: () => void;
-  label?: string;
-}) {
+function EvidenceButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
@@ -35,7 +29,7 @@ function EvidenceButton({
       className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-card/70 px-2 py-1 text-[10px] font-medium text-foreground/80 transition-colors hover:bg-card hover:text-foreground"
     >
       <Plus className="h-3 w-3" />
-      {label}
+      Evidência
     </button>
   );
 }
@@ -280,21 +274,10 @@ export function FormacaoQualificacoes({
                       >
                         Nível: {item.acquiredLevel}/{item.requiredLevel}
                       </span>
-                      {editable && !matched && (
-                        <EvidenceButton
-                          onClick={() => onAttachEvidence?.(item)}
-                        />
-                      )}
-                      {editable && matched && item.source === "manual" && (
-                        <button
-                          type="button"
-                          onClick={() => onEditEvidence?.(item)}
-                          aria-label="Editar evidência"
-                          className="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-emerald-700 transition-colors hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                      {/* Hint textual independente da ação: uma linha
+                          atende+treinamento sempre mostra de onde veio a
+                          prova, mesmo quando também existe um atestado
+                          manual editável (lápis) ao lado. */}
                       {editable && matched && item.source === "treinamento" && (
                         <span className="truncate text-[10px] text-emerald-700/80 dark:text-emerald-300/80">
                           via treinamento
@@ -303,6 +286,33 @@ export function FormacaoQualificacoes({
                             : ""}
                         </span>
                       )}
+                      {/* Roteamento por PRESENÇA de atestado manual, não por
+                          status/fonte: existe `manualCompetencyId` => editar
+                          (reabre PREENCHIDO, nunca em branco — mesmo numa
+                          linha "gap" parcial ou "atende" via treinamento que
+                          também tem atestado manual). */}
+                      {editable && item.manualCompetencyId != null && (
+                        <button
+                          type="button"
+                          onClick={() => onEditEvidence?.(item)}
+                          aria-label="Editar evidência"
+                          className={cn(
+                            "inline-flex shrink-0 items-center justify-center rounded-md p-1 transition-colors",
+                            matched
+                              ? "text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+                              : "text-red-700 hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-500/20",
+                          )}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {editable &&
+                        item.manualCompetencyId == null &&
+                        !matched && (
+                          <EvidenceButton
+                            onClick={() => onAttachEvidence?.(item)}
+                          />
+                        )}
                     </div>
                   </div>
                 );
