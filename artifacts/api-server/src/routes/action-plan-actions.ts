@@ -21,7 +21,7 @@ import {
   UpdateActionPlanActionParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
-import { requirePlanAccess } from "../middlewares/plan-access";
+import { requirePlanAccess, userCanReachPlan } from "../middlewares/plan-access";
 import { logActionPlanActivity } from "../services/action-plans/activity";
 import { notifyActionPlanActionAssignment } from "../services/action-plans/notify-assignment";
 import {
@@ -71,7 +71,8 @@ async function loadEditablePlan(orgId: number, planId: number): Promise<LoadEdit
 router.get(
   "/organizations/:orgId/action-plans/:planId/actions",
   requireAuth,
-  requirePlanAccess(),
+  // Leitura: quem só executa uma ação precisa listar as ações do plano para abrir a dele.
+  requirePlanAccess({ allowActionAssignee: true }),
   async (req, res): Promise<void> => {
     const params = ListActionPlanActionsParams.safeParse(req.params);
     if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
@@ -181,7 +182,9 @@ router.post(
 router.patch(
   "/organizations/:orgId/action-plans/:planId/actions/:actionId",
   requireAuth,
-  requirePlanAccess(),
+  // Quem só executa a ação entra aqui (para concluir a DELE); a trava de dono-da-ação
+  // abaixo garante que ele não mexa nas ações dos outros. `requireWriteAccess` barra analista.
+  requirePlanAccess({ allowActionAssignee: true }),
   requireWriteAccess(),
   async (req, res): Promise<void> => {
     const params = UpdateActionPlanActionParams.safeParse(req.params);
@@ -204,6 +207,17 @@ router.patch(
       ));
     if (!existing) { res.status(404).json({ error: "Ação não encontrada" }); return; }
 
+    // Least privilege: quem não conduz o plano (só executa uma ação) só pode mexer na
+    // PRÓPRIA ação. `requirePlanAccess({ allowActionAssignee })` o deixou entrar; aqui
+    // fecha para que ele não edite as ações dos outros.
+    if (existing.responsibleUserId !== req.auth!.userId) {
+      const planLevel = await userCanReachPlan(req.auth!, params.data.orgId, params.data.planId);
+      if (!planLevel) {
+        res.status(403).json({ error: "Você só pode editar a ação atribuída a você." });
+        return;
+      }
+    }
+
     if (body.data.responsibleUserId != null) {
       const ok = await assertUserBelongsToOrg(body.data.responsibleUserId, params.data.orgId);
       if (!ok) { res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" }); return; }
@@ -221,15 +235,18 @@ router.patch(
     if (body.data.sortOrder !== undefined) update.sortOrder = body.data.sortOrder;
 
     if (body.data.status !== undefined && body.data.status !== existing.status) {
-      // Uma ação sem enunciado não pode ser dada como feita — o registro ficaria sem sentido
-      // para o auditor ("concluída: (vazio)").
-      const what = body.data.what !== undefined ? body.data.what : existing.what;
-      if (body.data.status === "completed" && !what?.trim()) {
-        res.status(400).json({ error: "Descreva o que será feito (campo \"O quê\") antes de concluir a ação." });
-        return;
-      }
       update.status = body.data.status;
       update.completedAt = body.data.status === "completed" ? new Date() : null;
+    }
+
+    // Valida o estado FINAL (status, "O quê"), não só a transição de status: limpar o
+    // enunciado de uma ação JÁ concluída não muda o status, mas deixaria "concluída: (vazio)"
+    // — o registro ficaria sem sentido para o auditor.
+    const finalStatus = (update.status as string | undefined) ?? existing.status;
+    const finalWhat = "what" in update ? (update.what as string | null) : existing.what;
+    if (finalStatus === "completed" && !finalWhat?.trim()) {
+      res.status(400).json({ error: "Descreva o que será feito (campo \"O quê\") antes de concluir a ação." });
+      return;
     }
 
     const [row] = await db

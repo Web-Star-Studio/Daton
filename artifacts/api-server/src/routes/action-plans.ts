@@ -354,7 +354,7 @@ async function loadAndSerializePlan(orgId: number, planId: number) {
   });
 }
 
-router.get("/organizations/:orgId/action-plans/:planId", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId", requireAuth, requirePlanAccess({ allowActionAssignee: true }), async (req, res): Promise<void> => {
   const params = GetActionPlanParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -860,7 +860,7 @@ router.delete("/organizations/:orgId/action-plans/:planId", requireAuth, require
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 
-router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requirePlanAccess({ allowActionAssignee: true }), async (req, res): Promise<void> => {
   const params = ListActionPlanCommentsParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -910,7 +910,7 @@ router.post("/organizations/:orgId/action-plans/:planId/comments", requireAuth, 
 
 // ─── Activity log ─────────────────────────────────────────────────────────────
 
-router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, requirePlanAccess({ allowActionAssignee: true }), async (req, res): Promise<void> => {
   const params = ListActionPlanActivityParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }

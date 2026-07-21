@@ -319,7 +319,9 @@ describe("action plan detail access", () => {
   // Regressão: quem executa uma AÇÃO do plano (sem ser ponto focal, co-responsável
   // nem ter módulo) recebe a ação em "Suas Pendências" com link para a ficha. Sem
   // este acesso, a pendência viraria um beco: 403 ao abrir o plano e as ações.
-  it("allows the responsible of an ACTION-ITEM even with no module at all", async () => {
+  // MAS o acesso é de menor privilégio: lê o plano e conclui a PRÓPRIA ação; não
+  // pode editar/excluir o plano nem as ações dos outros (escalada de privilégio).
+  it("gives an ACTION assignee least-privilege access (read plan + write own action only)", async () => {
     const context = await createTestContext({
       seed: "ap-detail-action-assignee",
       role: "operator",
@@ -330,21 +332,47 @@ describe("action plan detail access", () => {
       sourceModule: "manual",
       responsibleUserId: outro.id, // ponto focal é OUTRA pessoa
     });
-    await db.insert(actionPlanActionsTable).values({
-      organizationId: context.organizationId,
-      actionPlanId: planId,
-      what: "Executar",
-      responsibleUserId: context.userId, // o usuário do contexto só executa a ação
-    });
+    const [minha] = await db
+      .insert(actionPlanActionsTable)
+      .values({
+        organizationId: context.organizationId,
+        actionPlanId: planId,
+        what: "Executar",
+        responsibleUserId: context.userId, // atribuída ao usuário do contexto
+      })
+      .returning({ id: actionPlanActionsTable.id });
+    const [dooutro] = await db
+      .insert(actionPlanActionsTable)
+      .values({
+        organizationId: context.organizationId,
+        actionPlanId: planId,
+        what: "Ação do outro",
+        responsibleUserId: outro.id, // atribuída a OUTRA pessoa
+      })
+      .returning({ id: actionPlanActionsTable.id });
 
-    const detail = await request(app)
-      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}`)
-      .set(authHeader(context));
-    expect(detail.status).toBe(200);
+    const url = `/api/organizations/${context.organizationId}/action-plans/${planId}`;
 
-    const actions = await request(app)
-      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}/actions`)
-      .set(authHeader(context));
-    expect(actions.status).toBe(200);
+    // LÊ o plano e as ações.
+    expect((await request(app).get(url).set(authHeader(context))).status).toBe(200);
+    expect((await request(app).get(`${url}/actions`).set(authHeader(context))).status).toBe(200);
+
+    // CONCLUI a própria ação.
+    const concluiMinha = await request(app)
+      .patch(`${url}/actions/${minha.id}`)
+      .set(authHeader(context))
+      .send({ status: "completed" });
+    expect(concluiMinha.status).toBe(200);
+
+    // NÃO edita a ação de outro (só a dele).
+    const mexeNoOutro = await request(app)
+      .patch(`${url}/actions/${dooutro.id}`)
+      .set(authHeader(context))
+      .send({ notes: "invadido" });
+    expect(mexeNoOutro.status).toBe(403);
+
+    // NÃO edita nem exclui o plano inteiro.
+    expect((await request(app).patch(url).set(authHeader(context)).send({ title: "Invadido" })).status).toBe(403);
+    expect((await request(app).delete(url).set(authHeader(context))).status).toBe(403);
   });
 });
