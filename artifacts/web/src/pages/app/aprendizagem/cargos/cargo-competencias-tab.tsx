@@ -27,7 +27,7 @@ import {
   levelBadgeClass,
   isCritical,
   levelBucket,
-  findBankItemByName,
+  competencyNamesToLink,
   resolveLinkedCompetencyType,
 } from "./cargos-utils";
 
@@ -38,8 +38,8 @@ const LEVEL_OPTIONS = [
 ];
 
 const EMPTY_LINK: VincularCompetenciaFormValue = {
-  competencyName: "",
-  competencyType: "",
+  competencyNames: [],
+  newCompetencyType: "conhecimento",
   requiredLevel: 3,
 };
 
@@ -67,62 +67,94 @@ export function CargoCompetenciasTab({
   const createBankItem = useCreateCompetencyCatalogItem();
 
   const { data: bankResult } = useListCompetencyCatalog(orgId, {
-    query: { enabled: !!orgId, queryKey: getListCompetencyCatalogQueryKey(orgId) },
+    query: {
+      enabled: !!orgId,
+      queryKey: getListCompetencyCatalogQueryKey(orgId),
+    },
   });
   const bankItems = bankResult?.data ?? [];
 
   const [adding, setAdding] = useState(false);
   const [link, setLink] = useState<VincularCompetenciaFormValue>(EMPTY_LINK);
   const [bankOpen, setBankOpen] = useState(false);
+  const [linking, setLinking] = useState(false);
 
   const resetAdd = () => {
     setAdding(false);
     setLink(EMPTY_LINK);
   };
 
+  // Vincula em lote as competências escolhidas. Cada vínculo é um POST próprio
+  // (o backend não tem endpoint de lote); competências ausentes do catálogo são
+  // cadastradas antes, reutilizáveis em outros cargos. Falhas parciais não
+  // abortam as demais — as que falham ficam selecionadas para nova tentativa.
   const handleLink = async () => {
-    const name = link.competencyName.trim();
-    if (!name) return;
+    const names = competencyNamesToLink(
+      link.competencyNames,
+      requirements.map((r) => r.competencyName),
+    );
+    if (names.length === 0) return;
+    setLinking(true);
     try {
-      // O tipo é propriedade da COMPETÊNCIA (catálogo), não do vínculo: para uma
-      // competência já existente, usa o tipo dela no catálogo — não o que porventura
-      // esteja em `link.competencyType` (que só é editável no fluxo "criar na hora").
-      const existing = findBankItemByName(bankItems, name);
-      const competencyType = resolveLinkedCompetencyType(
-        bankItems,
-        name,
-        link.competencyType,
-      ) as CreatePositionCompetencyRequirementBodyCompetencyType;
-      if (!existing) {
-        // Criar-na-hora: a competência não existe no banco, cadastra antes de
-        // vincular (assim fica reutilizável em outros cargos), com o tipo CHA
-        // escolhido pelo usuário no formulário.
-        await createBankItem.mutateAsync({
-          orgId,
-          data: { name, competencyType },
-        });
+      // Nomes já no catálogo (case-insensitive); atualizado a cada criação para
+      // não recadastrar dentro do mesmo lote.
+      const existingKeys = new Set(
+        bankItems.map((i) => i.name.trim().toLowerCase()),
+      );
+      let bankCreated = false;
+      const failed: string[] = [];
+      for (const name of names) {
+        try {
+          // O tipo é propriedade da COMPETÊNCIA (catálogo): existentes usam o
+          // tipo do catálogo; novas usam o tipo CHA escolhido no formulário.
+          const competencyType = resolveLinkedCompetencyType(
+            bankItems,
+            name,
+            link.newCompetencyType,
+          ) as CreatePositionCompetencyRequirementBodyCompetencyType;
+          if (!existingKeys.has(name.trim().toLowerCase())) {
+            await createBankItem.mutateAsync({
+              orgId,
+              data: { name, competencyType },
+            });
+            existingKeys.add(name.trim().toLowerCase());
+            bankCreated = true;
+          }
+          await createReq.mutateAsync({
+            orgId,
+            posId: positionId,
+            data: {
+              competencyName: name,
+              competencyType,
+              requiredLevel: link.requiredLevel,
+            },
+          });
+        } catch {
+          failed.push(name);
+        }
+      }
+      if (bankCreated) {
         queryClient.invalidateQueries({
           queryKey: getListCompetencyCatalogQueryKey(orgId),
         });
       }
-      await createReq.mutateAsync({
-        orgId,
-        posId: positionId,
-        data: {
-          competencyName: name,
-          competencyType,
-          requiredLevel: link.requiredLevel,
-        },
-      });
       onChanged();
-      resetAdd();
-    } catch {
-      toast({
-        title: "Não foi possível vincular a competência",
-        description:
-          "Verifique se ela já não está vinculada a este cargo e tente novamente.",
-        variant: "destructive",
-      });
+      if (failed.length > 0) {
+        toast({
+          title:
+            failed.length === names.length
+              ? "Não foi possível vincular as competências"
+              : `Vinculadas ${names.length - failed.length} de ${names.length}`,
+          description: `Falha em: ${failed.join(", ")}. Verifique se já não estavam vinculadas a este cargo.`,
+          variant: "destructive",
+        });
+        // Mantém apenas as que falharam para nova tentativa.
+        setLink((f) => ({ ...f, competencyNames: failed }));
+      } else {
+        resetAdd();
+      }
+    } finally {
+      setLinking(false);
     }
   };
 
@@ -190,17 +222,19 @@ export function CargoCompetenciasTab({
         </div>
       )}
       <p className="text-[11px] text-muted-foreground">
-        <span className="text-red-600">●</span> crítica — nível requerido pelo cargo
+        <span className="text-red-600">●</span> crítica — nível requerido pelo
+        cargo
       </p>
 
       {adding && canManage && (
         <VincularCompetenciaForm
           bankItems={bankItems}
+          linkedNames={requirements.map((r) => r.competencyName)}
           value={link}
           onChange={setLink}
           onSubmit={handleLink}
           onCancel={resetAdd}
-          submitting={createReq.isPending || createBankItem.isPending}
+          submitting={linking}
         />
       )}
 
@@ -220,7 +254,10 @@ export function CargoCompetenciasTab({
             <div key={r.id} className="flex items-center gap-2 py-2">
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
                 {isCritical(r.requiredLevel) ? (
-                  <span className="shrink-0 text-red-600" title="Competência crítica">
+                  <span
+                    className="shrink-0 text-red-600"
+                    title="Competência crítica"
+                  >
                     ●
                   </span>
                 ) : null}
@@ -235,7 +272,9 @@ export function CargoCompetenciasTab({
                 <div className="flex shrink-0 items-center gap-0.5">
                   <select
                     value={String(levelBucket(r.requiredLevel))}
-                    onChange={(e) => handleLevelChange(r, Number(e.target.value))}
+                    onChange={(e) =>
+                      handleLevelChange(r, Number(e.target.value))
+                    }
                     aria-label="Nível requerido"
                     className={cn(
                       "h-7 cursor-pointer rounded-md border px-2 text-[11px] font-medium",
@@ -265,7 +304,10 @@ export function CargoCompetenciasTab({
                 </div>
               ) : (
                 <Badge
-                  className={cn("shrink-0 border", levelBadgeClass(r.requiredLevel))}
+                  className={cn(
+                    "shrink-0 border",
+                    levelBadgeClass(r.requiredLevel),
+                  )}
                 >
                   {levelLabel(r.requiredLevel)}
                 </Badge>

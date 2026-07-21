@@ -2,10 +2,7 @@
 // serem testáveis sem DOM.
 
 function norm(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, ""); // remove diacríticos (mesmo padrão do slugify de document-pdf.ts)
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); // remove diacríticos (mesmo padrão do slugify de document-pdf.ts)
 }
 
 /** Áreas distintas não vazias presentes nos cargos, ordenadas (pt-BR). */
@@ -19,11 +16,9 @@ export function deriveAreas(positions: { area?: string | null }[]): string[] {
 }
 
 /** Filtra por nome (caixa/acento-insensível) e área (`""` = todas). */
-export function filterPositions<T extends { name: string; area?: string | null }>(
-  positions: T[],
-  search: string,
-  area: string,
-): T[] {
+export function filterPositions<
+  T extends { name: string; area?: string | null },
+>(positions: T[], search: string, area: string): T[] {
   const q = norm(search.trim());
   return positions.filter((p) => {
     const matchesSearch = !q || norm(p.name).includes(q);
@@ -128,4 +123,28 @@ export function resolveLinkedCompetencyType(
 ): string {
   const existing = findBankItemByName(bankItems, name);
   return existing?.competencyType || chosenType || FALLBACK_COMPETENCY_TYPE;
+}
+
+/**
+ * Normaliza a lista escolhida no vínculo em lote: trim, remove vazios, deduplica
+ * (caixa/acento-insensível) e exclui as já vinculadas ao cargo. Preserva a ordem
+ * e a grafia da primeira ocorrência. Evita POSTs que o backend rejeitaria
+ * (competência repetida no cargo).
+ */
+export function competencyNamesToLink(
+  selected: string[],
+  alreadyLinked: string[],
+): string[] {
+  const linked = new Set(alreadyLinked.map((n) => norm(n.trim())));
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of selected) {
+    const name = raw.trim();
+    if (!name) continue;
+    const key = norm(name);
+    if (seen.has(key) || linked.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
 }
