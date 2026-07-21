@@ -9,8 +9,12 @@ import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { ScoreInput } from "./score-input";
-
-type Attendance = "presente" | "faltou";
+import {
+  type Attendance,
+  toAttendance,
+  ATTENDANCE_LABEL,
+  ATTENDANCE_PENDING_LABEL,
+} from "./attendance";
 /** `undefined` = ainda não definido — é o que trava o encerramento. */
 type AttendanceMap = Record<number, Attendance | undefined>;
 
@@ -21,10 +25,7 @@ function initialAttendance(
 ): AttendanceMap {
   const map: AttendanceMap = {};
   for (const p of participants) {
-    map[p.id] =
-      p.attendance === "presente" || p.attendance === "faltou"
-        ? p.attendance
-        : undefined;
+    map[p.id] = toAttendance(p.attendance);
   }
   return map;
 }
@@ -243,11 +244,20 @@ export function EncerrarTurmaDialog({
               return (
                 <label
                   key={p.id}
-                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/50"
+                  className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm ${
+                    state === undefined
+                      ? "bg-amber-50/60 hover:bg-amber-50"
+                      : "hover:bg-muted/50"
+                  }`}
                 >
                   <input
                     type="checkbox"
                     checked={state === "presente"}
+                    // O estado indeterminado desenha uma caixa PREENCHIDA, que
+                    // de relance lê igual à marcada. Tingir de âmbar (a mesma
+                    // cor do rótulo e do contador) separa os dois por matiz, e
+                    // não só pelo traço.
+                    className={state === undefined ? "accent-amber-500" : ""}
                     ref={(el) => {
                       // Terceiro estado: nunca definido. Sem isso, "não
                       // preenchido" viraria "faltou" sem ninguém decidir.
@@ -270,11 +280,7 @@ export function EncerrarTurmaDialog({
                           : "text-amber-700"
                     }`}
                   >
-                    {state === "presente"
-                      ? "Presente"
-                      : state === "faltou"
-                        ? "Faltou"
-                        : "Pendente"}
+                    {state ? ATTENDANCE_LABEL[state] : ATTENDANCE_PENDING_LABEL}
                   </span>
                 </label>
               );

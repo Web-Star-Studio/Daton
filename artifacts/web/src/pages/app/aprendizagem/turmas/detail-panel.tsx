@@ -18,6 +18,11 @@ import {
   EMPLOYEE_RECORD_ATTACHMENT_ACCEPT,
 } from "@/lib/uploads";
 import { resolveApiUrl } from "@/lib/api";
+import {
+  toAttendance,
+  ATTENDANCE_LABEL,
+  ATTENDANCE_PENDING_LABEL,
+} from "./attendance";
 import { AddParticipantsDialog } from "./add-participants-dialog";
 import { ScoreInput } from "./score-input";
 import { EncerrarTurmaDialog } from "./encerrar-turma-dialog";
@@ -228,9 +233,23 @@ export function TurmaDetailPanel({
                 className="flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2"
               >
                 <InitialsAvatar name={p.employeeName} />
-                <span className="flex-1 truncate text-sm">{p.employeeName}</span>
+                {/* O estado vai ABAIXO do nome, não ao lado: no painel de
+                    400px um selo lateral espremia o nome e ele truncava. */}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm" title={p.employeeName ?? ""}>
+                    {p.employeeName}
+                  </span>
+                  {toAttendance(p.attendance) === undefined ? (
+                    // Sem isso, "presença não definida" é só a ausência de
+                    // destaque nos dois botões — invisível justamente no
+                    // estado que faz a turma fechar sem gerar registro.
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-amber-700">
+                      {ATTENDANCE_PENDING_LABEL}
+                    </span>
+                  ) : null}
+                </span>
                 {canWrite ? (
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => void setAttendance(p, "presente")}
                       className={`rounded-full px-2.5 py-0.5 text-xs ${
@@ -253,8 +272,16 @@ export function TurmaDetailPanel({
                     </button>
                   </div>
                 ) : (
-                  <span className="text-xs text-muted-foreground">
-                    {p.attendance ?? "—"}
+                  <span
+                    className={`text-xs ${
+                      toAttendance(p.attendance) === undefined
+                        ? "text-amber-700"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {toAttendance(p.attendance) === undefined
+                      ? ATTENDANCE_PENDING_LABEL
+                      : ATTENDANCE_LABEL[toAttendance(p.attendance)!]}
                   </span>
                 )}
               </div>
