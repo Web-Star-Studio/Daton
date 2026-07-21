@@ -6,6 +6,7 @@ import {
   positionCompetencyRequirementsTable,
   regulatoryNormsTable,
   areasTable,
+  departmentsTable,
 } from "@workspace/db";
 import {
   CreatePositionBody,
@@ -38,6 +39,7 @@ function serializePosition(r: typeof positionsTable.$inferSelect) {
     maxSalary: r.maxSalary,
     area: r.area,
     areaId: r.areaId,
+    departmentId: r.departmentId,
     principalNormId: r.principalNormId,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
@@ -77,6 +79,25 @@ async function assertAreaBelongsToOrg(
       and(eq(areasTable.id, areaId), eq(areasTable.organizationId, orgId)),
     );
   return !!area;
+}
+
+// O departamento do cargo tem que pertencer à mesma organização. `null`/ausente
+// é válido (campo opcional).
+async function assertDepartmentBelongsToOrg(
+  departmentId: number | null | undefined,
+  orgId: number,
+): Promise<boolean> {
+  if (departmentId == null) return true;
+  const [dept] = await db
+    .select({ id: departmentsTable.id })
+    .from(departmentsTable)
+    .where(
+      and(
+        eq(departmentsTable.id, departmentId),
+        eq(departmentsTable.organizationId, orgId),
+      ),
+    );
+  return !!dept;
 }
 
 function normalizeRequirements(raw: string | undefined | null): string | null {
@@ -133,6 +154,11 @@ router.post("/organizations/:orgId/positions", requireAuth, requireWriteAccess()
     return;
   }
 
+  if (!(await assertDepartmentBelongsToOrg(body.data.departmentId, params.data.orgId))) {
+    res.status(400).json({ error: "Departamento inválido para esta organização" });
+    return;
+  }
+
   const [row] = await db.insert(positionsTable).values({
     organizationId: params.data.orgId,
     name: body.data.name,
@@ -146,6 +172,7 @@ router.post("/organizations/:orgId/positions", requireAuth, requireWriteAccess()
     maxSalary: body.data.maxSalary,
     area: body.data.area,
     areaId: body.data.areaId,
+    departmentId: body.data.departmentId,
     principalNormId: body.data.principalNormId,
   }).returning();
 
@@ -167,6 +194,11 @@ router.patch("/organizations/:orgId/positions/:posId", requireAuth, requireWrite
 
   if (!(await assertAreaBelongsToOrg(body.data.areaId, params.data.orgId))) {
     res.status(400).json({ error: "Área inválida para esta organização" });
+    return;
+  }
+
+  if (!(await assertDepartmentBelongsToOrg(body.data.departmentId, params.data.orgId))) {
+    res.status(400).json({ error: "Departamento inválido para esta organização" });
     return;
   }
 

@@ -283,7 +283,7 @@ export function CargoCompetenciasTab({
                     ●
                   </span>
                 ) : null}
-                <span className="truncate text-[13px] text-foreground">
+                <span className="min-w-0 break-words text-[13px] text-foreground">
                   {r.competencyName}
                 </span>
                 <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">

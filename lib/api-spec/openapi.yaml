@@ -14623,6 +14623,9 @@ components:
         areaId:
           type: integer
           nullable: true
+        departmentId:
+          type: integer
+          nullable: true
         principalNormId:
           type: integer
           nullable: true
@@ -14662,6 +14665,9 @@ components:
         areaId:
           type: integer
           nullable: true
+        departmentId:
+          type: integer
+          nullable: true
         principalNormId:
           type: integer
           nullable: true
@@ -14692,6 +14698,9 @@ components:
         area:
           type: string
         areaId:
+          type: integer
+          nullable: true
+        departmentId:
           type: integer
           nullable: true
         principalNormId:

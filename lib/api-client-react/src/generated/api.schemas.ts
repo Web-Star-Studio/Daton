@@ -2337,6 +2337,7 @@ export interface Position {
   maxSalary?: number | null;
   area?: string | null;
   areaId?: number | null;
+  departmentId?: number | null;
   principalNormId?: number | null;
   competencyCount?: number;
   createdAt?: string;
@@ -2355,6 +2356,7 @@ export interface CreatePositionBody {
   maxSalary?: number;
   area?: string;
   areaId?: number | null;
+  departmentId?: number | null;
   principalNormId?: number | null;
 }
 
@@ -2370,6 +2372,7 @@ export interface UpdatePositionBody {
   maxSalary?: number;
   area?: string;
   areaId?: number | null;
+  departmentId?: number | null;
   principalNormId?: number | null;
 }
 
