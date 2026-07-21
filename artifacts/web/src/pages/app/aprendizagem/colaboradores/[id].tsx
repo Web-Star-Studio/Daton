@@ -3578,7 +3578,6 @@ export default function ColaboradorDetailPage() {
           education={employee.education}
           requiredEducation={employeePositionRecord?.education ?? null}
           conformance={employee.competencyConformance ?? null}
-          competencies={employee.competencies || []}
           editable={canWriteEmployees}
           onAttachEvidence={(requirement) => setEvidenceTarget({ requirement })}
           onEditEvidence={(requirement) =>

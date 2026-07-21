@@ -1,15 +1,12 @@
 import {
   AlertTriangle,
   CheckCircle2,
-  FileText,
   HelpCircle,
-  Paperclip,
   Pencil,
   Plus,
   XCircle,
 } from "lucide-react";
 import type {
-  EmployeeCompetency,
   EmployeeCompetencyConformance,
   EmployeeCompetencyConformanceRequirementsItem,
 } from "@workspace/api-client-react";
@@ -20,49 +17,6 @@ import { compareEducation } from "../_lib/ficha-derivations";
 // porque é a interface que a Task 5 (wiring de evidência) consome via
 // `onAttachEvidence`/`onEditEvidence`.
 export type RequirementRow = EmployeeCompetencyConformanceRequirementsItem;
-
-// Indicador "bate o olho" de que já existe prova numa linha com atestado
-// manual: paperclip quando há anexo, documento quando só há texto de evidência.
-// Puramente informativo — a ação de editar/ver continua no lápis ao lado.
-function EvidenceChip({
-  tone,
-  hasAttachment,
-  label,
-}: {
-  tone: "atende" | "gap";
-  hasAttachment: boolean;
-  label: string;
-}) {
-  const Icon = hasAttachment ? Paperclip : FileText;
-  return (
-    <span
-      title={label}
-      className={cn(
-        "inline-flex max-w-[9rem] shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium",
-        tone === "atende"
-          ? "bg-emerald-100/70 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200"
-          : "bg-red-100/70 text-red-800 dark:bg-red-500/15 dark:text-red-200",
-      )}
-    >
-      <Icon className="h-3 w-3 shrink-0" />
-      <span className="truncate">{label}</span>
-    </span>
-  );
-}
-
-// Deriva o rótulo do chip de evidência a partir da competência manual que
-// atesta o requisito (casada por id exato via `manualCompetencyId`, nunca por
-// nome). Retorna null quando não há prova a exibir.
-function evidenceChipInfo(
-  competency: EmployeeCompetency | undefined,
-): { hasAttachment: boolean; label: string } | null {
-  if (!competency) return null;
-  const count = competency.attachments?.length ?? 0;
-  const text = (competency.evidence ?? "").trim();
-  if (count === 0 && !text) return null;
-  const label = text || `${count} anexo${count > 1 ? "s" : ""}`;
-  return { hasAttachment: count > 0, label };
-}
 
 // Botão discreto de ação usado nas linhas `gap` e `nao_classificado` — não
 // herda o tom (emerald/red/muted) da linha de propósito: é uma ação neutra
@@ -138,7 +92,6 @@ export function FormacaoQualificacoes({
   education,
   requiredEducation,
   conformance,
-  competencies,
   editable,
   onAttachEvidence,
   onEditEvidence,
@@ -146,10 +99,6 @@ export function FormacaoQualificacoes({
   education?: string | null;
   requiredEducation?: string | null;
   conformance: EmployeeCompetencyConformance | null;
-  // Competências manuais do colaborador — usadas só para o chip de evidência,
-  // casadas por `id` (via `requirement.manualCompetencyId`). Opcional: sem elas
-  // as linhas renderizam como antes, só sem o chip.
-  competencies?: EmployeeCompetency[];
   // Quando ausente/false, o componente renderiza exatamente como antes (sem
   // botões) — a Task 5 é quem liga estas props a um fluxo de verdade.
   editable?: boolean;
@@ -158,8 +107,6 @@ export function FormacaoQualificacoes({
 }) {
   const veredito = compareEducation(education, requiredEducation);
   const requirements = conformance?.requirements ?? [];
-  // Lookup por id exato — poucos itens, custo desprezível a cada render.
-  const competencyById = new Map((competencies ?? []).map((c) => [c.id, c]));
   const atendeItems = requirements.filter((r) => r.status === "atende");
   const gapItems = requirements.filter((r) => r.status === "gap");
   const naoClassificadoItems = requirements.filter(
@@ -339,22 +286,6 @@ export function FormacaoQualificacoes({
                             : ""}
                         </span>
                       )}
-                      {/* Chip informativo: já existe prova anexada/registrada
-                          nesta linha (casa por id exato, não por nome). O RH
-                          vê "de bater o olho"; a ação continua no lápis. */}
-                      {item.manualCompetencyId != null &&
-                        (() => {
-                          const info = evidenceChipInfo(
-                            competencyById.get(item.manualCompetencyId),
-                          );
-                          return info ? (
-                            <EvidenceChip
-                              tone={matched ? "atende" : "gap"}
-                              hasAttachment={info.hasAttachment}
-                              label={info.label}
-                            />
-                          ) : null;
-                        })()}
                       {/* Roteamento por PRESENÇA de atestado manual, não por
                           status/fonte: existe `manualCompetencyId` => editar
                           (reabre PREENCHIDO, nunca em branco — mesmo numa
