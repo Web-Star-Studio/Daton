@@ -10,8 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import {
+  SearchableSelect,
+  toNameOptions,
+} from "@/components/ui/searchable-select";
 import { toast } from "@/hooks/use-toast";
 import { useActiveNorms, useAllNorms, buildNormLabelMap } from "@/lib/norms-client";
+import { deriveDistinct } from "./cargos-utils";
 
 const AREA_OPTIONS = [
   "Operações",
@@ -69,12 +74,16 @@ export function PositionFormDialog({
   orgId,
   open,
   position,
+  positions,
   onClose,
   onSaved,
 }: {
   orgId: number;
   open: boolean;
   position: Position | null;
+  /** Todos os cargos da org — usados para sugerir as áreas/níveis/escolaridades
+   *  já cadastrados (o usuário também pode criar novos in-loco). */
+  positions: Position[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -101,14 +110,23 @@ export function PositionFormDialog({
     if (label) normOptions.push({ id: selectedNormId, label });
   }
 
-  // Selects fixos mapeiam colunas de texto livre — se o valor atual (ex.: legado
-  // importado) não estiver na lista, inclui como opção para não abrir em branco
-  // (e evitar sobrescrita acidental ao salvar).
-  const withCurrent = (options: string[], current: string): string[] =>
-    current && !options.includes(current) ? [current, ...options] : options;
-  const areaOptions = withCurrent(AREA_OPTIONS, form.area);
-  const levelOptions = withCurrent(LEVEL_OPTIONS, form.level);
-  const educationOptions = withCurrent(EDUCATION_OPTIONS, form.education);
+  // Área/Nível/Escolaridade são texto livre. As opções = defaults + valores já
+  // usados nos cargos da org + o valor atual (mesmo legado importado, para não
+  // abrir em branco nem sobrescrever ao salvar). O SearchableSelect permite
+  // ainda digitar um novo valor e criá-lo in-loco (onCreateOption). `toNameOptions`
+  // dedup case-insensitive e garante que o valor atual apareça como opção.
+  const areaOptions = toNameOptions(
+    [...AREA_OPTIONS, ...deriveDistinct(positions, "area")],
+    form.area,
+  );
+  const levelOptions = toNameOptions(
+    [...LEVEL_OPTIONS, ...deriveDistinct(positions, "level")],
+    form.level,
+  );
+  const educationOptions = toNameOptions(
+    [...EDUCATION_OPTIONS, ...deriveDistinct(positions, "education")],
+    form.education,
+  );
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -168,33 +186,29 @@ export function PositionFormDialog({
         </div>
         <div>
           <Label>Área</Label>
-          <Select
-            value={form.area}
-            onChange={(e) => set("area", e.target.value)}
-            className="mt-1 h-10 text-[13px]"
-          >
-            <option value="">—</option>
-            {areaOptions.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </Select>
+          <div className="mt-1">
+            <SearchableSelect
+              value={form.area}
+              onChange={(v) => set("area", v)}
+              options={areaOptions}
+              placeholder="Selecione ou crie uma área..."
+              searchPlaceholder="Buscar ou digitar nova área..."
+              onCreateOption={(v) => set("area", v)}
+            />
+          </div>
         </div>
         <div>
           <Label>Nível</Label>
-          <Select
-            value={form.level}
-            onChange={(e) => set("level", e.target.value)}
-            className="mt-1 h-10 text-[13px]"
-          >
-            <option value="">—</option>
-            {levelOptions.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </Select>
+          <div className="mt-1">
+            <SearchableSelect
+              value={form.level}
+              onChange={(v) => set("level", v)}
+              options={levelOptions}
+              placeholder="Selecione ou crie um nível..."
+              searchPlaceholder="Buscar ou digitar novo nível..."
+              onCreateOption={(v) => set("level", v)}
+            />
+          </div>
         </div>
         <div>
           <Label>Norma ISO principal</Label>
@@ -213,18 +227,16 @@ export function PositionFormDialog({
         </div>
         <div>
           <Label>Escolaridade mínima</Label>
-          <Select
-            value={form.education}
-            onChange={(e) => set("education", e.target.value)}
-            className="mt-1 h-10 text-[13px]"
-          >
-            <option value="">—</option>
-            {educationOptions.map((ed) => (
-              <option key={ed} value={ed}>
-                {ed}
-              </option>
-            ))}
-          </Select>
+          <div className="mt-1">
+            <SearchableSelect
+              value={form.education}
+              onChange={(v) => set("education", v)}
+              options={educationOptions}
+              placeholder="Selecione ou crie..."
+              searchPlaceholder="Buscar ou digitar nova escolaridade..."
+              onCreateOption={(v) => set("education", v)}
+            />
+          </div>
         </div>
         <div className="md:col-span-2">
           <Label>Experiência mínima</Label>

@@ -389,6 +389,7 @@ export default function AprendizagemCargosPage() {
           orgId={orgId}
           open={dialogOpen}
           position={editing}
+          positions={positionList}
           onClose={() => setDialogOpen(false)}
           onSaved={invalidatePositions}
         />

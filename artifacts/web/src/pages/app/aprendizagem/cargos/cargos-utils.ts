@@ -8,14 +8,26 @@ function norm(s: string): string {
     .replace(/[̀-ͯ]/g, ""); // remove diacríticos (mesmo padrão do slugify de document-pdf.ts)
 }
 
-/** Áreas distintas não vazias presentes nos cargos, ordenadas (pt-BR). */
-export function deriveAreas(positions: { area?: string | null }[]): string[] {
+/**
+ * Valores distintos não vazios de um campo-texto dos cargos, ordenados (pt-BR).
+ * Usado para "puxar" as taxonomias já digitadas (área/nível/escolaridade) e
+ * oferecê-las de volta como sugestões — sem catálogo dedicado.
+ */
+export function deriveDistinct<K extends string>(
+  rows: Array<Partial<Record<K, string | null | undefined>>>,
+  key: K,
+): string[] {
   const set = new Set<string>();
-  for (const p of positions) {
-    const a = p.area?.trim();
-    if (a) set.add(a);
+  for (const r of rows) {
+    const v = r[key]?.trim();
+    if (v) set.add(v);
   }
   return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+/** Áreas distintas não vazias presentes nos cargos, ordenadas (pt-BR). */
+export function deriveAreas(positions: { area?: string | null }[]): string[] {
+  return deriveDistinct(positions, "area");
 }
 
 /** Filtra por nome (caixa/acento-insensível) e área (`""` = todas). */
