@@ -5,15 +5,13 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { EmployeeCompetencyType } from "./employeeCompetencyType";
+import type { CreateCompetencyRequirementEvidenceBodyCompetencyType } from "./createCompetencyRequirementEvidenceBodyCompetencyType";
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 
-export interface EmployeeCompetency {
-  id: number;
-  employeeId: number;
-  name: string;
-  description?: string | null;
-  type: EmployeeCompetencyType;
+export interface CreateCompetencyRequirementEvidenceBody {
+  /** @minLength 1 */
+  competencyName: string;
+  competencyType: CreateCompetencyRequirementEvidenceBodyCompetencyType;
   /**
    * @minimum 0
    * @maximum 5
@@ -25,8 +23,5 @@ export interface EmployeeCompetency {
    */
   acquiredLevel: number;
   evidence?: string | null;
-  attachments: EmployeeRecordAttachment[];
-  isPositionRequirement?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  attachments?: EmployeeRecordAttachment[];
 }
