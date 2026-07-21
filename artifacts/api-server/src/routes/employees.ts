@@ -67,6 +67,8 @@ import {
   UpdateCompetencyParams,
   UpdateCompetencyBody,
   DeleteCompetencyParams,
+  CreateCompetencyRequirementEvidenceParams,
+  CreateCompetencyRequirementEvidenceBody,
   ListTrainingsParams,
   CreateTrainingParams,
   CreateTrainingBody,
@@ -2878,12 +2880,25 @@ router.get(
             gapStatus: resolvedConformance.gapStatus,
           }
         : null;
+    // Marca cada competência atestada que corresponde a um requisito do
+    // cargo (mesma chave do resolvedor) — a ficha usa isso para diferenciar
+    // "Requisitos do cargo" de "Outras competências" sem duplicar consulta.
+    const requirementKeys = new Set(
+      (resolvedConformance?.requirements ?? []).map((r) =>
+        buildCompetencyKey(r.competencyName, r.competencyType),
+      ),
+    );
 
     res.json({
       ...formatEmployee(rows[0]),
       units: linkedUnits,
       managers,
-      competencies: competencies.map(formatCompetencyRecord),
+      competencies: competencies.map((c) => ({
+        ...formatCompetencyRecord(c),
+        isPositionRequirement: requirementKeys.has(
+          buildCompetencyKey(c.name, c.type),
+        ),
+      })),
       trainings: trainings.map((training) =>
         formatTrainingRecord(training, {
           reviews: trainingReviews.get(training.id) || [],
@@ -3264,6 +3279,95 @@ router.delete(
       return;
     }
     res.sendStatus(204);
+  },
+);
+
+// Evidência manual por requisito: registra/atualiza a competência atestada à
+// mão na MESMA chave (`buildCompetencyKey(name, type)`) que o resolvedor usa
+// para casar requisito × competência (competency-resolver.ts) — upsert, nunca
+// duplicata, para que o requisito de cargo enxergue o atestado imediatamente.
+router.post(
+  "/organizations/:orgId/employees/:empId/competency-requirement-evidence",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = CreateCompetencyRequirementEvidenceParams.safeParse(
+      req.params,
+    );
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    if (
+      !(await verifyEmployeeOwnership(params.data.empId, params.data.orgId))
+    ) {
+      res.status(404).json({ error: "Colaborador não encontrado" });
+      return;
+    }
+
+    const body = CreateCompetencyRequirementEvidenceBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+
+    const attachments = sanitizeEmployeeRecordAttachments(
+      body.data.attachments,
+    );
+    const attachmentValidationError =
+      await validateEmployeeRecordAttachments(attachments);
+    if (attachmentValidationError) {
+      res.status(400).json({ error: attachmentValidationError });
+      return;
+    }
+
+    const key = buildCompetencyKey(
+      body.data.competencyName,
+      body.data.competencyType,
+    );
+    const existing = await db
+      .select()
+      .from(employeeCompetenciesTable)
+      .where(eq(employeeCompetenciesTable.employeeId, params.data.empId));
+    const match = existing.find(
+      (c) => buildCompetencyKey(c.name, c.type) === key,
+    );
+
+    let comp: typeof employeeCompetenciesTable.$inferSelect;
+    if (match) {
+      [comp] = await db
+        .update(employeeCompetenciesTable)
+        .set({
+          requiredLevel: body.data.requiredLevel,
+          // Edição manual pode BAIXAR o nível atestado (correção de um
+          // atestado indevido) — ao contrário do fluxo de eficácia de
+          // treinamento (Math.max), aqui o valor do corpo vale exatamente.
+          acquiredLevel: body.data.acquiredLevel,
+          evidence: body.data.evidence ?? null,
+          ...(attachments !== undefined ? { attachments } : {}),
+        })
+        .where(eq(employeeCompetenciesTable.id, match.id))
+        .returning();
+    } else {
+      [comp] = await db
+        .insert(employeeCompetenciesTable)
+        .values({
+          employeeId: params.data.empId,
+          name: body.data.competencyName,
+          type: body.data.competencyType,
+          requiredLevel: body.data.requiredLevel,
+          acquiredLevel: body.data.acquiredLevel,
+          evidence: body.data.evidence ?? null,
+          attachments: attachments || [],
+        })
+        .returning();
+    }
+
+    res.status(match ? 200 : 201).json(formatCompetencyRecord(comp));
   },
 );
 
