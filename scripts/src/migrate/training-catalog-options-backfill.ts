@@ -52,28 +52,44 @@ const DEFAULT_EVIDENCE_TYPES: {
 ];
 
 type OrgRow = { id: number };
-type OptionRow = { kind: string; label: string };
+type OptionRow = { kind: string; label: string; code: string | null };
+
+type Existing = { labels: Set<string>; evidenceCodes: Set<string> };
 
 async function loadExisting(
   runner: PoolClient | typeof pool,
   orgId: number,
-): Promise<Set<string>> {
+): Promise<Existing> {
   const { rows } = await runner.query<OptionRow>(
-    `SELECT kind, label FROM training_catalog_options WHERE organization_id = $1`,
+    `SELECT kind, label, code FROM training_catalog_options WHERE organization_id = $1`,
     [orgId],
   );
-  return new Set(rows.map((r) => `${r.kind}::${r.label.toLowerCase()}`));
+  return {
+    labels: new Set(rows.map((r) => `${r.kind}::${r.label.toLowerCase()}`)),
+    // O índice único também é por código: uma semente de evidence_type já
+    // presente por CÓDIGO (com outro rótulo) faz o ON CONFLICT inserir 0 —
+    // o dry-run precisa refletir isso, senão superestima o que "seria criado".
+    evidenceCodes: new Set(
+      rows
+        .filter((r) => r.kind === "evidence_type" && r.code)
+        .map((r) => r.code as string),
+    ),
+  };
 }
 
 /** Quantas sementes faltam nesta org (dry-run e apply compartilham a contagem). */
-function countMissing(have: Set<string>): number {
+function countMissing(have: Existing): number {
   let missing = 0;
   for (const l of DEFAULT_CATEGORIES)
-    if (!have.has(`category::${l.toLowerCase()}`)) missing++;
+    if (!have.labels.has(`category::${l.toLowerCase()}`)) missing++;
   for (const l of DEFAULT_MODALITIES)
-    if (!have.has(`modality::${l.toLowerCase()}`)) missing++;
+    if (!have.labels.has(`modality::${l.toLowerCase()}`)) missing++;
   for (const t of DEFAULT_EVIDENCE_TYPES)
-    if (!have.has(`evidence_type::${t.label.toLowerCase()}`)) missing++;
+    if (
+      !have.labels.has(`evidence_type::${t.label.toLowerCase()}`) &&
+      !have.evidenceCodes.has(t.code)
+    )
+      missing++;
   return missing;
 }
 

@@ -2,11 +2,22 @@ import { and, eq } from "drizzle-orm";
 import { db, trainingCatalogOptionsTable } from "@workspace/db";
 
 /**
- * Códigos legados que comprovavam competência antes do catálogo gerenciável.
- * Usados como fallback quando a org ainda não tem NENHUM tipo de evidência no
- * catálogo (ex.: backfill não rodou, ou ambiente de teste) — assim a derivação
- * de competência nunca quebra por um catálogo vazio. Quando existe ao menos um
- * tipo, o catálogo manda (mesmo que nenhum comprove: respeita a escolha).
+ * Vocabulário legado de tipos de evidência (antes do catálogo gerenciável), na
+ * ordem das sementes. Usado como fallback quando a org ainda não tem NENHUM tipo
+ * no catálogo (ex.: backfill não rodou, ou ambiente de teste), tanto na
+ * derivação de competência quanto na validação da rota do catálogo — assim a
+ * janela deploy→backfill não rejeita/deixa de provar códigos que sempre valeram.
+ */
+export const LEGACY_EVIDENCE_CODES = [
+  "capacitacao",
+  "habilitacao",
+  "conscientizacao",
+] as const;
+
+/**
+ * Subconjunto legado que COMPROVA competência. Fallback do resolvedor quando o
+ * catálogo está vazio; quando existe ao menos um tipo, o catálogo manda (mesmo
+ * que nenhum comprove: respeita a escolha).
  */
 const LEGACY_PROVING_CODES = ["capacitacao", "habilitacao"] as const;
 

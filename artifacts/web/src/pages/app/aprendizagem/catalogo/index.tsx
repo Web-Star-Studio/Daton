@@ -443,7 +443,14 @@ export default function CatalogoPage() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    // Um item NOVO nunca deve começar numa opção desativada: parte da 1ª ativa
+    // do catálogo (cai no default fixo só se o catálogo estiver vazio). Em edições
+    // o valor atual continua sendo ofertado como extra, mesmo se inativo.
+    setForm({
+      ...EMPTY_FORM,
+      category: activeCategoryLabels[0] ?? EMPTY_FORM.category,
+      modality: activeModalityLabels[0] ?? EMPTY_FORM.modality,
+    });
     setFormOpen(true);
   };
   const openEdit = (item: TrainingCatalogItem) => {

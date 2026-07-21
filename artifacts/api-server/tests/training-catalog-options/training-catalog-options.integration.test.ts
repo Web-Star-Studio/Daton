@@ -1,5 +1,7 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
+import { and, eq } from "drizzle-orm";
+import { db, trainingCatalogOptionsTable } from "@workspace/db";
 import app from "../../src/app";
 import {
   authHeader,
@@ -165,6 +167,35 @@ describe("training catalog options API", () => {
       .send({ label: "alpha" });
     expect(collision.status).toBe(409);
     expect(a.status).toBe(201);
+  });
+
+  it("empty evidence catalog falls back to the legacy vocabulary (deploy→backfill window)", async () => {
+    const ctx = await createTestContext({ seed: "tco-fallback" });
+    contexts.push(ctx);
+    // Simula a janela entre o DDL e o backfill: a org NÃO tem tipos de evidência.
+    await db
+      .delete(trainingCatalogOptionsTable)
+      .where(
+        and(
+          eq(trainingCatalogOptionsTable.organizationId, ctx.organizationId),
+          eq(trainingCatalogOptionsTable.kind, "evidence_type"),
+        ),
+      );
+    const catalogBase = `/api/organizations/${ctx.organizationId}/training-catalog`;
+
+    // Código legado continua aceito mesmo sem catálogo.
+    const ok = await request(app)
+      .post(catalogBase)
+      .set(authHeader(ctx))
+      .send({ title: "Legado", evidenceType: "capacitacao" });
+    expect(ok.status).toBe(201);
+
+    // Lixo continua rejeitado.
+    const bad = await request(app)
+      .post(catalogBase)
+      .set(authHeader(ctx))
+      .send({ title: "Lixo", evidenceType: "qualquer_coisa" });
+    expect(bad.status).toBe(400);
   });
 
   it("blocks non-admin writes (403) but allows reads", async () => {
