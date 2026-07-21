@@ -6,18 +6,19 @@ import {
 } from "@/pages/app/aprendizagem/cargos/_components/VincularCompetenciaForm";
 
 // A regra: o tipo é propriedade da COMPETÊNCIA (catálogo), não do requisito de
-// vínculo. O formulário de vínculo não tem campo de tipo próprio — quando a
-// competência escolhida já existe, o tipo dela aparece só como texto (do
-// catálogo); só ao criar uma competência nova é que o usuário escolhe o tipo.
+// vínculo. O formulário permite escolher VÁRIAS competências de uma vez; não
+// tem campo de tipo por item — o seletor de tipo (CHA) só aparece quando o lote
+// inclui competências NOVAS a criar, e vale para todas elas. As já existentes
+// mantêm o tipo do catálogo.
 
 const EMPTY_VALUE: VincularCompetenciaFormValue = {
-  competencyName: "",
-  competencyType: "",
+  competencyNames: [],
+  newCompetencyType: "conhecimento",
   requiredLevel: 3,
 };
 
-describe("VincularCompetenciaForm — tipo vem do catálogo, não é campo do vínculo", () => {
-  it("não oferece campo de Tipo quando nenhuma competência foi escolhida", () => {
+describe("VincularCompetenciaForm — múltipla seleção; tipo vem do catálogo", () => {
+  it("não oferece campo de Tipo quando nada foi escolhido", () => {
     render(
       <VincularCompetenciaForm
         bankItems={[]}
@@ -27,43 +28,49 @@ describe("VincularCompetenciaForm — tipo vem do catálogo, não é campo do v�
       />,
     );
     expect(screen.queryByLabelText(/Tipo/i)).not.toBeInTheDocument();
-    expect(screen.queryByText("Conhecimento")).not.toBeInTheDocument();
-    expect(screen.queryByText("Habilidade")).not.toBeInTheDocument();
-    expect(screen.queryByText("Atitude")).not.toBeInTheDocument();
   });
 
-  it("mostra o tipo do catálogo da competência escolhida, somente leitura", () => {
+  it("não pede Tipo quando só há competências já existentes no catálogo", () => {
     render(
       <VincularCompetenciaForm
-        bankItems={[{ name: "Auditor ISO 14001", competencyType: "conhecimento" }]}
-        value={{ ...EMPTY_VALUE, competencyName: "Auditor ISO 14001" }}
+        bankItems={[
+          { name: "Auditor ISO 14001", competencyType: "conhecimento" },
+        ]}
+        value={{ ...EMPTY_VALUE, competencyNames: ["Auditor ISO 14001"] }}
         onChange={vi.fn()}
         onSubmit={vi.fn()}
       />,
     );
-    // Aparece como texto...
-    expect(screen.getByText("Conhecimento")).toBeInTheDocument();
-    // ...não como campo editável (nenhum <select>/combobox associado a "Tipo").
+    // Tipo vem do catálogo silenciosamente — sem campo editável no vínculo.
     expect(screen.queryByLabelText(/Tipo/i)).not.toBeInTheDocument();
   });
 
-  it("ao criar competência nova, pede o tipo (lista CHA)", () => {
+  it("pede o tipo (lista CHA) quando o lote inclui competência nova", () => {
     render(
       <VincularCompetenciaForm
-        bankItems={[{ name: "Auditor ISO 14001", competencyType: "conhecimento" }]}
-        value={{ ...EMPTY_VALUE, competencyName: "Direção defensiva" }}
+        bankItems={[
+          { name: "Auditor ISO 14001", competencyType: "conhecimento" },
+        ]}
+        value={{
+          ...EMPTY_VALUE,
+          competencyNames: ["Auditor ISO 14001", "Direção defensiva"],
+        }}
         onChange={vi.fn()}
         onSubmit={vi.fn()}
       />,
     );
     const select = screen.getByLabelText(/Tipo/i);
     expect(select).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Conhecimento" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Habilidade" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Conhecimento" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Habilidade" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Atitude" })).toBeInTheDocument();
   });
 
-  it("desativa 'Vincular' quando o nome está vazio", () => {
+  it("desativa 'Vincular' quando nenhuma competência foi escolhida", () => {
     render(
       <VincularCompetenciaForm
         bankItems={[]}
@@ -72,20 +79,23 @@ describe("VincularCompetenciaForm — tipo vem do catálogo, não é campo do v�
         onSubmit={vi.fn()}
       />,
     );
-    expect(screen.getByRole("button", { name: "Vincular" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Vincular/ })).toBeDisabled();
   });
 
-  it("chama onSubmit ao clicar em Vincular com nome preenchido", () => {
+  it("mostra a contagem no botão e chama onSubmit ao clicar", () => {
     const onSubmit = vi.fn();
     render(
       <VincularCompetenciaForm
         bankItems={[]}
-        value={{ ...EMPTY_VALUE, competencyName: "Direção defensiva" }}
+        value={{
+          ...EMPTY_VALUE,
+          competencyNames: ["Direção defensiva", "Primeiros socorros"],
+        }}
         onChange={vi.fn()}
         onSubmit={onSubmit}
       />,
     );
-    const button = screen.getByRole("button", { name: "Vincular" });
+    const button = screen.getByRole("button", { name: /Vincular \(2\)/ });
     expect(button).not.toBeDisabled();
     button.click();
     expect(onSubmit).toHaveBeenCalledTimes(1);
