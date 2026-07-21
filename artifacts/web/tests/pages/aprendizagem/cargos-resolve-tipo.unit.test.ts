@@ -52,6 +52,18 @@ describe("resolveLinkedCompetencyType", () => {
       "atitude",
     );
   });
+
+  it("item existente com tipo vazio/nulo + chosenType vazio: cai no default CHA (nunca \"\")", () => {
+    const bankItemsEmpty = [{ name: "Auditor ISO 14001", competencyType: "" }];
+    expect(resolveLinkedCompetencyType(bankItemsEmpty, "Auditor ISO 14001", "")).toBe(
+      "conhecimento",
+    );
+
+    const bankItemsNull = [{ name: "Auditor ISO 14001", competencyType: null }];
+    expect(resolveLinkedCompetencyType(bankItemsNull, "Auditor ISO 14001", "")).toBe(
+      "conhecimento",
+    );
+  });
 });
 
 describe("findBankItemByName", () => {

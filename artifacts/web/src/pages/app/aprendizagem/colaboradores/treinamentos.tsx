@@ -849,7 +849,11 @@ export default function ColaboradoresTreinamentosPage() {
     setRequirementForm((f) => ({ ...f, competencyName: trimmed }));
     if (orgId)
       createCompetencyMutation.mutate(
-        { orgId, data: { name: trimmed } },
+        // Tipo CHA é obrigatório na competência do catálogo (contrato aceita
+        // vazio na criação, mas o vínculo com um cargo rejeita "" com 400 —
+        // ver resolveLinkedCompetencyType em cargos-utils.ts). "conhecimento"
+        // é o mesmo default do fluxo "criar na hora" em cargo-competencias-tab.
+        { orgId, data: { name: trimmed, competencyType: "conhecimento" } },
         {
           onSuccess: () =>
             queryClient.invalidateQueries({
