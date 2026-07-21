@@ -424,7 +424,7 @@ export default function OrganizacaoSwotPage() {
     if (!actionFactor) return;
     const title = actionForm.title.trim();
     if (!title) {
-      toast({ title: "Informe o título da ação", variant: "destructive" });
+      toast({ title: "Informe o título do plano de ação", variant: "destructive" });
       return;
     }
     try {
@@ -442,9 +442,9 @@ export default function OrganizacaoSwotPage() {
         },
       });
       setActionFactor(null);
-      toast({ title: "Ação criada", description: "Disponível em Gestão de Ações (origem: SWOT)." });
+      toast({ title: "Plano de ação criado", description: "Disponível em Gestão de Ações (origem: SWOT)." });
     } catch {
-      toast({ title: "Não foi possível criar a ação", variant: "destructive" });
+      toast({ title: "Não foi possível criar o plano de ação", variant: "destructive" });
     }
   }
 
@@ -702,8 +702,8 @@ export default function OrganizacaoSwotPage() {
       <Dialog
         open={actionFactor !== null}
         onOpenChange={(o) => { if (!o) setActionFactor(null); }}
-        title="Nova ação para o fator"
-        description="A ação será registrada no módulo Gestão de Ações com origem SWOT."
+        title="Novo plano de ação para o fator"
+        description="O plano de ação será registrado no módulo Gestão de Ações com origem SWOT."
       >
         {actionFactor && (
           <div className="mb-3 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
@@ -715,7 +715,7 @@ export default function OrganizacaoSwotPage() {
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2 space-y-1.5">
-            <Label>Título da ação</Label>
+            <Label>Título do plano de ação</Label>
             <Input
               value={actionForm.title}
               onChange={(e) => setActionForm((f) => ({ ...f, title: e.target.value }))}
@@ -766,7 +766,7 @@ export default function OrganizacaoSwotPage() {
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setActionFactor(null)}>Cancelar</Button>
-          <Button onClick={submitAction} disabled={createAction.isPending}>Criar ação</Button>
+          <Button onClick={submitAction} disabled={createAction.isPending}>Criar plano de ação</Button>
         </DialogFooter>
       </Dialog>
 
@@ -957,7 +957,7 @@ function SwotView({
                     canWrite
                       ? (e) => {
                           // Só o card em foco dispara a edição — evita que Enter/Espaço
-                          // num botão interno (ex.: "Criar ação") borbulhe e abra o diálogo.
+                          // num botão interno (ex.: "Criar plano de ação") borbulhe e abra o diálogo.
                           if (e.target !== e.currentTarget) return;
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
@@ -995,7 +995,7 @@ function SwotView({
                     {canWrite && (
                       <Button size="sm" variant="outline" className="shrink-0" onClick={() => onCreateAction(f)}>
                         <Plus className="mr-1 h-3.5 w-3.5" />
-                        Criar ação
+                        Criar plano de ação
                       </Button>
                     )}
                   </div>
@@ -1165,7 +1165,7 @@ function FactorsTable({
                       {canWrite && (
                         <div className="flex justify-end gap-1">
                           {f.decision === "requer" && (
-                            <Button size="icon" variant="ghost" className="h-7 w-7" title="Criar ação" onClick={() => onCreateAction(f)}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="Criar plano de ação" onClick={() => onCreateAction(f)}>
                               <ClipboardList className="h-3.5 w-3.5" />
                             </Button>
                           )}

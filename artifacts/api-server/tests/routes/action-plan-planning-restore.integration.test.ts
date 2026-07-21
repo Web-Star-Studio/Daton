@@ -73,19 +73,29 @@ describe("restore planning version", () => {
         .send(body)
         .expect(200);
 
-    await patch({ plan5w2h: { what: "Versão A" }, rootCause: "Causa A" });
+    await patch({
+      analyses: [{ key: "five_whys", data: { whys: ["Versão A"] } }],
+      rootCause: "Causa A",
+    });
     const versionA = await lastPlanningActivityId(planId);
-    await patch({ plan5w2h: { what: "Versão B" }, rootCause: "Causa B" });
+    await patch({
+      analyses: [{ key: "five_whys", data: { whys: ["Versão B"] } }],
+      rootCause: "Causa B",
+    });
 
     const response = await restore(context, planId, versionA).expect(200);
-    expect(response.body.plan5w2h).toEqual({ what: "Versão A" });
+    expect(response.body.analyses).toEqual([
+      { key: "five_whys", data: { whys: ["Versão A"] } },
+    ]);
     expect(response.body.rootCause).toBe("Causa A");
 
     const [row] = await db
       .select()
       .from(actionPlansTable)
       .where(eq(actionPlansTable.id, planId));
-    expect(row.plan5w2h).toEqual({ what: "Versão A" });
+    expect(row.analyses).toEqual([
+      { key: "five_whys", data: { whys: ["Versão A"] } },
+    ]);
   });
 
   it("logs the restore, referencing the version it came from", async () => {
@@ -101,9 +111,9 @@ describe("restore planning version", () => {
         .send(body)
         .expect(200);
 
-    await patch({ plan5w2h: { what: "Versão A" } });
+    await patch({ analyses: [{ key: "five_whys", data: { whys: ["Versão A"] } }] });
     const versionA = await lastPlanningActivityId(planId);
-    await patch({ plan5w2h: { what: "Versão B" } });
+    await patch({ analyses: [{ key: "five_whys", data: { whys: ["Versão B"] } }] });
 
     await restore(context, planId, versionA).expect(200);
 
@@ -119,10 +129,10 @@ describe("restore planning version", () => {
 
     expect(changes.restoredFrom?.activityId).toBe(versionA);
     expect(changes.fields.planning.from).toMatchObject({
-      plan5w2h: { what: "Versão B" },
+      analyses: [{ key: "five_whys", data: { whys: ["Versão B"] } }],
     });
     expect(changes.fields.planning.to).toMatchObject({
-      plan5w2h: { what: "Versão A" },
+      analyses: [{ key: "five_whys", data: { whys: ["Versão A"] } }],
     });
   });
 
@@ -136,7 +146,7 @@ describe("restore planning version", () => {
         `/api/organizations/${context.organizationId}/action-plans/${planId}`,
       )
       .set(authHeader(context))
-      .send({ plan5w2h: { what: "Única" } })
+      .send({ analyses: [{ key: "five_whys", data: { whys: ["Única"] } }] })
       .expect(200);
     const version = await lastPlanningActivityId(planId);
 
@@ -179,7 +189,7 @@ describe("restore planning version", () => {
         `/api/organizations/${context.organizationId}/action-plans/${otherPlanId}`,
       )
       .set(authHeader(context))
-      .send({ plan5w2h: { what: "De outro plano" } })
+      .send({ analyses: [{ key: "five_whys", data: { whys: ["De outro plano"] } }] })
       .expect(200);
     const foreign = await lastPlanningActivityId(otherPlanId);
 
@@ -201,7 +211,7 @@ describe("restore planning version", () => {
         `/api/organizations/${contextB.organizationId}/action-plans/${planB}`,
       )
       .set(authHeader(contextB))
-      .send({ plan5w2h: { what: "Plano da organização B" } })
+      .send({ analyses: [{ key: "five_whys", data: { whys: ["Plano da organização B"] } }] })
       .expect(200);
     const foreignOrgActivityId = await lastPlanningActivityId(planB);
 
@@ -218,7 +228,7 @@ describe("restore planning version", () => {
       .select()
       .from(actionPlansTable)
       .where(eq(actionPlansTable.id, planA));
-    expect(planAAfter.plan5w2h).toBeNull();
+    expect(planAAfter.analyses).toBeNull();
     expect(planAAfter.rootCause).toBeNull();
     expect(planAAfter.updatedAt).toEqual(planABefore.updatedAt);
   });
@@ -247,11 +257,10 @@ describe("restore planning version", () => {
           kind: "diff",
           fields: {
             planning: {
-              from: { plan5w2h: null, rootCause: null, rootCauseWhys: null },
+              from: { rootCause: null, analyses: null },
               to: {
-                plan5w2h: { what: "Conteúdo indevido" },
                 rootCause: "Causa indevida",
-                rootCauseWhys: null,
+                analyses: [{ key: "five_whys", data: { whys: ["Conteúdo indevido"] } }],
               },
             },
           },
@@ -270,7 +279,7 @@ describe("restore planning version", () => {
       .select()
       .from(actionPlansTable)
       .where(eq(actionPlansTable.id, planA));
-    expect(planAAfter.plan5w2h).toBeNull();
+    expect(planAAfter.analyses).toBeNull();
     expect(planAAfter.rootCause).toBeNull();
     expect(planAAfter.updatedAt).toEqual(planABefore.updatedAt);
   });
@@ -368,7 +377,7 @@ describe("restore planning version", () => {
         `/api/organizations/${context.organizationId}/action-plans/${planId}`,
       )
       .set(authHeader(context))
-      .send({ plan5w2h: { what: "Versão A" } })
+      .send({ analyses: [{ key: "five_whys", data: { whys: ["Versão A"] } }] })
       .expect(200);
     const version = await lastPlanningActivityId(planId);
 

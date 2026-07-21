@@ -5,7 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { ActionPlan5W2H } from "./actionPlan5W2H";
+import type { ActionPlanAnalysis } from "./actionPlanAnalysis";
 import type { ActionPlanEffectivenessResult } from "./actionPlanEffectivenessResult";
 import type { ActionPlanNormRef } from "./actionPlanNormRef";
 import type { ActionPlanPriority } from "./actionPlanPriority";
@@ -34,9 +34,8 @@ export interface UpdateActionPlanBody {
    * @maximum 5
    */
   gutTendency?: number | null;
-  plan5w2h?: ActionPlan5W2H | null;
+  analyses?: ActionPlanAnalysis[] | null;
   rootCause?: string | null;
-  rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
   /** Conjunto COMPLETO de co-responsáveis. Substitui o conjunto atual. Não pode conter o ponto focal. */
   coResponsibleUserIds?: number[] | null;

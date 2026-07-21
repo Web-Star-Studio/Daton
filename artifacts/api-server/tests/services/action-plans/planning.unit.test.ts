@@ -5,107 +5,148 @@ import {
   planningChanged,
 } from "../../../src/services/action-plans/planning";
 
-const row = {
-  plan5w2h: { what: "Treinar", why: "Garantir conferência" },
-  rootCause: "Falta de treinamento.",
-  rootCauseWhys: ["Não foi conferido."],
-  title: "irrelevante",
-};
-
 describe("extractPlanning", () => {
-  it("keeps only the three planning fields", () => {
-    expect(extractPlanning(row)).toEqual({
-      plan5w2h: { what: "Treinar", why: "Garantir conferência" },
-      rootCause: "Falta de treinamento.",
-      rootCauseWhys: ["Não foi conferido."],
+  it("extrai causa raiz e tratativas", () => {
+    const block = extractPlanning({
+      rootCause: "Falta de treinamento",
+      analyses: [{ key: "five_whys", data: { whys: ["a"] } }],
     });
+    expect(block).toEqual({
+      rootCause: "Falta de treinamento",
+      analyses: [{ key: "five_whys", data: { whys: ["a"] } }],
+    });
+  });
+
+  it("mantém só os dois campos do bloco, ignorando o resto da linha", () => {
+    const block = extractPlanning({
+      rootCause: "Causa",
+      analyses: null,
+      // campos que existem na linha mas não pertencem ao bloco
+      title: "irrelevante",
+    } as unknown as Parameters<typeof extractPlanning>[0]);
+    expect(block).toEqual({ rootCause: "Causa", analyses: null });
   });
 });
 
 describe("normalizePlanning", () => {
-  // The form sends `null` when the block is emptied; the database may have `{}` or `[]`.
-  // Treating both shapes as "empty" avoids phantom versions in the history.
-  it("collapses empty shapes to null", () => {
+  it("não carrega mais plan5w2h nem rootCauseWhys", () => {
+    const block = normalizePlanning({ rootCause: "x", analyses: null });
+    expect(block).not.toHaveProperty("plan5w2h");
+    expect(block).not.toHaveProperty("rootCauseWhys");
+  });
+
+  it("colapsa lista vazia de tratativas para null", () => {
     expect(
-      normalizePlanning({ plan5w2h: {}, rootCause: "", rootCauseWhys: [] }),
-    ).toEqual({
-      plan5w2h: null,
+      normalizePlanning({ rootCause: null, analyses: [] }).analyses,
+    ).toBeNull();
+  });
+
+  // O formulário manda `null` quando o bloco é esvaziado; o banco pode ter `""` ou `[]`.
+  // Tratar todas essas formas como "vazio" evita versões-fantasma no histórico.
+  it("colapsa causa raiz em branco e lista vazia para a mesma vazidade", () => {
+    expect(normalizePlanning({ rootCause: "  ", analyses: [] })).toEqual({
       rootCause: null,
-      rootCauseWhys: null,
+      analyses: null,
     });
   });
 
-  it("drops blank 5W2H fields and blank whys", () => {
-    expect(
-      normalizePlanning({
-        plan5w2h: { what: "Treinar", why: "   " },
-        rootCause: "  Causa  ",
-        rootCauseWhys: ["  ", "Porque sim"],
-      }),
-    ).toEqual({
-      plan5w2h: { what: "Treinar" },
-      rootCause: "Causa",
-      rootCauseWhys: ["Porque sim"],
+  it("normaliza o conteúdo de dentro da tratativa", () => {
+    const block = normalizePlanning({
+      rootCause: "  ",
+      analyses: [{ key: "five_whys", data: { whys: ["  a  ", ""] } }],
     });
+    expect(block.rootCause).toBeNull();
+    expect(block.analyses).toEqual([
+      { key: "five_whys", data: { whys: ["a"] } },
+    ]);
   });
 
-  // jsonb columns only enforce their shape at compile time via `.$type<>()` — at
-  // runtime Postgres (and any code path that skipped validation) happily stores
-  // whatever JSON it was given. A row with non-string elements in `rootCauseWhys`
-  // or a non-string `plan5w2h` value must not crash `normalizePlanning`; those
-  // elements should just be discarded like other unusable values. The cast below
-  // escapes the compile-time type on purpose, since the point is runtime behavior.
-  it("discards non-string elements instead of throwing", () => {
+  it("apara a causa raiz preenchida", () => {
     expect(
-      normalizePlanning({
-        plan5w2h: { what: "Treinar", why: 123 },
-        rootCause: "Causa",
-        rootCauseWhys: ["Porque sim", null, 42, { note: "not a string" }],
-      } as unknown as Parameters<typeof normalizePlanning>[0]),
-    ).toEqual({
-      plan5w2h: { what: "Treinar" },
-      rootCause: "Causa",
-      rootCauseWhys: ["Porque sim"],
-    });
+      normalizePlanning({ rootCause: "  Causa  ", analyses: null }),
+    ).toEqual({ rootCause: "Causa", analyses: null });
   });
 });
 
 describe("planningChanged", () => {
-  const base = extractPlanning(row);
-
-  it("is false for the same content", () => {
-    expect(planningChanged(base, { ...base })).toBe(false);
-  });
-
-  it("ignores 5W2H key order", () => {
-    const reordered = {
-      ...base,
-      plan5w2h: { why: "Garantir conferência", what: "Treinar" },
+  it("é false para o mesmo conteúdo", () => {
+    const block = {
+      rootCause: "Causa",
+      analyses: [{ key: "a3" as const, data: { goal: "meta" } }],
     };
-    expect(planningChanged(base, reordered)).toBe(false);
+    expect(planningChanged(block, { ...block })).toBe(false);
   });
 
-  it("treats null, empty object and empty array as the same emptiness", () => {
-    const a = { plan5w2h: null, rootCause: null, rootCauseWhys: null };
-    const b = { plan5w2h: {}, rootCause: "", rootCauseWhys: [] };
+  it("detecta mudança DENTRO de uma tratativa", () => {
+    const before = {
+      rootCause: null,
+      analyses: [{ key: "five_whys" as const, data: { whys: ["a"] } }],
+    };
+    const after = {
+      rootCause: null,
+      analyses: [{ key: "five_whys" as const, data: { whys: ["a", "b"] } }],
+    };
+    expect(planningChanged(before, after)).toBe(true);
+  });
+
+  it("um autosave que só passeia pelo formulário NÃO é uma mudança", () => {
+    const before = {
+      rootCause: "x",
+      analyses: [{ key: "a3" as const, data: { goal: "meta" } }],
+    };
+    const after = {
+      rootCause: " x ",
+      analyses: [{ key: "a3" as const, data: { goal: "  meta  " } }],
+    };
+    expect(planningChanged(before, after)).toBe(false);
+  });
+
+  it("adicionar uma tratativa vazia É uma mudança (foi decisão do usuário)", () => {
+    const before = { rootCause: null, analyses: null };
+    const after = {
+      rootCause: null,
+      analyses: [{ key: "fmea" as const, data: { rows: [] } }],
+    };
+    expect(planningChanged(before, after)).toBe(true);
+  });
+
+  it("ignora a ordem das chaves de objeto dentro de uma tratativa", () => {
+    const before = {
+      rootCause: null,
+      analyses: [
+        { key: "a3" as const, data: { goal: "meta", background: "ctx" } },
+      ],
+    };
+    const after = {
+      rootCause: null,
+      analyses: [
+        { key: "a3" as const, data: { background: "ctx", goal: "meta" } },
+      ],
+    };
+    expect(planningChanged(before, after)).toBe(false);
+  });
+
+  it("trata null e lista vazia como a mesma vazidade", () => {
+    const a = { rootCause: null, analyses: null };
+    const b = { rootCause: "", analyses: [] };
     expect(planningChanged(a, b)).toBe(false);
   });
 
-  it("is true when a 5W2H field changes", () => {
-    expect(
-      planningChanged(base, { ...base, plan5w2h: { what: "Outra coisa" } }),
-    ).toBe(true);
-  });
-
-  it("is true when the whys are reordered", () => {
-    const a = { ...base, rootCauseWhys: ["a", "b"] };
-    const b = { ...base, rootCauseWhys: ["b", "a"] };
+  it("é sensível à ordem dos porquês dentro da tratativa (é uma cadeia, não um conjunto)", () => {
+    const a = {
+      rootCause: null,
+      analyses: [{ key: "five_whys" as const, data: { whys: ["a", "b"] } }],
+    };
+    const b = {
+      rootCause: null,
+      analyses: [{ key: "five_whys" as const, data: { whys: ["b", "a"] } }],
+    };
     expect(planningChanged(a, b)).toBe(true);
   });
 
-  it("is true when the root cause changes", () => {
-    expect(planningChanged(base, { ...base, rootCause: "Outra causa" })).toBe(
-      true,
-    );
+  it("é true quando a causa raiz muda", () => {
+    const before = { rootCause: "Causa", analyses: null };
+    const after = { rootCause: "Outra causa", analyses: null };
+    expect(planningChanged(before, after)).toBe(true);
   });
 });

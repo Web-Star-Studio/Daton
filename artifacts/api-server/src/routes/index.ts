@@ -32,6 +32,7 @@ import kpiRouter from "./kpi/index";
 import roadSafetyRouter from "./road-safety/index";
 import criticalReviewsRouter from "./critical-reviews";
 import actionPlansRouter from "./action-plans";
+import actionPlanActionsRouter from "./action-plan-actions";
 import swotRouter from "./swot/index";
 import assetsRouter from "./assets";
 import assetMaintenanceRouter from "./asset-maintenance";
@@ -39,6 +40,7 @@ import workEnvironmentRouter from "./work-environment";
 import measurementResourcesRouter from "./measurement-resources";
 import regulatoryDocumentsRouter from "./regulatory-documents";
 import regulatoryNormsRouter from "./regulatory-norms";
+import actionPlanAnalysisMethodsRouter from "./action-plan-analysis-methods";
 import effectivenessMethodsRouter from "./effectiveness-methods";
 import pendenciasRouter from "./pendencias";
 import learningSummaryRouter from "./learning-summary";
@@ -215,6 +217,7 @@ router.use(
   roadSafetyRouter,
 );
 router.use(requireAuth, requireCompletedOnboarding, actionPlansRouter);
+router.use(requireAuth, requireCompletedOnboarding, actionPlanActionsRouter);
 router.use(requireAuth, requireCompletedOnboarding, pendenciasRouter);
 router.use(
   requireAuth,
@@ -253,5 +256,7 @@ router.use(requireAuth, requireCompletedOnboarding, regulatoryNormsRouter);
 // leitura livre a qualquer usuário autenticado da org; a gate admin na escrita
 // vive na própria rota (requireRole("org_admin")).
 router.use(requireAuth, requireCompletedOnboarding, effectivenessMethodsRouter);
+// Mesmo raciocínio: cross-module, leitura livre, gate admin na própria rota.
+router.use(requireAuth, requireCompletedOnboarding, actionPlanAnalysisMethodsRouter);
 
 export default router;

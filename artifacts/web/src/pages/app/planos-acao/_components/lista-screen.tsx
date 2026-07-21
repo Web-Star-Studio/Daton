@@ -226,14 +226,14 @@ export function ListaScreen({
       ) : filtered.length === 0 ? (
         <div className="space-y-2 rounded-lg border border-dashed p-12 text-center">
           <ClipboardList className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>
-          <p className="text-xs text-muted-foreground">Crie uma ação e escolha a origem, ou elas surgem de células vermelhas em Indicadores e de fatores SWOT que exigem ação.</p>
+          <p className="text-sm text-muted-foreground">Nenhum plano de ação encontrado.</p>
+          <p className="text-xs text-muted-foreground">Crie um plano de ação e escolha a origem, ou eles surgem de células vermelhas em Indicadores e de fatores SWOT que exigem ação.</p>
           {hasActiveFilters(filters) && (
             <Button variant="outline" size="sm" className="mt-1" onClick={clearFilters}>
               <X className="mr-1.5 h-4 w-4" /> Limpar filtros
             </Button>
           )}
-          {canWrite && <Button size="sm" className="mt-1" onClick={onNova}><Plus className="mr-1.5 h-4 w-4" /> Nova ação</Button>}
+          {canWrite && <Button size="sm" className="mt-1" onClick={onNova}><Plus className="mr-1.5 h-4 w-4" /> Novo plano de ação</Button>}
         </div>
       ) : (
         <div className="overflow-x-auto">

@@ -34,7 +34,7 @@ export default function ActionPlansModulePage() {
   useHeaderActions(
     canWrite ? (
       <Button size="sm" onClick={() => setNovaOpen(true)}>
-        <Plus className="mr-1.5 h-4 w-4" /> Nova ação
+        <Plus className="mr-1.5 h-4 w-4" /> Novo plano de ação
       </Button>
     ) : null,
   );

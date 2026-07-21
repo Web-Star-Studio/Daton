@@ -1,4 +1,5 @@
 import type { ActionPlan5W2H } from "@/lib/action-plans-client";
+import type { ActionPlanAnalysis } from "./analises/types";
 
 /** Mirrors the API response, where every field is optional. */
 interface DraftFields {
@@ -8,9 +9,8 @@ interface DraftFields {
 }
 
 interface FormFields {
-  plan5w2h: ActionPlan5W2H;
+  analyses: ActionPlanAnalysis[];
   rootCause: string;
-  rootCauseWhys: string[];
 }
 
 /**
@@ -22,6 +22,11 @@ interface FormFields {
  * during render, so the flag was still false. The form never went dirty, the
  * autosave never fired, and the draft vanished on reload while the toast said the
  * AI "had nothing to add".
+ *
+ * `draft.plan5w2h` is intentionally NOT mapped here.
+ * TODO(Task 15): mapear draft.plan5w2h para a primeira ação quando a seção de
+ * Ações existir — o endpoint de IA continua devolvendo o 5W2H, mas o form da
+ * ficha não tem mais onde colocá-lo até a Task 15 criar a seção de Ações.
  */
 export function mergeDraftIntoForm(
   form: FormFields,
@@ -29,30 +34,27 @@ export function mergeDraftIntoForm(
 ): FormFields & { changed: boolean } {
   let changed = false;
 
-  const draft5w2h = draft.plan5w2h ?? {};
-  const draftWhys = draft.rootCauseWhys ?? [];
-
-  const plan5w2h: ActionPlan5W2H = { ...form.plan5w2h };
-  for (const key of Object.keys(draft5w2h) as (keyof ActionPlan5W2H)[]) {
-    const value = draft5w2h[key];
-    if (value && !plan5w2h[key]?.trim()) {
-      plan5w2h[key] = value;
-      changed = true;
-    }
-  }
-
   let rootCause = form.rootCause;
   if (!rootCause.trim() && draft.rootCause) {
     rootCause = draft.rootCause;
     changed = true;
   }
 
-  let rootCauseWhys = form.rootCauseWhys;
-  const hasWhys = rootCauseWhys.some((why) => why.trim());
-  if (!hasWhys && draftWhys.length > 0) {
-    rootCauseWhys = draftWhys;
-    changed = true;
+  const draftWhys = (draft.rootCauseWhys ?? []).map((w) => w.trim()).filter(Boolean);
+  let analyses = form.analyses;
+  if (draftWhys.length > 0) {
+    const existing = form.analyses.find(
+      (a): a is Extract<ActionPlanAnalysis, { key: "five_whys" }> => a.key === "five_whys",
+    );
+    const hasWhys = existing ? existing.data.whys.some((w) => w.trim()) : false;
+    if (!hasWhys) {
+      const fiveWhys: ActionPlanAnalysis = { key: "five_whys", data: { whys: draftWhys } };
+      analyses = existing
+        ? form.analyses.map((a) => (a.key === "five_whys" ? fiveWhys : a))
+        : [...form.analyses, fiveWhys];
+      changed = true;
+    }
   }
 
-  return { plan5w2h, rootCause, rootCauseWhys, changed };
+  return { analyses, rootCause, changed };
 }

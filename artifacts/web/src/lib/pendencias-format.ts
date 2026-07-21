@@ -1,6 +1,7 @@
 export type PendenciaSource =
   | "kpi"
   | "action_plan"
+  | "action_plan_action"
   | "nonconformity"
   | "regulatory_document"
   | "training_effectiveness";
@@ -51,6 +52,7 @@ export interface PendenciasResponse {
 export const SOURCE_LABELS: Record<PendenciaSource, string> = {
   kpi: "Indicador",
   action_plan: "Plano de ação",
+  action_plan_action: "Ação de plano",
   nonconformity: "Não conformidade",
   regulatory_document: "Documento regulatório",
   training_effectiveness: "Eficácia de treinamento",

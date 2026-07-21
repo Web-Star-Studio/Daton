@@ -3,6 +3,7 @@ import type { ActionPlanActivityLogEntry } from "@/lib/action-plans-client";
 import {
   buildPlanningVersions,
   diffPlanningFields,
+  type PlanningBlock,
 } from "@/pages/app/planos-acao/_components/planning-versions";
 
 function entry(
@@ -22,10 +23,10 @@ function entry(
   };
 }
 
-const empty = { plan5w2h: null, rootCause: null, rootCauseWhys: null };
-const a = { plan5w2h: { what: "A" }, rootCause: null, rootCauseWhys: null };
-const b = { plan5w2h: { what: "B" }, rootCause: null, rootCauseWhys: null };
-const c = { plan5w2h: { what: "C" }, rootCause: null, rootCauseWhys: null };
+const empty: PlanningBlock = { rootCause: null, analyses: null };
+const a: PlanningBlock = { rootCause: "A", analyses: null };
+const b: PlanningBlock = { rootCause: "B", analyses: null };
+const c: PlanningBlock = { rootCause: "C", analyses: null };
 
 describe("buildPlanningVersions", () => {
   it("returns versions newest first", () => {
@@ -147,84 +148,230 @@ describe("buildPlanningVersions", () => {
 });
 
 describe("diffPlanningFields", () => {
-  it("labels changed 5W2H fields, the root cause and the whys", () => {
+  it("labels a changed root cause", () => {
     const changes = diffPlanningFields(
-      {
-        plan5w2h: { what: "A", how: "igual" },
-        rootCause: "Antes",
-        rootCauseWhys: ["p1"],
-      },
-      {
-        plan5w2h: { what: "B", how: "igual" },
-        rootCause: "Depois",
-        rootCauseWhys: ["p1", "p2"],
-      },
+      { rootCause: "Antes", analyses: null },
+      { rootCause: "Depois", analyses: null },
     );
 
     expect(changes).toEqual([
-      { label: "O quê", before: "A", after: "B" },
       { label: "Causa raiz", before: "Antes", after: "Depois" },
-      { label: "5 porquês", before: "p1", after: "p1 · p2" },
     ]);
   });
 
-  it("shows an em dash for what did not exist before", () => {
-    const changes = diffPlanningFields(
-      { plan5w2h: null, rootCause: null, rootCauseWhys: null },
-      { plan5w2h: { what: "Novo" }, rootCause: null, rootCauseWhys: null },
-    );
-    expect(changes).toEqual([{ label: "O quê", before: "—", after: "Novo" }]);
-  });
-
   it("returns an empty list when nothing changed", () => {
-    const same = {
-      plan5w2h: { what: "A" },
-      rootCause: null,
-      rootCauseWhys: null,
+    const same: PlanningBlock = {
+      rootCause: "Causa",
+      analyses: [{ key: "five_whys", data: { whys: ["Por que 1"] } }],
     };
     expect(diffPlanningFields(same, { ...same })).toEqual([]);
   });
 
   /**
-   * The fields are DISPLAYED trimmed (via `text()`), so they must be COMPARED
+   * The root cause is DISPLAYED trimmed (via `text()`), so it must be COMPARED
    * trimmed too — otherwise a legacy `" causa "` collapsing to `"causa"` would
    * render a history line whose before and after are identical on screen.
    */
-  it("does not flag a 5W2H field that only differs by surrounding whitespace", () => {
-    const changes = diffPlanningFields(
-      { plan5w2h: { what: " causa " }, rootCause: null, rootCauseWhys: null },
-      { plan5w2h: { what: "causa" }, rootCause: null, rootCauseWhys: null },
-    );
-    expect(changes).toEqual([]);
-  });
-
   it("does not flag a root cause that only differs by surrounding whitespace", () => {
     const changes = diffPlanningFields(
-      { plan5w2h: null, rootCause: " causa ", rootCauseWhys: null },
-      { plan5w2h: null, rootCause: "causa", rootCauseWhys: null },
+      { rootCause: " causa ", analyses: null },
+      { rootCause: "causa", analyses: null },
     );
     expect(changes).toEqual([]);
   });
 
-  /**
-   * The whys are a chain: comparing the JOINED text (`" · "`) makes regrouping
-   * `["A · B"]` into `["A", "B"]` vanish from the history. Compare structurally.
-   */
-  it("flags a whys change that regrouping the chain would otherwise hide", () => {
-    const changes = diffPlanningFields(
-      { plan5w2h: null, rootCause: null, rootCauseWhys: ["A · B"] },
-      { plan5w2h: null, rootCause: null, rootCauseWhys: ["A", "B"] },
-    );
-    expect(changes).toEqual([
-      { label: "5 porquês", before: "A · B", after: "A · B" },
-    ]);
+  describe("tratativas (analyses)", () => {
+    it("flags a tratativa added between versions, using its default catalog label", () => {
+      const changes = diffPlanningFields(
+        { rootCause: null, analyses: null },
+        {
+          rootCause: null,
+          analyses: [
+            { key: "ishikawa", data: { causes: [], whys: ["Por que trava?"] } },
+          ],
+        },
+      );
+
+      expect(changes).toEqual([
+        {
+          label: "Ishikawa + 5 Porquês adicionada",
+          before: "—",
+          after: "1 porquê",
+        },
+      ]);
+    });
+
+    it("shows 'Não preenchida' as the after when the added tratativa has no content yet", () => {
+      const changes = diffPlanningFields(
+        { rootCause: null, analyses: null },
+        { rootCause: null, analyses: [{ key: "fmea", data: { rows: [] } }] },
+      );
+
+      expect(changes).toEqual([
+        { label: "FMEA adicionada", before: "—", after: "Não preenchida" },
+      ]);
+    });
+
+    it("flags a tratativa removed between versions", () => {
+      const changes = diffPlanningFields(
+        {
+          rootCause: null,
+          analyses: [
+            {
+              key: "fmea",
+              data: { rows: [{ id: "1", failureMode: "Vazamento" }] },
+            },
+          ],
+        },
+        { rootCause: null, analyses: null },
+      );
+
+      expect(changes).toEqual([
+        { label: "FMEA removida", before: "1 modo de falha", after: "—" },
+      ]);
+    });
+
+    it("flags a tratativa edited between versions, comparing its resumo before and after", () => {
+      const changes = diffPlanningFields(
+        {
+          rootCause: null,
+          analyses: [{ key: "five_whys", data: { whys: ["Por que 1"] } }],
+        },
+        {
+          rootCause: null,
+          analyses: [
+            { key: "five_whys", data: { whys: ["Por que 1", "Por que 2"] } },
+          ],
+        },
+      );
+
+      expect(changes).toEqual([
+        { label: "5 Porquês", before: "1 porquê", after: "2 porquês" },
+      ]);
+    });
+
+    it("does not flag a tratativa whose resumo is unchanged, even if its underlying data changed", () => {
+      const changes = diffPlanningFields(
+        {
+          rootCause: null,
+          analyses: [{ key: "five_whys", data: { whys: ["Por que 1"] } }],
+        },
+        {
+          rootCause: null,
+          analyses: [
+            { key: "five_whys", data: { whys: ["Por que 1 (revisado)"] } },
+          ],
+        },
+      );
+
+      // Both sides summarize to "1 porquê" — the diff compares `resumoAnalise`,
+      // not the raw data, so this reads as unchanged.
+      expect(changes).toEqual([]);
+    });
+
+    it("diffs a full analyses array: additions, edits and removals together", () => {
+      const changes = diffPlanningFields(
+        {
+          rootCause: null,
+          analyses: [
+            { key: "five_whys", data: { whys: ["Por que 1"] } },
+            { key: "fmea", data: { rows: [] } },
+          ],
+        },
+        {
+          rootCause: null,
+          analyses: [
+            {
+              key: "five_whys",
+              data: { whys: ["Por que 1", "Por que 2"] },
+            },
+            { key: "ishikawa", data: { causes: [], whys: [] } },
+          ],
+        },
+      );
+
+      expect(changes).toEqual([
+        { label: "5 Porquês", before: "1 porquê", after: "2 porquês" },
+        {
+          label: "Ishikawa + 5 Porquês adicionada",
+          before: "—",
+          after: "Não preenchida",
+        },
+        { label: "FMEA removida", before: "Não preenchida", after: "—" },
+      ]);
+    });
   });
 
-  it("compares each why trimmed, so padding a single why is not a change", () => {
-    const changes = diffPlanningFields(
-      { plan5w2h: null, rootCause: null, rootCauseWhys: [" p1 "] },
-      { plan5w2h: null, rootCause: null, rootCauseWhys: ["p1"] },
-    );
-    expect(changes).toEqual([]);
+  describe("compatibilidade com versões antigas (plan5w2h legado)", () => {
+    /**
+     * Entradas do activity log gravadas ANTES desta feature guardam o 5W2H em
+     * `plan5w2h` em vez de `analyses` — o formato real no banco, não um fixture
+     * ajustado ao tipo novo. O diff precisa tolerar isso sem lançar.
+     */
+    it("renders a legacy plan5w2h block as a single fallback line, without crashing on the old shape", () => {
+      const legacyFrom = {
+        plan5w2h: { what: "O quê antigo", why: "Por quê antigo" },
+        rootCause: "Causa legada",
+        rootCauseWhys: ["Porquê legado 1"],
+      } as unknown as PlanningBlock;
+      const legacyTo = {
+        plan5w2h: { what: "O quê editado", why: "Por quê antigo" },
+        rootCause: "Causa legada",
+        rootCauseWhys: ["Porquê legado 1"],
+      } as unknown as PlanningBlock;
+
+      expect(() => diffPlanningFields(legacyFrom, legacyTo)).not.toThrow();
+
+      const changes = diffPlanningFields(legacyFrom, legacyTo);
+      expect(changes).toEqual([
+        {
+          label: "Plano 5W2H (formato anterior)",
+          before: "O quê: O quê antigo · Por quê: Por quê antigo",
+          after: "O quê: O quê editado · Por quê: Por quê antigo",
+        },
+      ]);
+    });
+
+    it("does not flag the legacy line when plan5w2h did not change", () => {
+      const legacy = {
+        plan5w2h: { what: "O quê antigo" },
+        rootCause: "Causa legada",
+        rootCauseWhys: ["Porquê legado 1"],
+      } as unknown as PlanningBlock;
+
+      expect(diffPlanningFields(legacy, { ...legacy })).toEqual([]);
+    });
+
+    /**
+     * The realistic transition point: the FIRST save after this feature shipped has
+     * a legacy `from` (no `analyses` key at all) and a current-shape `to`. Neither
+     * side should crash the other's reader.
+     */
+    it("diffs across the format transition (legacy from, current to) without crashing", () => {
+      const legacyFrom = {
+        plan5w2h: { what: "O quê antigo" },
+        rootCause: "Causa legada",
+        rootCauseWhys: ["Porquê legado 1"],
+      } as unknown as PlanningBlock;
+      const currentTo: PlanningBlock = {
+        rootCause: "Causa legada",
+        analyses: [{ key: "five_whys", data: { whys: ["Porquê legado 1"] } }],
+      };
+
+      const changes = diffPlanningFields(legacyFrom, currentTo);
+
+      expect(changes).toEqual([
+        {
+          label: "5 Porquês adicionada",
+          before: "—",
+          after: "1 porquê",
+        },
+        {
+          label: "Plano 5W2H (formato anterior)",
+          before: "O quê: O quê antigo",
+          after: "—",
+        },
+      ]);
+    });
   });
 });

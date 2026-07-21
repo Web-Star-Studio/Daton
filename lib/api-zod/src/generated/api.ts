@@ -19709,6 +19709,8 @@ export const ListActionPlansResponseItem = zod.object({
     ),
   dueDate: zod.string().datetime({}).nullish(),
   evidencesCount: zod.number().min(listActionPlansResponseEvidencesCountMin),
+  actionsTotal: zod.number().optional(),
+  actionsDone: zod.number().optional(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -19728,6 +19730,19 @@ export const createActionPlanBodyGutGravityMax = 5;
 export const createActionPlanBodyGutUrgencyMax = 5;
 
 export const createActionPlanBodyGutTendencyMax = 5;
+
+export const createActionPlanBodyAnalysesItemOneDataWhysMax = 5;
+
+export const createActionPlanBodyAnalysesItemTwoDataWhysMax = 5;
+
+export const createActionPlanBodyAnalysesItemFourDataRowsItemSeverityMax = 10;
+
+export const createActionPlanBodyAnalysesItemFourDataRowsItemOccurrenceMax = 10;
+
+export const createActionPlanBodyAnalysesItemFourDataRowsItemDetectionMax = 10;
+
+export const createActionPlanBodyAnalysesItemSixDataRowsMin = 4;
+export const createActionPlanBodyAnalysesItemSixDataRowsMax = 4;
 
 export const CreateActionPlanBody = zod.object({
   sourceModule: zod.enum([
@@ -19794,26 +19809,165 @@ export const CreateActionPlanBody = zod.object({
     .min(1)
     .max(createActionPlanBodyGutTendencyMax)
     .nullish(),
-  plan5w2h: zod
-    .union([
-      zod
-        .object({
-          what: zod.string().optional(),
-          why: zod.string().optional(),
-          where: zod.string().optional(),
-          who: zod.string().optional(),
-          when: zod.string().optional(),
-          how: zod.string().optional(),
-          howMuch: zod.string().optional(),
-        })
-        .describe(
-          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
-        ),
-      zod.null(),
-    ])
-    .optional(),
+  analyses: zod
+    .array(
+      zod.union([
+        zod.object({
+          key: zod.enum(["five_whys"]),
+          data: zod.object({
+            whys: zod
+              .array(zod.string())
+              .max(createActionPlanBodyAnalysesItemOneDataWhysMax),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["ishikawa"]),
+          data: zod.object({
+            causes: zod.array(
+              zod.object({
+                id: zod.string(),
+                category: zod.enum([
+                  "metodo",
+                  "maquina",
+                  "mao_de_obra",
+                  "material",
+                  "medicao",
+                  "meio_ambiente",
+                ]),
+                text: zod.string(),
+              }),
+            ),
+            selectedCauseId: zod.string().optional(),
+            whys: zod
+              .array(zod.string())
+              .max(createActionPlanBodyAnalysesItemTwoDataWhysMax),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["a3"]),
+          data: zod.object({
+            background: zod.string().optional(),
+            currentState: zod.string().optional(),
+            goal: zod.string().optional(),
+            analysis: zod.string().optional(),
+            countermeasures: zod.string().optional(),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["fmea"]),
+          data: zod.object({
+            rows: zod.array(
+              zod.object({
+                id: zod.string(),
+                failureMode: zod.string().optional(),
+                effect: zod.string().optional(),
+                severity: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    createActionPlanBodyAnalysesItemFourDataRowsItemSeverityMax,
+                  )
+                  .optional(),
+                cause: zod.string().optional(),
+                occurrence: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    createActionPlanBodyAnalysesItemFourDataRowsItemOccurrenceMax,
+                  )
+                  .optional(),
+                currentControl: zod.string().optional(),
+                detection: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    createActionPlanBodyAnalysesItemFourDataRowsItemDetectionMax,
+                  )
+                  .optional(),
+                recommendedAction: zod.string().optional(),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["fault_tree"]),
+          data: zod.object({
+            topEvent: zod.string().optional(),
+            nodes: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                gate: zod.enum(["AND", "OR"]),
+                children: zod.array(zod.unknown()),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["kepner_tregoe"]),
+          data: zod.object({
+            rows: zod
+              .array(
+                zod.object({
+                  dimension: zod.enum(["o_que", "onde", "quando", "extensao"]),
+                  is: zod.string().optional(),
+                  isNot: zod.string().optional(),
+                  distinction: zod.string().optional(),
+                  change: zod.string().optional(),
+                }),
+              )
+              .min(createActionPlanBodyAnalysesItemSixDataRowsMin)
+              .max(createActionPlanBodyAnalysesItemSixDataRowsMax),
+            possibleCauses: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                verification: zod.string().optional(),
+                verified: zod.boolean().optional(),
+              }),
+            ),
+            mostProbableCauseId: zod.string().optional(),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["rca_apollo"]),
+          data: zod.object({
+            primaryEffect: zod.string().optional(),
+            causes: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                type: zod.enum(["condition", "action"]),
+                evidence: zod.string().optional(),
+                children: zod.array(zod.unknown()),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["barrier_analysis"]),
+          data: zod.object({
+            hazard: zod.string().optional(),
+            target: zod.string().optional(),
+            barriers: zod.array(
+              zod.object({
+                id: zod.string(),
+                name: zod.string().optional(),
+                type: zod
+                  .enum(["fisica", "administrativa", "humana", "procedimental"])
+                  .optional(),
+                status: zod
+                  .enum(["ausente", "falhou", "ineficaz", "funcionou"])
+                  .optional(),
+                failureReason: zod.string().optional(),
+              }),
+            ),
+          }),
+        }),
+      ]),
+    )
+    .nullish(),
   rootCause: zod.string().nullish(),
-  rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   coResponsibleUserIds: zod
     .array(zod.number())
@@ -19855,6 +20009,19 @@ export const getActionPlanResponseGutGravityMax = 5;
 export const getActionPlanResponseGutUrgencyMax = 5;
 
 export const getActionPlanResponseGutTendencyMax = 5;
+
+export const getActionPlanResponseAnalysesItemOneDataWhysMax = 5;
+
+export const getActionPlanResponseAnalysesItemTwoDataWhysMax = 5;
+
+export const getActionPlanResponseAnalysesItemFourDataRowsItemSeverityMax = 10;
+
+export const getActionPlanResponseAnalysesItemFourDataRowsItemOccurrenceMax = 10;
+
+export const getActionPlanResponseAnalysesItemFourDataRowsItemDetectionMax = 10;
+
+export const getActionPlanResponseAnalysesItemSixDataRowsMin = 4;
+export const getActionPlanResponseAnalysesItemSixDataRowsMax = 4;
 
 export const GetActionPlanResponse = zod.object({
   id: zod.number(),
@@ -19948,26 +20115,167 @@ export const GetActionPlanResponse = zod.object({
     .number()
     .nullish()
     .describe("Server-computed G×U×T (1–125), null when any axis is unset"),
-  plan5w2h: zod
-    .union([
-      zod
-        .object({
-          what: zod.string().optional(),
-          why: zod.string().optional(),
-          where: zod.string().optional(),
-          who: zod.string().optional(),
-          when: zod.string().optional(),
-          how: zod.string().optional(),
-          howMuch: zod.string().optional(),
-        })
-        .describe(
-          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
-        ),
-      zod.null(),
-    ])
-    .optional(),
+  analyses: zod
+    .array(
+      zod.union([
+        zod.object({
+          key: zod.enum(["five_whys"]),
+          data: zod.object({
+            whys: zod
+              .array(zod.string())
+              .max(getActionPlanResponseAnalysesItemOneDataWhysMax),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["ishikawa"]),
+          data: zod.object({
+            causes: zod.array(
+              zod.object({
+                id: zod.string(),
+                category: zod.enum([
+                  "metodo",
+                  "maquina",
+                  "mao_de_obra",
+                  "material",
+                  "medicao",
+                  "meio_ambiente",
+                ]),
+                text: zod.string(),
+              }),
+            ),
+            selectedCauseId: zod.string().optional(),
+            whys: zod
+              .array(zod.string())
+              .max(getActionPlanResponseAnalysesItemTwoDataWhysMax),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["a3"]),
+          data: zod.object({
+            background: zod.string().optional(),
+            currentState: zod.string().optional(),
+            goal: zod.string().optional(),
+            analysis: zod.string().optional(),
+            countermeasures: zod.string().optional(),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["fmea"]),
+          data: zod.object({
+            rows: zod.array(
+              zod.object({
+                id: zod.string(),
+                failureMode: zod.string().optional(),
+                effect: zod.string().optional(),
+                severity: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    getActionPlanResponseAnalysesItemFourDataRowsItemSeverityMax,
+                  )
+                  .optional(),
+                cause: zod.string().optional(),
+                occurrence: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    getActionPlanResponseAnalysesItemFourDataRowsItemOccurrenceMax,
+                  )
+                  .optional(),
+                currentControl: zod.string().optional(),
+                detection: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    getActionPlanResponseAnalysesItemFourDataRowsItemDetectionMax,
+                  )
+                  .optional(),
+                recommendedAction: zod.string().optional(),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["fault_tree"]),
+          data: zod.object({
+            topEvent: zod.string().optional(),
+            nodes: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                gate: zod.enum(["AND", "OR"]),
+                children: zod.array(zod.unknown()),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["kepner_tregoe"]),
+          data: zod.object({
+            rows: zod
+              .array(
+                zod.object({
+                  dimension: zod.enum(["o_que", "onde", "quando", "extensao"]),
+                  is: zod.string().optional(),
+                  isNot: zod.string().optional(),
+                  distinction: zod.string().optional(),
+                  change: zod.string().optional(),
+                }),
+              )
+              .min(getActionPlanResponseAnalysesItemSixDataRowsMin)
+              .max(getActionPlanResponseAnalysesItemSixDataRowsMax),
+            possibleCauses: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                verification: zod.string().optional(),
+                verified: zod.boolean().optional(),
+              }),
+            ),
+            mostProbableCauseId: zod.string().optional(),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["rca_apollo"]),
+          data: zod.object({
+            primaryEffect: zod.string().optional(),
+            causes: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                type: zod.enum(["condition", "action"]),
+                evidence: zod.string().optional(),
+                children: zod.array(zod.unknown()),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["barrier_analysis"]),
+          data: zod.object({
+            hazard: zod.string().optional(),
+            target: zod.string().optional(),
+            barriers: zod.array(
+              zod.object({
+                id: zod.string(),
+                name: zod.string().optional(),
+                type: zod
+                  .enum(["fisica", "administrativa", "humana", "procedimental"])
+                  .optional(),
+                status: zod
+                  .enum(["ausente", "falhou", "ineficaz", "funcionou"])
+                  .optional(),
+                failureReason: zod.string().optional(),
+              }),
+            ),
+          }),
+        }),
+      ]),
+    )
+    .nullish(),
+  actionsTotal: zod.number().optional(),
+  actionsDone: zod.number().optional(),
   rootCause: zod.string().nullish(),
-  rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
   coResponsibles: zod
@@ -20062,6 +20370,19 @@ export const updateActionPlanBodyGutUrgencyMax = 5;
 
 export const updateActionPlanBodyGutTendencyMax = 5;
 
+export const updateActionPlanBodyAnalysesItemOneDataWhysMax = 5;
+
+export const updateActionPlanBodyAnalysesItemTwoDataWhysMax = 5;
+
+export const updateActionPlanBodyAnalysesItemFourDataRowsItemSeverityMax = 10;
+
+export const updateActionPlanBodyAnalysesItemFourDataRowsItemOccurrenceMax = 10;
+
+export const updateActionPlanBodyAnalysesItemFourDataRowsItemDetectionMax = 10;
+
+export const updateActionPlanBodyAnalysesItemSixDataRowsMin = 4;
+export const updateActionPlanBodyAnalysesItemSixDataRowsMax = 4;
+
 export const UpdateActionPlanBody = zod.object({
   actionType: zod.enum(["corrective", "preventive", "improvement"]).optional(),
   title: zod.string().min(1).optional(),
@@ -20085,26 +20406,165 @@ export const UpdateActionPlanBody = zod.object({
     .min(1)
     .max(updateActionPlanBodyGutTendencyMax)
     .nullish(),
-  plan5w2h: zod
-    .union([
-      zod
-        .object({
-          what: zod.string().optional(),
-          why: zod.string().optional(),
-          where: zod.string().optional(),
-          who: zod.string().optional(),
-          when: zod.string().optional(),
-          how: zod.string().optional(),
-          howMuch: zod.string().optional(),
-        })
-        .describe(
-          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
-        ),
-      zod.null(),
-    ])
-    .optional(),
+  analyses: zod
+    .array(
+      zod.union([
+        zod.object({
+          key: zod.enum(["five_whys"]),
+          data: zod.object({
+            whys: zod
+              .array(zod.string())
+              .max(updateActionPlanBodyAnalysesItemOneDataWhysMax),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["ishikawa"]),
+          data: zod.object({
+            causes: zod.array(
+              zod.object({
+                id: zod.string(),
+                category: zod.enum([
+                  "metodo",
+                  "maquina",
+                  "mao_de_obra",
+                  "material",
+                  "medicao",
+                  "meio_ambiente",
+                ]),
+                text: zod.string(),
+              }),
+            ),
+            selectedCauseId: zod.string().optional(),
+            whys: zod
+              .array(zod.string())
+              .max(updateActionPlanBodyAnalysesItemTwoDataWhysMax),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["a3"]),
+          data: zod.object({
+            background: zod.string().optional(),
+            currentState: zod.string().optional(),
+            goal: zod.string().optional(),
+            analysis: zod.string().optional(),
+            countermeasures: zod.string().optional(),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["fmea"]),
+          data: zod.object({
+            rows: zod.array(
+              zod.object({
+                id: zod.string(),
+                failureMode: zod.string().optional(),
+                effect: zod.string().optional(),
+                severity: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    updateActionPlanBodyAnalysesItemFourDataRowsItemSeverityMax,
+                  )
+                  .optional(),
+                cause: zod.string().optional(),
+                occurrence: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    updateActionPlanBodyAnalysesItemFourDataRowsItemOccurrenceMax,
+                  )
+                  .optional(),
+                currentControl: zod.string().optional(),
+                detection: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    updateActionPlanBodyAnalysesItemFourDataRowsItemDetectionMax,
+                  )
+                  .optional(),
+                recommendedAction: zod.string().optional(),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["fault_tree"]),
+          data: zod.object({
+            topEvent: zod.string().optional(),
+            nodes: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                gate: zod.enum(["AND", "OR"]),
+                children: zod.array(zod.unknown()),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["kepner_tregoe"]),
+          data: zod.object({
+            rows: zod
+              .array(
+                zod.object({
+                  dimension: zod.enum(["o_que", "onde", "quando", "extensao"]),
+                  is: zod.string().optional(),
+                  isNot: zod.string().optional(),
+                  distinction: zod.string().optional(),
+                  change: zod.string().optional(),
+                }),
+              )
+              .min(updateActionPlanBodyAnalysesItemSixDataRowsMin)
+              .max(updateActionPlanBodyAnalysesItemSixDataRowsMax),
+            possibleCauses: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                verification: zod.string().optional(),
+                verified: zod.boolean().optional(),
+              }),
+            ),
+            mostProbableCauseId: zod.string().optional(),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["rca_apollo"]),
+          data: zod.object({
+            primaryEffect: zod.string().optional(),
+            causes: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                type: zod.enum(["condition", "action"]),
+                evidence: zod.string().optional(),
+                children: zod.array(zod.unknown()),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["barrier_analysis"]),
+          data: zod.object({
+            hazard: zod.string().optional(),
+            target: zod.string().optional(),
+            barriers: zod.array(
+              zod.object({
+                id: zod.string(),
+                name: zod.string().optional(),
+                type: zod
+                  .enum(["fisica", "administrativa", "humana", "procedimental"])
+                  .optional(),
+                status: zod
+                  .enum(["ausente", "falhou", "ineficaz", "funcionou"])
+                  .optional(),
+                failureReason: zod.string().optional(),
+              }),
+            ),
+          }),
+        }),
+      ]),
+    )
+    .nullish(),
   rootCause: zod.string().nullish(),
-  rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   coResponsibleUserIds: zod
     .array(zod.number())
@@ -20145,6 +20605,19 @@ export const updateActionPlanResponseGutGravityMax = 5;
 export const updateActionPlanResponseGutUrgencyMax = 5;
 
 export const updateActionPlanResponseGutTendencyMax = 5;
+
+export const updateActionPlanResponseAnalysesItemOneDataWhysMax = 5;
+
+export const updateActionPlanResponseAnalysesItemTwoDataWhysMax = 5;
+
+export const updateActionPlanResponseAnalysesItemFourDataRowsItemSeverityMax = 10;
+
+export const updateActionPlanResponseAnalysesItemFourDataRowsItemOccurrenceMax = 10;
+
+export const updateActionPlanResponseAnalysesItemFourDataRowsItemDetectionMax = 10;
+
+export const updateActionPlanResponseAnalysesItemSixDataRowsMin = 4;
+export const updateActionPlanResponseAnalysesItemSixDataRowsMax = 4;
 
 export const UpdateActionPlanResponse = zod.object({
   id: zod.number(),
@@ -20238,26 +20711,167 @@ export const UpdateActionPlanResponse = zod.object({
     .number()
     .nullish()
     .describe("Server-computed G×U×T (1–125), null when any axis is unset"),
-  plan5w2h: zod
-    .union([
-      zod
-        .object({
-          what: zod.string().optional(),
-          why: zod.string().optional(),
-          where: zod.string().optional(),
-          who: zod.string().optional(),
-          when: zod.string().optional(),
-          how: zod.string().optional(),
-          howMuch: zod.string().optional(),
-        })
-        .describe(
-          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
-        ),
-      zod.null(),
-    ])
-    .optional(),
+  analyses: zod
+    .array(
+      zod.union([
+        zod.object({
+          key: zod.enum(["five_whys"]),
+          data: zod.object({
+            whys: zod
+              .array(zod.string())
+              .max(updateActionPlanResponseAnalysesItemOneDataWhysMax),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["ishikawa"]),
+          data: zod.object({
+            causes: zod.array(
+              zod.object({
+                id: zod.string(),
+                category: zod.enum([
+                  "metodo",
+                  "maquina",
+                  "mao_de_obra",
+                  "material",
+                  "medicao",
+                  "meio_ambiente",
+                ]),
+                text: zod.string(),
+              }),
+            ),
+            selectedCauseId: zod.string().optional(),
+            whys: zod
+              .array(zod.string())
+              .max(updateActionPlanResponseAnalysesItemTwoDataWhysMax),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["a3"]),
+          data: zod.object({
+            background: zod.string().optional(),
+            currentState: zod.string().optional(),
+            goal: zod.string().optional(),
+            analysis: zod.string().optional(),
+            countermeasures: zod.string().optional(),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["fmea"]),
+          data: zod.object({
+            rows: zod.array(
+              zod.object({
+                id: zod.string(),
+                failureMode: zod.string().optional(),
+                effect: zod.string().optional(),
+                severity: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    updateActionPlanResponseAnalysesItemFourDataRowsItemSeverityMax,
+                  )
+                  .optional(),
+                cause: zod.string().optional(),
+                occurrence: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    updateActionPlanResponseAnalysesItemFourDataRowsItemOccurrenceMax,
+                  )
+                  .optional(),
+                currentControl: zod.string().optional(),
+                detection: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    updateActionPlanResponseAnalysesItemFourDataRowsItemDetectionMax,
+                  )
+                  .optional(),
+                recommendedAction: zod.string().optional(),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["fault_tree"]),
+          data: zod.object({
+            topEvent: zod.string().optional(),
+            nodes: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                gate: zod.enum(["AND", "OR"]),
+                children: zod.array(zod.unknown()),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["kepner_tregoe"]),
+          data: zod.object({
+            rows: zod
+              .array(
+                zod.object({
+                  dimension: zod.enum(["o_que", "onde", "quando", "extensao"]),
+                  is: zod.string().optional(),
+                  isNot: zod.string().optional(),
+                  distinction: zod.string().optional(),
+                  change: zod.string().optional(),
+                }),
+              )
+              .min(updateActionPlanResponseAnalysesItemSixDataRowsMin)
+              .max(updateActionPlanResponseAnalysesItemSixDataRowsMax),
+            possibleCauses: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                verification: zod.string().optional(),
+                verified: zod.boolean().optional(),
+              }),
+            ),
+            mostProbableCauseId: zod.string().optional(),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["rca_apollo"]),
+          data: zod.object({
+            primaryEffect: zod.string().optional(),
+            causes: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                type: zod.enum(["condition", "action"]),
+                evidence: zod.string().optional(),
+                children: zod.array(zod.unknown()),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["barrier_analysis"]),
+          data: zod.object({
+            hazard: zod.string().optional(),
+            target: zod.string().optional(),
+            barriers: zod.array(
+              zod.object({
+                id: zod.string(),
+                name: zod.string().optional(),
+                type: zod
+                  .enum(["fisica", "administrativa", "humana", "procedimental"])
+                  .optional(),
+                status: zod
+                  .enum(["ausente", "falhou", "ineficaz", "funcionou"])
+                  .optional(),
+                failureReason: zod.string().optional(),
+              }),
+            ),
+          }),
+        }),
+      ]),
+    )
+    .nullish(),
+  actionsTotal: zod.number().optional(),
+  actionsDone: zod.number().optional(),
   rootCause: zod.string().nullish(),
-  rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
   coResponsibles: zod
@@ -20532,6 +21146,9 @@ export const ListActionPlanActivityResponseItem = zod.object({
     "effectiveness_evaluated",
     "escalated",
     "reopened",
+    "action_added",
+    "action_updated",
+    "action_removed",
   ]),
   userId: zod.number().nullish(),
   userName: zod.string().nullish(),
@@ -20571,6 +21188,19 @@ export const restoreActionPlanPlanningResponseGutGravityMax = 5;
 export const restoreActionPlanPlanningResponseGutUrgencyMax = 5;
 
 export const restoreActionPlanPlanningResponseGutTendencyMax = 5;
+
+export const restoreActionPlanPlanningResponseAnalysesItemOneDataWhysMax = 5;
+
+export const restoreActionPlanPlanningResponseAnalysesItemTwoDataWhysMax = 5;
+
+export const restoreActionPlanPlanningResponseAnalysesItemFourDataRowsItemSeverityMax = 10;
+
+export const restoreActionPlanPlanningResponseAnalysesItemFourDataRowsItemOccurrenceMax = 10;
+
+export const restoreActionPlanPlanningResponseAnalysesItemFourDataRowsItemDetectionMax = 10;
+
+export const restoreActionPlanPlanningResponseAnalysesItemSixDataRowsMin = 4;
+export const restoreActionPlanPlanningResponseAnalysesItemSixDataRowsMax = 4;
 
 export const RestoreActionPlanPlanningResponse = zod.object({
   id: zod.number(),
@@ -20664,26 +21294,167 @@ export const RestoreActionPlanPlanningResponse = zod.object({
     .number()
     .nullish()
     .describe("Server-computed G×U×T (1–125), null when any axis is unset"),
-  plan5w2h: zod
-    .union([
-      zod
-        .object({
-          what: zod.string().optional(),
-          why: zod.string().optional(),
-          where: zod.string().optional(),
-          who: zod.string().optional(),
-          when: zod.string().optional(),
-          how: zod.string().optional(),
-          howMuch: zod.string().optional(),
-        })
-        .describe(
-          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
-        ),
-      zod.null(),
-    ])
-    .optional(),
+  analyses: zod
+    .array(
+      zod.union([
+        zod.object({
+          key: zod.enum(["five_whys"]),
+          data: zod.object({
+            whys: zod
+              .array(zod.string())
+              .max(restoreActionPlanPlanningResponseAnalysesItemOneDataWhysMax),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["ishikawa"]),
+          data: zod.object({
+            causes: zod.array(
+              zod.object({
+                id: zod.string(),
+                category: zod.enum([
+                  "metodo",
+                  "maquina",
+                  "mao_de_obra",
+                  "material",
+                  "medicao",
+                  "meio_ambiente",
+                ]),
+                text: zod.string(),
+              }),
+            ),
+            selectedCauseId: zod.string().optional(),
+            whys: zod
+              .array(zod.string())
+              .max(restoreActionPlanPlanningResponseAnalysesItemTwoDataWhysMax),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["a3"]),
+          data: zod.object({
+            background: zod.string().optional(),
+            currentState: zod.string().optional(),
+            goal: zod.string().optional(),
+            analysis: zod.string().optional(),
+            countermeasures: zod.string().optional(),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["fmea"]),
+          data: zod.object({
+            rows: zod.array(
+              zod.object({
+                id: zod.string(),
+                failureMode: zod.string().optional(),
+                effect: zod.string().optional(),
+                severity: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    restoreActionPlanPlanningResponseAnalysesItemFourDataRowsItemSeverityMax,
+                  )
+                  .optional(),
+                cause: zod.string().optional(),
+                occurrence: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    restoreActionPlanPlanningResponseAnalysesItemFourDataRowsItemOccurrenceMax,
+                  )
+                  .optional(),
+                currentControl: zod.string().optional(),
+                detection: zod
+                  .number()
+                  .min(1)
+                  .max(
+                    restoreActionPlanPlanningResponseAnalysesItemFourDataRowsItemDetectionMax,
+                  )
+                  .optional(),
+                recommendedAction: zod.string().optional(),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["fault_tree"]),
+          data: zod.object({
+            topEvent: zod.string().optional(),
+            nodes: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                gate: zod.enum(["AND", "OR"]),
+                children: zod.array(zod.unknown()),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["kepner_tregoe"]),
+          data: zod.object({
+            rows: zod
+              .array(
+                zod.object({
+                  dimension: zod.enum(["o_que", "onde", "quando", "extensao"]),
+                  is: zod.string().optional(),
+                  isNot: zod.string().optional(),
+                  distinction: zod.string().optional(),
+                  change: zod.string().optional(),
+                }),
+              )
+              .min(restoreActionPlanPlanningResponseAnalysesItemSixDataRowsMin)
+              .max(restoreActionPlanPlanningResponseAnalysesItemSixDataRowsMax),
+            possibleCauses: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                verification: zod.string().optional(),
+                verified: zod.boolean().optional(),
+              }),
+            ),
+            mostProbableCauseId: zod.string().optional(),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["rca_apollo"]),
+          data: zod.object({
+            primaryEffect: zod.string().optional(),
+            causes: zod.array(
+              zod.object({
+                id: zod.string(),
+                text: zod.string().optional(),
+                type: zod.enum(["condition", "action"]),
+                evidence: zod.string().optional(),
+                children: zod.array(zod.unknown()),
+              }),
+            ),
+          }),
+        }),
+        zod.object({
+          key: zod.enum(["barrier_analysis"]),
+          data: zod.object({
+            hazard: zod.string().optional(),
+            target: zod.string().optional(),
+            barriers: zod.array(
+              zod.object({
+                id: zod.string(),
+                name: zod.string().optional(),
+                type: zod
+                  .enum(["fisica", "administrativa", "humana", "procedimental"])
+                  .optional(),
+                status: zod
+                  .enum(["ausente", "falhou", "ineficaz", "funcionou"])
+                  .optional(),
+                failureReason: zod.string().optional(),
+              }),
+            ),
+          }),
+        }),
+      ]),
+    )
+    .nullish(),
+  actionsTotal: zod.number().optional(),
+  actionsDone: zod.number().optional(),
   rootCause: zod.string().nullish(),
-  rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
   coResponsibles: zod
@@ -20835,6 +21606,159 @@ export const SuggestActionPlanDraftResponse = zod
   .describe(
     "AI-drafted fields. The client pre-fills the editable form and the user reviews\/edits before saving — never auto-applied. Field shapes mirror CreateActionPlanBody so the draft maps 1:1 onto the form.",
   );
+
+/**
+ * @summary Catálogo de tratativas da organização (ativas e inativas)
+ */
+export const ListAnalysisMethodsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListAnalysisMethodsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  key: zod.enum([
+    "five_whys",
+    "ishikawa",
+    "a3",
+    "fmea",
+    "fault_tree",
+    "kepner_tregoe",
+    "rca_apollo",
+    "barrier_analysis",
+  ]),
+  label: zod.string(),
+  active: zod.boolean(),
+  isDefault: zod.boolean(),
+  sortOrder: zod.number(),
+});
+export const ListAnalysisMethodsResponse = zod.array(
+  ListAnalysisMethodsResponseItem,
+);
+
+/**
+ * @summary Liga/desliga, renomeia, marca como padrão ou reordena uma tratativa
+ */
+export const UpdateAnalysisMethodParams = zod.object({
+  orgId: zod.coerce.number(),
+  methodId: zod.coerce.number(),
+});
+
+export const UpdateAnalysisMethodBody = zod.object({
+  label: zod.string().min(1).optional(),
+  active: zod.boolean().optional(),
+  isDefault: zod.boolean().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateAnalysisMethodResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  key: zod.enum([
+    "five_whys",
+    "ishikawa",
+    "a3",
+    "fmea",
+    "fault_tree",
+    "kepner_tregoe",
+    "rca_apollo",
+    "barrier_analysis",
+  ]),
+  label: zod.string(),
+  active: zod.boolean(),
+  isDefault: zod.boolean(),
+  sortOrder: zod.number(),
+});
+
+export const ListActionPlanActionsParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const ListActionPlanActionsResponseItem = zod.object({
+  id: zod.number(),
+  actionPlanId: zod.number(),
+  what: zod.string().nullish(),
+  why: zod.string().nullish(),
+  whereAt: zod.string().nullish(),
+  how: zod.string().nullish(),
+  howMuch: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
+  completedAt: zod.string().datetime({}).nullish(),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().datetime({}),
+});
+export const ListActionPlanActionsResponse = zod.array(
+  ListActionPlanActionsResponseItem,
+);
+
+export const CreateActionPlanActionParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const CreateActionPlanActionBody = zod.object({
+  what: zod.string().nullish(),
+  why: zod.string().nullish(),
+  whereAt: zod.string().nullish(),
+  how: zod.string().nullish(),
+  howMuch: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  status: zod
+    .enum(["open", "in_progress", "completed", "cancelled"])
+    .optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateActionPlanActionParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  actionId: zod.coerce.number(),
+});
+
+export const UpdateActionPlanActionBody = zod.object({
+  what: zod.string().nullish(),
+  why: zod.string().nullish(),
+  whereAt: zod.string().nullish(),
+  how: zod.string().nullish(),
+  howMuch: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  status: zod
+    .enum(["open", "in_progress", "completed", "cancelled"])
+    .optional(),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateActionPlanActionResponse = zod.object({
+  id: zod.number(),
+  actionPlanId: zod.number(),
+  what: zod.string().nullish(),
+  why: zod.string().nullish(),
+  whereAt: zod.string().nullish(),
+  how: zod.string().nullish(),
+  howMuch: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
+  completedAt: zod.string().datetime({}).nullish(),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().datetime({}),
+});
+
+export const DeleteActionPlanActionParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  actionId: zod.coerce.number(),
+});
 
 /**
  * @summary List road safety performance factors

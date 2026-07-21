@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { mergeDraftIntoForm } from "@/pages/app/planos-acao/_components/merge-draft";
+import type { ActionPlanAnalysis } from "@/pages/app/planos-acao/_components/analises/types";
 
-const empty = { plan5w2h: {}, rootCause: "", rootCauseWhys: [] as string[] };
+const empty = { analyses: [] as ActionPlanAnalysis[], rootCause: "" };
 
 const draft = {
+  // Task 14: plan5w2h is intentionally ignored by mergeDraftIntoForm (see the
+  // TODO(Task 15) in merge-draft.ts) — kept here only to mirror the real API
+  // response shape and confirm it never leaks into the result.
   plan5w2h: { what: "Reciclar treinamento", why: "Garantir conferência" },
   rootCause: "Falta de treinamento.",
   rootCauseWhys: ["O teste não foi conferido.", "Porque ninguém treinou."],
@@ -20,51 +24,60 @@ describe("mergeDraftIntoForm", () => {
     const result = mergeDraftIntoForm(empty, draft);
 
     expect(result.changed).toBe(true);
-    expect(result.plan5w2h).toEqual(draft.plan5w2h);
     expect(result.rootCause).toBe("Falta de treinamento.");
-    expect(result.rootCauseWhys).toEqual(draft.rootCauseWhys);
+    expect(result.analyses).toEqual([{ key: "five_whys", data: { whys: draft.rootCauseWhys } }]);
   });
 
   it("never overwrites what the user already wrote", () => {
     const filled = {
-      plan5w2h: { what: "Minha ação" },
+      analyses: [{ key: "five_whys", data: { whys: ["Meu porquê"] } }] as ActionPlanAnalysis[],
       rootCause: "Minha causa",
-      rootCauseWhys: ["Meu porquê"],
     };
 
     const result = mergeDraftIntoForm(filled, draft);
 
-    expect(result.plan5w2h.what).toBe("Minha ação");
-    expect(result.plan5w2h.why).toBe("Garantir conferência");
     expect(result.rootCause).toBe("Minha causa");
-    expect(result.rootCauseWhys).toEqual(["Meu porquê"]);
+    expect(result.analyses).toEqual(filled.analyses);
+    expect(result.changed).toBe(false);
+  });
+
+  it("adds a five_whys tratativa when the draft has whys but the plan has none yet", () => {
+    const filled = { analyses: [] as ActionPlanAnalysis[], rootCause: "Minha causa" };
+
+    const result = mergeDraftIntoForm(filled, draft);
+
+    expect(result.rootCause).toBe("Minha causa");
+    expect(result.analyses).toEqual([{ key: "five_whys", data: { whys: draft.rootCauseWhys } }]);
     expect(result.changed).toBe(true);
   });
 
-  it("reports no change when every field the draft offers is already filled", () => {
-    const filled = {
-      plan5w2h: { what: "Minha ação", why: "Meu porquê" },
-      rootCause: "Minha causa",
-      rootCauseWhys: ["Meu porquê"],
-    };
+  it("preserves other tratativas already on the plan untouched", () => {
+    const ishikawa: ActionPlanAnalysis = { key: "ishikawa", data: { causes: [], whys: [] } };
+    const filled = { analyses: [ishikawa], rootCause: "" };
 
-    expect(mergeDraftIntoForm(filled, draft).changed).toBe(false);
+    const result = mergeDraftIntoForm(filled, draft);
+
+    expect(result.analyses).toEqual([ishikawa, { key: "five_whys", data: { whys: draft.rootCauseWhys } }]);
   });
 
   it("treats whitespace-only fields as blank", () => {
-    const blankish = { plan5w2h: { what: "   " }, rootCause: "  ", rootCauseWhys: ["  "] };
+    const blankish = {
+      analyses: [{ key: "five_whys", data: { whys: ["  "] } }] as ActionPlanAnalysis[],
+      rootCause: "  ",
+    };
 
     const result = mergeDraftIntoForm(blankish, draft);
 
     expect(result.changed).toBe(true);
-    expect(result.plan5w2h.what).toBe("Reciclar treinamento");
     expect(result.rootCause).toBe("Falta de treinamento.");
-    expect(result.rootCauseWhys).toEqual(draft.rootCauseWhys);
+    expect(result.analyses).toEqual([{ key: "five_whys", data: { whys: draft.rootCauseWhys } }]);
   });
 
   it("reports no change for an empty draft", () => {
     const result = mergeDraftIntoForm(empty, { plan5w2h: {}, rootCause: null, rootCauseWhys: [] });
 
     expect(result.changed).toBe(false);
+    expect(result.analyses).toEqual([]);
+    expect(result.rootCause).toBe("");
   });
 });

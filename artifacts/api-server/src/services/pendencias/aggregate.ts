@@ -107,6 +107,7 @@ export async function aggregatePendencias(
     bySource: {
       kpi: 0,
       action_plan: 0,
+      action_plan_action: 0,
       nonconformity: 0,
       regulatory_document: 0,
       training_effectiveness: 0,

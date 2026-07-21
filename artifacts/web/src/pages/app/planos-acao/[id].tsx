@@ -22,6 +22,7 @@ import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -50,6 +51,9 @@ import {
   todayCalendarDate,
   useActionPlan,
   useAddActionPlanEvidenceWithInvalidation,
+  useAllAnalysisMethods,
+  buildAnalysisMethodLabelMap,
+  useCreateActionPlanActionWithInvalidation,
   useDeleteActionPlanEvidenceWithInvalidation,
   useDeleteActionPlanWithInvalidation,
   useSuggestActionPlanDraft,
@@ -65,8 +69,10 @@ import { LEGACY_EFFECTIVENESS_METHOD_LABELS } from "@/lib/action-plans-client";
 import { useAllEffectivenessMethods } from "@/lib/effectiveness-methods-client";
 import { ActionPlanTimeline } from "./_components/timeline";
 import { GutInput } from "./_components/gut-input";
-import { Plano5W2H } from "./_components/plano-5w2h";
-import { CausaRaiz } from "./_components/causa-raiz";
+import { Tratativas } from "./_components/tratativas";
+import { AcoesDoPlano } from "./_components/acoes-do-plano";
+import { AutoGrowTextarea } from "./_components/auto-grow-textarea";
+import type { ActionPlanAnalysis } from "./_components/analises/types";
 import { EficaciaPanel, type EficaciaValue } from "./_components/eficacia-panel";
 import { Vinculos } from "./_components/vinculos";
 import { ComentariosHistorico } from "./_components/comentarios-historico";
@@ -76,6 +82,21 @@ const STATUS_OPTIONS: ActionPlanStatus[] = ["open", "in_progress", "completed", 
 const PRIORITY_OPTIONS: ActionPlanPriority[] = ["low", "medium", "high"];
 const TYPE_OPTIONS: ActionPlanType[] = ["corrective", "preventive", "improvement"];
 const MONTH_LABELS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+/** Soft guard shown when concluding a plan that still has open/in-progress actions
+ * (see `handleConclude`) — warns, but never blocks. */
+function pendingActionsMessage(pending: number): string {
+  const plural = pending !== 1;
+  return `Este plano tem ${pending} ${plural ? "ações" : "ação"} não ${plural ? "concluídas" : "concluída"}. Concluir mesmo assim?`;
+}
+
+/** Whether the AI's 5W2H draft has anything worth mapping onto the plan's first
+ * action (see `handleSuggest`). */
+function hasPlan5w2hContent(p: ActionPlan5W2H): boolean {
+  return Boolean(
+    p.what?.trim() || p.why?.trim() || p.where?.trim() || p.how?.trim() || p.howMuch?.trim() || p.who?.trim() || p.when?.trim(),
+  );
+}
 
 function Section({ id, title, action, children }: { id?: string; title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -87,11 +108,6 @@ function Section({ id, title, action, children }: { id?: string; title: string; 
       {children}
     </section>
   );
-}
-
-function clean5w2h(v: ActionPlan5W2H): ActionPlan5W2H | null {
-  const entries = Object.entries(v).filter(([, val]) => typeof val === "string" && val.trim() !== "");
-  return entries.length > 0 ? (Object.fromEntries(entries) as ActionPlan5W2H) : null;
 }
 
 export default function ActionPlanFichaPage() {
@@ -128,6 +144,17 @@ export default function ActionPlanFichaPage() {
   const addEvidence = useAddActionPlanEvidenceWithInvalidation(orgId);
   const deleteEvidence = useDeleteActionPlanEvidenceWithInvalidation(orgId);
   const suggestDraft = useSuggestActionPlanDraft();
+  // Only used by `handleSuggest` to create the plan's first action from the AI's
+  // 5W2H draft — by the time that can fire, `planId` is guaranteed non-null (the
+  // "Sugerir plano" button only renders once the plan has loaded).
+  const createFirstAction = useCreateActionPlanActionWithInvalidation(orgId, planId ?? 0);
+
+  // Catálogo de tratativas: displays (labelPorChave) usam o catálogo INTEIRO
+  // (incl. inativas), pois um plano pode ter adotado uma tratativa antes de a
+  // empresa desligá-la; "+ Adicionar tratativa" só oferece as ativas.
+  const { data: todasTratativas = [] } = useAllAnalysisMethods(orgId);
+  const metodosAtivos = todasTratativas.filter((m) => m.active);
+  const labelPorChave = buildAnalysisMethodLabelMap(todasTratativas);
 
   const { data: effectivenessMethods = [] } = useAllEffectivenessMethods(orgId);
 
@@ -144,9 +171,8 @@ export default function ActionPlanFichaPage() {
     correctiveActionDescription: "",
     correctiveActionCompletedAt: "",
     gut: { gravity: null as number | null, urgency: null as number | null, tendency: null as number | null },
-    plan5w2h: {} as ActionPlan5W2H,
+    analyses: [] as ActionPlanAnalysis[],
     rootCause: "",
-    rootCauseWhys: [] as string[],
     efic: emptyEfic,
     vinc: { odsNumbers: [] as number[], normRefs: [] as ActionPlanNormRef[] },
   });
@@ -156,6 +182,7 @@ export default function ActionPlanFichaPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const planningVersionCount = usePlanningVersionCount(orgId, planId);
+  const [concludeConfirmOpen, setConcludeConfirmOpen] = useState(false);
 
   // Edit guard: an encerrado plan (or a read-only role) can't be edited/autosaved.
   const isLocked = !!plan && isActionPlanEncerrado(plan);
@@ -174,6 +201,15 @@ export default function ActionPlanFichaPage() {
   // what differs from it, so an untouched field can never be reverted by a save
   // from a tab that loaded before someone else changed it.
   const baselineRef = useRef<UpdateActionPlanBody | null>(null);
+  // Set right after our OWN autosave, so the plan refetch it triggers (via
+  // invalidation) doesn't rehydrate — and clobber — the form the user is still
+  // editing. The server normalizes away empty rows (an Ishikawa cause / FMEA line
+  // just added, still blank); without this, that echo would delete them from under
+  // the cursor ~1s after "+ Causa". One-shot: consumed by the next same-plan
+  // hydration (a PATCH always bumps updatedAt, so the echo always rehydrates). A
+  // genuine external/cross-tab change still syncs, because the flag is only ever
+  // true in the brief window right after this tab's own save.
+  const suppressHydrationRef = useRef(false);
 
   // Hydrate the form from the server. NEVER overwrite a DIRTY form on a same-plan
   // refetch — that was silently wiping unsaved edits ("estava completinha, entrei
@@ -184,6 +220,11 @@ export default function ActionPlanFichaPage() {
     if (!plan) return;
     const isNewPlan = plan.id !== hydratedIdRef.current;
     if (!isNewPlan && dirtyRef.current) return;
+    if (!isNewPlan && suppressHydrationRef.current) {
+      suppressHydrationRef.current = false;
+      return;
+    }
+    suppressHydrationRef.current = false;
     hydratedIdRef.current = plan.id;
     const hydrated: typeof form = {
       title: plan.title,
@@ -197,9 +238,8 @@ export default function ActionPlanFichaPage() {
       correctiveActionDescription: plan.correctiveActionDescription ?? "",
       correctiveActionCompletedAt: storageIsoToCalendarDate(plan.correctiveActionCompletedAt),
       gut: { gravity: plan.gutGravity ?? null, urgency: plan.gutUrgency ?? null, tendency: plan.gutTendency ?? null },
-      plan5w2h: plan.plan5w2h ?? {},
+      analyses: plan.analyses ?? [],
       rootCause: plan.rootCause ?? "",
-      rootCauseWhys: plan.rootCauseWhys ?? [],
       efic: {
         methodId: plan.effectivenessMethodId != null ? String(plan.effectivenessMethodId) : "",
         dueDate: storageIsoToCalendarDate(plan.effectivenessDueDate),
@@ -218,7 +258,6 @@ export default function ActionPlanFichaPage() {
   }, [plan]);
 
   function buildPayload(f: typeof form): UpdateActionPlanBody {
-    const whys = f.rootCauseWhys.map((w) => w.trim()).filter(Boolean);
     const body: UpdateActionPlanBody = {
       title: f.title.trim(),
       description: f.description.trim() || null,
@@ -233,9 +272,8 @@ export default function ActionPlanFichaPage() {
       gutGravity: f.gut.gravity,
       gutUrgency: f.gut.urgency,
       gutTendency: f.gut.tendency,
-      plan5w2h: clean5w2h(f.plan5w2h),
+      analyses: f.analyses.length ? f.analyses : null,
       rootCause: f.rootCause.trim() || null,
-      rootCauseWhys: whys.length > 0 ? whys : null,
       effectivenessMethodId: f.efic.methodId ? Number(f.efic.methodId) : null,
       effectivenessDueDate: f.efic.dueDate ? calendarDateToStorageIso(f.efic.dueDate) : null,
       effectivenessBefore: f.efic.before.trim() || null,
@@ -265,7 +303,7 @@ export default function ActionPlanFichaPage() {
       if (!planId) return false;
       const snapshot = formRef.current;
       if (!snapshot.title.trim()) {
-        if (!opts?.silent) toast({ title: "Informe o título da ação", variant: "destructive" });
+        if (!opts?.silent) toast({ title: "Informe o título do plano de ação", variant: "destructive" });
         return false;
       }
       // Send ONLY what this tab changed. A full payload would revert every field
@@ -286,6 +324,9 @@ export default function ActionPlanFichaPage() {
         // The saved fields are now the server's truth for this tab; the rest of the
         // baseline stays as loaded, so we keep not touching what we never edited.
         baselineRef.current = { ...(baselineRef.current ?? {}), ...data };
+        // The refetch this save just invalidated must NOT rehydrate the form and
+        // wipe empty rows the user is mid-adding (server normalizes them away).
+        suppressHydrationRef.current = true;
         // Clear "dirty" only if nothing changed during the save; otherwise the next
         // chained run (scheduled by the autosave effect) persists the newer edits.
         if (formRef.current === snapshot) setDirty(false);
@@ -362,8 +403,8 @@ export default function ActionPlanFichaPage() {
           contextLabel: sourceContext?.label ?? null,
         },
       });
-      const filledNothing =
-        Object.keys(draft.plan5w2h).length === 0 && !draft.rootCause && draft.rootCauseWhys.length === 0;
+      const has5w2h = hasPlan5w2hContent(draft.plan5w2h);
+      const filledNothing = !draft.rootCause && draft.rootCauseWhys.length === 0 && !has5w2h;
       if (filledNothing) {
         toast({ title: "A IA não retornou sugestões", variant: "destructive" });
         return;
@@ -372,19 +413,60 @@ export default function ActionPlanFichaPage() {
       // (always current) rather than inside a setForm updater — React runs updaters
       // during render, so a flag set in there is still false on the next line.
       const { changed, ...merged } = mergeDraftIntoForm(formRef.current, draft);
-      if (!changed) {
+
+      // draft.plan5w2h → primeira ação do plano. Só cria quando a IA sugeriu algo E
+      // o plano ainda não tem NENHUMA ação — nunca sobrescreve uma já existente (o
+      // usuário pode ter criado/editado ações manualmente entre duas sugestões).
+      // Falha ao criar é best-effort: o resto do rascunho (causa raiz / 5 porquês)
+      // já foi preenchido e não deve se perder por isso.
+      let actionCreated = false;
+      if (has5w2h && planId && (plan?.actionsTotal ?? 0) === 0) {
+        const w = draft.plan5w2h;
+        try {
+          await createFirstAction.mutateAsync({
+            orgId,
+            planId,
+            data: {
+              what: w.what?.trim() || null,
+              why: w.why?.trim() || null,
+              whereAt: w.where?.trim() || null,
+              how: w.how?.trim() || null,
+              howMuch: w.howMuch?.trim() || null,
+            },
+          });
+          actionCreated = true;
+        } catch (err) {
+          toast({ title: "Rascunho gerado, mas não foi possível criar a 1ª ação", description: apiErrorMessage(err), variant: "destructive" });
+        }
+      }
+
+      if (!changed && !actionCreated) {
         toast({ title: "Seus campos já estão preenchidos", description: "A IA não tinha o que adicionar." });
         return;
       }
-      setForm((f) => ({ ...f, ...merged }));
-      setDirty(true);
-      toast({ title: "Rascunho gerado — revise e salve" });
+      if (changed) {
+        setForm((f) => ({ ...f, ...merged }));
+        setDirty(true);
+      }
+      toast({ title: actionCreated ? "Rascunho gerado — 1ª ação criada a partir do 5W2H" : "Rascunho gerado — revise e salve" });
     } catch (err) {
       toast({ title: "Não foi possível gerar a sugestão", description: apiErrorMessage(err), variant: "destructive" });
     }
   }
 
   async function handleConclude() {
+    if (!planId) return;
+    // Soft guard: an open/in-progress action left behind is worth a second look,
+    // but never blocks the conclusion — the user may confirm and proceed anyway.
+    const pending = (plan?.actionsTotal ?? 0) - (plan?.actionsDone ?? 0);
+    if (pending > 0) {
+      setConcludeConfirmOpen(true);
+      return;
+    }
+    await doConclude();
+  }
+
+  async function doConclude() {
     if (!planId) return;
     const today = todayCalendarDate();
     // `persist` is serialized, so this runs AFTER any in-flight autosave and saves
@@ -480,7 +562,7 @@ export default function ActionPlanFichaPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 p-6">
+    <div className="mx-auto max-w-6xl space-y-5 p-6">
       {/* Top bar */}
       <div id="etapa-encerramento" className="flex scroll-mt-20 flex-wrap items-center gap-2 rounded-lg transition-shadow">
         <Button
@@ -557,7 +639,11 @@ export default function ActionPlanFichaPage() {
         <ActionPlanTimeline plan={plan} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* A coluna da esquerda abriga o Planejamento — 8 editores de análise estruturada e a
+          tabela de ações. Numa grade de metades iguais ela ficava com ~428px, e o Ishikawa
+          (6 categorias) virava campos de ~110px, ilegíveis. Daí a proporção assimétrica: o
+          trabalho analítico ganha o dobro da coluna de metadados. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         {/* ─── Left column ─────────────────────────────────────────────────── */}
         <div className="space-y-4">
           <Section id="etapa-identificacao" title="Identificação e contexto">
@@ -687,24 +773,30 @@ export default function ActionPlanFichaPage() {
             <div className="space-y-6">
               <div>
                 <h4 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Plano de ação (5W2H)
+                  Tratativas
                 </h4>
-                <Plano5W2H value={form.plan5w2h} onChange={(v) => patch("plan5w2h", v)} readOnly={!canEdit} />
-              </div>
-              <div>
-                <h4 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Causa raiz (5 porquês)
-                </h4>
-                <CausaRaiz
-                  rootCause={form.rootCause}
-                  whys={form.rootCauseWhys}
-                  onChange={({ rootCause, whys }) => {
-                    setForm((f) => ({ ...f, rootCause, rootCauseWhys: whys }));
-                    setDirty(true);
-                  }}
+                <Tratativas
+                  analyses={form.analyses}
+                  onChange={(analyses) => patch("analyses", analyses)}
+                  metodosAtivos={metodosAtivos}
+                  labelPorChave={labelPorChave}
                   readOnly={!canEdit}
                 />
               </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Causa raiz identificada
+                </label>
+                <AutoGrowTextarea
+                  value={form.rootCause}
+                  onChange={(e) => patch("rootCause", e.target.value)}
+                  placeholder="Conclusão da análise — a causa fundamental a ser tratada."
+                  readOnly={!canEdit}
+                />
+              </div>
+              {planId && (
+                <AcoesDoPlano orgId={orgId} planId={planId} orgUsers={orgUsers} canEdit={canEdit} />
+              )}
             </div>
           </Section>
 
@@ -718,6 +810,19 @@ export default function ActionPlanFichaPage() {
               onBeforeRestore={() => persist({ silent: true })}
             />
           )}
+
+          <ConfirmDialog
+            open={concludeConfirmOpen}
+            onOpenChange={setConcludeConfirmOpen}
+            title="Concluir com ações em aberto?"
+            description={pendingActionsMessage((plan.actionsTotal ?? 0) - (plan.actionsDone ?? 0))}
+            confirmLabel="Concluir mesmo assim"
+            destructive={false}
+            onConfirm={() => {
+              setConcludeConfirmOpen(false);
+              void doConclude();
+            }}
+          />
 
           <Section id="etapa-execucao" title="Comentários e histórico">
             <ComentariosHistorico orgId={orgId} planId={plan.id} canWrite={canWrite} />

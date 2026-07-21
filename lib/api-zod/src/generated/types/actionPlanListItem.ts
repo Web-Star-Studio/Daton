@@ -42,6 +42,8 @@ export interface ActionPlanListItem {
   dueDate?: string | null;
   /** @minimum 0 */
   evidencesCount: number;
+  actionsTotal?: number;
+  actionsDone?: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { and, asc, desc, eq, exists, gte, inArray, isNull, lt, notInArray, or, sql, type SQL } from "drizzle-orm";
 import {
+  actionPlanActionsTable,
   actionPlanActivityLogTable,
   actionPlanCommentsTable,
   actionPlanEvidencesTable,
@@ -9,7 +10,7 @@ import {
   db,
   isActionPlanEncerrado,
   type ActionPlanActivityChanges,
-  type ActionPlanSourceModule,
+  type ActionPlanAnalysis,
 } from "@workspace/db";
 import {
   AddActionPlanCommentBody,
@@ -39,9 +40,10 @@ import {
   requireModuleAccess,
   requireWriteAccess,
   userHasModuleAccess,
-  type AppModule,
 } from "../middlewares/auth";
+import { requirePlanAccess, SOURCE_MODULE_OWNER } from "../middlewares/plan-access";
 import { resolveSourceContexts } from "../services/action-plans/source-context";
+import { normalizeAnalyses, parseAnalyses } from "../services/action-plans/analyses";
 import {
   isPlanCoResponsible,
   listCoResponsibleIds,
@@ -77,7 +79,7 @@ import { AiCompletionError } from "../services/ai/json-completion";
 const router: IRouter = Router();
 
 /** Tracked fields for the update activity diff (display labels handled client-side).
- *  The planning block (5W2H + root cause + whys) is logged separately, as one
+ *  The planning block (root cause + tratativas) is logged separately, as one
  *  logical field — see `planning.ts`. The responsible set (ponto focal +
  *  co-responsáveis) is ALSO logged separately, with names instead of ids —
  *  see the `pontoFocal`/`coResponsibles` block below `planningChanged`. */
@@ -99,77 +101,13 @@ async function currentUserName(userId: number | null | undefined): Promise<strin
   return map.get(userId) ?? null;
 }
 
-/** The block as it goes into the log: normalized, so an empty 5W2H reads as null
- *  whether the row holds `{}` or `null`. */
+/** The block as it goes into the log: normalized, so an empty planning block reads
+ *  as null whether the row holds `{}`/`[]` or `null`. */
 function normalizedPlanning(row: Parameters<typeof extractPlanning>[0]) {
   return normalizePlanning(extractPlanning(row));
 }
 
-/**
- * Module that owns each action-plan origin. The hub (`actionPlans`) sees every
- * plan, but the "Ações vinculadas" widget embedded in the origin screens reads
- * this same listing scoped by `sourceModule` — so whoever may open the origin
- * screen may read the actions spawned from it. Without this, granting `kpi`
- * alone would break the RAC deviation flow with a 403.
- */
-const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
-  kpi: "kpi",
-  rac: "kpi",
-  swot: "swot",
-  nonconformity: "governance",
-  audit_finding: "governance",
-  risk: "governance",
-  training: "employees",
-  environmental: "environmental",
-  road_safety: "roadSafety",
-  incident: "roadSafety",
-  manual: "actionPlans",
-  improvement: "actionPlans",
-  corrective: "actionPlans",
-  norm_requirement: "actionPlans",
-};
 
-/**
- * Guards every `/:planId` route. Without it the hub gate would be bypassable by
- * anyone in the org who guesses a plan id. A plan belongs to whoever holds the
- * hub module, holds the module that owns its origin, or is personally assigned
- * to it — the responsible and the effectiveness evaluator reach their own plans
- * from "Suas Pendências" without ever holding `actionPlans`.
- *
- * Registered after `requireAuth`. Unknown ids and malformed params fall through
- * untouched so the routes keep answering 404/400 exactly as before.
- */
-function requirePlanAccess() {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const orgId = Number(req.params.orgId);
-    const planId = Number(req.params.planId);
-    if (!Number.isInteger(orgId) || !Number.isInteger(planId)) { next(); return; }
-    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
-
-    const [plan] = await db
-      .select({
-        sourceModule: actionPlansTable.sourceModule,
-        responsibleUserId: actionPlansTable.responsibleUserId,
-        effectivenessEvaluatorUserId: actionPlansTable.effectivenessEvaluatorUserId,
-      })
-      .from(actionPlansTable)
-      .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
-    if (!plan) { next(); return; }
-
-    const userId = req.auth!.userId;
-    // Ordem importa: os checks de módulo saem do cache de auth (30s), então o
-    // curto-circuito evita a consulta à junção para quem já entra pelo módulo.
-    const allowed =
-      plan.responsibleUserId === userId ||
-      plan.effectivenessEvaluatorUserId === userId ||
-      (await userHasModuleAccess(req.auth!, "actionPlans")) ||
-      (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule])) ||
-      (await isPlanCoResponsible(planId, userId));
-    if (!allowed) { res.status(403).json({ error: "Sem acesso a este plano de ação" }); return; }
-
-    next();
-  };
-}
 
 // ─── List ──────────────────────────────────────────────────────────────────
 
@@ -263,6 +201,19 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
     .groupBy(actionPlanEvidencesTable.actionPlanId);
   const countMap = new Map(evidenceCounts.map((c) => [c.planId, Number(c.cnt)]));
 
+  // Um único SELECT agrupado para todos os planos da listagem — nunca uma consulta
+  // por plano (N+1).
+  const actionCounts = await db
+    .select({
+      actionPlanId: actionPlanActionsTable.actionPlanId,
+      total: sql<number>`count(*)::int`,
+      done: sql<number>`count(*) filter (where ${actionPlanActionsTable.status} = 'completed')::int`,
+    })
+    .from(actionPlanActionsTable)
+    .where(eq(actionPlanActionsTable.organizationId, params.data.orgId))
+    .groupBy(actionPlanActionsTable.actionPlanId);
+  const actionCountByPlan = new Map(actionCounts.map((c) => [c.actionPlanId, c]));
+
   const userNameMap = await resolveUserNames(plans.map((p) => p.responsibleUserId));
   const coResponsiblesByPlan = await listCoResponsiblesByPlan(planIds);
   const sourceContexts = await resolveSourceContexts(
@@ -288,6 +239,8 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
     coResponsibles: coResponsiblesByPlan.get(p.id) ?? [],
     dueDate: p.dueDate ? p.dueDate.toISOString() : null,
     evidencesCount: countMap.get(p.id) ?? 0,
+    actionsTotal: actionCountByPlan.get(p.id)?.total ?? 0,
+    actionsDone: actionCountByPlan.get(p.id)?.done ?? 0,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   })));
@@ -378,6 +331,13 @@ async function loadAndSerializePlan(orgId: number, planId: number) {
   );
   const coResponsiblesByPlan = await listCoResponsiblesByPlan([plan.id]);
 
+  const actionRows = await db
+    .select({ status: actionPlanActionsTable.status })
+    .from(actionPlanActionsTable)
+    .where(eq(actionPlanActionsTable.actionPlanId, planId));
+  const actionsTotal = actionRows.length;
+  const actionsDone = actionRows.filter((a) => a.status === "completed").length;
+
   return serializePlan(plan, sourceContexts.get(plan.id) ?? { label: plan.sourceModule, kpi: null }, {
     responsibleUserName: plan.responsibleUserId !== null ? (userNameMap.get(plan.responsibleUserId) ?? null) : null,
     createdByUserName: plan.createdByUserId !== null ? (userNameMap.get(plan.createdByUserId) ?? null) : null,
@@ -389,10 +349,12 @@ async function loadAndSerializePlan(orgId: number, planId: number) {
       e.uploadedByUserId !== null ? (userNameMap.get(e.uploadedByUserId) ?? null) : null,
     )),
     coResponsibles: coResponsiblesByPlan.get(plan.id) ?? [],
+    actionsTotal,
+    actionsDone,
   });
 }
 
-router.get("/organizations/:orgId/action-plans/:planId", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId", requireAuth, requirePlanAccess({ allowActionAssignee: true }), async (req, res): Promise<void> => {
   const params = GetActionPlanParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -465,6 +427,17 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     return;
   }
 
+  // As tratativas chegam validadas pelo zod do OpenAPI, mas a forma de `data` por chave e a
+  // unicidade da chave são regra nossa — reforçadas aqui, independentemente de como o Orval
+  // resolveu a união discriminada.
+  let normalizedAnalyses: ActionPlanAnalysis[] | null = null;
+  if (body.data.analyses != null) {
+    const parsed = parseAnalyses(body.data.analyses);
+    if (!parsed.ok) { res.status(400).json({ error: parsed.error }); return; }
+    const list = normalizeAnalyses(parsed.value);
+    normalizedAnalyses = list.length ? list : null;
+  }
+
   const actionType = body.data.actionType ?? "corrective";
   const derived = await deriveCreateDefaults(params.data.orgId, body.data.sourceModule, body.data.sourceRef);
   const code = await generateActionPlanCode(params.data.orgId, actionType, new Date().getFullYear());
@@ -483,9 +456,8 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     gutGravity: body.data.gutGravity ?? null,
     gutUrgency: body.data.gutUrgency ?? null,
     gutTendency: body.data.gutTendency ?? null,
-    plan5w2h: body.data.plan5w2h ?? null,
     rootCause: body.data.rootCause ?? derived.rootCause ?? null,
-    rootCauseWhys: body.data.rootCauseWhys ?? null,
+    analyses: normalizedAnalyses,
     responsibleUserId: body.data.responsibleUserId ?? null,
     dueDate: body.data.dueDate ? new Date(body.data.dueDate) : null,
     correctiveActionDescription: body.data.correctiveActionDescription ?? null,
@@ -512,14 +484,14 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     changes: { kind: "snapshot", data: { code, title: row.title, sourceModule: row.sourceModule, status: row.status } },
   });
 
-  // A plan can be BORN with a planning block — the POST accepts plan5w2h /
-  // rootCause / rootCauseWhys, and `deriveCreateDefaults` inherits the rootCause
-  // of an origin nonconformity. The `created` snapshot doesn't carry the block, so
-  // without a dedicated entry the initial state would survive only in the `from`
-  // of the first later edit — and restore reads only `to`, leaving no restorable
+  // A plan can be BORN with a planning block — the POST accepts rootCause /
+  // analyses, and `deriveCreateDefaults` inherits the rootCause of an origin
+  // nonconformity. The `created` snapshot doesn't carry the block, so without a
+  // dedicated entry the initial state would survive only in the `from` of the
+  // first later edit — and restore reads only `to`, leaving no restorable
   // version of the initial state. Record it as the first version, right after
   // `created`, as an edit from the empty block. A plan born empty logs nothing.
-  const emptyPlanning: PlanningBlock = { plan5w2h: null, rootCause: null, rootCauseWhys: null };
+  const emptyPlanning: PlanningBlock = { rootCause: null, analyses: null };
   const initialPlanning = normalizedPlanning(row);
   if (planningChanged(emptyPlanning, initialPlanning)) {
     await logActionPlanActivity({
@@ -612,28 +584,33 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
   if (body.data.gutGravity !== undefined) update.gutGravity = body.data.gutGravity;
   if (body.data.gutUrgency !== undefined) update.gutUrgency = body.data.gutUrgency;
   if (body.data.gutTendency !== undefined) update.gutTendency = body.data.gutTendency;
-  // Normalize the planning block ON WRITE so the DB holds the canonical form and
-  // the "every persisted change is logged" invariant holds: `planningChanged` and
-  // the activity log both compare NORMALIZED blocks, so persisting a raw value
-  // could store a whitespace-only edit that no entry ever records. Merge the
-  // incoming fields over the current row, normalize, then write back only the
-  // fields the caller actually sent (a PATCH that omits a field must not start
-  // persisting it).
-  if (
-    body.data.plan5w2h !== undefined ||
-    body.data.rootCause !== undefined ||
-    body.data.rootCauseWhys !== undefined
-  ) {
+  // Normaliza o bloco de análise NA ESCRITA, para que o banco guarde a forma canônica e
+  // valha a invariante "toda mudança persistida é logada": `planningChanged` e o activity
+  // log comparam blocos NORMALIZADOS, então persistir um valor cru poderia gravar uma
+  // edição só-de-espaços que entrada nenhuma registra. Faz o merge do que veio sobre a
+  // linha atual, normaliza, e grava só os campos que o chamador realmente enviou (um PATCH
+  // que omite um campo não pode passar a persisti-lo).
+  if (body.data.analyses !== undefined) {
+    if (body.data.analyses === null) {
+      update.analyses = null;
+    } else {
+      const parsed = parseAnalyses(body.data.analyses);
+      if (!parsed.ok) { res.status(400).json({ error: parsed.error }); return; }
+      const list = normalizeAnalyses(parsed.value);
+      update.analyses = list.length ? list : null;
+    }
+  }
+  if (body.data.rootCause !== undefined || body.data.analyses !== undefined) {
     const normalized = normalizePlanning(
       extractPlanning({
-        plan5w2h: body.data.plan5w2h !== undefined ? body.data.plan5w2h : existing.plan5w2h,
         rootCause: body.data.rootCause !== undefined ? body.data.rootCause : existing.rootCause,
-        rootCauseWhys: body.data.rootCauseWhys !== undefined ? body.data.rootCauseWhys : existing.rootCauseWhys,
+        analyses:
+          body.data.analyses !== undefined
+            ? (update.analyses as ActionPlanAnalysis[] | null)
+            : existing.analyses,
       }),
     );
-    if (body.data.plan5w2h !== undefined) update.plan5w2h = normalized.plan5w2h;
     if (body.data.rootCause !== undefined) update.rootCause = normalized.rootCause;
-    if (body.data.rootCauseWhys !== undefined) update.rootCauseWhys = normalized.rootCauseWhys;
   }
 
   if (body.data.responsibleUserId !== undefined) {
@@ -768,8 +745,8 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
   const logBase = { orgId: params.data.orgId, actionPlanId: row.id, userId: req.auth!.userId, userName };
 
   // Logged outside the prioritized chain below: that chain writes ONE entry per save,
-  // so a save that changed both the status and the 5W2H would record only the status
-  // and the block's version would vanish — the exact hole this feature closes.
+  // so a save that changed both the status and the planning block would record only the
+  // status and the block's version would vanish — the exact hole this feature closes.
   if (planningChanged(existing, row)) {
     await logActionPlanActivity({
       ...logBase,
@@ -883,7 +860,7 @@ router.delete("/organizations/:orgId/action-plans/:planId", requireAuth, require
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 
-router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requirePlanAccess({ allowActionAssignee: true }), async (req, res): Promise<void> => {
   const params = ListActionPlanCommentsParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -933,7 +910,7 @@ router.post("/organizations/:orgId/action-plans/:planId/comments", requireAuth, 
 
 // ─── Activity log ─────────────────────────────────────────────────────────────
 
-router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, requirePlanAccess(), async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, requirePlanAccess({ allowActionAssignee: true }), async (req, res): Promise<void> => {
   const params = ListActionPlanActivityParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -1015,9 +992,8 @@ router.post(
     const [row] = await db
       .update(actionPlansTable)
       .set({
-        plan5w2h: restored.plan5w2h,
         rootCause: restored.rootCause,
-        rootCauseWhys: restored.rootCauseWhys,
+        analyses: restored.analyses,
         updatedAt: new Date(),
       })
       .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)))

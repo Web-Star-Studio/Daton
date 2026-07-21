@@ -61,6 +61,35 @@ export async function notifyActionPlanEvaluatorAssignment(
 }
 
 /**
+ * Notify the responsible user — in-app + e-mail — that an individual AÇÃO
+ * (5W2H row) of the plan was just assigned (or re-assigned) to them. Distinct
+ * from {@link notifyActionPlanAssignment}, which is about the plan's own
+ * responsible — a plan and its actions can have different people assigned.
+ */
+export async function notifyActionPlanActionAssignment(
+  plan: ActionPlanNotifyTarget,
+  action: { id: number; what: string | null; responsibleUserId: number | null; dueDate: Date | null },
+  actorUserId: number,
+): Promise<void> {
+  if (action.responsibleUserId == null) return;
+  if (action.responsibleUserId === actorUserId) return;
+
+  const ref = plan.code ? `${plan.code} — ` : "";
+  const what = action.what?.trim() ? action.what.trim() : plan.title;
+  const due = action.dueDate ? ` Prazo: ${formatDateBR(action.dueDate)}.` : "";
+  await deliverAssignment({
+    orgId: plan.organizationId,
+    planId: plan.id,
+    recipientUserId: action.responsibleUserId,
+    actorUserId,
+    type: "action_plan_action_assigned",
+    title: `Ação atribuída a você: ${ref}${what}`,
+    description: `Você foi definido como responsável por esta ação do plano.${due} Abra o plano para registrar o andamento e concluí-la.`,
+    reason: "foi definido como responsável por uma ação deste plano",
+  });
+}
+
+/**
  * Notifica UM co-responsável — in-app + e-mail — de que foi vinculado ao plano.
  * Um plano tem N co-responsáveis; quem chama itera sobre eles. O texto é distinto
  * do ponto focal de propósito: quem lê precisa saber em que qualidade foi chamado.

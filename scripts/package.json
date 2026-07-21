@@ -38,6 +38,7 @@
     "backfill-norms-catalog": "tsx --env-file ../.env ./src/migrate/norms-catalog-backfill.ts",
     "ddl-score-numeric": "tsx --env-file ../.env ./src/migrate/ddl-score-numeric.ts",
     "backfill-effectiveness-methods": "tsx --env-file ../.env ./src/migrate/effectiveness-methods-backfill.ts",
+    "backfill-tratativas-e-acoes": "tsx --env-file ../.env ./src/migrate/tratativas-e-acoes-backfill.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

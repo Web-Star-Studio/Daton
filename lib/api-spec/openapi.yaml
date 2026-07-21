@@ -69,6 +69,8 @@ tags:
     description: Programa Anual de Treinamento (PAT) — itens planejados por ano/filial
   - name: norms
     description: Catálogo de normas regulatórias da organização (referenciado por indicadores KPI e obrigatoriedades de treinamento)
+  - name: action-plan-analysis-methods
+    description: Catálogo de tratativas (métodos de análise de causa) da organização
   - name: effectiveness-methods
     description: Catálogo de métodos de verificação de eficácia da organização (usado na avaliação de eficácia dos planos de ação)
 
@@ -9718,6 +9720,144 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuggestActionPlanDraftResponse"
 
+  /organizations/{orgId}/action-plan-analysis-methods:
+    get:
+      operationId: listAnalysisMethods
+      tags: [action-plan-analysis-methods]
+      summary: Catálogo de tratativas da organização (ativas e inativas)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ActionPlanAnalysisMethod" }
+
+  /organizations/{orgId}/action-plan-analysis-methods/{methodId}:
+    patch:
+      operationId: updateAnalysisMethod
+      tags: [action-plan-analysis-methods]
+      summary: Liga/desliga, renomeia, marca como padrão ou reordena uma tratativa
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: methodId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateAnalysisMethodBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionPlanAnalysisMethod" }
+
+  /organizations/{orgId}/action-plans/{planId}/actions:
+    get:
+      operationId: listActionPlanActions
+      tags: [action-plans]
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: planId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ActionPlanAction" }
+    post:
+      operationId: createActionPlanAction
+      tags: [action-plans]
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: planId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateActionPlanActionBody" }
+      responses:
+        "201":
+          description: Criada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionPlanAction" }
+
+  /organizations/{orgId}/action-plans/{planId}/actions/{actionId}:
+    patch:
+      operationId: updateActionPlanAction
+      tags: [action-plans]
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: planId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: actionId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateActionPlanActionBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionPlanAction" }
+    delete:
+      operationId: deleteActionPlanAction
+      tags: [action-plans]
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: planId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: actionId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Removida
+
   /organizations/{orgId}/road-safety/factors:
     get:
       operationId: listRoadSafetyFactors
@@ -19284,6 +19424,265 @@ components:
       type: string
       enum: [overdue, due_soon]
 
+    ActionPlanAnalysisMethodKey:
+      type: string
+      enum: [five_whys, ishikawa, a3, fmea, fault_tree, kepner_tregoe, rca_apollo, barrier_analysis]
+
+    ActionPlanAnalysisMethod:
+      type: object
+      required: [id, organizationId, key, label, active, isDefault, sortOrder]
+      properties:
+        id: { type: integer }
+        organizationId: { type: integer }
+        key: { $ref: "#/components/schemas/ActionPlanAnalysisMethodKey" }
+        label: { type: string }
+        active: { type: boolean }
+        isDefault: { type: boolean }
+        sortOrder: { type: integer }
+
+    UpdateAnalysisMethodBody:
+      type: object
+      properties:
+        label: { type: string, minLength: 1 }
+        active: { type: boolean }
+        isDefault: { type: boolean }
+        sortOrder: { type: integer }
+
+    # ─── `data` de cada tratativa ──────────────────────────────────────────────
+    FiveWhysData:
+      type: object
+      required: [whys]
+      properties:
+        whys: { type: array, maxItems: 5, items: { type: string } }
+
+    IshikawaData:
+      type: object
+      required: [causes, whys]
+      properties:
+        causes:
+          type: array
+          items:
+            type: object
+            required: [id, category, text]
+            properties:
+              id: { type: string }
+              category:
+                type: string
+                enum: [metodo, maquina, mao_de_obra, material, medicao, meio_ambiente]
+              text: { type: string }
+        selectedCauseId: { type: string }
+        whys: { type: array, maxItems: 5, items: { type: string } }
+
+    A3Data:
+      type: object
+      properties:
+        background: { type: string }
+        currentState: { type: string }
+        goal: { type: string }
+        analysis: { type: string }
+        countermeasures: { type: string }
+
+    FmeaData:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+            required: [id]
+            properties:
+              id: { type: string }
+              failureMode: { type: string }
+              effect: { type: string }
+              severity: { type: integer, minimum: 1, maximum: 10 }
+              cause: { type: string }
+              occurrence: { type: integer, minimum: 1, maximum: 10 }
+              currentControl: { type: string }
+              detection: { type: integer, minimum: 1, maximum: 10 }
+              recommendedAction: { type: string }
+
+    FaultTreeNode:
+      type: object
+      required: [id, gate, children]
+      properties:
+        id: { type: string }
+        text: { type: string }
+        gate: { type: string, enum: [AND, OR] }
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/FaultTreeNode" }
+
+    FaultTreeData:
+      type: object
+      required: [nodes]
+      properties:
+        topEvent: { type: string }
+        nodes:
+          type: array
+          items: { $ref: "#/components/schemas/FaultTreeNode" }
+
+    KepnerTregoeData:
+      type: object
+      required: [rows, possibleCauses]
+      properties:
+        rows:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items:
+            type: object
+            required: [dimension]
+            properties:
+              dimension: { type: string, enum: [o_que, onde, quando, extensao] }
+              is: { type: string }
+              isNot: { type: string }
+              distinction: { type: string }
+              change: { type: string }
+        possibleCauses:
+          type: array
+          items:
+            type: object
+            required: [id]
+            properties:
+              id: { type: string }
+              text: { type: string }
+              verification: { type: string }
+              verified: { type: boolean }
+        mostProbableCauseId: { type: string }
+
+    RcaApolloNode:
+      type: object
+      required: [id, type, children]
+      properties:
+        id: { type: string }
+        text: { type: string }
+        type: { type: string, enum: [condition, action] }
+        evidence: { type: string }
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/RcaApolloNode" }
+
+    RcaApolloData:
+      type: object
+      required: [causes]
+      properties:
+        primaryEffect: { type: string }
+        causes:
+          type: array
+          items: { $ref: "#/components/schemas/RcaApolloNode" }
+
+    BarrierAnalysisData:
+      type: object
+      required: [barriers]
+      properties:
+        hazard: { type: string }
+        target: { type: string }
+        barriers:
+          type: array
+          items:
+            type: object
+            required: [id]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              type: { type: string, enum: [fisica, administrativa, humana, procedimental] }
+              status: { type: string, enum: [ausente, falhou, ineficaz, funcionou] }
+              failureReason: { type: string }
+
+    # União discriminada por `key`. Se a saída do Orval para isto degradar (ver Step 3),
+    # o servidor continua estrito via `services/action-plans/analyses.ts`.
+    ActionPlanAnalysis:
+      oneOf:
+        - type: object
+          required: [key, data]
+          properties:
+            key: { type: string, enum: [five_whys] }
+            data: { $ref: "#/components/schemas/FiveWhysData" }
+        - type: object
+          required: [key, data]
+          properties:
+            key: { type: string, enum: [ishikawa] }
+            data: { $ref: "#/components/schemas/IshikawaData" }
+        - type: object
+          required: [key, data]
+          properties:
+            key: { type: string, enum: [a3] }
+            data: { $ref: "#/components/schemas/A3Data" }
+        - type: object
+          required: [key, data]
+          properties:
+            key: { type: string, enum: [fmea] }
+            data: { $ref: "#/components/schemas/FmeaData" }
+        - type: object
+          required: [key, data]
+          properties:
+            key: { type: string, enum: [fault_tree] }
+            data: { $ref: "#/components/schemas/FaultTreeData" }
+        - type: object
+          required: [key, data]
+          properties:
+            key: { type: string, enum: [kepner_tregoe] }
+            data: { $ref: "#/components/schemas/KepnerTregoeData" }
+        - type: object
+          required: [key, data]
+          properties:
+            key: { type: string, enum: [rca_apollo] }
+            data: { $ref: "#/components/schemas/RcaApolloData" }
+        - type: object
+          required: [key, data]
+          properties:
+            key: { type: string, enum: [barrier_analysis] }
+            data: { $ref: "#/components/schemas/BarrierAnalysisData" }
+
+    # ─── Ações do plano ────────────────────────────────────────────────────────
+    ActionPlanAction:
+      type: object
+      required: [id, actionPlanId, status, sortOrder, createdAt]
+      properties:
+        id: { type: integer }
+        actionPlanId: { type: integer }
+        what: { type: string, nullable: true }
+        why: { type: string, nullable: true }
+        whereAt: { type: string, nullable: true }
+        how: { type: string, nullable: true }
+        howMuch: { type: string, nullable: true }
+        responsibleUserId: { type: integer, nullable: true }
+        responsibleUserName: { type: string, nullable: true }
+        dueDate: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [open, in_progress, completed, cancelled] }
+        completedAt: { type: string, format: date-time, nullable: true }
+        notes: { type: string, nullable: true }
+        sortOrder: { type: integer }
+        createdAt: { type: string, format: date-time }
+
+    CreateActionPlanActionBody:
+      type: object
+      properties:
+        what: { type: string, nullable: true }
+        why: { type: string, nullable: true }
+        whereAt: { type: string, nullable: true }
+        how: { type: string, nullable: true }
+        howMuch: { type: string, nullable: true }
+        responsibleUserId: { type: integer, nullable: true }
+        dueDate: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [open, in_progress, completed, cancelled] }
+        notes: { type: string, nullable: true }
+
+    UpdateActionPlanActionBody:
+      type: object
+      properties:
+        what: { type: string, nullable: true }
+        why: { type: string, nullable: true }
+        whereAt: { type: string, nullable: true }
+        how: { type: string, nullable: true }
+        howMuch: { type: string, nullable: true }
+        responsibleUserId: { type: integer, nullable: true }
+        dueDate: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [open, in_progress, completed, cancelled] }
+        notes: { type: string, nullable: true }
+        sortOrder: { type: integer }
+
     ActionPlan5W2H:
       type: object
       description: Structured 5W2H plan. howMuch carries estimated cost (free text).
@@ -19472,16 +19871,16 @@ components:
         gutScore:
           type: ["integer", "null"]
           description: Server-computed G×U×T (1–125), null when any axis is unset
-        plan5w2h:
-          oneOf:
-            - $ref: "#/components/schemas/ActionPlan5W2H"
-            - type: "null"
+        analyses:
+          type: array
+          nullable: true
+          items: { $ref: "#/components/schemas/ActionPlanAnalysis" }
+        actionsTotal:
+          type: integer
+        actionsDone:
+          type: integer
         rootCause:
           type: ["string", "null"]
-        rootCauseWhys:
-          type: ["array", "null"]
-          items:
-            type: string
         responsibleUserId:
           type: ["integer", "null"]
         responsibleUserName:
@@ -19619,6 +20018,10 @@ components:
         evidencesCount:
           type: integer
           minimum: 0
+        actionsTotal:
+          type: integer
+        actionsDone:
+          type: integer
         createdAt:
           type: string
           format: date-time
@@ -19674,18 +20077,13 @@ components:
           minimum: 1
           maximum: 5
           nullable: true
-        plan5w2h:
-          oneOf:
-            - $ref: "#/components/schemas/ActionPlan5W2H"
-            - type: "null"
+        analyses:
+          type: array
+          nullable: true
+          items: { $ref: "#/components/schemas/ActionPlanAnalysis" }
         rootCause:
           type: string
           nullable: true
-        rootCauseWhys:
-          type: array
-          nullable: true
-          items:
-            type: string
         responsibleUserId:
           type: integer
           nullable: true
@@ -19767,18 +20165,13 @@ components:
           minimum: 1
           maximum: 5
           nullable: true
-        plan5w2h:
-          oneOf:
-            - $ref: "#/components/schemas/ActionPlan5W2H"
-            - type: "null"
+        analyses:
+          type: array
+          nullable: true
+          items: { $ref: "#/components/schemas/ActionPlanAnalysis" }
         rootCause:
           type: string
           nullable: true
-        rootCauseWhys:
-          type: array
-          nullable: true
-          items:
-            type: string
         responsibleUserId:
           type: integer
           nullable: true
@@ -19966,6 +20359,9 @@ components:
             - effectiveness_evaluated
             - escalated
             - reopened
+            - action_added
+            - action_updated
+            - action_removed
         userId:
           type: ["integer", "null"]
         userName:

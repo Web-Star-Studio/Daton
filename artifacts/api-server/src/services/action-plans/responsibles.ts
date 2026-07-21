@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { actionPlanResponsiblesTable, db, usersTable } from "@workspace/db";
+import { actionPlanActionsTable, actionPlanResponsiblesTable, db, usersTable } from "@workspace/db";
 
 /**
  * Acesso aos **co-responsáveis** de um plano — os "outros responsáveis", além do
@@ -101,6 +101,28 @@ export async function isPlanCoResponsible(planId: number, userId: number): Promi
       and(
         eq(actionPlanResponsiblesTable.actionPlanId, planId),
         eq(actionPlanResponsiblesTable.userId, userId),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+/**
+ * É responsável por ALGUMA ação-item deste plano. Executar uma ação é papel distinto de
+ * conduzir o plano: o provider de pendências manda esse usuário para a ficha do plano
+ * (`/planos-acao/:id#acao-:id`), então ele precisa alcançar o plano mesmo sem o módulo
+ * `actionPlans`, sem ser ponto focal e sem ser co-responsável — senão a pendência que ele
+ * recebe vira um beco (403 ao abrir). `requireWriteAccess` continua barrando analista, então
+ * quem passa aqui e não é analista consegue de fato concluir a ação.
+ */
+export async function isPlanActionAssignee(planId: number, userId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: actionPlanActionsTable.id })
+    .from(actionPlanActionsTable)
+    .where(
+      and(
+        eq(actionPlanActionsTable.actionPlanId, planId),
+        eq(actionPlanActionsTable.responsibleUserId, userId),
       ),
     )
     .limit(1);

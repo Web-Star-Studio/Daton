@@ -19,7 +19,9 @@ import type {
 import type {
   AcceptInvitationBody,
   ActionPlan,
+  ActionPlanAction,
   ActionPlanActivityLogEntry,
+  ActionPlanAnalysisMethod,
   ActionPlanComment,
   ActionPlanEvidence,
   ActionPlanListItem,
@@ -55,6 +57,7 @@ import type {
   ComplianceTag,
   ConfirmPasswordResetBody,
   CorrectiveAction,
+  CreateActionPlanActionBody,
   CreateActionPlanBody,
   CreateAnnualProgramItemBody,
   CreateAssetBody,
@@ -288,7 +291,9 @@ import type {
   Unit,
   UnitLegislation,
   UnitLegislationWithLegislation,
+  UpdateActionPlanActionBody,
   UpdateActionPlanBody,
+  UpdateAnalysisMethodBody,
   UpdateAnnualProgramItemBody,
   UpdateApplicabilityDecisionBody,
   UpdateAssetBody,
@@ -33751,6 +33756,605 @@ export const useSuggestActionPlanDraft = <
   TContext
 > => {
   return useMutation(getSuggestActionPlanDraftMutationOptions(options));
+};
+
+/**
+ * @summary Catálogo de tratativas da organização (ativas e inativas)
+ */
+export const getListAnalysisMethodsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/action-plan-analysis-methods`;
+};
+
+export const listAnalysisMethods = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<ActionPlanAnalysisMethod[]> => {
+  return customFetch<ActionPlanAnalysisMethod[]>(
+    getListAnalysisMethodsUrl(orgId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAnalysisMethodsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/action-plan-analysis-methods`] as const;
+};
+
+export const getListAnalysisMethodsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAnalysisMethods>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAnalysisMethods>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAnalysisMethodsQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAnalysisMethods>>
+  > = ({ signal }) => listAnalysisMethods(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAnalysisMethods>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAnalysisMethodsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAnalysisMethods>>
+>;
+export type ListAnalysisMethodsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Catálogo de tratativas da organização (ativas e inativas)
+ */
+
+export function useListAnalysisMethods<
+  TData = Awaited<ReturnType<typeof listAnalysisMethods>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAnalysisMethods>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAnalysisMethodsQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Liga/desliga, renomeia, marca como padrão ou reordena uma tratativa
+ */
+export const getUpdateAnalysisMethodUrl = (orgId: number, methodId: number) => {
+  return `/api/organizations/${orgId}/action-plan-analysis-methods/${methodId}`;
+};
+
+export const updateAnalysisMethod = async (
+  orgId: number,
+  methodId: number,
+  updateAnalysisMethodBody: UpdateAnalysisMethodBody,
+  options?: RequestInit,
+): Promise<ActionPlanAnalysisMethod> => {
+  return customFetch<ActionPlanAnalysisMethod>(
+    getUpdateAnalysisMethodUrl(orgId, methodId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateAnalysisMethodBody),
+    },
+  );
+};
+
+export const getUpdateAnalysisMethodMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAnalysisMethod>>,
+    TError,
+    {
+      orgId: number;
+      methodId: number;
+      data: BodyType<UpdateAnalysisMethodBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAnalysisMethod>>,
+  TError,
+  { orgId: number; methodId: number; data: BodyType<UpdateAnalysisMethodBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAnalysisMethod"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAnalysisMethod>>,
+    {
+      orgId: number;
+      methodId: number;
+      data: BodyType<UpdateAnalysisMethodBody>;
+    }
+  > = (props) => {
+    const { orgId, methodId, data } = props ?? {};
+
+    return updateAnalysisMethod(orgId, methodId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAnalysisMethodMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAnalysisMethod>>
+>;
+export type UpdateAnalysisMethodMutationBody =
+  BodyType<UpdateAnalysisMethodBody>;
+export type UpdateAnalysisMethodMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Liga/desliga, renomeia, marca como padrão ou reordena uma tratativa
+ */
+export const useUpdateAnalysisMethod = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAnalysisMethod>>,
+    TError,
+    {
+      orgId: number;
+      methodId: number;
+      data: BodyType<UpdateAnalysisMethodBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAnalysisMethod>>,
+  TError,
+  { orgId: number; methodId: number; data: BodyType<UpdateAnalysisMethodBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAnalysisMethodMutationOptions(options));
+};
+
+export const getListActionPlanActionsUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/action-plans/${planId}/actions`;
+};
+
+export const listActionPlanActions = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<ActionPlanAction[]> => {
+  return customFetch<ActionPlanAction[]>(
+    getListActionPlanActionsUrl(orgId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListActionPlanActionsQueryKey = (
+  orgId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/action-plans/${planId}/actions`,
+  ] as const;
+};
+
+export const getListActionPlanActionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listActionPlanActions>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActionPlanActions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListActionPlanActionsQueryKey(orgId, planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listActionPlanActions>>
+  > = ({ signal }) =>
+    listActionPlanActions(orgId, planId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listActionPlanActions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListActionPlanActionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listActionPlanActions>>
+>;
+export type ListActionPlanActionsQueryError = ErrorType<unknown>;
+
+export function useListActionPlanActions<
+  TData = Awaited<ReturnType<typeof listActionPlanActions>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActionPlanActions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListActionPlanActionsQueryOptions(
+    orgId,
+    planId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getCreateActionPlanActionUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/action-plans/${planId}/actions`;
+};
+
+export const createActionPlanAction = async (
+  orgId: number,
+  planId: number,
+  createActionPlanActionBody: CreateActionPlanActionBody,
+  options?: RequestInit,
+): Promise<ActionPlanAction> => {
+  return customFetch<ActionPlanAction>(
+    getCreateActionPlanActionUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createActionPlanActionBody),
+    },
+  );
+};
+
+export const getCreateActionPlanActionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createActionPlanAction>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateActionPlanActionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createActionPlanAction>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<CreateActionPlanActionBody> },
+  TContext
+> => {
+  const mutationKey = ["createActionPlanAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createActionPlanAction>>,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateActionPlanActionBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return createActionPlanAction(orgId, planId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateActionPlanActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createActionPlanAction>>
+>;
+export type CreateActionPlanActionMutationBody =
+  BodyType<CreateActionPlanActionBody>;
+export type CreateActionPlanActionMutationError = ErrorType<unknown>;
+
+export const useCreateActionPlanAction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createActionPlanAction>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateActionPlanActionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createActionPlanAction>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<CreateActionPlanActionBody> },
+  TContext
+> => {
+  return useMutation(getCreateActionPlanActionMutationOptions(options));
+};
+
+export const getUpdateActionPlanActionUrl = (
+  orgId: number,
+  planId: number,
+  actionId: number,
+) => {
+  return `/api/organizations/${orgId}/action-plans/${planId}/actions/${actionId}`;
+};
+
+export const updateActionPlanAction = async (
+  orgId: number,
+  planId: number,
+  actionId: number,
+  updateActionPlanActionBody: UpdateActionPlanActionBody,
+  options?: RequestInit,
+): Promise<ActionPlanAction> => {
+  return customFetch<ActionPlanAction>(
+    getUpdateActionPlanActionUrl(orgId, planId, actionId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateActionPlanActionBody),
+    },
+  );
+};
+
+export const getUpdateActionPlanActionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateActionPlanAction>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      actionId: number;
+      data: BodyType<UpdateActionPlanActionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateActionPlanAction>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    actionId: number;
+    data: BodyType<UpdateActionPlanActionBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateActionPlanAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateActionPlanAction>>,
+    {
+      orgId: number;
+      planId: number;
+      actionId: number;
+      data: BodyType<UpdateActionPlanActionBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, actionId, data } = props ?? {};
+
+    return updateActionPlanAction(
+      orgId,
+      planId,
+      actionId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateActionPlanActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateActionPlanAction>>
+>;
+export type UpdateActionPlanActionMutationBody =
+  BodyType<UpdateActionPlanActionBody>;
+export type UpdateActionPlanActionMutationError = ErrorType<unknown>;
+
+export const useUpdateActionPlanAction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateActionPlanAction>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      actionId: number;
+      data: BodyType<UpdateActionPlanActionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateActionPlanAction>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    actionId: number;
+    data: BodyType<UpdateActionPlanActionBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateActionPlanActionMutationOptions(options));
+};
+
+export const getDeleteActionPlanActionUrl = (
+  orgId: number,
+  planId: number,
+  actionId: number,
+) => {
+  return `/api/organizations/${orgId}/action-plans/${planId}/actions/${actionId}`;
+};
+
+export const deleteActionPlanAction = async (
+  orgId: number,
+  planId: number,
+  actionId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteActionPlanActionUrl(orgId, planId, actionId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteActionPlanActionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteActionPlanAction>>,
+    TError,
+    { orgId: number; planId: number; actionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteActionPlanAction>>,
+  TError,
+  { orgId: number; planId: number; actionId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteActionPlanAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteActionPlanAction>>,
+    { orgId: number; planId: number; actionId: number }
+  > = (props) => {
+    const { orgId, planId, actionId } = props ?? {};
+
+    return deleteActionPlanAction(orgId, planId, actionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteActionPlanActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteActionPlanAction>>
+>;
+
+export type DeleteActionPlanActionMutationError = ErrorType<unknown>;
+
+export const useDeleteActionPlanAction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteActionPlanAction>>,
+    TError,
+    { orgId: number; planId: number; actionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteActionPlanAction>>,
+  TError,
+  { orgId: number; planId: number; actionId: number },
+  TContext
+> => {
+  return useMutation(getDeleteActionPlanActionMutationOptions(options));
 };
 
 /**
