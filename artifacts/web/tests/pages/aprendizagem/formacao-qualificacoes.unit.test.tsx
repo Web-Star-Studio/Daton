@@ -184,7 +184,7 @@ describe("FormacaoQualificacoes", () => {
     ).toBeInTheDocument();
   });
 
-  it("sem editable, nenhum botão de ação aparece", () => {
+  it("sem editable: nenhum botão de ação, mas o hint 'via treinamento' aparece (informativo p/ read-only)", () => {
     render(
       <FormacaoQualificacoes
         education="Superior Completo"
@@ -193,7 +193,9 @@ describe("FormacaoQualificacoes", () => {
       />,
     );
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.queryByText(/via treinamento/i)).not.toBeInTheDocument();
+    // O hint da fonte (treinamento) é informativo: explica POR QUE o requisito
+    // está atendido e deve aparecer mesmo para quem não pode editar.
+    expect(screen.getAllByText(/via treinamento/i).length).toBeGreaterThan(0);
   });
 
   it("com editable, ações aparecem por estado e chamam os callbacks certos", async () => {
@@ -269,7 +271,19 @@ describe("FormacaoQualificacoes", () => {
     expect(screen.getAllByRole("button")).toHaveLength(5);
   });
 
-  it("0 requisitos avaliados -> selo neutro, não 'Requisitos atendidos'", () => {
+  it("0 requisitos avaliados + educação neutra -> selo 'Sem avaliação ainda'", () => {
+    render(
+      <FormacaoQualificacoes
+        education="Médio Completo"
+        requiredEducation={null}
+        conformance={naoAvaliadoConformance}
+      />,
+    );
+    expect(screen.getByText("Sem avaliação ainda")).toBeInTheDocument();
+    expect(screen.queryByText("Requisitos atendidos")).not.toBeInTheDocument();
+  });
+
+  it("0 requisitos avaliáveis MAS educação atende -> selo 'Requisitos atendidos' (não 'Sem avaliação')", () => {
     render(
       <FormacaoQualificacoes
         education="Superior Completo"
@@ -277,7 +291,9 @@ describe("FormacaoQualificacoes", () => {
         conformance={naoAvaliadoConformance}
       />,
     );
-    expect(screen.getByText("Sem avaliação ainda")).toBeInTheDocument();
-    expect(screen.queryByText("Requisitos atendidos")).not.toBeInTheDocument();
+    // Educação atendida é uma avaliação positiva: o card não deve dizer que
+    // nada foi avaliado.
+    expect(screen.getByText("Requisitos atendidos")).toBeInTheDocument();
+    expect(screen.queryByText("Sem avaliação ainda")).not.toBeInTheDocument();
   });
 });

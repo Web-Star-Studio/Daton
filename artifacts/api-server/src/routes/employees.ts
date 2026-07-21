@@ -3358,13 +3358,18 @@ router.post(
           desc(employeeCompetenciesTable.acquiredLevel),
           asc(employeeCompetenciesTable.id),
         );
-      const match = existing.find(
-        (c) => buildCompetencyKey(c.name, c.type) === key,
-      );
+      // TODAS as linhas da mesma chave, não só a primeira: duplicatas legadas
+      // compartilham a chave e o resolvedor usa o MAX de nível entre elas —
+      // atualizar só uma deixaria BAIXAR o nível sem efeito (outra duplicata
+      // seguiria como o máximo e o requisito continuaria "atende"). Atualizar
+      // todas consolida o valor e faz a edição surtir efeito (achado do revisor).
+      const matchingIds = existing
+        .filter((c) => buildCompetencyKey(c.name, c.type) === key)
+        .map((c) => c.id);
 
       let comp: typeof employeeCompetenciesTable.$inferSelect;
-      if (match) {
-        [comp] = await tx
+      if (matchingIds.length > 0) {
+        const rows = await tx
           .update(employeeCompetenciesTable)
           .set({
             requiredLevel: body.data.requiredLevel,
@@ -3375,8 +3380,11 @@ router.post(
             evidence: body.data.evidence ?? null,
             ...(attachmentsProvided ? { attachments } : {}),
           })
-          .where(eq(employeeCompetenciesTable.id, match.id))
+          .where(inArray(employeeCompetenciesTable.id, matchingIds))
           .returning();
+        // Retorna a de MENOR id — a mesma linha que o resolvedor escolhe como
+        // manualCompetencyId (desempate por menor id).
+        comp = rows.reduce((lo, r) => (r.id < lo.id ? r : lo), rows[0]);
       } else {
         [comp] = await tx
           .insert(employeeCompetenciesTable)
@@ -3392,7 +3400,7 @@ router.post(
           .returning();
       }
 
-      return { comp, isNew: !match };
+      return { comp, isNew: matchingIds.length === 0 };
     });
 
     res.status(isNew ? 201 : 200).json(formatCompetencyRecord(comp));

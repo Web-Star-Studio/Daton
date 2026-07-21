@@ -114,7 +114,12 @@ export function RegistrarEvidenciaDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      // Não deixa fechar no meio de um upload — senão a evidência salva sem o
+      // anexo em voo e o objeto enviado fica órfão (achado do revisor).
+      onOpenChange={(next) => {
+        if (!next && isUploading) return;
+        onOpenChange(next);
+      }}
       title={isEdit ? "Editar evidência" : "Registrar evidência"}
       description="Nível adquirido, evidência e anexos para este requisito do cargo."
       size="lg"
@@ -201,6 +206,7 @@ export function RegistrarEvidenciaDialog({
           variant="outline"
           size="sm"
           onClick={() => onOpenChange(false)}
+          disabled={isUploading}
         >
           Cancelar
         </Button>
@@ -208,8 +214,8 @@ export function RegistrarEvidenciaDialog({
           type="button"
           size="sm"
           onClick={handleSubmit}
-          isLoading={createMutation.isPending}
-          disabled={isPending}
+          isLoading={createMutation.isPending || isUploading}
+          disabled={isPending || isUploading}
         >
           Salvar
         </Button>

@@ -332,4 +332,88 @@ describe("POST .../competency-requirement-evidence — upsert por requisito", ()
     // upsert (orderBy desc(level), asc(id)) editaria.
     expect(row?.manualCompetencyId).toBe(lowerId);
   });
+
+  it("baixar o nível com duplicatas legadas atualiza TODAS as linhas da chave — requisito volta a gap (não fica preso na outra duplicata)", async () => {
+    const context = await createTestContext({
+      seed: "comp-req-evidencia-dup-lower",
+    });
+    contexts.push(context);
+
+    const position = await createPosition(context, {
+      name: `Cargo ${context.prefix}`,
+    });
+    const competencyName = `Auditor Baixa ${context.prefix}`;
+    const requirement = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/positions/${position.id}/competency-requirements`,
+      )
+      .set(authHeader(context))
+      .send({
+        competencyName,
+        competencyType: "conhecimento",
+        requiredLevel: 3,
+      });
+    expect(requirement.status).toBe(201);
+
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+      position: position.name,
+    });
+
+    // Duas duplicatas no nível 3 — ambas atendem o requisito.
+    for (let i = 0; i < 2; i++) {
+      const c = await request(app)
+        .post(
+          `/api/organizations/${context.organizationId}/employees/${employee.id}/competencies`,
+        )
+        .set(authHeader(context))
+        .send({
+          name: competencyName,
+          type: "conhecimento",
+          requiredLevel: 3,
+          acquiredLevel: 3,
+        });
+      expect(c.status).toBe(201);
+    }
+
+    // Baixa o nível para 1 pela linha do requisito.
+    const updated = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}/competency-requirement-evidence`,
+      )
+      .set(authHeader(context))
+      .send({
+        competencyName,
+        competencyType: "conhecimento",
+        requiredLevel: 3,
+        acquiredLevel: 1,
+      });
+    expect(updated.status).toBe(200);
+
+    const detail = await request(app)
+      .get(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}`,
+      )
+      .set(authHeader(context));
+
+    // O requisito NÃO fica preso em "atende" via a outra duplicata.
+    const row = (
+      detail.body.competencyConformance.requirements as {
+        competencyName: string;
+        status: string;
+      }[]
+    ).find((r) => r.competencyName === competencyName);
+    expect(row?.status).toBe("gap");
+
+    // Todas as linhas da chave ficaram no nível 1.
+    const comps = (
+      detail.body.competencies as { name: string; acquiredLevel: number }[]
+    ).filter(
+      (c) =>
+        c.name.trim().toLocaleLowerCase("pt-BR") ===
+        competencyName.trim().toLocaleLowerCase("pt-BR"),
+    );
+    expect(comps).toHaveLength(2);
+    expect(comps.every((c) => c.acquiredLevel === 1)).toBe(true);
+  });
 });

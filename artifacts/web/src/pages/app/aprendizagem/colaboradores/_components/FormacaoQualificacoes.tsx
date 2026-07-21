@@ -124,7 +124,10 @@ export function FormacaoQualificacoes({
   // Selo verde só quando algo foi de fato avaliado (progressDenom > 0) e não
   // há lacuna — senão "Requisitos atendidos" é enganoso quando nada foi
   // avaliado ainda (ex.: cargo com requisitos só "nao_classificado").
-  const isUnevaluated = !hasGaps && progressDenom === 0;
+  // Educação "atende" também é uma avaliação positiva: um cargo sem competência
+  // classificável mas com escolaridade OK não deve dizer "Sem avaliação ainda".
+  const isUnevaluated =
+    !hasGaps && progressDenom === 0 && veredito !== "atende";
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card p-5 space-y-5">
@@ -278,7 +281,7 @@ export function FormacaoQualificacoes({
                           atende+treinamento sempre mostra de onde veio a
                           prova, mesmo quando também existe um atestado
                           manual editável (lápis) ao lado. */}
-                      {editable && matched && item.source === "treinamento" && (
+                      {matched && item.source === "treinamento" && (
                         <span className="truncate text-[10px] text-emerald-700/80 dark:text-emerald-300/80">
                           via treinamento
                           {item.evidence?.title
