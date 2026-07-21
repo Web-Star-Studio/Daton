@@ -1586,9 +1586,9 @@ export const ListEmployeesResponse = zod.object({
             zod.object({
               competencyName: zod.string(),
               competencyType: zod.enum([
-                "formacao",
-                "experiencia",
+                "conhecimento",
                 "habilidade",
+                "atitude",
               ]),
               requiredLevel: zod.number(),
               acquiredLevel: zod.number(),
@@ -1841,7 +1841,7 @@ export const ListOrganizationTrainingsResponse = zod.object({
       instructor: zod.string().nullish(),
       targetCompetencyName: zod.string().nullish(),
       targetCompetencyType: zod
-        .enum(["formacao", "experiencia", "habilidade"])
+        .enum(["conhecimento", "habilidade", "atitude"])
         .nullish(),
       targetCompetencyLevel: zod.number().nullish(),
       evaluationMethod: zod.string().nullish(),
@@ -2055,7 +2055,7 @@ export const ListEmployeeCompetencyGapsResponse = zod.object({
       unitName: zod.string().nullish(),
       positionId: zod.number().nullish(),
       competencyName: zod.string(),
-      competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+      competencyType: zod.enum(["conhecimento", "habilidade", "atitude"]),
       requiredLevel: zod.number(),
       acquiredLevel: zod.number(),
       gapLevel: zod.number(),
@@ -2110,7 +2110,7 @@ export const ListPositionCompetencyRequirementsResponseItem = zod.object({
   id: zod.number(),
   positionId: zod.number(),
   competencyName: zod.string(),
-  competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+  competencyType: zod.enum(["conhecimento", "habilidade", "atitude"]),
   requiredLevel: zod
     .number()
     .min(listPositionCompetencyRequirementsResponseRequiredLevelMin)
@@ -2143,7 +2143,7 @@ export const createPositionCompetencyRequirementBodySortOrderMin = 0;
 
 export const CreatePositionCompetencyRequirementBody = zod.object({
   competencyName: zod.string().min(1),
-  competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+  competencyType: zod.enum(["conhecimento", "habilidade", "atitude"]),
   requiredLevel: zod
     .number()
     .min(createPositionCompetencyRequirementBodyRequiredLevelMin)
@@ -2172,7 +2172,7 @@ export const updatePositionCompetencyRequirementBodySortOrderMin = 0;
 export const UpdatePositionCompetencyRequirementBody = zod.object({
   competencyName: zod.string().min(1).optional(),
   competencyType: zod
-    .enum(["formacao", "experiencia", "habilidade"])
+    .enum(["conhecimento", "habilidade", "atitude"])
     .optional(),
   requiredLevel: zod
     .number()
@@ -2195,7 +2195,7 @@ export const UpdatePositionCompetencyRequirementResponse = zod.object({
   id: zod.number(),
   positionId: zod.number(),
   competencyName: zod.string(),
-  competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+  competencyType: zod.enum(["conhecimento", "habilidade", "atitude"]),
   requiredLevel: zod
     .number()
     .min(updatePositionCompetencyRequirementResponseRequiredLevelMin)
@@ -2244,7 +2244,7 @@ export const ListPositionCompetencyMatrixRevisionsResponseItem = zod.object({
       id: zod.number(),
       positionId: zod.number(),
       competencyName: zod.string(),
-      competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+      competencyType: zod.enum(["conhecimento", "habilidade", "atitude"]),
       requiredLevel: zod
         .number()
         .min(
@@ -2387,7 +2387,7 @@ export const GetEmployeeResponse = zod
         requirements: zod.array(
           zod.object({
             competencyName: zod.string(),
-            competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+            competencyType: zod.enum(["conhecimento", "habilidade", "atitude"]),
             requiredLevel: zod.number(),
             acquiredLevel: zod.number(),
             status: zod
@@ -2437,7 +2437,7 @@ export const GetEmployeeResponse = zod
             employeeId: zod.number(),
             name: zod.string(),
             description: zod.string().nullish(),
-            type: zod.enum(["formacao", "experiencia", "habilidade"]),
+            type: zod.enum(["conhecimento", "habilidade", "atitude"]),
             requiredLevel: zod
               .number()
               .min(getEmployeeResponseTwoCompetenciesItemRequiredLevelMin)
@@ -2482,7 +2482,7 @@ export const GetEmployeeResponse = zod
             instructor: zod.string().nullish(),
             targetCompetencyName: zod.string().nullish(),
             targetCompetencyType: zod
-              .enum(["formacao", "experiencia", "habilidade"])
+              .enum(["conhecimento", "habilidade", "atitude"])
               .nullish(),
             targetCompetencyLevel: zod.number().nullish(),
             evaluationMethod: zod.string().nullish(),
@@ -2839,7 +2839,7 @@ export const UpdateEmployeeResponse = zod.object({
       requirements: zod.array(
         zod.object({
           competencyName: zod.string(),
-          competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+          competencyType: zod.enum(["conhecimento", "habilidade", "atitude"]),
           requiredLevel: zod.number(),
           acquiredLevel: zod.number(),
           status: zod
@@ -2905,7 +2905,7 @@ export const ListCompetenciesResponseItem = zod.object({
   employeeId: zod.number(),
   name: zod.string(),
   description: zod.string().nullish(),
-  type: zod.enum(["formacao", "experiencia", "habilidade"]),
+  type: zod.enum(["conhecimento", "habilidade", "atitude"]),
   requiredLevel: zod
     .number()
     .min(listCompetenciesResponseRequiredLevelMin)
@@ -2956,7 +2956,7 @@ export const createCompetencyBodyAttachmentsMax = 10;
 export const CreateCompetencyBody = zod.object({
   name: zod.string(),
   description: zod.string().optional(),
-  type: zod.enum(["formacao", "experiencia", "habilidade"]).optional(),
+  type: zod.enum(["conhecimento", "habilidade", "atitude"]).optional(),
   requiredLevel: zod
     .number()
     .min(createCompetencyBodyRequiredLevelMin)
@@ -3010,7 +3010,7 @@ export const updateCompetencyBodyAttachmentsMax = 10;
 export const UpdateCompetencyBody = zod.object({
   name: zod.string().optional(),
   description: zod.string().optional(),
-  type: zod.enum(["formacao", "experiencia", "habilidade"]).optional(),
+  type: zod.enum(["conhecimento", "habilidade", "atitude"]).optional(),
   requiredLevel: zod
     .number()
     .min(updateCompetencyBodyRequiredLevelMin)
@@ -3055,7 +3055,7 @@ export const UpdateCompetencyResponse = zod.object({
   employeeId: zod.number(),
   name: zod.string(),
   description: zod.string().nullish(),
-  type: zod.enum(["formacao", "experiencia", "habilidade"]),
+  type: zod.enum(["conhecimento", "habilidade", "atitude"]),
   requiredLevel: zod
     .number()
     .min(updateCompetencyResponseRequiredLevelMin)
@@ -3148,7 +3148,7 @@ export const ListTrainingsResponseItem = zod.object({
   instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
-    .enum(["formacao", "experiencia", "habilidade"])
+    .enum(["conhecimento", "habilidade", "atitude"])
     .nullish(),
   targetCompetencyLevel: zod.number().nullish(),
   evaluationMethod: zod.string().nullish(),
@@ -3338,7 +3338,7 @@ export const CreateTrainingBody = zod.object({
   instructor: zod.string().optional(),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod
-    .enum(["formacao", "experiencia", "habilidade"])
+    .enum(["conhecimento", "habilidade", "atitude"])
     .optional(),
   targetCompetencyLevel: zod
     .number()
@@ -3403,7 +3403,7 @@ export const UpdateTrainingBody = zod.object({
   instructor: zod.string().optional(),
   targetCompetencyName: zod.string().optional(),
   targetCompetencyType: zod
-    .enum(["formacao", "experiencia", "habilidade"])
+    .enum(["conhecimento", "habilidade", "atitude"])
     .optional(),
   targetCompetencyLevel: zod
     .number()
@@ -3491,7 +3491,7 @@ export const UpdateTrainingResponse = zod.object({
   instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
-    .enum(["formacao", "experiencia", "habilidade"])
+    .enum(["conhecimento", "habilidade", "atitude"])
     .nullish(),
   targetCompetencyLevel: zod.number().nullish(),
   evaluationMethod: zod.string().nullish(),
@@ -3715,7 +3715,7 @@ export const AssignTrainingEffectivenessResponse = zod.object({
   instructor: zod.string().nullish(),
   targetCompetencyName: zod.string().nullish(),
   targetCompetencyType: zod
-    .enum(["formacao", "experiencia", "habilidade"])
+    .enum(["conhecimento", "habilidade", "atitude"])
     .nullish(),
   targetCompetencyLevel: zod.number().nullish(),
   evaluationMethod: zod.string().nullish(),
@@ -5137,9 +5137,9 @@ export const GetDocumentResponse = zod.object({
               zod.object({
                 competencyName: zod.string(),
                 competencyType: zod.enum([
-                  "formacao",
-                  "experiencia",
+                  "conhecimento",
                   "habilidade",
+                  "atitude",
                 ]),
                 requiredLevel: zod.number(),
                 acquiredLevel: zod.number(),
@@ -5472,9 +5472,9 @@ export const UpdateDocumentResponse = zod.object({
               zod.object({
                 competencyName: zod.string(),
                 competencyType: zod.enum([
-                  "formacao",
-                  "experiencia",
+                  "conhecimento",
                   "habilidade",
+                  "atitude",
                 ]),
                 requiredLevel: zod.number(),
                 acquiredLevel: zod.number(),
@@ -5854,9 +5854,9 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
               zod.object({
                 competencyName: zod.string(),
                 competencyType: zod.enum([
-                  "formacao",
-                  "experiencia",
+                  "conhecimento",
                   "habilidade",
+                  "atitude",
                 ]),
                 requiredLevel: zod.number(),
                 acquiredLevel: zod.number(),
@@ -6251,9 +6251,9 @@ export const SubmitDocumentForReviewResponse = zod.object({
               zod.object({
                 competencyName: zod.string(),
                 competencyType: zod.enum([
-                  "formacao",
-                  "experiencia",
+                  "conhecimento",
                   "habilidade",
+                  "atitude",
                 ]),
                 requiredLevel: zod.number(),
                 acquiredLevel: zod.number(),
@@ -6564,9 +6564,9 @@ export const ApproveDocumentResponse = zod.object({
               zod.object({
                 competencyName: zod.string(),
                 competencyType: zod.enum([
-                  "formacao",
-                  "experiencia",
+                  "conhecimento",
                   "habilidade",
+                  "atitude",
                 ]),
                 requiredLevel: zod.number(),
                 acquiredLevel: zod.number(),
@@ -6877,9 +6877,9 @@ export const RejectDocumentResponse = zod.object({
               zod.object({
                 competencyName: zod.string(),
                 competencyType: zod.enum([
-                  "formacao",
-                  "experiencia",
+                  "conhecimento",
                   "habilidade",
+                  "atitude",
                 ]),
                 requiredLevel: zod.number(),
                 acquiredLevel: zod.number(),
@@ -7186,9 +7186,9 @@ export const ReviseDocumentResponse = zod.object({
               zod.object({
                 competencyName: zod.string(),
                 competencyType: zod.enum([
-                  "formacao",
-                  "experiencia",
+                  "conhecimento",
                   "habilidade",
+                  "atitude",
                 ]),
                 requiredLevel: zod.number(),
                 acquiredLevel: zod.number(),
@@ -7495,9 +7495,9 @@ export const DistributeDocumentResponse = zod.object({
               zod.object({
                 competencyName: zod.string(),
                 competencyType: zod.enum([
-                  "formacao",
-                  "experiencia",
+                  "conhecimento",
                   "habilidade",
+                  "atitude",
                 ]),
                 requiredLevel: zod.number(),
                 acquiredLevel: zod.number(),
@@ -7824,9 +7824,9 @@ export const UpdateDocumentContentResponse = zod.object({
               zod.object({
                 competencyName: zod.string(),
                 competencyType: zod.enum([
-                  "formacao",
-                  "experiencia",
+                  "conhecimento",
                   "habilidade",
+                  "atitude",
                 ]),
                 requiredLevel: zod.number(),
                 acquiredLevel: zod.number(),
@@ -22397,7 +22397,9 @@ export const CreateCompetencyCatalogItemParams = zod.object({
 
 export const CreateCompetencyCatalogItemBody = zod.object({
   name: zod.string().min(1),
-  competencyType: zod.string().optional(),
+  competencyType: zod
+    .enum(["conhecimento", "habilidade", "atitude"])
+    .optional(),
   category: zod.string().optional(),
   norm: zod.string().optional(),
   isMandatory: zod.boolean().optional(),
@@ -22430,7 +22432,9 @@ export const UpdateCompetencyCatalogItemParams = zod.object({
 
 export const UpdateCompetencyCatalogItemBody = zod.object({
   name: zod.string().min(1).optional(),
-  competencyType: zod.string().optional(),
+  competencyType: zod
+    .enum(["conhecimento", "habilidade", "atitude"])
+    .optional(),
   category: zod.string().optional(),
   norm: zod.string().optional(),
   isMandatory: zod.boolean().optional(),

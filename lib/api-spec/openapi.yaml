@@ -11136,6 +11136,7 @@ components:
           minLength: 1
         competencyType:
           type: string
+          enum: [conhecimento, habilidade, atitude]
         category:
           type: string
         norm:
@@ -11153,6 +11154,7 @@ components:
           minLength: 1
         competencyType:
           type: string
+          enum: [conhecimento, habilidade, atitude]
         category:
           type: string
         norm:
@@ -13009,7 +13011,7 @@ components:
                 type: string
               competencyType:
                 type: string
-                enum: [formacao, experiencia, habilidade]
+                enum: [conhecimento, habilidade, atitude]
               requiredLevel:
                 type: integer
               acquiredLevel:
@@ -13159,7 +13161,7 @@ components:
           nullable: true
         type:
           type: string
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         requiredLevel:
           type: integer
           minimum: 0
@@ -13223,7 +13225,7 @@ components:
         targetCompetencyType:
           type: string
           nullable: true
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         targetCompetencyLevel:
           type: integer
           nullable: true
@@ -13327,7 +13329,7 @@ components:
         targetCompetencyType:
           type: string
           nullable: true
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         targetCompetencyLevel:
           type: integer
           nullable: true
@@ -13605,7 +13607,7 @@ components:
           type: string
         competencyType:
           type: string
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         requiredLevel:
           type: integer
           minimum: 0
@@ -13690,7 +13692,7 @@ components:
           type: string
         competencyType:
           type: string
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         requiredLevel:
           type: integer
         acquiredLevel:
@@ -14079,7 +14081,7 @@ components:
           type: string
         type:
           type: string
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         requiredLevel:
           type: integer
           minimum: 0
@@ -14118,7 +14120,7 @@ components:
           type: string
         targetCompetencyType:
           type: string
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         targetCompetencyLevel:
           type: integer
           minimum: 0
@@ -14192,7 +14194,7 @@ components:
           type: string
         type:
           type: string
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         requiredLevel:
           type: integer
           minimum: 0
@@ -14226,7 +14228,7 @@ components:
           type: string
         targetCompetencyType:
           type: string
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         targetCompetencyLevel:
           type: integer
           minimum: 0
@@ -14349,7 +14351,7 @@ components:
           minLength: 1
         competencyType:
           type: string
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         requiredLevel:
           type: integer
           minimum: 0
@@ -14372,7 +14374,7 @@ components:
           minLength: 1
         competencyType:
           type: string
-          enum: [formacao, experiencia, habilidade]
+          enum: [conhecimento, habilidade, atitude]
         requiredLevel:
           type: integer
           minimum: 0

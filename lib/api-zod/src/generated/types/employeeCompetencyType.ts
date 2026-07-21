@@ -10,7 +10,7 @@ export type EmployeeCompetencyType =
   (typeof EmployeeCompetencyType)[keyof typeof EmployeeCompetencyType];
 
 export const EmployeeCompetencyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;
