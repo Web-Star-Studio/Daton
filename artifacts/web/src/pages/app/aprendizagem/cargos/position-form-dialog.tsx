@@ -20,7 +20,10 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useActiveNorms, useAllNorms, buildNormLabelMap } from "@/lib/norms-client";
-import { useActiveAreas, useAllAreas, buildAreaLabelMap } from "@/lib/areas-client";
+import {
+  useAllDepartments,
+  buildDepartmentLabelMap,
+} from "@/lib/departments-client";
 
 // Nível e Escolaridade seguem listas FIXAS (não são catálogo gerenciável) —
 // apenas com o visual de combobox com busca.
@@ -35,7 +38,7 @@ const EDUCATION_OPTIONS = [
 
 interface FormState {
   name: string;
-  areaId: string;
+  departmentId: string;
   level: string;
   principalNormId: string;
   education: string;
@@ -46,7 +49,7 @@ interface FormState {
 
 const EMPTY: FormState = {
   name: "",
-  areaId: "",
+  departmentId: "",
   level: "",
   principalNormId: "",
   education: "",
@@ -58,7 +61,7 @@ const EMPTY: FormState = {
 function fromPosition(p: Position): FormState {
   return {
     name: p.name ?? "",
-    areaId: p.areaId != null ? String(p.areaId) : "",
+    departmentId: p.departmentId != null ? String(p.departmentId) : "",
     level: p.level ?? "",
     principalNormId: p.principalNormId != null ? String(p.principalNormId) : "",
     education: p.education ?? "",
@@ -83,15 +86,15 @@ export function PositionFormDialog({
 }) {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [, setLocation] = useLocation();
-  const { isOrgAdmin } = usePermissions();
+  const { hasModuleAccess } = usePermissions();
+  const canManageDepartments = hasModuleAccess("departments");
   const createMut = useCreatePosition();
   const updateMut = useUpdatePosition();
   const { data: activeNorms = [] } = useActiveNorms(orgId);
   const { data: allNorms = [] } = useAllNorms(orgId);
   const normLabelMap = buildNormLabelMap(allNorms);
-  const { data: activeAreas = [] } = useActiveAreas(orgId);
-  const { data: allAreas = [] } = useAllAreas(orgId);
-  const areaLabelMap = buildAreaLabelMap(allAreas);
+  const { data: departments = [] } = useAllDepartments(orgId);
+  const departmentLabelMap = buildDepartmentLabelMap(departments);
 
   useEffect(() => {
     if (open) setForm(position ? fromPosition(position) : EMPTY);
@@ -109,17 +112,20 @@ export function PositionFormDialog({
     if (label) normOptions.push({ id: selectedNormId, label });
   }
 
-  // Área vem do catálogo gerenciável (`areas`), referenciada por id. Opções = as
-  // ativas + a área já selecionada (mesmo se hoje inativa), para a edição não
-  // perder a seleção atual. Criar/renomear é só na tela de gestão (engrenagem).
-  const selectedAreaId = form.areaId ? Number(form.areaId) : null;
-  const areaOptions: SearchableOption[] = activeAreas.map((a) => ({
-    value: String(a.id),
-    label: a.label,
+  // Departamento vem do módulo Organização → Departamentos, referenciado por id.
+  // Opções = todos os departamentos + o já selecionado (defensivo, caso ainda não
+  // esteja na lista carregada). Criar/gerir é na tela de Departamentos (engrenagem).
+  const selectedDeptId = form.departmentId ? Number(form.departmentId) : null;
+  const departmentOptions: SearchableOption[] = departments.map((d) => ({
+    value: String(d.id),
+    label: d.name,
   }));
-  if (selectedAreaId != null && !areaOptions.some((o) => o.value === form.areaId)) {
-    const label = areaLabelMap.get(selectedAreaId);
-    if (label) areaOptions.push({ value: form.areaId, label });
+  if (
+    selectedDeptId != null &&
+    !departmentOptions.some((o) => o.value === form.departmentId)
+  ) {
+    const label = departmentLabelMap.get(selectedDeptId);
+    if (label) departmentOptions.push({ value: form.departmentId, label });
   }
 
   // Nível/Escolaridade: listas FIXAS + o valor atual (mesmo legado importado,
@@ -130,9 +136,9 @@ export function PositionFormDialog({
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const goToAreaSettings = () => {
+  const goToDepartments = () => {
     onClose();
-    setLocation("/configuracoes/sistema?tab=areas");
+    setLocation("/app/organizacao/departamentos");
   };
 
   const pending = createMut.isPending || updateMut.isPending;
@@ -141,11 +147,9 @@ export function PositionFormDialog({
     // Enviar os valores crus (inclusive "") — assim a edição consegue LIMPAR um
     // campo. Com `|| undefined` o JSON.stringify descartaria a chave e o PATCH
     // (`.set(body.data)`) nunca receberia, revertendo silenciosamente.
-    // `area` (texto legado) NÃO é enviado: a fonte agora é `areaId`, e omitir a
-    // chave deixa a coluna legada intocada.
     const data = {
       name: form.name.trim(),
-      areaId: form.areaId ? Number(form.areaId) : null,
+      departmentId: form.departmentId ? Number(form.departmentId) : null,
       level: form.level,
       principalNormId: form.principalNormId ? Number(form.principalNormId) : null,
       education: form.education,
@@ -192,14 +196,14 @@ export function PositionFormDialog({
         </div>
         <div>
           <div className="flex items-center justify-between">
-            <Label>Área</Label>
-            {isOrgAdmin && (
+            <Label>Departamento</Label>
+            {canManageDepartments && (
               <button
                 type="button"
-                onClick={goToAreaSettings}
+                onClick={goToDepartments}
                 className="flex items-center gap-1 rounded p-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                title="Gerenciar áreas"
-                aria-label="Gerenciar áreas"
+                title="Gerenciar departamentos"
+                aria-label="Gerenciar departamentos"
               >
                 <Settings className="h-3.5 w-3.5" />
                 Gerenciar
@@ -208,12 +212,12 @@ export function PositionFormDialog({
           </div>
           <div className="mt-1">
             <SearchableSelect
-              value={form.areaId}
-              onChange={(v) => set("areaId", v)}
-              options={areaOptions}
-              placeholder="Selecione uma área..."
-              searchPlaceholder="Buscar área..."
-              emptyMessage="Nenhuma área cadastrada. Use ⚙ Gerenciar."
+              value={form.departmentId}
+              onChange={(v) => set("departmentId", v)}
+              options={departmentOptions}
+              placeholder="Selecione um departamento..."
+              searchPlaceholder="Buscar departamento..."
+              emptyMessage="Nenhum departamento cadastrado. Use ⚙ Gerenciar."
             />
           </div>
         </div>

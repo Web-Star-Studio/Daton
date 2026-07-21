@@ -28,9 +28,13 @@ export const positionsTable = pgTable("positions", {
   // já importado; a fonte atual é o catálogo `areas` via `areaId`. Backfill em
   // scripts/src/migrate/areas-backfill.ts liga cada cargo à sua área.
   area: text("area"),
-  // Área (setor) do cargo — catálogo `areas.id`. Integer simples aqui; a FK
-  // (ON DELETE SET NULL) é adicionada por DDL, mesma convenção de principalNormId.
+  // Área (setor) do cargo — catálogo `areas.id`. DEPRECADO: o conceito correto é
+  // Departamento (departments), então a fonte atual é `departmentId`. Mantido
+  // dormente para não perder o vínculo até o backfill area→departamento.
   areaId: integer("area_id"),
+  // Departamento do cargo — `departments.id`. Integer simples aqui; a FK
+  // (ON DELETE SET NULL) é adicionada por DDL, mesma convenção de principalNormId.
+  departmentId: integer("department_id"),
   // Norma ISO principal do cargo (regulatory_norms.id). Integer simples aqui — a FK
   // (ON DELETE SET NULL) é adicionada por DDL, seguindo a convenção do repo de evitar
   // referência no schema Drizzle.
