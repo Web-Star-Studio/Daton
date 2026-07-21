@@ -13171,6 +13171,12 @@ components:
               manualCompetencyId:
                 type: integer
                 nullable: true
+                description: >-
+                  Id do employee_competency que atesta este requisito à mão,
+                  quando existe. Populado sempre que há atestado manual casado —
+                  inclusive quando source é "treinamento" (o treino vence como
+                  fonte, mas o atestado manual segue editável pelo id). null só
+                  quando não há atestado manual para a chave.
             required:
               - competencyName
               - competencyType
@@ -18765,7 +18771,8 @@ components:
           enum: [up, down]
         periodicity:
           type: string
-          enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+          enum:
+            [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
         referenceMonth:
           type: integer
           minimum: 1
@@ -18836,7 +18843,8 @@ components:
           enum: [up, down]
         periodicity:
           type: string
-          enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+          enum:
+            [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
         referenceMonth:
           type: integer
           minimum: 1
@@ -18898,7 +18906,8 @@ components:
           enum: [up, down]
         periodicity:
           type: string
-          enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+          enum:
+            [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
         referenceMonth:
           type: integer
           minimum: 1
@@ -19604,7 +19613,23 @@ components:
 
     ActionPlanSourceModule:
       type: string
-      enum: [kpi, swot, manual, improvement, corrective, norm_requirement, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
+      enum:
+        [
+          kpi,
+          swot,
+          manual,
+          improvement,
+          corrective,
+          norm_requirement,
+          nonconformity,
+          audit_finding,
+          risk,
+          training,
+          environmental,
+          road_safety,
+          incident,
+          rac,
+        ]
 
     ActionPlanType:
       type: string
@@ -19612,7 +19637,15 @@ components:
 
     ActionPlanEffectivenessMethod:
       type: string
-      enum: [indicator, internal_audit, field_inspection, training, sampling, risk_reduction]
+      enum:
+        [
+          indicator,
+          internal_audit,
+          field_inspection,
+          training,
+          sampling,
+          risk_reduction,
+        ]
 
     ActionPlanEffectivenessResult:
       type: string
@@ -19628,7 +19661,17 @@ components:
 
     ActionPlanAnalysisMethodKey:
       type: string
-      enum: [five_whys, ishikawa, a3, fmea, fault_tree, kepner_tregoe, rca_apollo, barrier_analysis]
+      enum:
+        [
+          five_whys,
+          ishikawa,
+          a3,
+          fmea,
+          fault_tree,
+          kepner_tregoe,
+          rca_apollo,
+          barrier_analysis,
+        ]
 
     ActionPlanAnalysisMethod:
       type: object
@@ -19670,7 +19713,15 @@ components:
               id: { type: string }
               category:
                 type: string
-                enum: [metodo, maquina, mao_de_obra, material, medicao, meio_ambiente]
+                enum:
+                  [
+                    metodo,
+                    maquina,
+                    mao_de_obra,
+                    material,
+                    medicao,
+                    meio_ambiente,
+                  ]
               text: { type: string }
         selectedCauseId: { type: string }
         whys: { type: array, maxItems: 5, items: { type: string } }
@@ -19788,8 +19839,13 @@ components:
             properties:
               id: { type: string }
               name: { type: string }
-              type: { type: string, enum: [fisica, administrativa, humana, procedimental] }
-              status: { type: string, enum: [ausente, falhou, ineficaz, funcionou] }
+              type:
+                {
+                  type: string,
+                  enum: [fisica, administrativa, humana, procedimental],
+                }
+              status:
+                { type: string, enum: [ausente, falhou, ineficaz, funcionou] }
               failureReason: { type: string }
 
     # União discriminada por `key`. Se a saída do Orval para isto degradar (ver Step 3),
@@ -19852,7 +19908,8 @@ components:
         responsibleUserId: { type: integer, nullable: true }
         responsibleUserName: { type: string, nullable: true }
         dueDate: { type: string, format: date-time, nullable: true }
-        status: { type: string, enum: [open, in_progress, completed, cancelled] }
+        status:
+          { type: string, enum: [open, in_progress, completed, cancelled] }
         completedAt: { type: string, format: date-time, nullable: true }
         notes: { type: string, nullable: true }
         sortOrder: { type: integer }
@@ -19868,7 +19925,8 @@ components:
         howMuch: { type: string, nullable: true }
         responsibleUserId: { type: integer, nullable: true }
         dueDate: { type: string, format: date-time, nullable: true }
-        status: { type: string, enum: [open, in_progress, completed, cancelled] }
+        status:
+          { type: string, enum: [open, in_progress, completed, cancelled] }
         notes: { type: string, nullable: true }
 
     UpdateActionPlanActionBody:
@@ -19881,7 +19939,8 @@ components:
         howMuch: { type: string, nullable: true }
         responsibleUserId: { type: integer, nullable: true }
         dueDate: { type: string, format: date-time, nullable: true }
-        status: { type: string, enum: [open, in_progress, completed, cancelled] }
+        status:
+          { type: string, enum: [open, in_progress, completed, cancelled] }
         notes: { type: string, nullable: true }
         sortOrder: { type: integer }
 
@@ -21551,7 +21610,15 @@ components:
           type: integer
         latestRenewalStatus:
           type: ["string", "null"]
-          enum: [nao_iniciado, em_andamento, protocolado, renovado, indeferido, null]
+          enum:
+            [
+              nao_iniciado,
+              em_andamento,
+              protocolado,
+              renovado,
+              indeferido,
+              null,
+            ]
         createdAt:
           type: string
         updatedAt:

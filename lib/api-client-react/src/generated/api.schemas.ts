@@ -1392,6 +1392,7 @@ export type EmployeeCompetencyConformanceRequirementsItem = {
   evidence: EmployeeCompetencyConformanceRequirementsItemEvidence;
   gapLevel: number;
   critical: boolean;
+  /** Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é "treinamento" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave. */
   manualCompetencyId?: number | null;
 };
 

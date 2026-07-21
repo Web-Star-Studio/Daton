@@ -1608,7 +1608,12 @@ export const ListEmployeesResponse = zod.object({
                 .nullable(),
               gapLevel: zod.number(),
               critical: zod.boolean(),
-              manualCompetencyId: zod.number().nullish(),
+              manualCompetencyId: zod
+                .number()
+                .nullish()
+                .describe(
+                  'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+                ),
             }),
           ),
           gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -2407,7 +2412,12 @@ export const GetEmployeeResponse = zod
               .nullable(),
             gapLevel: zod.number(),
             critical: zod.boolean(),
-            manualCompetencyId: zod.number().nullish(),
+            manualCompetencyId: zod
+              .number()
+              .nullish()
+              .describe(
+                'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+              ),
           }),
         ),
         gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -2861,7 +2871,12 @@ export const UpdateEmployeeResponse = zod.object({
             .nullable(),
           gapLevel: zod.number(),
           critical: zod.boolean(),
-          manualCompetencyId: zod.number().nullish(),
+          manualCompetencyId: zod
+            .number()
+            .nullish()
+            .describe(
+              'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+            ),
         }),
       ),
       gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -5273,7 +5288,12 @@ export const GetDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
-                manualCompetencyId: zod.number().nullish(),
+                manualCompetencyId: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -5609,7 +5629,12 @@ export const UpdateDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
-                manualCompetencyId: zod.number().nullish(),
+                manualCompetencyId: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -5992,7 +6017,12 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
-                manualCompetencyId: zod.number().nullish(),
+                manualCompetencyId: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -6390,7 +6420,12 @@ export const SubmitDocumentForReviewResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
-                manualCompetencyId: zod.number().nullish(),
+                manualCompetencyId: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -6704,7 +6739,12 @@ export const ApproveDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
-                manualCompetencyId: zod.number().nullish(),
+                manualCompetencyId: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -7018,7 +7058,12 @@ export const RejectDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
-                manualCompetencyId: zod.number().nullish(),
+                manualCompetencyId: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -7328,7 +7373,12 @@ export const ReviseDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
-                manualCompetencyId: zod.number().nullish(),
+                manualCompetencyId: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -7638,7 +7688,12 @@ export const DistributeDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
-                manualCompetencyId: zod.number().nullish(),
+                manualCompetencyId: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -7968,7 +8023,12 @@ export const UpdateDocumentContentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
-                manualCompetencyId: zod.number().nullish(),
+                manualCompetencyId: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),

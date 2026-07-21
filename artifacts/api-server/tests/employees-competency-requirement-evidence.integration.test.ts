@@ -1,5 +1,6 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
+import { db, employeeCompetenciesTable } from "@workspace/db";
 import app from "../src/app";
 import {
   authHeader,
@@ -192,5 +193,143 @@ describe("POST .../competency-requirement-evidence — upsert por requisito", ()
       });
 
     expect(response.status).toBe(400);
+  });
+
+  it("editar enviando attachments: [] limpa os anexos (não preserva o anterior)", async () => {
+    // Achado do revisor: `sanitizeEmployeeRecordAttachments([])` vira
+    // `undefined`; sem tratar "array vazio explícito" ≠ "campo omitido", remover
+    // o último anexo era descartado e o anexo antigo reaparecia.
+    const context = await createTestContext({
+      seed: "comp-req-evidencia-clear",
+    });
+    contexts.push(context);
+
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+    });
+    const competencyName = `Com Anexo ${context.prefix}`;
+
+    // Insere direto uma competência JÁ com anexo (bypass da validação de
+    // storage, que exige o arquivo existir no R2).
+    const [seeded] = await db
+      .insert(employeeCompetenciesTable)
+      .values({
+        employeeId: employee.id,
+        name: competencyName,
+        type: "conhecimento",
+        requiredLevel: 3,
+        acquiredLevel: 3,
+        evidence: "Certificado",
+        attachments: [
+          {
+            fileName: "cert.pdf",
+            fileSize: 1000,
+            contentType: "application/pdf",
+            objectPath: "/objects/uploads/cert.pdf",
+          },
+        ] as never,
+      })
+      .returning();
+    expect(seeded.attachments).toHaveLength(1);
+
+    // Edita pela chave enviando attachments: [] (limpar).
+    const updated = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}/competency-requirement-evidence`,
+      )
+      .set(authHeader(context))
+      .send({
+        competencyName,
+        competencyType: "conhecimento",
+        requiredLevel: 3,
+        acquiredLevel: 3,
+        evidence: "Certificado",
+        attachments: [],
+      });
+    expect(updated.status).toBe(200);
+    expect(updated.body.id).toBe(seeded.id);
+    expect(updated.body.attachments).toHaveLength(0);
+
+    // GET confirma que o anexo antigo NÃO reaparece após refetch.
+    const detail = await request(app)
+      .get(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}`,
+      )
+      .set(authHeader(context));
+    const comp = (
+      detail.body.competencies as { id: number; attachments: unknown[] }[]
+    ).find((c) => c.id === seeded.id);
+    expect(comp?.attachments).toHaveLength(0);
+  });
+
+  it("empate de nível entre duplicatas legadas: manualCompetencyId aponta para o MENOR id (mesmo desempate do endpoint)", async () => {
+    const context = await createTestContext({
+      seed: "comp-req-evidencia-tiebreak",
+    });
+    contexts.push(context);
+
+    const position = await createPosition(context, {
+      name: `Cargo ${context.prefix}`,
+    });
+    const competencyName = `Auditor Dup ${context.prefix}`;
+    const requirement = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/positions/${position.id}/competency-requirements`,
+      )
+      .set(authHeader(context))
+      .send({
+        competencyName,
+        competencyType: "conhecimento",
+        requiredLevel: 3,
+      });
+    expect(requirement.status).toBe(201);
+
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+      position: position.name,
+    });
+
+    // Duas competências com a MESMA chave e MESMO nível (duplicata legada) — o
+    // endpoint de criar competência não deduplica.
+    const c1 = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}/competencies`,
+      )
+      .set(authHeader(context))
+      .send({
+        name: competencyName,
+        type: "conhecimento",
+        requiredLevel: 3,
+        acquiredLevel: 3,
+      });
+    const c2 = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}/competencies`,
+      )
+      .set(authHeader(context))
+      .send({
+        name: competencyName,
+        type: "conhecimento",
+        requiredLevel: 3,
+        acquiredLevel: 3,
+      });
+    expect(c1.status).toBe(201);
+    expect(c2.status).toBe(201);
+    const lowerId = Math.min(c1.body.id, c2.body.id);
+
+    const detail = await request(app)
+      .get(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}`,
+      )
+      .set(authHeader(context));
+    const row = (
+      detail.body.competencyConformance.requirements as {
+        competencyName: string;
+        manualCompetencyId: number | null;
+      }[]
+    ).find((r) => r.competencyName === competencyName);
+    // O resolvedor desempata por MENOR id — a mesma linha que o endpoint de
+    // upsert (orderBy desc(level), asc(id)) editaria.
+    expect(row?.manualCompetencyId).toBe(lowerId);
   });
 });

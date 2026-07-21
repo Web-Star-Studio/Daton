@@ -3316,9 +3316,14 @@ router.post(
       return;
     }
 
-    const attachments = sanitizeEmployeeRecordAttachments(
-      body.data.attachments,
-    );
+    // Distinguir "campo omitido" (preservar anexos atuais) de "array vazio
+    // explícito" (limpar). `sanitizeEmployeeRecordAttachments([])` devolve
+    // `undefined`, então sem essa distinção remover o último anexo na edição
+    // era descartado e o anexo antigo reaparecia (achado do revisor).
+    const attachmentsProvided = body.data.attachments !== undefined;
+    const attachments = attachmentsProvided
+      ? (sanitizeEmployeeRecordAttachments(body.data.attachments) ?? [])
+      : undefined;
     const attachmentValidationError =
       await validateEmployeeRecordAttachments(attachments);
     if (attachmentValidationError) {
@@ -3368,7 +3373,7 @@ router.post(
             // treinamento (Math.max), aqui o valor do corpo vale exatamente.
             acquiredLevel: body.data.acquiredLevel,
             evidence: body.data.evidence ?? null,
-            ...(attachments !== undefined ? { attachments } : {}),
+            ...(attachmentsProvided ? { attachments } : {}),
           })
           .where(eq(employeeCompetenciesTable.id, match.id))
           .returning();
@@ -3382,7 +3387,7 @@ router.post(
             requiredLevel: body.data.requiredLevel,
             acquiredLevel: body.data.acquiredLevel,
             evidence: body.data.evidence ?? null,
-            attachments: attachments || [],
+            attachments: attachments ?? [],
           })
           .returning();
       }

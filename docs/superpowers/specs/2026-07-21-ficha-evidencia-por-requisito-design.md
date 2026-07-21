@@ -54,12 +54,13 @@ Diálogo focado (mais simples que o de 3 passos de "Nova Competência"), aberto 
 
 Novo endpoint que grava o atestado manual **casando a chave no servidor**:
 
-```
+```text
 POST /organizations/{orgId}/employees/{empId}/competency-requirement-evidence
 body: { competencyName, competencyType, requiredLevel, acquiredLevel, evidence?, attachments? }
 ```
 
 Comportamento (reutiliza o padrão já existente em `employees.ts:3958-4003`):
+
 - Carrega `employee_competencies` do colaborador; procura por `buildCompetencyKey(competencyName, competencyType)`.
 - **Existe** → `update` (define `acquiredLevel`, `evidence`, `attachments`, e `requiredLevel` do requisito). Aqui o nível é **exatamente** o enviado (edição manual pode baixar; diferente do fluxo de eficácia, que usa `max`).
 - **Não existe** → `insert` com `name/type/requiredLevel` do requisito + `acquiredLevel/evidence/attachments`.
@@ -72,10 +73,11 @@ Os endpoints atuais (`POST/PATCH/DELETE .../competencies`) **permanecem** — se
 
 Para "Outras competências" mostrar **só** o que não é requisito, e para a linha do requisito saber qual atestado editar, o backend marca o vínculo (nunca o frontend):
 
-- **`ResolvedRequirement.manualCompetencyId: number | null`** — o `employee_competencies.id` que atesta aquele requisito (quando `source = manual`), para a linha abrir o diálogo em modo edição.
+- **`ResolvedRequirement.manualCompetencyId: number | null`** — o `employee_competencies.id` que atesta aquele requisito à mão, populado **sempre que há atestado manual casado** (mesmo quando a `source` resolvida é `treinamento` — o atestado manual continua editável pelo id), para a linha abrir o diálogo em modo edição. `null` só quando não há atestado manual.
 - **Registro de competência ganha `isPositionRequirement: boolean`** no retorno do GET do colaborador — `true` quando a chave da competência casa com algum requisito do cargo. Computado no handler com `buildCompetencyKey` contra o conjunto de requisitos do cargo.
 
 Frontend:
+
 - **"Competências do cargo"** = `conformance.requirements` (como hoje) + ações.
 - **"Outras competências"** = `employee.competencies.filter(c => !c.isPositionRequirement)`. Subtítulo: **"Qualificações além das que o cargo exige"**. Botão "Nova Competência" mantém a criação livre. Se a lista ficar vazia, some (ou mostra estado vazio discreto).
 
@@ -105,13 +107,13 @@ Nenhuma tabela nova, **nenhuma DDL**. Só leitura/escrita em `employee_competenc
 ## Testes
 
 - **Backend (integração):** upsert cria quando não existe; atualiza (inclusive baixando nível) quando existe; a linha do requisito correspondente passa a `atende` no GET do colaborador; `isPositionRequirement`/`manualCompetencyId` corretos; permissão (analyst 403); anexo inválido 400.
-- **Resolver (unit):** `manualCompetencyId` populado quando há atestado manual casado; `null` quando a fonte é treino ou não há atestado.
+- **Resolver (unit):** `manualCompetencyId` populado sempre que há atestado manual casado (inclusive quando a fonte resolvida é treino); `null` só quando não há atestado manual; empate de nível entre duplicatas legadas resolve pelo menor id (mesmo desempate do endpoint).
 - **Frontend (web-unit):** "Outras competências" filtra os `isPositionRequirement`; a linha escolhe botão/edição conforme status+source; diálogo trava nome/tipo e default de nível = requerido.
 - **Navegador (validação final, vira o artifact de prints):** anexar certificado numa linha "Não avaliável" → vira "Atende" com o anexo; competência de nome livre aparece em "Outras competências"; envio de nome divergente pela API não quebra o casamento (o servidor usa a chave).
 
 ## Nomenclatura final
 
-| Bloco | Título | Subtítulo |
-|---|---|---|
-| Cargo (topo) | **Competências do cargo** | Exigidas pelo cargo · anexe a evidência de cada uma |
-| Manual (baixo) | **Outras competências** | Qualificações além das que o cargo exige |
+| Bloco          | Título                    | Subtítulo                                           |
+| -------------- | ------------------------- | --------------------------------------------------- |
+| Cargo (topo)   | **Competências do cargo** | Exigidas pelo cargo · anexe a evidência de cada uma |
+| Manual (baixo) | **Outras competências**   | Qualificações além das que o cargo exige            |

@@ -56,6 +56,12 @@ export interface ResolvedRequirement {
   evidence: CompetencyEvidence | null;
   gapLevel: number;
   critical: boolean;
+  // Id do `employee_competencies` que atesta este requisito à mão, quando
+  // existe — populado SEMPRE que há atestado manual casado, mesmo que a
+  // `source` resolvida seja "treinamento" (um treino de nível igual/maior
+  // vence como fonte, mas o atestado manual continua existindo e o front
+  // precisa do id para permitir editá-lo/removê-lo). `null` só quando não há
+  // atestado manual nenhum para a chave.
   manualCompetencyId: number | null;
 }
 
@@ -199,12 +205,16 @@ export async function resolveEmployeeCompetencies(
       const byKey = manualByEmployee.get(comp.employeeId) ?? new Map();
       // Presença da chave é o que distingue "há atestado manual" de "não há
       // linha nenhuma" (achado 1) — por isso a primeira ocorrência SEMPRE
-      // grava, mesmo com acquiredLevel 0. Só depois disso é que o maior
-      // nível vence entre ocorrências duplicadas da mesma chave; empatando,
-      // mantém a primeira (não substitui).
+      // grava, mesmo com acquiredLevel 0. Entre duplicatas legadas da mesma
+      // chave, vence o MAIOR nível; empatando, o MENOR id — o MESMO desempate
+      // do endpoint de upsert (`orderBy(desc(acquiredLevel), asc(id))`), para
+      // que `manualCompetencyId` aponte para a mesma linha que a edição/remoção
+      // vai atingir.
+      const cur = byKey.get(key);
       if (
-        !byKey.has(key) ||
-        comp.acquiredLevel > (byKey.get(key)?.level ?? 0)
+        !cur ||
+        comp.acquiredLevel > cur.level ||
+        (comp.acquiredLevel === cur.level && comp.id < cur.id)
       ) {
         byKey.set(key, { level: comp.acquiredLevel, id: comp.id });
       }
