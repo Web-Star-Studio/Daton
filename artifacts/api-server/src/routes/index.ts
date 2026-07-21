@@ -42,6 +42,7 @@ import regulatoryDocumentsRouter from "./regulatory-documents";
 import regulatoryNormsRouter from "./regulatory-norms";
 import actionPlanAnalysisMethodsRouter from "./action-plan-analysis-methods";
 import effectivenessMethodsRouter from "./effectiveness-methods";
+import areasRouter from "./areas";
 import pendenciasRouter from "./pendencias";
 import learningSummaryRouter from "./learning-summary";
 const router: IRouter = Router();
@@ -256,6 +257,10 @@ router.use(requireAuth, requireCompletedOnboarding, regulatoryNormsRouter);
 // leitura livre a qualquer usuário autenticado da org; a gate admin na escrita
 // vive na própria rota (requireRole("org_admin")).
 router.use(requireAuth, requireCompletedOnboarding, effectivenessMethodsRouter);
+// Catálogo de áreas de cargo: mesmo raciocínio — leitura livre a qualquer
+// usuário autenticado da org (o form de cargo resolve o rótulo), escrita
+// gated a org_admin na própria rota.
+router.use(requireAuth, requireCompletedOnboarding, areasRouter);
 // Mesmo raciocínio: cross-module, leitura livre, gate admin na própria rota.
 router.use(requireAuth, requireCompletedOnboarding, actionPlanAnalysisMethodsRouter);
 

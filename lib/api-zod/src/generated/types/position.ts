@@ -19,6 +19,7 @@ export interface Position {
   minSalary?: number | null;
   maxSalary?: number | null;
   area?: string | null;
+  areaId?: number | null;
   principalNormId?: number | null;
   competencyCount?: number;
   createdAt?: string;

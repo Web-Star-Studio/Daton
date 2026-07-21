@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
+import { Settings } from "lucide-react";
 import {
   useCreatePosition,
   useUpdatePosition,
@@ -13,19 +15,15 @@ import { Select } from "@/components/ui/select";
 import {
   SearchableSelect,
   toNameOptions,
+  type SearchableOption,
 } from "@/components/ui/searchable-select";
 import { toast } from "@/hooks/use-toast";
+import { usePermissions } from "@/contexts/AuthContext";
 import { useActiveNorms, useAllNorms, buildNormLabelMap } from "@/lib/norms-client";
-import { deriveDistinct } from "./cargos-utils";
+import { useActiveAreas, useAllAreas, buildAreaLabelMap } from "@/lib/areas-client";
 
-const AREA_OPTIONS = [
-  "Operações",
-  "Logística",
-  "Qualidade",
-  "Manutenção",
-  "Administrativo",
-  "TI",
-];
+// Nível e Escolaridade seguem listas FIXAS (não são catálogo gerenciável) —
+// apenas com o visual de combobox com busca.
 const LEVEL_OPTIONS = ["Operacional", "Tático", "Estratégico"];
 const EDUCATION_OPTIONS = [
   "Ensino Fundamental",
@@ -37,7 +35,7 @@ const EDUCATION_OPTIONS = [
 
 interface FormState {
   name: string;
-  area: string;
+  areaId: string;
   level: string;
   principalNormId: string;
   education: string;
@@ -48,7 +46,7 @@ interface FormState {
 
 const EMPTY: FormState = {
   name: "",
-  area: "",
+  areaId: "",
   level: "",
   principalNormId: "",
   education: "",
@@ -60,7 +58,7 @@ const EMPTY: FormState = {
 function fromPosition(p: Position): FormState {
   return {
     name: p.name ?? "",
-    area: p.area ?? "",
+    areaId: p.areaId != null ? String(p.areaId) : "",
     level: p.level ?? "",
     principalNormId: p.principalNormId != null ? String(p.principalNormId) : "",
     education: p.education ?? "",
@@ -74,25 +72,26 @@ export function PositionFormDialog({
   orgId,
   open,
   position,
-  positions,
   onClose,
   onSaved,
 }: {
   orgId: number;
   open: boolean;
   position: Position | null;
-  /** Todos os cargos da org — usados para sugerir as áreas/níveis/escolaridades
-   *  já cadastrados (o usuário também pode criar novos in-loco). */
-  positions: Position[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [form, setForm] = useState<FormState>(EMPTY);
+  const [, setLocation] = useLocation();
+  const { isOrgAdmin } = usePermissions();
   const createMut = useCreatePosition();
   const updateMut = useUpdatePosition();
   const { data: activeNorms = [] } = useActiveNorms(orgId);
   const { data: allNorms = [] } = useAllNorms(orgId);
   const normLabelMap = buildNormLabelMap(allNorms);
+  const { data: activeAreas = [] } = useActiveAreas(orgId);
+  const { data: allAreas = [] } = useAllAreas(orgId);
+  const areaLabelMap = buildAreaLabelMap(allAreas);
 
   useEffect(() => {
     if (open) setForm(position ? fromPosition(position) : EMPTY);
@@ -110,26 +109,31 @@ export function PositionFormDialog({
     if (label) normOptions.push({ id: selectedNormId, label });
   }
 
-  // Área/Nível/Escolaridade são texto livre. As opções = defaults + valores já
-  // usados nos cargos da org + o valor atual (mesmo legado importado, para não
-  // abrir em branco nem sobrescrever ao salvar). O SearchableSelect permite
-  // ainda digitar um novo valor e criá-lo in-loco (onCreateOption). `toNameOptions`
-  // dedup case-insensitive e garante que o valor atual apareça como opção.
-  const areaOptions = toNameOptions(
-    [...AREA_OPTIONS, ...deriveDistinct(positions, "area")],
-    form.area,
-  );
-  const levelOptions = toNameOptions(
-    [...LEVEL_OPTIONS, ...deriveDistinct(positions, "level")],
-    form.level,
-  );
-  const educationOptions = toNameOptions(
-    [...EDUCATION_OPTIONS, ...deriveDistinct(positions, "education")],
-    form.education,
-  );
+  // Área vem do catálogo gerenciável (`areas`), referenciada por id. Opções = as
+  // ativas + a área já selecionada (mesmo se hoje inativa), para a edição não
+  // perder a seleção atual. Criar/renomear é só na tela de gestão (engrenagem).
+  const selectedAreaId = form.areaId ? Number(form.areaId) : null;
+  const areaOptions: SearchableOption[] = activeAreas.map((a) => ({
+    value: String(a.id),
+    label: a.label,
+  }));
+  if (selectedAreaId != null && !areaOptions.some((o) => o.value === form.areaId)) {
+    const label = areaLabelMap.get(selectedAreaId);
+    if (label) areaOptions.push({ value: form.areaId, label });
+  }
+
+  // Nível/Escolaridade: listas FIXAS + o valor atual (mesmo legado importado,
+  // para não abrir em branco nem sobrescrever ao salvar). Sem criação inline.
+  const levelOptions = toNameOptions(LEVEL_OPTIONS, form.level);
+  const educationOptions = toNameOptions(EDUCATION_OPTIONS, form.education);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  const goToAreaSettings = () => {
+    onClose();
+    setLocation("/configuracoes/sistema?tab=areas");
+  };
 
   const pending = createMut.isPending || updateMut.isPending;
 
@@ -137,9 +141,11 @@ export function PositionFormDialog({
     // Enviar os valores crus (inclusive "") — assim a edição consegue LIMPAR um
     // campo. Com `|| undefined` o JSON.stringify descartaria a chave e o PATCH
     // (`.set(body.data)`) nunca receberia, revertendo silenciosamente.
+    // `area` (texto legado) NÃO é enviado: a fonte agora é `areaId`, e omitir a
+    // chave deixa a coluna legada intocada.
     const data = {
       name: form.name.trim(),
-      area: form.area,
+      areaId: form.areaId ? Number(form.areaId) : null,
       level: form.level,
       principalNormId: form.principalNormId ? Number(form.principalNormId) : null,
       education: form.education,
@@ -185,15 +191,29 @@ export function PositionFormDialog({
           />
         </div>
         <div>
-          <Label>Área</Label>
+          <div className="flex items-center justify-between">
+            <Label>Área</Label>
+            {isOrgAdmin && (
+              <button
+                type="button"
+                onClick={goToAreaSettings}
+                className="flex items-center gap-1 rounded p-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                title="Gerenciar áreas"
+                aria-label="Gerenciar áreas"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Gerenciar
+              </button>
+            )}
+          </div>
           <div className="mt-1">
             <SearchableSelect
-              value={form.area}
-              onChange={(v) => set("area", v)}
+              value={form.areaId}
+              onChange={(v) => set("areaId", v)}
               options={areaOptions}
-              placeholder="Selecione ou crie uma área..."
-              searchPlaceholder="Buscar ou digitar nova área..."
-              onCreateOption={(v) => set("area", v)}
+              placeholder="Selecione uma área..."
+              searchPlaceholder="Buscar área..."
+              emptyMessage="Nenhuma área cadastrada. Use ⚙ Gerenciar."
             />
           </div>
         </div>
@@ -204,9 +224,8 @@ export function PositionFormDialog({
               value={form.level}
               onChange={(v) => set("level", v)}
               options={levelOptions}
-              placeholder="Selecione ou crie um nível..."
-              searchPlaceholder="Buscar ou digitar novo nível..."
-              onCreateOption={(v) => set("level", v)}
+              placeholder="Selecione um nível..."
+              searchPlaceholder="Buscar nível..."
             />
           </div>
         </div>
@@ -232,9 +251,8 @@ export function PositionFormDialog({
               value={form.education}
               onChange={(v) => set("education", v)}
               options={educationOptions}
-              placeholder="Selecione ou crie..."
-              searchPlaceholder="Buscar ou digitar nova escolaridade..."
-              onCreateOption={(v) => set("education", v)}
+              placeholder="Selecione..."
+              searchPlaceholder="Buscar escolaridade..."
             />
           </div>
         </div>

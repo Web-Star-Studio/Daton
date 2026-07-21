@@ -5,6 +5,7 @@ import {
   positionsTable,
   positionCompetencyRequirementsTable,
   regulatoryNormsTable,
+  areasTable,
 } from "@workspace/db";
 import {
   CreatePositionBody,
@@ -36,6 +37,7 @@ function serializePosition(r: typeof positionsTable.$inferSelect) {
     minSalary: r.minSalary,
     maxSalary: r.maxSalary,
     area: r.area,
+    areaId: r.areaId,
     principalNormId: r.principalNormId,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
@@ -59,6 +61,22 @@ async function assertNormBelongsToOrg(
       ),
     );
   return !!norm;
+}
+
+// A área do cargo tem que pertencer à mesma organização. `null`/ausente é
+// válido (campo opcional).
+async function assertAreaBelongsToOrg(
+  areaId: number | null | undefined,
+  orgId: number,
+): Promise<boolean> {
+  if (areaId == null) return true;
+  const [area] = await db
+    .select({ id: areasTable.id })
+    .from(areasTable)
+    .where(
+      and(eq(areasTable.id, areaId), eq(areasTable.organizationId, orgId)),
+    );
+  return !!area;
 }
 
 function normalizeRequirements(raw: string | undefined | null): string | null {
@@ -110,6 +128,11 @@ router.post("/organizations/:orgId/positions", requireAuth, requireWriteAccess()
     return;
   }
 
+  if (!(await assertAreaBelongsToOrg(body.data.areaId, params.data.orgId))) {
+    res.status(400).json({ error: "Área inválida para esta organização" });
+    return;
+  }
+
   const [row] = await db.insert(positionsTable).values({
     organizationId: params.data.orgId,
     name: body.data.name,
@@ -122,6 +145,7 @@ router.post("/organizations/:orgId/positions", requireAuth, requireWriteAccess()
     minSalary: body.data.minSalary,
     maxSalary: body.data.maxSalary,
     area: body.data.area,
+    areaId: body.data.areaId,
     principalNormId: body.data.principalNormId,
   }).returning();
 
@@ -138,6 +162,11 @@ router.patch("/organizations/:orgId/positions/:posId", requireAuth, requireWrite
 
   if (!(await assertNormBelongsToOrg(body.data.principalNormId, params.data.orgId))) {
     res.status(400).json({ error: "Norma inválida para esta organização" });
+    return;
+  }
+
+  if (!(await assertAreaBelongsToOrg(body.data.areaId, params.data.orgId))) {
+    res.status(400).json({ error: "Área inválida para esta organização" });
     return;
   }
 

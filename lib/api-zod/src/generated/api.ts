@@ -4435,6 +4435,7 @@ export const ListPositionsResponseItem = zod.object({
   minSalary: zod.number().nullish(),
   maxSalary: zod.number().nullish(),
   area: zod.string().nullish(),
+  areaId: zod.number().nullish(),
   principalNormId: zod.number().nullish(),
   competencyCount: zod.number().optional(),
   createdAt: zod.string().optional(),
@@ -4460,6 +4461,7 @@ export const CreatePositionBody = zod.object({
   minSalary: zod.number().optional(),
   maxSalary: zod.number().optional(),
   area: zod.string().optional(),
+  areaId: zod.number().nullish(),
   principalNormId: zod.number().nullish(),
 });
 
@@ -4483,6 +4485,7 @@ export const ImportPositionsBody = zod.object({
       minSalary: zod.number().optional(),
       maxSalary: zod.number().optional(),
       area: zod.string().optional(),
+      areaId: zod.number().nullish(),
       principalNormId: zod.number().nullish(),
     }),
   ),
@@ -4511,6 +4514,7 @@ export const UpdatePositionBody = zod.object({
   minSalary: zod.number().optional(),
   maxSalary: zod.number().optional(),
   area: zod.string().optional(),
+  areaId: zod.number().nullish(),
   principalNormId: zod.number().nullish(),
 });
 
@@ -4527,6 +4531,7 @@ export const UpdatePositionResponse = zod.object({
   minSalary: zod.number().nullish(),
   maxSalary: zod.number().nullish(),
   area: zod.string().nullish(),
+  areaId: zod.number().nullish(),
   principalNormId: zod.number().nullish(),
   competencyCount: zod.number().optional(),
   createdAt: zod.string().optional(),
@@ -19566,6 +19571,75 @@ export const UpdateEffectivenessMethodResponse = zod
   })
   .describe(
     "Item do catálogo de métodos de verificação de eficácia da organização (referenciado pelos planos de ação).",
+  );
+
+/**
+ * @summary List the organization's position area (sector) catalog
+ */
+export const ListAreasParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListAreasResponseItem = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de áreas (setores) de cargo da organização (referenciado pelos cargos).",
+  );
+export const ListAreasResponse = zod.array(ListAreasResponseItem);
+
+/**
+ * @summary Add an area to the organization's position area catalog
+ */
+export const CreateAreaParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateAreaBody = zod.object({
+  label: zod.string().min(1),
+});
+
+export const CreateAreaResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de áreas (setores) de cargo da organização (referenciado pelos cargos).",
+  );
+
+/**
+ * @summary Update a position area (label, active flag or sort order)
+ */
+export const UpdateAreaParams = zod.object({
+  orgId: zod.coerce.number(),
+  areaId: zod.coerce.number(),
+});
+
+export const UpdateAreaBody = zod.object({
+  label: zod.string().min(1).optional(),
+  active: zod.boolean().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateAreaResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    label: zod.string(),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+  })
+  .describe(
+    "Item do catálogo de áreas (setores) de cargo da organização (referenciado pelos cargos).",
   );
 
 /**

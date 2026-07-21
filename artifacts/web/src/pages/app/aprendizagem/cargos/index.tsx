@@ -22,6 +22,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAllNorms, buildNormLabelMap } from "@/lib/norms-client";
+import { useAllAreas, buildAreaLabelMap } from "@/lib/areas-client";
 import { PositionFormDialog } from "./position-form-dialog";
 import { CargoCompetenciasTab } from "./cargo-competencias-tab";
 import { deriveAreas, filterPositions, buildPositionSubline } from "./cargos-utils";
@@ -48,7 +49,18 @@ export default function AprendizagemCargosPage() {
       queryKey: getListPositionsQueryKey(orgId),
     },
   });
-  const positionList = positions ?? [];
+  const { data: allAreas = [] } = useAllAreas(orgId);
+  const areaLabelMap = buildAreaLabelMap(allAreas);
+  // Resolve o rótulo da área pelo catálogo (`areaId`); cai no texto legado
+  // (`area`) para cargos ainda não backfillados. A tela toda — tabela, filtro,
+  // subtítulo — passa a operar sobre esse rótulo resolvido.
+  const positionList = (positions ?? []).map((p) => ({
+    ...p,
+    area:
+      (p.areaId != null ? areaLabelMap.get(p.areaId) : undefined) ??
+      p.area ??
+      null,
+  }));
 
   const { data: allNorms = [] } = useAllNorms(orgId);
   const normLabelMap = buildNormLabelMap(allNorms);
@@ -389,7 +401,6 @@ export default function AprendizagemCargosPage() {
           orgId={orgId}
           open={dialogOpen}
           position={editing}
-          positions={positionList}
           onClose={() => setDialogOpen(false)}
           onSaved={invalidatePositions}
         />

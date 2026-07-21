@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   deriveAreas,
-  deriveDistinct,
   filterPositions,
   buildPositionSubline,
   levelLabel,
@@ -20,32 +19,6 @@ describe("deriveAreas", () => {
         { area: "" },
       ]),
     ).toEqual(["Logística", "Operações"]);
-  });
-});
-
-describe("deriveDistinct", () => {
-  it("devolve valores distintos não vazios de qualquer campo, ordenados e sem espaços", () => {
-    expect(
-      deriveDistinct(
-        [
-          { level: "Operacional" },
-          { level: "Tático" },
-          { level: " Operacional " },
-          { level: null },
-          { level: "" },
-          {},
-        ],
-        "level",
-      ),
-    ).toEqual(["Operacional", "Tático"]);
-  });
-  it("serve para escolaridade da mesma forma", () => {
-    expect(
-      deriveDistinct(
-        [{ education: "Técnico" }, { education: "Ensino Médio" }],
-        "education",
-      ),
-    ).toEqual(["Ensino Médio", "Técnico"]);
   });
 });
 

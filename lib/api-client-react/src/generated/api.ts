@@ -43,6 +43,7 @@ import type {
   ApplicabilityDecision,
   ApplicabilityDecisionBody,
   ApproveDocumentBody,
+  Area,
   Asset,
   AssetDocument,
   AssetMaintenancePlan,
@@ -60,6 +61,7 @@ import type {
   CreateActionPlanActionBody,
   CreateActionPlanBody,
   CreateAnnualProgramItemBody,
+  CreateAreaBody,
   CreateAssetBody,
   CreateAssetMaintenancePlanBody,
   CreateAssetMaintenanceRecordBody,
@@ -296,6 +298,7 @@ import type {
   UpdateAnalysisMethodBody,
   UpdateAnnualProgramItemBody,
   UpdateApplicabilityDecisionBody,
+  UpdateAreaBody,
   UpdateAssetBody,
   UpdateAssetMaintenancePlanBody,
   UpdateAwarenessBody,
@@ -32412,6 +32415,266 @@ export const useUpdateEffectivenessMethod = <
   TContext
 > => {
   return useMutation(getUpdateEffectivenessMethodMutationOptions(options));
+};
+
+/**
+ * @summary List the organization's position area (sector) catalog
+ */
+export const getListAreasUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/areas`;
+};
+
+export const listAreas = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<Area[]> => {
+  return customFetch<Area[]>(getListAreasUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAreasQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/areas`] as const;
+};
+
+export const getListAreasQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAreas>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAreas>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAreasQueryKey(orgId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAreas>>> = ({
+    signal,
+  }) => listAreas(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof listAreas>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type ListAreasQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAreas>>
+>;
+export type ListAreasQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the organization's position area (sector) catalog
+ */
+
+export function useListAreas<
+  TData = Awaited<ReturnType<typeof listAreas>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAreas>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAreasQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add an area to the organization's position area catalog
+ */
+export const getCreateAreaUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/areas`;
+};
+
+export const createArea = async (
+  orgId: number,
+  createAreaBody: CreateAreaBody,
+  options?: RequestInit,
+): Promise<Area> => {
+  return customFetch<Area>(getCreateAreaUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAreaBody),
+  });
+};
+
+export const getCreateAreaMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createArea>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAreaBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createArea>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAreaBody> },
+  TContext
+> => {
+  const mutationKey = ["createArea"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createArea>>,
+    { orgId: number; data: BodyType<CreateAreaBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createArea(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAreaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createArea>>
+>;
+export type CreateAreaMutationBody = BodyType<CreateAreaBody>;
+export type CreateAreaMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add an area to the organization's position area catalog
+ */
+export const useCreateArea = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createArea>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAreaBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createArea>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAreaBody> },
+  TContext
+> => {
+  return useMutation(getCreateAreaMutationOptions(options));
+};
+
+/**
+ * @summary Update a position area (label, active flag or sort order)
+ */
+export const getUpdateAreaUrl = (orgId: number, areaId: number) => {
+  return `/api/organizations/${orgId}/areas/${areaId}`;
+};
+
+export const updateArea = async (
+  orgId: number,
+  areaId: number,
+  updateAreaBody: UpdateAreaBody,
+  options?: RequestInit,
+): Promise<Area> => {
+  return customFetch<Area>(getUpdateAreaUrl(orgId, areaId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAreaBody),
+  });
+};
+
+export const getUpdateAreaMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateArea>>,
+    TError,
+    { orgId: number; areaId: number; data: BodyType<UpdateAreaBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateArea>>,
+  TError,
+  { orgId: number; areaId: number; data: BodyType<UpdateAreaBody> },
+  TContext
+> => {
+  const mutationKey = ["updateArea"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateArea>>,
+    { orgId: number; areaId: number; data: BodyType<UpdateAreaBody> }
+  > = (props) => {
+    const { orgId, areaId, data } = props ?? {};
+
+    return updateArea(orgId, areaId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAreaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateArea>>
+>;
+export type UpdateAreaMutationBody = BodyType<UpdateAreaBody>;
+export type UpdateAreaMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a position area (label, active flag or sort order)
+ */
+export const useUpdateArea = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateArea>>,
+    TError,
+    { orgId: number; areaId: number; data: BodyType<UpdateAreaBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateArea>>,
+  TError,
+  { orgId: number; areaId: number; data: BodyType<UpdateAreaBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAreaMutationOptions(options));
 };
 
 /**
