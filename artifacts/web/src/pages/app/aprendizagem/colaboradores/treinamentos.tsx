@@ -34,6 +34,11 @@ import {
   useAllTrainingCatalog,
   selectPickerCatalogItems,
 } from "@/lib/training-catalog-client";
+import {
+  findBankItemByName,
+  resolveLinkedCompetencyType,
+  type CompetencyBankLookupItem,
+} from "@/pages/app/aprendizagem/cargos/cargos-utils";
 import type {
   CreateTrainingBodyStatus,
   CreateTrainingBodyTargetCompetencyType,
@@ -141,9 +146,9 @@ const EFFECTIVENESS_STATUS_BADGE_VARIANT: Record<
 };
 
 const COMPETENCY_TYPE_LABELS: Record<string, string> = {
-  formacao: "Formacao",
-  experiencia: "Experiencia",
+  conhecimento: "Conhecimento",
   habilidade: "Habilidade",
+  atitude: "Atitude",
 };
 
 type TrainingAdminForm = {
@@ -164,7 +169,7 @@ type TrainingAdminForm = {
   catalogItemId: number | null;
 };
 
-type RequirementForm = {
+export type RequirementForm = {
   competencyName: string;
   competencyType: PositionCompetencyRequirement["competencyType"];
   requiredLevel: number;
@@ -415,19 +420,19 @@ function TrainingDialog({
             className="mt-1 h-10 text-[13px]"
           >
             <option
-              value={CreateTrainingBodyTargetCompetencyTypeValues.formacao}
+              value={CreateTrainingBodyTargetCompetencyTypeValues.conhecimento}
             >
-              Formacao
-            </option>
-            <option
-              value={CreateTrainingBodyTargetCompetencyTypeValues.experiencia}
-            >
-              Experiencia
+              Conhecimento
             </option>
             <option
               value={CreateTrainingBodyTargetCompetencyTypeValues.habilidade}
             >
               Habilidade
+            </option>
+            <option
+              value={CreateTrainingBodyTargetCompetencyTypeValues.atitude}
+            >
+              Atitude
             </option>
           </Select>
         </div>
@@ -548,12 +553,15 @@ function TrainingDialog({
   );
 }
 
-function RequirementDialog({
+// Exportado (além de usado nesta página) para ser testável isoladamente sem
+// montar toda a tela — ver treinamentos-requisito-competencia-tipo.unit.test.tsx.
+export function RequirementDialog({
   open,
   onOpenChange,
   value,
   onChange,
   competencyOptions = [],
+  bankItems = [],
   onCreateCompetency,
   onSubmit,
   pending,
@@ -564,11 +572,24 @@ function RequirementDialog({
   value: RequirementForm;
   onChange: (value: RequirementForm) => void;
   competencyOptions?: { value: string; label: string }[];
+  bankItems?: CompetencyBankLookupItem[];
   onCreateCompetency?: (name: string) => void;
   onSubmit: () => Promise<void>;
   pending?: boolean;
   title: string;
 }) {
+  // O tipo é propriedade da COMPETÊNCIA (catálogo), não do requisito: para uma
+  // competência já existente, o tipo vem do catálogo e é só exibido — o
+  // backend realinha de qualquer forma (ver handleSubmitRequirement). Só ao
+  // criar uma competência nova é que o usuário escolhe o tipo (lista CHA).
+  // Mesmo padrão de VincularCompetenciaForm.tsx (aba "Cargos e competências").
+  const trimmedName = value.competencyName.trim();
+  const existing = findBankItemByName(bankItems, trimmedName);
+  const isNew = !!trimmedName && !existing;
+  const existingTypeLabel = existing?.competencyType
+    ? (COMPETENCY_TYPE_LABELS[existing.competencyType] ?? existing.competencyType)
+    : null;
+
   return (
     <Dialog
       open={open}
@@ -594,26 +615,41 @@ function RequirementDialog({
             />
           </div>
         </div>
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground">
-            Tipo
-          </Label>
-          <Select
-            value={value.competencyType}
-            onChange={(event) =>
-              onChange({
-                ...value,
-                competencyType: event.target
-                  .value as RequirementForm["competencyType"],
-              })
-            }
-            className="mt-1 h-10 text-[13px]"
-          >
-            <option value="formacao">Formacao</option>
-            <option value="experiencia">Experiencia</option>
-            <option value="habilidade">Habilidade</option>
-          </Select>
-        </div>
+        {isNew ? (
+          <div>
+            <Label
+              htmlFor="requisito-competencia-tipo"
+              className="text-xs font-semibold text-muted-foreground"
+            >
+              Tipo
+            </Label>
+            <Select
+              id="requisito-competencia-tipo"
+              value={value.competencyType}
+              onChange={(event) =>
+                onChange({
+                  ...value,
+                  competencyType: event.target
+                    .value as RequirementForm["competencyType"],
+                })
+              }
+              className="mt-1 h-10 text-[13px]"
+            >
+              <option value="conhecimento">Conhecimento</option>
+              <option value="habilidade">Habilidade</option>
+              <option value="atitude">Atitude</option>
+            </Select>
+          </div>
+        ) : existingTypeLabel ? (
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground">
+              Tipo
+            </Label>
+            <p className="mt-1 flex h-10 items-center text-[13px] text-foreground">
+              {existingTypeLabel}
+            </p>
+          </div>
+        ) : null}
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">
             Nivel requerido
@@ -837,26 +873,25 @@ export default function ColaboradoresTreinamentosPage() {
         queryKey: getListCompetencyCatalogQueryKey(orgId ?? 0),
       },
     });
-  const competencyOptions = (competencyCatalogResult?.data ?? []).map((c) => ({
+  const competencyBankItems = competencyCatalogResult?.data ?? [];
+  const competencyOptions = competencyBankItems.map((c) => ({
     value: c.name,
     label: c.name,
   }));
   const competencyNames = competencyOptions.map((o) => o.value);
   const createCompetencyMutation = useCreateCompetencyCatalogItem();
-  const handleCreateCompetencyInline = (name: string) => {
+  // Só estaciona o nome digitado no form — NÃO cria o item de catálogo aqui.
+  // A criação (quando a competência for mesmo nova) acontece no SUBMIT do
+  // requisito (handleSubmitRequirement), com o tipo CHA que o usuário
+  // efetivamente confirmar no seletor "Tipo" deste diálogo. Mesmo padrão de
+  // cargo-competencias-tab.tsx::handleLink. Um fix anterior criava o item
+  // aqui com "conhecimento" fixo — regressão: o usuário escolhia
+  // Habilidade/Atitude no seletor e o catálogo (fonte única do tipo) saía
+  // como Conhecimento mesmo assim.
+  const handleStageNewCompetencyName = (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     setRequirementForm((f) => ({ ...f, competencyName: trimmed }));
-    if (orgId)
-      createCompetencyMutation.mutate(
-        { orgId, data: { name: trimmed } },
-        {
-          onSuccess: () =>
-            queryClient.invalidateQueries({
-              queryKey: getListCompetencyCatalogQueryKey(orgId),
-            }),
-        },
-      );
   };
   const { data: departments = [] } = useListDepartments(orgId ?? 0, {
     query: {
@@ -1084,6 +1119,33 @@ export default function ColaboradoresTreinamentosPage() {
   const handleSubmitRequirement = async () => {
     const posId = Number(selectedPositionId);
     if (!posId) return;
+    const name = requirementForm.competencyName.trim();
+    if (!name) return;
+
+    const existing = findBankItemByName(competencyBankItems, name);
+    // Fonte única do tipo é o catálogo: para uma competência já existente,
+    // usa o tipo dela no catálogo — não o que porventura esteja selecionado
+    // no seletor "Tipo" (o backend derivaria isso de qualquer forma; manter
+    // o front coerente evita mostrar, antes de salvar, um tipo diferente do
+    // que vai valer depois). Só uma competência nova usa o tipo escolhido.
+    const competencyType = resolveLinkedCompetencyType(
+      competencyBankItems,
+      name,
+      requirementForm.competencyType,
+    ) as PositionCompetencyRequirement["competencyType"];
+
+    if (!existing && orgId) {
+      // Criar-na-hora: a competência ainda não existe no catálogo — cadastra
+      // antes de gravar o requisito, com o tipo CHA escolhido pelo usuário
+      // (não mais fixo em "conhecimento" — ver handleStageNewCompetencyName).
+      await createCompetencyMutation.mutateAsync({
+        orgId,
+        data: { name, competencyType },
+      });
+      await queryClient.invalidateQueries({
+        queryKey: getListCompetencyCatalogQueryKey(orgId),
+      });
+    }
 
     if (editingRequirement) {
       await updateRequirementMutation.mutateAsync({
@@ -1091,8 +1153,8 @@ export default function ColaboradoresTreinamentosPage() {
         posId,
         requirementId: editingRequirement.id,
         data: {
-          competencyName: requirementForm.competencyName,
-          competencyType: requirementForm.competencyType,
+          competencyName: name,
+          competencyType,
           requiredLevel: requirementForm.requiredLevel,
           notes: requirementForm.notes || undefined,
           sortOrder: requirementForm.sortOrder,
@@ -1103,8 +1165,8 @@ export default function ColaboradoresTreinamentosPage() {
         orgId: orgId ?? 0,
         posId,
         data: {
-          competencyName: requirementForm.competencyName,
-          competencyType: requirementForm.competencyType,
+          competencyName: name,
+          competencyType,
           requiredLevel: requirementForm.requiredLevel,
           notes: requirementForm.notes || undefined,
           sortOrder: requirementForm.sortOrder,
@@ -1546,11 +1608,13 @@ export default function ColaboradoresTreinamentosPage() {
         value={requirementForm}
         onChange={setRequirementForm}
         competencyOptions={competencyOptions}
-        onCreateCompetency={handleCreateCompetencyInline}
+        bankItems={competencyBankItems}
+        onCreateCompetency={handleStageNewCompetencyName}
         onSubmit={handleSubmitRequirement}
         pending={
           createRequirementMutation.isPending ||
-          updateRequirementMutation.isPending
+          updateRequirementMutation.isPending ||
+          createCompetencyMutation.isPending
         }
         title={editingRequirement ? "Editar requisito" : "Novo requisito"}
       />

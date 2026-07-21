@@ -1,3 +1,29 @@
+import {
+  CreateCompetencyBodyType as CreateCompetencyBodyTypeValues,
+  type CreateCompetencyBodyType,
+} from "@workspace/api-client-react";
+
+/**
+ * Normaliza um `type` de competência para um valor CHA válido, com fallback
+ * "conhecimento" — mesmo default usado em `transformCompetencyType()`
+ * (migração) e no POST de competência (`routes/employees.ts`). Necessário ao
+ * ABRIR o form de edição de uma competência do colaborador: há 7 linhas
+ * legadas de `employee_competencies` em produção com `formacao`/`experiencia`
+ * (enum estreitado para CHA, backfill pendente). Sem isso, o `<Select>` (só 3
+ * opções CHA) ficaria sem valor correspondente e, ao salvar sem tocar no
+ * campo, o PATCH reenviaria o valor legado — o contrato (enum CHA) rejeita
+ * com 400. Reusa o enum gerado (`CreateCompetencyBodyType`) em vez de
+ * duplicar a lista CHA como literal. A EXIBIÇÃO da lista (fora do form) não
+ * passa por aqui — continua mostrando o rótulo original do valor legado.
+ */
+export function toChaCompetencyType(value: string): CreateCompetencyBodyType {
+  return (Object.values(CreateCompetencyBodyTypeValues) as string[]).includes(
+    value,
+  )
+    ? (value as CreateCompetencyBodyType)
+    : CreateCompetencyBodyTypeValues.conhecimento;
+}
+
 export function computeTrainingCounters(
   trainings: { status?: string | null; expirationDate?: string | null }[],
   today: string = new Date().toISOString().slice(0, 10),

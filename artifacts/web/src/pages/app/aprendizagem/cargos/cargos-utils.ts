@@ -52,9 +52,9 @@ export function buildPositionSubline(input: {
 // --- Competências (matriz do cargo) ---
 
 export const COMPETENCY_TYPE_LABELS: Record<string, string> = {
-  formacao: "Formação",
-  experiencia: "Experiência",
+  conhecimento: "Conhecimento",
   habilidade: "Habilidade",
+  atitude: "Atitude",
 };
 
 /** Nível requerido (0–5) → rótulo (Básico/Intermediário/Avançado). */
@@ -81,4 +81,51 @@ export function levelBucket(level: number): number {
   if (level >= 4) return 5;
   if (level >= 3) return 3;
   return 1;
+}
+
+export type CompetencyBankLookupItem = {
+  name: string;
+  competencyType?: string | null;
+};
+
+/**
+ * Rede de segurança: tipo CHA usado quando nem o catálogo nem `chosenType`
+ * trazem um tipo válido. O contrato (`competencyType`) é um enum obrigatório
+ * no vínculo — nunca pode sair "" daqui, ou o POST volta 400. Mesmo default do
+ * fluxo "criar na hora" (CHA_TYPE_OPTIONS[0] em VincularCompetenciaForm.tsx).
+ */
+const FALLBACK_COMPETENCY_TYPE = "conhecimento";
+
+/**
+ * Acha um item do catálogo por nome (caixa/espaços-nas-pontas insensível).
+ * Nome vazio (após trim) nunca casa — mesmo que algum item tenha nome vazio.
+ */
+export function findBankItemByName<T extends CompetencyBankLookupItem>(
+  items: T[],
+  name: string,
+): T | undefined {
+  const target = name.trim().toLowerCase();
+  if (!target) return undefined;
+  return items.find((i) => i.name.trim().toLowerCase() === target);
+}
+
+/**
+ * Decide qual `competencyType` gravar ao vincular uma competência a um cargo.
+ * O tipo é propriedade da COMPETÊNCIA (catálogo), não do vínculo: para uma
+ * competência já existente, usa o tipo dela no catálogo — não o que porventura
+ * esteja em `chosenType` (que só é editável no fluxo "criar na hora"). Se a
+ * competência não existe no catálogo, ou existe mas sem tipo definido, usa
+ * `chosenType`.
+ *
+ * Nunca devolve "": uma competência legada (ou criada por outro caminho) pode
+ * chegar ao catálogo sem tipo definido; se `chosenType` também vier vazio,
+ * cai no `FALLBACK_COMPETENCY_TYPE` para não estourar 400 no POST do vínculo.
+ */
+export function resolveLinkedCompetencyType(
+  bankItems: CompetencyBankLookupItem[],
+  name: string,
+  chosenType: string,
+): string {
+  const existing = findBankItemByName(bankItems, name);
+  return existing?.competencyType || chosenType || FALLBACK_COMPETENCY_TYPE;
 }

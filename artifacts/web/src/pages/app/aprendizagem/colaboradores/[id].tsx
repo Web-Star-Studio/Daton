@@ -108,6 +108,7 @@ import { FichaHeader } from "./_components/FichaHeader";
 import { DadosCards } from "./_components/DadosCards";
 import { FormacaoQualificacoes } from "./_components/FormacaoQualificacoes";
 import { RegistrarConclusaoForm } from "./_components/RegistrarConclusaoForm";
+import { toChaCompetencyType } from "./_lib/ficha-derivations";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -160,9 +161,9 @@ const EFFECTIVENESS_STATUS_COLORS: Record<string, string> = {
 };
 
 const COMPETENCY_TYPE_LABELS: Record<string, string> = {
-  formacao: "Formação",
-  experiencia: "Experiência",
+  conhecimento: "Conhecimento",
   habilidade: "Habilidade",
+  atitude: "Atitude",
 };
 
 type EmployeeProfileItemRecord = EmployeeProfileItem;
@@ -1037,14 +1038,14 @@ function CompetencyFormStep({
             }
             className="mt-1 h-10 text-[13px]"
           >
-            <option value={CreateCompetencyBodyTypeValues.formacao}>
-              Formação
-            </option>
-            <option value={CreateCompetencyBodyTypeValues.experiencia}>
-              Experiência
+            <option value={CreateCompetencyBodyTypeValues.conhecimento}>
+              Conhecimento
             </option>
             <option value={CreateCompetencyBodyTypeValues.habilidade}>
               Habilidade
+            </option>
+            <option value={CreateCompetencyBodyTypeValues.atitude}>
+              Atitude
             </option>
           </Select>
         </div>
@@ -1234,19 +1235,19 @@ function TrainingFormStep({
             className="mt-1 h-10 text-[13px]"
           >
             <option
-              value={CreateTrainingBodyTargetCompetencyTypeValues.formacao}
+              value={CreateTrainingBodyTargetCompetencyTypeValues.conhecimento}
             >
-              Formação
-            </option>
-            <option
-              value={CreateTrainingBodyTargetCompetencyTypeValues.experiencia}
-            >
-              Experiência
+              Conhecimento
             </option>
             <option
               value={CreateTrainingBodyTargetCompetencyTypeValues.habilidade}
             >
               Habilidade
+            </option>
+            <option
+              value={CreateTrainingBodyTargetCompetencyTypeValues.atitude}
+            >
+              Atitude
             </option>
           </Select>
         </div>
@@ -1590,7 +1591,7 @@ function CompetenciasTab({
   const emptyForm: CompetencyForm = {
     name: "",
     description: "",
-    type: "formacao",
+    type: "conhecimento",
     requiredLevel: 3,
     acquiredLevel: 0,
     evidence: "",
@@ -1638,7 +1639,7 @@ function CompetenciasTab({
     setForm({
       name: comp.name,
       description: comp.description || "",
-      type: comp.type,
+      type: toChaCompetencyType(comp.type),
       requiredLevel: comp.requiredLevel,
       acquiredLevel: comp.acquiredLevel,
       evidence: comp.evidence || "",
@@ -2083,10 +2084,14 @@ function TreinamentosTab({
     setForm((current) => ({
       ...current,
       ...prefillTraining,
-      targetCompetencyType:
-        prefillTraining.targetCompetencyType ||
-        current.targetCompetencyType ||
-        CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
+      // `targetCompetencyType` chega cru da query string (deep link de outra
+      // tela) e pode carregar um valor legado de competência — normaliza pro
+      // CHA só quando não-vazio; vazio preserva o fallback existente (treino
+      // sem competência-alvo continua sem competência-alvo).
+      targetCompetencyType: prefillTraining.targetCompetencyType
+        ? toChaCompetencyType(prefillTraining.targetCompetencyType)
+        : current.targetCompetencyType ||
+          CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
       targetCompetencyLevel:
         prefillTraining.targetCompetencyLevel ?? current.targetCompetencyLevel,
     }));
@@ -2156,9 +2161,13 @@ function TreinamentosTab({
       institution: t.institution || "",
       instructor: t.instructor || "",
       targetCompetencyName: t.targetCompetencyName || "",
-      targetCompetencyType:
-        t.targetCompetencyType ||
-        CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
+      // Mesmo achado do form de competência (openEdit acima): normaliza um
+      // valor legado pro CHA na abertura do form, senão o <Select> (só 3
+      // opções CHA) fica sem opção e o PATCH reenvia o legado -> 400. Vazio
+      // preserva o fallback existente (treino sem competência-alvo).
+      targetCompetencyType: t.targetCompetencyType
+        ? toChaCompetencyType(t.targetCompetencyType)
+        : CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
       targetCompetencyLevel: t.targetCompetencyLevel || 0,
       evaluationMethod: t.evaluationMethod || "",
       renewalMonths: t.renewalMonths || 0,

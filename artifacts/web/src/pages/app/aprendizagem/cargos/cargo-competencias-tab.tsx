@@ -13,36 +13,33 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { CompetencyBankPanel } from "../_components/competency-bank-panel";
+import {
+  VincularCompetenciaForm,
+  type VincularCompetenciaFormValue,
+} from "./_components/VincularCompetenciaForm";
 import {
   COMPETENCY_TYPE_LABELS,
   levelLabel,
   levelBadgeClass,
   isCritical,
   levelBucket,
+  findBankItemByName,
+  resolveLinkedCompetencyType,
 } from "./cargos-utils";
 
-const TYPE_OPTIONS = ["formacao", "experiencia", "habilidade"] as const;
 const LEVEL_OPTIONS = [
   { value: 1, label: "Básico" },
   { value: 3, label: "Intermediário" },
   { value: 5, label: "Avançado" },
 ];
 
-type LinkForm = {
-  competencyName: string;
-  competencyType: string;
-  requiredLevel: number;
-};
-
-const EMPTY_LINK: LinkForm = {
+const EMPTY_LINK: VincularCompetenciaFormValue = {
   competencyName: "",
-  competencyType: "habilidade",
+  competencyType: "",
   requiredLevel: 3,
 };
 
@@ -75,15 +72,8 @@ export function CargoCompetenciasTab({
   const bankItems = bankResult?.data ?? [];
 
   const [adding, setAdding] = useState(false);
-  const [link, setLink] = useState<LinkForm>(EMPTY_LINK);
+  const [link, setLink] = useState<VincularCompetenciaFormValue>(EMPTY_LINK);
   const [bankOpen, setBankOpen] = useState(false);
-
-  // Opções do combobox: o banco + o nome que está sendo digitado/criado (para o
-  // trigger mostrar a seleção mesmo antes de existir no banco).
-  const bankOptions = bankItems.map((i) => ({ value: i.name, label: i.name }));
-  if (link.competencyName && !bankOptions.some((o) => o.value === link.competencyName)) {
-    bankOptions.unshift({ value: link.competencyName, label: link.competencyName });
-  }
 
   const resetAdd = () => {
     setAdding(false);
@@ -94,18 +84,22 @@ export function CargoCompetenciasTab({
     const name = link.competencyName.trim();
     if (!name) return;
     try {
-      // Criar-na-hora: se a competência não existe no banco, cadastra antes de
-      // vincular (assim fica reutilizável em outros cargos).
-      const existing = bankItems.find(
-        (i) => i.name.trim().toLowerCase() === name.toLowerCase(),
-      );
+      // O tipo é propriedade da COMPETÊNCIA (catálogo), não do vínculo: para uma
+      // competência já existente, usa o tipo dela no catálogo — não o que porventura
+      // esteja em `link.competencyType` (que só é editável no fluxo "criar na hora").
+      const existing = findBankItemByName(bankItems, name);
+      const competencyType = resolveLinkedCompetencyType(
+        bankItems,
+        name,
+        link.competencyType,
+      ) as CreatePositionCompetencyRequirementBodyCompetencyType;
       if (!existing) {
-        // O banco usa uma taxonomia própria (CHA: conhecimento/habilidade/atitude);
-        // grava a competência com o tipo neutro "habilidade" (a única sobreposição
-        // com o enum de requisito). O tipo do REQUISITO é definido à parte abaixo.
+        // Criar-na-hora: a competência não existe no banco, cadastra antes de
+        // vincular (assim fica reutilizável em outros cargos), com o tipo CHA
+        // escolhido pelo usuário no formulário.
         await createBankItem.mutateAsync({
           orgId,
-          data: { name, competencyType: "habilidade" },
+          data: { name, competencyType },
         });
         queryClient.invalidateQueries({
           queryKey: getListCompetencyCatalogQueryKey(orgId),
@@ -116,8 +110,7 @@ export function CargoCompetenciasTab({
         posId: positionId,
         data: {
           competencyName: name,
-          competencyType:
-            link.competencyType as CreatePositionCompetencyRequirementBodyCompetencyType,
+          competencyType,
           requiredLevel: link.requiredLevel,
         },
       });
@@ -201,65 +194,14 @@ export function CargoCompetenciasTab({
       </p>
 
       {adding && canManage && (
-        <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <SearchableSelect
-            value={link.competencyName}
-            options={bankOptions}
-            placeholder="Escolha ou digite uma competência..."
-            onChange={(name) =>
-              setLink((f) => ({ ...f, competencyName: name }))
-            }
-            onCreateOption={(name) =>
-              setLink((f) => ({ ...f, competencyName: name }))
-            }
-            createOptionLabel={(input) => `Criar “${input}”`}
-          />
-          <div className="flex items-center gap-2">
-            <Select
-              value={link.competencyType}
-              onChange={(e) =>
-                setLink((f) => ({ ...f, competencyType: e.target.value }))
-              }
-              className="h-9 flex-1 text-[13px]"
-            >
-              {TYPE_OPTIONS.map((t) => (
-                <option key={t} value={t}>
-                  {COMPETENCY_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={String(link.requiredLevel)}
-              onChange={(e) =>
-                setLink((f) => ({ ...f, requiredLevel: Number(e.target.value) }))
-              }
-              className="h-9 flex-1 text-[13px]"
-            >
-              {LEVEL_OPTIONS.map((l) => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={resetAdd}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleLink}
-              disabled={
-                !link.competencyName.trim() ||
-                createReq.isPending ||
-                createBankItem.isPending
-              }
-            >
-              Vincular
-            </Button>
-          </div>
-        </div>
+        <VincularCompetenciaForm
+          bankItems={bankItems}
+          value={link}
+          onChange={setLink}
+          onSubmit={handleLink}
+          onCancel={resetAdd}
+          submitting={createReq.isPending || createBankItem.isPending}
+        />
       )}
 
       {isError ? (

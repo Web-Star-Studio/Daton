@@ -10,7 +10,7 @@ export type UpdateCompetencyBodyType =
   (typeof UpdateCompetencyBodyType)[keyof typeof UpdateCompetencyBodyType];
 
 export const UpdateCompetencyBodyType = {
-  formacao: "formacao",
-  experiencia: "experiencia",
+  conhecimento: "conhecimento",
   habilidade: "habilidade",
+  atitude: "atitude",
 } as const;

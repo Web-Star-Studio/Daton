@@ -149,7 +149,12 @@ export const employeeCompetenciesTable = pgTable("employee_competencies", {
     .references(() => employeesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
-  type: text("type").notNull().default("formacao"),
+  // CHA real (conhecimento|habilidade|atitude) — enum do contrato
+  // (lib/api-spec/openapi.yaml). "formacao" foi removido do enum; o default
+  // aqui é declarativo e só vira DDL num `push`. Em produção a coluna ainda
+  // tem `default 'formacao'::text` (verificado em leitura, sem alterar) —
+  // acompanhar como possível DDL futuro (ver relatório desta entrega).
+  type: text("type").notNull().default("conhecimento"),
   requiredLevel: integer("required_level").notNull().default(1),
   acquiredLevel: integer("acquired_level").notNull().default(0),
   evidence: text("evidence"),
