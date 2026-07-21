@@ -3,14 +3,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const createMutateAsync = vi.fn(async () => ({}) as never);
-const deleteMutateAsync = vi.fn(async () => ({}) as never);
 const createMock = vi.fn();
-const deleteMock = vi.fn();
 
 vi.mock("@workspace/api-client-react", () => ({
   useCreateCompetencyRequirementEvidence: (...args: unknown[]) =>
     createMock(...args),
-  useDeleteCompetency: (...args: unknown[]) => deleteMock(...args),
 }));
 
 import { RegistrarEvidenciaDialog } from "@/pages/app/aprendizagem/colaboradores/_components/RegistrarEvidenciaDialog";
@@ -30,13 +27,8 @@ const requirement = {
 
 beforeEach(() => {
   createMutateAsync.mockClear();
-  deleteMutateAsync.mockClear();
   createMock.mockReset().mockReturnValue({
     mutateAsync: createMutateAsync,
-    isPending: false,
-  });
-  deleteMock.mockReset().mockReturnValue({
-    mutateAsync: deleteMutateAsync,
     isPending: false,
   });
 });
@@ -156,37 +148,5 @@ describe("RegistrarEvidenciaDialog — modo edição", () => {
 
     expect(screen.getByRole("spinbutton")).toHaveValue(2);
     expect(screen.getByDisplayValue("Cert")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /remover evidência/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("remover evidência chama useDeleteCompetency com o id da competência existente", async () => {
-    const user = userEvent.setup();
-    const onSuccess = vi.fn();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
-    render(
-      <RegistrarEvidenciaDialog
-        open
-        onOpenChange={() => {}}
-        requirement={requirement}
-        orgId={1}
-        empId={2}
-        existingCompetency={existingCompetency}
-        onSuccess={onSuccess}
-      />,
-    );
-
-    await user.click(
-      screen.getByRole("button", { name: /remover evidência/i }),
-    );
-
-    expect(deleteMutateAsync).toHaveBeenCalledWith({
-      orgId: 1,
-      empId: 2,
-      compId: 99,
-    });
-    expect(onSuccess).toHaveBeenCalledTimes(1);
   });
 });

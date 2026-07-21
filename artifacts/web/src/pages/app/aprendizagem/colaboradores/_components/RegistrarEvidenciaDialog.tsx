@@ -1,9 +1,5 @@
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
-import {
-  useCreateCompetencyRequirementEvidence,
-  useDeleteCompetency,
-} from "@workspace/api-client-react";
+import { useCreateCompetencyRequirementEvidence } from "@workspace/api-client-react";
 import type {
   EmployeeCompetency,
   EmployeeRecordAttachment,
@@ -63,8 +59,7 @@ export function RegistrarEvidenciaDialog({
   const [isUploading, setIsUploading] = useState(false);
 
   const createMutation = useCreateCompetencyRequirementEvidence();
-  const deleteMutation = useDeleteCompetency();
-  const isPending = createMutation.isPending || deleteMutation.isPending;
+  const isPending = createMutation.isPending;
 
   const handleSubmit = async () => {
     try {
@@ -84,27 +79,6 @@ export function RegistrarEvidenciaDialog({
     } catch {
       toast({
         title: "Não foi possível salvar a evidência",
-        description: "Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRemove = async () => {
-    if (!existingCompetency) return;
-    if (!confirm("Remover esta evidência? Esta ação não pode ser desfeita.")) {
-      return;
-    }
-    try {
-      await deleteMutation.mutateAsync({
-        orgId,
-        empId,
-        compId: existingCompetency.id,
-      });
-      onSuccess();
-    } catch {
-      toast({
-        title: "Não foi possível remover a evidência",
         description: "Tente novamente.",
         variant: "destructive",
       });
@@ -186,18 +160,6 @@ export function RegistrarEvidenciaDialog({
           emptyText="Adicione PDF ou imagem para validar a competência."
           accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
         />
-
-        {isEdit && (
-          <button
-            type="button"
-            onClick={handleRemove}
-            disabled={isPending}
-            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-red-600 transition-colors hover:text-red-700 disabled:opacity-50"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Remover evidência
-          </button>
-        )}
       </div>
 
       <DialogFooter>

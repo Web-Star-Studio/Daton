@@ -33,9 +33,11 @@ Fazer a evidência entrar **pela própria linha do requisito**, herdando `nome +
 
 O bloco (`FormacaoQualificacoes.tsx`) continua exibindo os requisitos com os 3 estados, e ganha ação por linha (só para quem tem escrita em colaboradores):
 
-- **Linha `gap`** e **linha `nao_classificado`** ("Não avaliável") → botão **"+ Evidência"**.
-- **Linha `atende` cuja fonte é `manual`** → mostra a evidência/anexo + um lápis para **editar** aquele atestado.
-- **Linha `atende` cuja fonte é `treinamento`** → mostra "via treinamento «título»" e **não** oferece evidência manual (não duplica; o treino já comprova).
+A ação da linha é roteada pela **presença de atestado manual** (`manualCompetencyId`), não pela fonte resolvida:
+
+- **Sem atestado manual** (`manualCompetencyId == null`) e status `gap` ou `nao_classificado` → botão **"+ Evidência"** (abre o diálogo em branco).
+- **Com atestado manual** (`manualCompetencyId != null`, qualquer status) → **lápis** para **editar** o atestado (reabre pré-preenchido). Vale inclusive para uma linha `gap` parcial e para uma `atende` provada por treino que **também** tem atestado manual — o atestado continua editável, nunca fica órfão.
+- **`atende` via `treinamento`** → mostra "via treinamento «título»", informativo e **visível também para quem não pode editar** (explica por que o requisito está atendido). Se houver atestado manual junto, o lápis aparece ao lado.
 
 Subtítulo do bloco: **"Exigidas pelo cargo · anexe a evidência de cada uma"**.
 
@@ -48,7 +50,7 @@ Diálogo focado (mais simples que o de 3 passos de "Nova Competência"), aberto 
 - **Evidência** (texto, opcional) — ex.: "Certificado".
 - **Anexos** — o mesmo uploader R2 de hoje (`ProfileItemAttachmentsField` + `uploadEmployeeRecordFiles`, aceita PDF/imagem).
 - Ao **editar** um atestado existente, o diálogo abre pré-preenchido com os valores atuais.
-- Opcional: ação **"Remover evidência"** ao editar (apaga o `employee_competency`, a linha volta a `gap`/`nao_classificado`).
+- **Remoção de atestado fica fora desta versão** (follow-up): apagar só a linha apontada por `manualCompetencyId` deixaria duplicatas legadas de mesma chave para trás — o requisito continuaria "atendido" pela duplicata e o "Remover" pareceria não funcionar. Um remover correto precisa de exclusão **por chave** no backend. Para neutralizar um atestado agora, baixa-se o nível (o upsert atualiza todas as duplicatas da chave).
 
 ### 3. Backend: upsert por chave do requisito
 
