@@ -583,16 +583,10 @@ export function AcoesDoPlano({
                         onChange={(v) => patchField(action.id, "whereAt", v)}
                         readOnly={!canEdit}
                       />
-                      {/* "Como" ocupa a linha inteira: além do método em texto, guarda
-                          a checklist de passos que o responsável vai marcando. */}
+                      {/* "Como" ocupa a linha inteira: é a checklist de passos que o
+                          responsável quebra em tarefas e vai marcando. O texto livre
+                          (`how`) foi aposentado da UI — a lista É o método. */}
                       <div className="space-y-2 sm:col-span-2">
-                        <Field
-                          label="Como"
-                          value={draft.how}
-                          placeholder="Método / passos"
-                          onChange={(v) => patchField(action.id, "how", v)}
-                          readOnly={!canEdit}
-                        />
                         <TasksChecklist
                           tasks={draft.howTasks}
                           canEdit={canEdit}
@@ -732,7 +726,7 @@ function TasksChecklist({
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         <ListChecks className="h-3.5 w-3.5" />
-        <span>Tarefas</span>
+        <span>Como</span>
         {filled.length > 0 && (
           <span className="font-normal normal-case tracking-normal">
             · {done}/{filled.length} concluídas
