@@ -56,6 +56,7 @@ export interface ResolvedRequirement {
   evidence: CompetencyEvidence | null;
   gapLevel: number;
   critical: boolean;
+  manualCompetencyId: number | null;
 }
 
 export interface EmployeeConformance {
@@ -180,7 +181,13 @@ export async function resolveEmployeeCompetencies(
   const employeeIds = employees.map((e) => e.id);
 
   // ── 4. Load manually attested competencies (max level wins) ──────────────
-  const manualByEmployee = new Map<number, Map<string, number>>();
+  // O valor guarda o `id` da linha de employee_competencies junto do nível,
+  // para que o requisito resolvido possa apontar para a linha exata que o
+  // atesta (manualCompetencyId) — não só o nível agregado.
+  const manualByEmployee = new Map<
+    number,
+    Map<string, { level: number; id: number }>
+  >();
   if (employeeIds.length > 0) {
     const competencies = await database
       .select()
@@ -193,9 +200,13 @@ export async function resolveEmployeeCompetencies(
       // Presença da chave é o que distingue "há atestado manual" de "não há
       // linha nenhuma" (achado 1) — por isso a primeira ocorrência SEMPRE
       // grava, mesmo com acquiredLevel 0. Só depois disso é que o maior
-      // nível vence entre ocorrências duplicadas da mesma chave.
-      if (!byKey.has(key) || comp.acquiredLevel > (byKey.get(key) ?? 0)) {
-        byKey.set(key, comp.acquiredLevel);
+      // nível vence entre ocorrências duplicadas da mesma chave; empatando,
+      // mantém a primeira (não substitui).
+      if (
+        !byKey.has(key) ||
+        comp.acquiredLevel > (byKey.get(key)?.level ?? 0)
+      ) {
+        byKey.set(key, { level: comp.acquiredLevel, id: comp.id });
       }
       manualByEmployee.set(comp.employeeId, byKey);
     }
@@ -274,7 +285,8 @@ export async function resolveEmployeeCompetencies(
       : [];
 
     const manualForEmployee =
-      manualByEmployee.get(employee.id) ?? new Map<string, number>();
+      manualByEmployee.get(employee.id) ??
+      new Map<string, { level: number; id: number }>();
     const trainingForEmployee =
       trainingByEmployee.get(employee.id) ?? new Map<string, TrainingProof>();
 
@@ -285,8 +297,10 @@ export async function resolveEmployeeCompetencies(
 
     for (const req of posReqs) {
       const key = buildCompetencyKey(req.competencyName, req.competencyType);
-      const hasManual = manualForEmployee.has(key);
-      const manualLevel = manualForEmployee.get(key) ?? 0;
+      const manualEntry = manualForEmployee.get(key) ?? null;
+      const hasManual = manualEntry !== null;
+      const manualLevel = manualEntry?.level ?? 0;
+      const manualCompetencyId = manualEntry?.id ?? null;
       const trainingProof = trainingForEmployee.get(key) ?? null;
       const trainingLevel = trainingProof?.level ?? 0;
 
@@ -335,6 +349,7 @@ export async function resolveEmployeeCompetencies(
           source === "treinamento" ? (trainingProof?.evidence ?? null) : null,
         gapLevel,
         critical,
+        manualCompetencyId,
       });
     }
 
