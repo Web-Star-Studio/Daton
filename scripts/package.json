@@ -41,6 +41,8 @@
     "backfill-tratativas-e-acoes": "tsx --env-file ../.env ./src/migrate/tratativas-e-acoes-backfill.ts",
     "backfill-areas": "tsx --env-file ../.env ./src/migrate/areas-backfill.ts",
     "backfill-areas-to-departments": "tsx --env-file ../.env ./src/migrate/areas-to-departments-backfill.ts",
+    "ddl-training-catalog-options": "tsx --env-file ../.env ./src/migrate/ddl-training-catalog-options.ts",
+    "backfill-training-catalog-options": "tsx --env-file ../.env ./src/migrate/training-catalog-options-backfill.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

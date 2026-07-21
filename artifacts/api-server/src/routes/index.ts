@@ -42,6 +42,7 @@ import regulatoryDocumentsRouter from "./regulatory-documents";
 import regulatoryNormsRouter from "./regulatory-norms";
 import actionPlanAnalysisMethodsRouter from "./action-plan-analysis-methods";
 import effectivenessMethodsRouter from "./effectiveness-methods";
+import trainingCatalogOptionsRouter from "./training-catalog-options";
 import areasRouter from "./areas";
 import pendenciasRouter from "./pendencias";
 import learningSummaryRouter from "./learning-summary";
@@ -257,6 +258,15 @@ router.use(requireAuth, requireCompletedOnboarding, regulatoryNormsRouter);
 // leitura livre a qualquer usuário autenticado da org; a gate admin na escrita
 // vive na própria rota (requireRole("org_admin")).
 router.use(requireAuth, requireCompletedOnboarding, effectivenessMethodsRouter);
+// Catálogo de opções do catálogo de treinamentos (categoria/modalidade/tipo de
+// evidência): mesmo raciocínio — cross-module, leitura livre a qualquer usuário
+// autenticado da org (o form do catálogo e a ficha resolvem rótulos/semântica),
+// gate admin na escrita vive na própria rota (requireRole("org_admin")).
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  trainingCatalogOptionsRouter,
+);
 // Catálogo de áreas de cargo: mesmo raciocínio — leitura livre a qualquer
 // usuário autenticado da org (o form de cargo resolve o rótulo), escrita
 // gated a org_admin na própria rota.

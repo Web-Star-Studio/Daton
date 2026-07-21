@@ -9,6 +9,7 @@ import { serializeOrganization } from "../lib/serialize-organization";
 import { ensureDefaultNorms } from "../services/norms/defaults";
 import { ensureAnalysisMethods } from "../services/action-plans/analysis-methods";
 import { ensureDefaultEffectivenessMethods } from "../services/effectiveness-methods/defaults";
+import { ensureDefaultTrainingCatalogOptions } from "../services/training-catalog-options/defaults";
 
 const router: IRouter = Router();
 
@@ -131,6 +132,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   await ensureDefaultNorms(org.id);
   await ensureAnalysisMethods(org.id);
   await ensureDefaultEffectivenessMethods(org.id);
+  await ensureDefaultTrainingCatalogOptions(org.id);
 
   const [user] = await db.insert(usersTable).values({
     name: adminFullName.toUpperCase(),

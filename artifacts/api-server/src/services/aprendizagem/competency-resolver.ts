@@ -29,12 +29,15 @@ import {
   positionsTable,
   trainingCatalogTable,
 } from "@workspace/db";
+import { getProvingEvidenceCodes } from "../training-catalog-options/evidence";
 
 type Db = Pick<typeof db, "select">;
 
-// Itens de catálogo com este evidence_type comprovam a competência-alvo quando
-// concluídos e válidos. "conscientizacao" e null (não classificado) não provam.
-const PROVING_EVIDENCE_TYPES = ["capacitacao", "habilitacao"] as const;
+// Itens de catálogo cujo evidence_type COMPROVA a competência-alvo quando
+// concluídos e válidos. O conjunto de códigos que provam é gerenciável por org
+// (catálogo `training_catalog_options`, kind=evidence_type, proves_competency),
+// resolvido em runtime por `getProvingEvidenceCodes`. Códigos fora dele (ex.:
+// "conscientizacao") e `null` (não classificado) não provam.
 
 export type RequirementStatus = "atende" | "gap" | "nao_classificado";
 export type GapStatus = "ok" | "gap" | "critical" | "indeterminado";
@@ -152,20 +155,28 @@ export async function resolveEmployeeCompetencies(
     }
   }
 
+  // Códigos de tipo de evidência que provam competência NESTA org (catálogo
+  // gerenciável). Vazio ⇒ nenhum item prova nada: todo requisito nasce
+  // "nao_classificado" — o mesmo estado de antes de qualquer classificação.
+  const provingCodes = await getProvingEvidenceCodes(database, orgId);
+
   // ── 3. Load the org's "provável" set: distinct target competencies that
   //      SOME classified catalog item could prove — regardless of who has
   //      taken it. This is what separates "não fez" de "não dá pra saber".
-  const provableRows = await database
-    .select({
-      targetCompetencies: trainingCatalogTable.targetCompetencies,
-    })
-    .from(trainingCatalogTable)
-    .where(
-      and(
-        eq(trainingCatalogTable.organizationId, orgId),
-        inArray(trainingCatalogTable.evidenceType, [...PROVING_EVIDENCE_TYPES]),
-      ),
-    );
+  const provableRows =
+    provingCodes.length === 0
+      ? []
+      : await database
+          .select({
+            targetCompetencies: trainingCatalogTable.targetCompetencies,
+          })
+          .from(trainingCatalogTable)
+          .where(
+            and(
+              eq(trainingCatalogTable.organizationId, orgId),
+              inArray(trainingCatalogTable.evidenceType, provingCodes),
+            ),
+          );
 
   // Um item de catálogo pode provar VÁRIAS competências. Cada entrada da lista
   // torna aquela competência "provável". Item com lista vazia não prova nada.
@@ -205,7 +216,7 @@ export async function resolveEmployeeCompetencies(
   //      classificado (capacitação/habilitação) apontando para uma competência.
   //      Empate: maior nível vence; empatando, conclusão mais recente.
   const trainingByEmployee = new Map<number, Map<string, TrainingProof>>();
-  if (employeeIds.length > 0) {
+  if (employeeIds.length > 0 && provingCodes.length > 0) {
     const today = new Date().toISOString().slice(0, 10);
 
     const rows = await database
@@ -230,9 +241,7 @@ export async function resolveEmployeeCompetencies(
             isNull(employeeTrainingsTable.expirationDate),
             gte(employeeTrainingsTable.expirationDate, today),
           ),
-          inArray(trainingCatalogTable.evidenceType, [
-            ...PROVING_EVIDENCE_TYPES,
-          ]),
+          inArray(trainingCatalogTable.evidenceType, provingCodes),
         ),
       );
 

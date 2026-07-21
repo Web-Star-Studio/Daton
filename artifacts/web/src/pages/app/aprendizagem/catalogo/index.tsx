@@ -25,6 +25,15 @@ import {
   buildNormLabelMap,
   shortNormLabel,
 } from "@/lib/norms-client";
+import {
+  useAllTrainingCatalogOptions,
+  activeLabelsOfKind,
+  mergeLabelOptions,
+  activeEvidenceTypes,
+  evidenceTypeByCode,
+  evidenceCodeProves,
+  type TrainingCatalogOption,
+} from "@/lib/training-catalog-options-client";
 import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { paginateList } from "@/lib/paginate";
@@ -53,16 +62,14 @@ import {
 } from "@/components/ui/searchable-select";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Copy, Pencil, Trash2 } from "lucide-react";
+import { Plus, Copy, Pencil, Trash2, Settings } from "lucide-react";
 
-const CATEGORIES = [
-  "Integração",
-  "Reciclagem",
-  "Capacitação",
-  "Certificação",
-  "Reunião",
-];
-const MODALITIES = ["Presencial", "EAD", "Híbrido", "Externo"];
+/** Rótulo descritivo de um tipo de evidência derivado das flags do catálogo. */
+function evidenceOptionLabel(o: TrainingCatalogOption): string {
+  if (o.provesCompetency)
+    return `${o.label} — comprova competência${o.requiresValidity ? " (com validade)" : ""}`;
+  return `${o.label} — não comprova competência`;
+}
 /** Quantos badges de norma cabem no cabeçalho do card antes do "+N". */
 const NORM_BADGES_ON_CARD = 2;
 
@@ -223,7 +230,12 @@ export default function CatalogoPage() {
   const { data: activeNorms = [] } = useActiveNorms(orgId ?? 0);
   const { data: allNorms = [] } = useAllNorms(orgId ?? 0);
   const normLabelMap = useMemo(() => buildNormLabelMap(allNorms), [allNorms]);
-  const { canWriteModule } = usePermissions();
+  // Catálogo gerenciável das opções do form (categoria/modalidade/tipo de
+  // evidência), em Configurações → Sistema → Treinamentos.
+  const { data: trainingOptions = [] } = useAllTrainingCatalogOptions(
+    orgId ?? 0,
+  );
+  const { canWriteModule, isOrgAdmin } = usePermissions();
   const canWrite = canWriteModule("employees");
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -352,6 +364,82 @@ export default function CatalogoPage() {
     );
     return [...activeNorms, ...referencedInactive];
   }, [activeNorms, allNorms, form.normIds]);
+
+  // ── Opções gerenciáveis (categoria/modalidade/tipo de evidência) ──────────
+  const evidenceByCode = useMemo(
+    () => evidenceTypeByCode(trainingOptions),
+    [trainingOptions],
+  );
+  const activeCategoryLabels = useMemo(
+    () => activeLabelsOfKind(trainingOptions, "category"),
+    [trainingOptions],
+  );
+  const activeModalityLabels = useMemo(
+    () => activeLabelsOfKind(trainingOptions, "modality"),
+    [trainingOptions],
+  );
+  // Filtro: ativos ∪ rótulos legados presentes nos itens ∪ o filtro atual (para
+  // um valor selecionado não sumir do <Select> ao desativar a opção).
+  const categoryFilterOptions = useMemo(
+    () =>
+      mergeLabelOptions(activeCategoryLabels, [
+        ...items.map((i) => i.category),
+        category,
+      ]),
+    [activeCategoryLabels, items, category],
+  );
+  const modalityFilterOptions = useMemo(
+    () =>
+      mergeLabelOptions(activeModalityLabels, [
+        ...items.map((i) => i.modality),
+        modality,
+      ]),
+    [activeModalityLabels, items, modality],
+  );
+  // Diálogo: ativos ∪ o valor atual do form (editar item cuja opção foi desativada).
+  const categoryFormOptions = useMemo(
+    () => mergeLabelOptions(activeCategoryLabels, [form.category]),
+    [activeCategoryLabels, form.category],
+  );
+  const modalityFormOptions = useMemo(
+    () => mergeLabelOptions(activeModalityLabels, [form.modality]),
+    [activeModalityLabels, form.modality],
+  );
+  // Tipos de evidência ofertados: ativos + o já selecionado (mesmo inativo).
+  const evidenceOptions = useMemo(() => {
+    const active = activeEvidenceTypes(trainingOptions);
+    if (
+      form.evidenceType &&
+      !active.some((o) => o.code === form.evidenceType)
+    ) {
+      const current = evidenceByCode.get(form.evidenceType);
+      if (current) return [...active, current];
+    }
+    return active;
+  }, [trainingOptions, form.evidenceType, evidenceByCode]);
+  const formEvidenceProves = evidenceCodeProves(
+    evidenceByCode,
+    form.evidenceType,
+  );
+
+  // Engrenagem "Gerenciar" → Configurações → Sistema → aba Treinamentos.
+  const goToTrainingConfig = () => {
+    setFormOpen(false);
+    navigate("/app/configuracoes/sistema");
+    window.location.hash = "training-catalog";
+  };
+  const manageGear = isOrgAdmin ? (
+    <button
+      type="button"
+      onClick={goToTrainingConfig}
+      className="flex items-center gap-1 rounded p-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+      title="Gerenciar opções em Configurações → Sistema → Treinamentos"
+      aria-label="Gerenciar opções"
+    >
+      <Settings className="h-3.5 w-3.5" />
+      Gerenciar
+    </button>
+  ) : null;
 
   const openCreate = () => {
     setEditingId(null);
@@ -508,7 +596,7 @@ export default function CatalogoPage() {
           className="w-auto"
         >
           <option value="">Todas as categorias</option>
-          {CATEGORIES.map((c) => (
+          {categoryFilterOptions.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
@@ -520,7 +608,7 @@ export default function CatalogoPage() {
           className="w-auto"
         >
           <option value="">Todas as modalidades</option>
-          {MODALITIES.map((m) => (
+          {modalityFilterOptions.map((m) => (
             <option key={m} value={m}>
               {m}
             </option>
@@ -787,11 +875,10 @@ export default function CatalogoPage() {
                   : {normLabelsForItem(fichaItem, normLabelMap).join(", ")}
                 </span>
               ) : null}
-              {/* Só capacitação/habilitação comprovam competência — não exibir
-                  vínculos de um item que não comprova (ex.: conscientização com
-                  lista gravada por outra via), para não enganar. */}
-              {(fichaItem.evidenceType === "capacitacao" ||
-                fichaItem.evidenceType === "habilitacao") &&
+              {/* Só tipos que comprovam competência exibem vínculos — não mostrar
+                  os de um item que não comprova (ex.: conscientização com lista
+                  gravada por outra via), para não enganar. */}
+              {evidenceCodeProves(evidenceByCode, fichaItem.evidenceType) &&
               fichaItem.targetCompetencies &&
               fichaItem.targetCompetencies.length > 0 ? (
                 <span>
@@ -861,22 +948,22 @@ export default function CatalogoPage() {
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
           </Field>
-          <Field label="Categoria">
+          <Field label="Categoria" action={manageGear}>
             <Select
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
             >
-              {CATEGORIES.map((c) => (
+              {categoryFormOptions.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Modalidade">
+          <Field label="Modalidade" action={manageGear}>
             <Select
               value={form.modality}
               onChange={(e) => setForm({ ...form, modality: e.target.value })}
             >
-              {MODALITIES.map((m) => (
+              {modalityFormOptions.map((m) => (
                 <option key={m}>{m}</option>
               ))}
             </Select>
@@ -940,33 +1027,27 @@ export default function CatalogoPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Tipo de evidência">
+          <Field label="Tipo de evidência" action={manageGear}>
             <Select
               value={form.evidenceType}
               onChange={(e) => {
                 const v = e.target.value;
-                // Só capacitação/habilitação comprovam competência. Ao mudar
-                // para conscientização (ou nenhum), limpa as competências.
+                // Só tipos que comprovam competência mantêm o vínculo. Ao mudar
+                // para um tipo que não comprova (ou nenhum), limpa as competências.
+                const proves = evidenceCodeProves(evidenceByCode, v);
                 setForm((f) => ({
                   ...f,
                   evidenceType: v,
-                  targetCompetencies:
-                    v === "capacitacao" || v === "habilitacao"
-                      ? f.targetCompetencies
-                      : [],
+                  targetCompetencies: proves ? f.targetCompetencies : [],
                 }));
               }}
             >
               <option value="">Não classificado</option>
-              <option value="capacitacao">
-                Capacitação — comprova competência
-              </option>
-              <option value="habilitacao">
-                Habilitação — comprova competência (com validade)
-              </option>
-              <option value="conscientizacao">
-                Conscientização — não comprova competência
-              </option>
+              {evidenceOptions.map((o) => (
+                <option key={o.id} value={o.code ?? ""}>
+                  {evidenceOptionLabel(o)}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Competências comprovadas" className="md:col-span-2">
@@ -977,17 +1058,13 @@ export default function CatalogoPage() {
               placeholder="Selecione as competências que este treino comprova…"
               searchPlaceholder="Buscar competência…"
               emptyMessage="Nenhuma competência no banco. Cadastre em Cargos e competências."
-              disabled={
-                form.evidenceType !== "capacitacao" &&
-                form.evidenceType !== "habilitacao"
-              }
+              disabled={!formEvidenceProves}
             />
-            {form.evidenceType !== "capacitacao" &&
-            form.evidenceType !== "habilitacao" ? (
+            {!formEvidenceProves ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                {form.evidenceType === "conscientizacao"
-                  ? "Conscientização não comprova competência — o vínculo fica desabilitado."
-                  : "Escolha capacitação ou habilitação para vincular competências que este treino comprova."}
+                {form.evidenceType
+                  ? "Este tipo de evidência não comprova competência — o vínculo fica desabilitado."
+                  : "Escolha um tipo de evidência que comprova competência para vincular o que este treino comprova."}
               </p>
             ) : null}
           </Field>
@@ -1079,17 +1156,22 @@ function Info({ label, value }: { label: string; value?: string | null }) {
 function Field({
   label,
   className,
+  action,
   children,
 }: {
   label: string;
   className?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className={className}>
-      <Label className="text-xs font-semibold text-muted-foreground">
-        {label}
-      </Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs font-semibold text-muted-foreground">
+          {label}
+        </Label>
+        {action}
+      </div>
       <div className="mt-1">{children}</div>
     </div>
   );
