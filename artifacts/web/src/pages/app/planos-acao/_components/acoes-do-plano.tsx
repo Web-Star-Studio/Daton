@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { updateActionPlanAction } from "@workspace/api-client-react";
 import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -139,6 +140,13 @@ export function AcoesDoPlano({
   actionsRef.current = actions;
   const dirtyIdsRef = useRef<Set<number>>(new Set());
   const timersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  // Serialização por ação: no máximo um PATCH em voo por linha. Sem isto, dois
+  // saves da MESMA ação podem completar fora de ordem e o snapshot antigo do
+  // primeiro sobrescreve o valor mais novo do segundo (perda silenciosa).
+  const inFlightRef = useRef<Record<number, boolean>>({});
+  const resaveRef = useRef<Set<number>>(new Set());
+  // Evita setState depois do unmount (o flush abaixo dispara PATCHes na saída).
+  const mountedRef = useRef(true);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [aRemover, setARemover] = useState<ActionPlanAction | null>(null);
 
@@ -163,14 +171,36 @@ export function AcoesDoPlano({
     });
   }, [actions]);
 
-  // Flush no pending timers on unmount — nothing to save server-side beyond
-  // what's already scheduled; this just avoids a `setState` after unmount.
-  useEffect(
-    () => () => {
+  // No unmount (ou troca de plano), FLUSH das edições ainda não enviadas — sair da
+  // tela dentro da janela do debounce (~1s) não pode perder o que o usuário digitou.
+  // Dispara o PATCH direto no cliente (não pelo hook, desmontado junto) com o draft
+  // MAIS recente. Sem invalidação de cache: o dado é gravado no servidor e a próxima
+  // montagem já lê o valor certo.
+  useEffect(() => {
+    mountedRef.current = true;
+    const orgIdSnapshot = orgId;
+    const planIdSnapshot = planId;
+    return () => {
+      mountedRef.current = false;
+      const toFlush = new Set<number>();
+      for (const id of Object.keys(timersRef.current)) toFlush.add(Number(id));
+      for (const id of resaveRef.current) toFlush.add(id);
       Object.values(timersRef.current).forEach(clearTimeout);
-    },
-    [],
-  );
+      timersRef.current = {};
+      resaveRef.current.clear();
+      for (const actionId of toFlush) {
+        const draft = draftsRef.current[actionId];
+        if (draft) {
+          void updateActionPlanAction(
+            orgIdSnapshot,
+            planIdSnapshot,
+            actionId,
+            draftToPayload(draft),
+          );
+        }
+      }
+    };
+  }, [orgId, planId]);
 
   function scheduleSave(actionId: number) {
     const existing = timersRef.current[actionId];
@@ -195,8 +225,16 @@ export function AcoesDoPlano({
   }
 
   async function save(actionId: number) {
+    // Serialização: se já há um PATCH desta ação em voo, não dispara um segundo em
+    // paralelo (os dois poderiam completar fora de ordem). Marca "re-salvar" e sai;
+    // ao terminar, o save em voo re-roda uma vez com o draft mais recente.
+    if (inFlightRef.current[actionId]) {
+      resaveRef.current.add(actionId);
+      return;
+    }
     const draft = draftsRef.current[actionId];
     if (!draft) return;
+    inFlightRef.current[actionId] = true;
     try {
       await updateAction.mutateAsync({
         orgId,
@@ -222,18 +260,29 @@ export function AcoesDoPlano({
         description: apiErrorMessage(err),
         variant: "destructive",
       });
-      if (timersRef.current[actionId]) return;
-      dirtyIdsRef.current.delete(actionId);
-      const server = actionsRef.current.find((a) => a.id === actionId);
-      if (server)
-        setDrafts((prev) => ({ ...prev, [actionId]: draftFromAction(server) }));
+      if (!timersRef.current[actionId] && !resaveRef.current.has(actionId)) {
+        dirtyIdsRef.current.delete(actionId);
+        const server = actionsRef.current.find((a) => a.id === actionId);
+        if (server && mountedRef.current)
+          setDrafts((prev) => ({ ...prev, [actionId]: draftFromAction(server) }));
+      }
+    } finally {
+      inFlightRef.current[actionId] = false;
+      // Uma edição chegou durante o PATCH — salva de novo, agora com o valor atual.
+      if (resaveRef.current.has(actionId)) {
+        resaveRef.current.delete(actionId);
+        void save(actionId);
+      }
     }
   }
 
-  /** Clears a row's dirty flag ONLY when no newer edit is pending (no live
-   * timer) — the guard that lets the resync effect skip a row still in flight. */
+  /** Clears a row's dirty flag ONLY when nothing newer is pending — no live timer
+   * AND no queued re-save — the guard that lets the resync effect skip a row still
+   * being written. */
   function clearDirtyIfSettled(actionId: number) {
-    if (!timersRef.current[actionId]) dirtyIdsRef.current.delete(actionId);
+    if (!timersRef.current[actionId] && !resaveRef.current.has(actionId)) {
+      dirtyIdsRef.current.delete(actionId);
+    }
   }
 
   async function handleAdd() {
@@ -275,6 +324,7 @@ export function AcoesDoPlano({
     if (timer) clearTimeout(timer);
     delete timersRef.current[actionId];
     dirtyIdsRef.current.delete(actionId);
+    resaveRef.current.delete(actionId);
     try {
       await deleteAction.mutateAsync({ orgId, planId, actionId });
     } catch (err) {
