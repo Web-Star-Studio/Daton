@@ -1361,6 +1361,8 @@ export type EmployeeCompetencyConformanceRequirementsItem = {
   evidence: EmployeeCompetencyConformanceRequirementsItemEvidence;
   gapLevel: number;
   critical: boolean;
+  /** Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é "treinamento" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave. */
+  manualCompetencyId?: number | null;
 };
 
 /**
@@ -1459,6 +1461,7 @@ export interface EmployeeCompetency {
   acquiredLevel: number;
   evidence?: string | null;
   attachments: EmployeeRecordAttachment[];
+  isPositionRequirement?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1986,6 +1989,33 @@ export interface CreateCompetencyBody {
   acquiredLevel?: number;
   evidence?: string;
   /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
+}
+
+export type CreateCompetencyRequirementEvidenceBodyCompetencyType =
+  (typeof CreateCompetencyRequirementEvidenceBodyCompetencyType)[keyof typeof CreateCompetencyRequirementEvidenceBodyCompetencyType];
+
+export const CreateCompetencyRequirementEvidenceBodyCompetencyType = {
+  conhecimento: "conhecimento",
+  habilidade: "habilidade",
+  atitude: "atitude",
+} as const;
+
+export interface CreateCompetencyRequirementEvidenceBody {
+  /** @minLength 1 */
+  competencyName: string;
+  competencyType: CreateCompetencyRequirementEvidenceBodyCompetencyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  requiredLevel: number;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  acquiredLevel: number;
+  evidence?: string | null;
   attachments?: EmployeeRecordAttachment[];
 }
 
@@ -5191,6 +5221,18 @@ export const ActionPlanActionStatus = {
   cancelled: "cancelled",
 } as const;
 
+/**
+ * Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt/ doneBy* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.
+ */
+export interface ActionPlanActionTask {
+  id: string;
+  text: string;
+  done: boolean;
+  doneAt?: string | null;
+  doneByUserId?: number | null;
+  doneByUserName?: string | null;
+}
+
 export interface ActionPlanAction {
   id: number;
   actionPlanId: number;
@@ -5198,6 +5240,8 @@ export interface ActionPlanAction {
   why?: string | null;
   whereAt?: string | null;
   how?: string | null;
+  /** Checklist de tarefas ("passos") do campo Como. Marcáveis pelo responsável. */
+  howTasks?: ActionPlanActionTask[] | null;
   howMuch?: string | null;
   responsibleUserId?: number | null;
   responsibleUserName?: string | null;
@@ -5224,6 +5268,7 @@ export interface CreateActionPlanActionBody {
   why?: string | null;
   whereAt?: string | null;
   how?: string | null;
+  howTasks?: ActionPlanActionTask[] | null;
   howMuch?: string | null;
   responsibleUserId?: number | null;
   dueDate?: string | null;
@@ -5246,6 +5291,7 @@ export interface UpdateActionPlanActionBody {
   why?: string | null;
   whereAt?: string | null;
   how?: string | null;
+  howTasks?: ActionPlanActionTask[] | null;
   howMuch?: string | null;
   responsibleUserId?: number | null;
   dueDate?: string | null;

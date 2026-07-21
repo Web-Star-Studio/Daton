@@ -68,6 +68,7 @@ import type {
   CreateAwarenessBody,
   CreateCompetencyBody,
   CreateCompetencyCatalogItemBody,
+  CreateCompetencyRequirementEvidenceBody,
   CreateCorrectiveActionBody,
   CreateDepartmentBody,
   CreateDocumentBody,
@@ -5501,6 +5502,129 @@ export const useDeleteCompetency = <
   TContext
 > => {
   return useMutation(getDeleteCompetencyMutationOptions(options));
+};
+
+/**
+ * @summary Register manual evidence for a competency requirement
+ */
+export const getCreateCompetencyRequirementEvidenceUrl = (
+  orgId: number,
+  empId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/${empId}/competency-requirement-evidence`;
+};
+
+export const createCompetencyRequirementEvidence = async (
+  orgId: number,
+  empId: number,
+  createCompetencyRequirementEvidenceBody: CreateCompetencyRequirementEvidenceBody,
+  options?: RequestInit,
+): Promise<EmployeeCompetency> => {
+  return customFetch<EmployeeCompetency>(
+    getCreateCompetencyRequirementEvidenceUrl(orgId, empId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCompetencyRequirementEvidenceBody),
+    },
+  );
+};
+
+export const getCreateCompetencyRequirementEvidenceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCompetencyRequirementEvidence>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      data: BodyType<CreateCompetencyRequirementEvidenceBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCompetencyRequirementEvidence>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    data: BodyType<CreateCompetencyRequirementEvidenceBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createCompetencyRequirementEvidence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCompetencyRequirementEvidence>>,
+    {
+      orgId: number;
+      empId: number;
+      data: BodyType<CreateCompetencyRequirementEvidenceBody>;
+    }
+  > = (props) => {
+    const { orgId, empId, data } = props ?? {};
+
+    return createCompetencyRequirementEvidence(
+      orgId,
+      empId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCompetencyRequirementEvidenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCompetencyRequirementEvidence>>
+>;
+export type CreateCompetencyRequirementEvidenceMutationBody =
+  BodyType<CreateCompetencyRequirementEvidenceBody>;
+export type CreateCompetencyRequirementEvidenceMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Register manual evidence for a competency requirement
+ */
+export const useCreateCompetencyRequirementEvidence = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCompetencyRequirementEvidence>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      data: BodyType<CreateCompetencyRequirementEvidenceBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCompetencyRequirementEvidence>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    data: BodyType<CreateCompetencyRequirementEvidenceBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateCompetencyRequirementEvidenceMutationOptions(options),
+  );
 };
 
 /**

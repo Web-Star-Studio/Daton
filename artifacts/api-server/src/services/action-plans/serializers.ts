@@ -56,6 +56,7 @@ export function serializeAction(
     why: a.why ?? null,
     whereAt: a.whereAt ?? null,
     how: a.how ?? null,
+    howTasks: a.howTasks ?? null,
     howMuch: a.howMuch ?? null,
     responsibleUserId: a.responsibleUserId ?? null,
     responsibleUserName,

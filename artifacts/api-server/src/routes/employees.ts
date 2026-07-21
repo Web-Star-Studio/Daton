@@ -10,6 +10,7 @@ import {
   isNotNull,
   count,
   desc,
+  asc,
   sql,
   exists,
   inArray,
@@ -67,6 +68,8 @@ import {
   UpdateCompetencyParams,
   UpdateCompetencyBody,
   DeleteCompetencyParams,
+  CreateCompetencyRequirementEvidenceParams,
+  CreateCompetencyRequirementEvidenceBody,
   ListTrainingsParams,
   CreateTrainingParams,
   CreateTrainingBody,
@@ -2878,12 +2881,25 @@ router.get(
             gapStatus: resolvedConformance.gapStatus,
           }
         : null;
+    // Marca cada competência atestada que corresponde a um requisito do
+    // cargo (mesma chave do resolvedor) — a ficha usa isso para diferenciar
+    // "Requisitos do cargo" de "Outras competências" sem duplicar consulta.
+    const requirementKeys = new Set(
+      (resolvedConformance?.requirements ?? []).map((r) =>
+        buildCompetencyKey(r.competencyName, r.competencyType),
+      ),
+    );
 
     res.json({
       ...formatEmployee(rows[0]),
       units: linkedUnits,
       managers,
-      competencies: competencies.map(formatCompetencyRecord),
+      competencies: competencies.map((c) => ({
+        ...formatCompetencyRecord(c),
+        isPositionRequirement: requirementKeys.has(
+          buildCompetencyKey(c.name, c.type),
+        ),
+      })),
       trainings: trainings.map((training) =>
         formatTrainingRecord(training, {
           reviews: trainingReviews.get(training.id) || [],
@@ -3264,6 +3280,130 @@ router.delete(
       return;
     }
     res.sendStatus(204);
+  },
+);
+
+// Evidência manual por requisito: registra/atualiza a competência atestada à
+// mão na MESMA chave (`buildCompetencyKey(name, type)`) que o resolvedor usa
+// para casar requisito × competência (competency-resolver.ts) — upsert, nunca
+// duplicata, para que o requisito de cargo enxergue o atestado imediatamente.
+router.post(
+  "/organizations/:orgId/employees/:empId/competency-requirement-evidence",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = CreateCompetencyRequirementEvidenceParams.safeParse(
+      req.params,
+    );
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    if (
+      !(await verifyEmployeeOwnership(params.data.empId, params.data.orgId))
+    ) {
+      res.status(404).json({ error: "Colaborador não encontrado" });
+      return;
+    }
+
+    const body = CreateCompetencyRequirementEvidenceBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+
+    // Distinguir "campo omitido" (preservar anexos atuais) de "array vazio
+    // explícito" (limpar). `sanitizeEmployeeRecordAttachments([])` devolve
+    // `undefined`, então sem essa distinção remover o último anexo na edição
+    // era descartado e o anexo antigo reaparecia (achado do revisor).
+    const attachmentsProvided = body.data.attachments !== undefined;
+    const attachments = attachmentsProvided
+      ? (sanitizeEmployeeRecordAttachments(body.data.attachments) ?? [])
+      : undefined;
+    const attachmentValidationError =
+      await validateEmployeeRecordAttachments(attachments);
+    if (attachmentValidationError) {
+      res.status(400).json({ error: attachmentValidationError });
+      return;
+    }
+
+    const key = buildCompetencyKey(
+      body.data.competencyName,
+      body.data.competencyType,
+    );
+
+    // Duas submissões concorrentes com a mesma chave podem, em check-then-act
+    // puro, ambas deixarem de achar `match` e ambas inserirem — a duplicata
+    // que este endpoint existe para evitar. O advisory lock (escopo da
+    // transação, liberado no commit/rollback) serializa upserts da MESMA
+    // dupla (colaborador, chave); não precisa de índice único (proibido: há
+    // duplicatas legadas em produção que fariam a criação do índice falhar).
+    const { comp, isNew } = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(${params.data.empId}, hashtext(${key}))`,
+      );
+
+      const existing = await tx
+        .select()
+        .from(employeeCompetenciesTable)
+        .where(eq(employeeCompetenciesTable.employeeId, params.data.empId))
+        // Duplicatas legadas podem compartilhar a mesma chave; entre elas,
+        // preferir o maior nível adquirido — mesma preferência do resolvedor
+        // (competency-resolver.ts) — para que o match seja determinístico.
+        .orderBy(
+          desc(employeeCompetenciesTable.acquiredLevel),
+          asc(employeeCompetenciesTable.id),
+        );
+      // TODAS as linhas da mesma chave, não só a primeira: duplicatas legadas
+      // compartilham a chave e o resolvedor usa o MAX de nível entre elas —
+      // atualizar só uma deixaria BAIXAR o nível sem efeito (outra duplicata
+      // seguiria como o máximo e o requisito continuaria "atende"). Atualizar
+      // todas consolida o valor e faz a edição surtir efeito (achado do revisor).
+      const matchingIds = existing
+        .filter((c) => buildCompetencyKey(c.name, c.type) === key)
+        .map((c) => c.id);
+
+      let comp: typeof employeeCompetenciesTable.$inferSelect;
+      if (matchingIds.length > 0) {
+        const rows = await tx
+          .update(employeeCompetenciesTable)
+          .set({
+            requiredLevel: body.data.requiredLevel,
+            // Edição manual pode BAIXAR o nível atestado (correção de um
+            // atestado indevido) — ao contrário do fluxo de eficácia de
+            // treinamento (Math.max), aqui o valor do corpo vale exatamente.
+            acquiredLevel: body.data.acquiredLevel,
+            evidence: body.data.evidence ?? null,
+            ...(attachmentsProvided ? { attachments } : {}),
+          })
+          .where(inArray(employeeCompetenciesTable.id, matchingIds))
+          .returning();
+        // Retorna a de MENOR id — a mesma linha que o resolvedor escolhe como
+        // manualCompetencyId (desempate por menor id).
+        comp = rows.reduce((lo, r) => (r.id < lo.id ? r : lo), rows[0]);
+      } else {
+        [comp] = await tx
+          .insert(employeeCompetenciesTable)
+          .values({
+            employeeId: params.data.empId,
+            name: body.data.competencyName,
+            type: body.data.competencyType,
+            requiredLevel: body.data.requiredLevel,
+            acquiredLevel: body.data.acquiredLevel,
+            evidence: body.data.evidence ?? null,
+            attachments: attachments ?? [],
+          })
+          .returning();
+      }
+
+      return { comp, isNew: matchingIds.length === 0 };
+    });
+
+    res.status(isNew ? 201 : 200).json(formatCompetencyRecord(comp));
   },
 );
 

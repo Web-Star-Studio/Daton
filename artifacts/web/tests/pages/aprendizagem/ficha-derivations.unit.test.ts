@@ -4,7 +4,23 @@ import {
   computeTenure,
   compareEducation,
   toChaCompetencyType,
+  selectOtherCompetencies,
 } from "@/pages/app/aprendizagem/colaboradores/_lib/ficha-derivations";
+import type { EmployeeCompetency } from "@workspace/api-client-react";
+
+function makeCompetency(
+  overrides: Partial<EmployeeCompetency> & { id: number },
+): EmployeeCompetency {
+  return {
+    employeeId: 1,
+    name: `Competência ${overrides.id}`,
+    type: "conhecimento",
+    requiredLevel: 3,
+    acquiredLevel: 3,
+    attachments: [],
+    ...overrides,
+  };
+}
 
 describe("computeTrainingCounters", () => {
   it("conta total/feitos/pendentes/vencidos por status", () => {
@@ -126,5 +142,34 @@ describe("toChaCompetencyType (reuso no form de treino)", () => {
 
   it("valor CHA de treino já válido é mantido", () => {
     expect(toChaCompetencyType("atitude")).toBe("atitude");
+  });
+});
+
+// Task 6 (feat/aprendizagem-evidencia-requisito): a seção manual do rodapé da
+// ficha ("Outras competências") não pode repetir requisitos do cargo — esses
+// agora entram via as linhas de "Competências do cargo" (evidência ligada ao
+// requisito, Tasks 4-5). O backend expõe `isPositionRequirement` pronto
+// (Task 3); este helper é o único ponto que decide o que aparece no rodapé.
+describe("selectOtherCompetencies", () => {
+  it("mantém só as competências que NÃO são requisito do cargo", () => {
+    const requisito = makeCompetency({ id: 1, isPositionRequirement: true });
+    const livre = makeCompetency({ id: 2, isPositionRequirement: false });
+    const semCampo = makeCompetency({ id: 3 }); // isPositionRequirement ausente (undefined)
+
+    const result = selectOtherCompetencies([requisito, livre, semCampo]);
+
+    expect(result.map((c) => c.id)).toEqual([2, 3]);
+  });
+
+  it("lista vazia -> lista vazia", () => {
+    expect(selectOtherCompetencies([])).toEqual([]);
+  });
+
+  it("todas são requisito do cargo -> lista vazia", () => {
+    const result = selectOtherCompetencies([
+      makeCompetency({ id: 1, isPositionRequirement: true }),
+      makeCompetency({ id: 2, isPositionRequirement: true }),
+    ]);
+    expect(result).toEqual([]);
   });
 });
