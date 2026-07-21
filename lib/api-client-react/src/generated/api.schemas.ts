@@ -2307,6 +2307,7 @@ export interface Position {
   minSalary?: number | null;
   maxSalary?: number | null;
   area?: string | null;
+  areaId?: number | null;
   principalNormId?: number | null;
   competencyCount?: number;
   createdAt?: string;
@@ -2324,6 +2325,7 @@ export interface CreatePositionBody {
   minSalary?: number;
   maxSalary?: number;
   area?: string;
+  areaId?: number | null;
   principalNormId?: number | null;
 }
 
@@ -2338,6 +2340,7 @@ export interface UpdatePositionBody {
   minSalary?: number;
   maxSalary?: number;
   area?: string;
+  areaId?: number | null;
   principalNormId?: number | null;
 }
 
@@ -4807,6 +4810,29 @@ export interface CreateEffectivenessMethodBody {
 }
 
 export interface UpdateEffectivenessMethodBody {
+  /** @minLength 1 */
+  label?: string;
+  active?: boolean;
+  sortOrder?: number;
+}
+
+/**
+ * Item do catálogo de áreas (setores) de cargo da organização (referenciado pelos cargos).
+ */
+export interface Area {
+  id: number;
+  organizationId: number;
+  label: string;
+  active: boolean;
+  sortOrder: number;
+}
+
+export interface CreateAreaBody {
+  /** @minLength 1 */
+  label: string;
+}
+
+export interface UpdateAreaBody {
   /** @minLength 1 */
   label?: string;
   active?: boolean;

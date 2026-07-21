@@ -24,9 +24,13 @@ export const positionsTable = pgTable("positions", {
   level: text("level"),
   minSalary: integer("min_salary"),
   maxSalary: integer("max_salary"),
-  // Setor do cargo (Operações/Logística/...). Texto livre; o filtro da tela deriva
-  // as áreas distintas presentes.
+  // Setor do cargo. LEGADO em texto livre — mantido para não perder o histórico
+  // já importado; a fonte atual é o catálogo `areas` via `areaId`. Backfill em
+  // scripts/src/migrate/areas-backfill.ts liga cada cargo à sua área.
   area: text("area"),
+  // Área (setor) do cargo — catálogo `areas.id`. Integer simples aqui; a FK
+  // (ON DELETE SET NULL) é adicionada por DDL, mesma convenção de principalNormId.
+  areaId: integer("area_id"),
   // Norma ISO principal do cargo (regulatory_norms.id). Integer simples aqui — a FK
   // (ON DELETE SET NULL) é adicionada por DDL, seguindo a convenção do repo de evitar
   // referência no schema Drizzle.
