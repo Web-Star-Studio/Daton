@@ -1,16 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
+import { SearchableMultiCreateSelect } from "@/components/ui/searchable-multi-create-select";
 import { COMPETENCY_TYPE_LABELS, findBankItemByName } from "../cargos-utils";
 
 /**
  * Taxonomia CHA (conhecimento/habilidade/atitude) — só aparece como escolha do
- * usuário quando ele está criando uma competência NOVA no catálogo (o tipo é
- * atributo da competência, não do vínculo). Para uma competência já existente,
- * o tipo vem do catálogo e é só exibido (o servidor o realinha de qualquer
- * forma — ver fix(aprendizagem): tipo do requisito vem do catálogo).
+ * usuário quando o lote inclui competências NOVAS (a criar no catálogo). O tipo
+ * é atributo da competência, não do vínculo: competências já existentes mantêm
+ * o tipo do catálogo (o servidor o realinha de qualquer forma — ver
+ * fix(aprendizagem): tipo do requisito vem do catálogo).
  */
-export const CHA_TYPE_OPTIONS = ["conhecimento", "habilidade", "atitude"] as const;
+export const CHA_TYPE_OPTIONS = [
+  "conhecimento",
+  "habilidade",
+  "atitude",
+] as const;
 
 const LEVEL_OPTIONS = [
   { value: 1, label: "Básico" },
@@ -24,20 +28,24 @@ export type CompetencyBankOption = {
 };
 
 export type VincularCompetenciaFormValue = {
-  competencyName: string;
-  competencyType: string;
+  /** Competências escolhidas no lote (grafia exata; existentes + novas). */
+  competencyNames: string[];
+  /** Tipo CHA aplicado às competências NOVAS do lote (as existentes usam o catálogo). */
+  newCompetencyType: string;
+  /** Nível requerido aplicado a todo o lote (ajustável por linha depois). */
   requiredLevel: number;
 };
 
 /**
- * Formulário de vínculo de competência a um cargo — apresentacional (sem
- * hooks de dados). O campo "Tipo" NÃO é um atributo do vínculo: quando a
- * competência escolhida já existe no catálogo, o tipo dela aparece como texto
- * (somente leitura); só ao criar uma competência nova é que o usuário escolhe
- * o tipo (lista CHA), porque aí o tipo é atributo da competência nova.
+ * Formulário de vínculo de competências a um cargo — apresentacional (sem
+ * hooks de dados). Permite selecionar VÁRIAS competências de uma vez, para
+ * agilizar. O nível é único para o lote (pode ser ajustado por competência
+ * depois). O "Tipo" NÃO é atributo do vínculo: só aparece (lista CHA) quando o
+ * lote inclui competências novas a criar no catálogo — e vale para todas elas.
  */
 export function VincularCompetenciaForm({
   bankItems,
+  linkedNames = [],
   value,
   onChange,
   onSubmit,
@@ -45,65 +53,68 @@ export function VincularCompetenciaForm({
   submitting,
 }: {
   bankItems: CompetencyBankOption[];
+  /** Competências já vinculadas ao cargo — ocultas do seletor (não relinkáveis). */
+  linkedNames?: string[];
   value: VincularCompetenciaFormValue;
   onChange: (value: VincularCompetenciaFormValue) => void;
   onSubmit: () => void;
   onCancel?: () => void;
   submitting?: boolean;
 }) {
-  const trimmedName = value.competencyName.trim();
-  const existing = findBankItemByName(bankItems, trimmedName);
-  // Fluxo "criar na hora": o nome digitado não casa com nada do catálogo.
-  const isNew = !!trimmedName && !existing;
+  // Nomes selecionados que ainda não existem no catálogo → serão criados com o
+  // tipo CHA escolhido abaixo.
+  const newNames = value.competencyNames.filter(
+    (n) => !findBankItemByName(bankItems, n),
+  );
+  const hasNew = newNames.length > 0;
+  const count = value.competencyNames.length;
 
-  const existingTypeLabel = existing?.competencyType
-    ? (COMPETENCY_TYPE_LABELS[existing.competencyType] ?? existing.competencyType)
-    : null;
+  // Já vinculadas ficam fora do seletor (vincular a mesma duas vezes é 400).
+  const linkedKeys = new Set(linkedNames.map((n) => n.trim().toLowerCase()));
+  const bankOptions = bankItems
+    .filter((i) => !linkedKeys.has(i.name.trim().toLowerCase()))
+    .map((i) => ({ value: i.name, label: i.name }));
 
-  // Opções do combobox: o banco + o nome sendo digitado/criado (para o trigger
-  // mostrar a seleção mesmo antes de existir no banco).
-  const bankOptions = bankItems.map((i) => ({ value: i.name, label: i.name }));
-  if (trimmedName && !bankOptions.some((o) => o.value === value.competencyName)) {
-    bankOptions.unshift({ value: value.competencyName, label: value.competencyName });
-  }
-
-  const handleCreateOption = (name: string) => {
+  const handleSelectionChange = (names: string[]) => {
     onChange({
       ...value,
-      competencyName: name,
-      // Nova competência: garante um tipo válido pré-selecionado no seletor CHA
+      competencyNames: names,
+      // Garante um tipo CHA válido pré-selecionado quando surge competência nova
       // (preserva a escolha anterior, se já era válida).
-      competencyType: (CHA_TYPE_OPTIONS as readonly string[]).includes(
-        value.competencyType,
+      newCompetencyType: (CHA_TYPE_OPTIONS as readonly string[]).includes(
+        value.newCompetencyType,
       )
-        ? value.competencyType
+        ? value.newCompetencyType
         : CHA_TYPE_OPTIONS[0],
     });
   };
 
   return (
     <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-      <SearchableSelect
-        value={value.competencyName}
+      <SearchableMultiCreateSelect
+        values={value.competencyNames}
         options={bankOptions}
-        placeholder="Escolha ou digite uma competência..."
-        onChange={(name) => onChange({ ...value, competencyName: name })}
-        onCreateOption={handleCreateOption}
-        createOptionLabel={(input) => `Criar “${input}”`}
+        placeholder="Escolha ou digite competências..."
+        searchPlaceholder="Buscar ou criar..."
+        emptyMessage="Nenhuma competência no catálogo."
+        allowCreate
+        onChange={handleSelectionChange}
       />
-      <div className="flex items-center gap-2">
-        {isNew ? (
+      <div className="flex items-end gap-2">
+        {hasNew ? (
           <div className="flex-1">
             <label
               htmlFor="vincular-competencia-tipo"
               className="mb-1 block text-[11px] font-semibold text-muted-foreground"
             >
-              Tipo
+              Tipo (novas competências)
             </label>
             <Select
               id="vincular-competencia-tipo"
-              value={value.competencyType}
-              onChange={(e) => onChange({ ...value, competencyType: e.target.value })}
+              value={value.newCompetencyType}
+              onChange={(e) =>
+                onChange({ ...value, newCompetencyType: e.target.value })
+              }
               className="h-9 text-[13px]"
             >
               {CHA_TYPE_OPTIONS.map((t) => (
@@ -113,18 +124,16 @@ export function VincularCompetenciaForm({
               ))}
             </Select>
           </div>
-        ) : existingTypeLabel ? (
-          <div className="flex-1">
-            <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-              Tipo
-            </span>
-            <p className="flex h-9 items-center text-[13px] text-foreground">
-              {existingTypeLabel}
-            </p>
-          </div>
         ) : null}
         <div className="flex-1">
+          <label
+            htmlFor="vincular-competencia-nivel"
+            className="mb-1 block text-[11px] font-semibold text-muted-foreground"
+          >
+            Nível
+          </label>
           <Select
+            id="vincular-competencia-nivel"
             value={String(value.requiredLevel)}
             aria-label="Nível requerido"
             onChange={(e) =>
@@ -140,6 +149,19 @@ export function VincularCompetenciaForm({
           </Select>
         </div>
       </div>
+      {hasNew ? (
+        <p className="text-[11px] text-muted-foreground">
+          {newNames.length === 1
+            ? "1 competência nova será criada no catálogo"
+            : `${newNames.length} competências novas serão criadas no catálogo`}{" "}
+          com o tipo acima. As já existentes mantêm o tipo do catálogo.
+        </p>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">
+          O nível vale para todas as selecionadas (ajustável por competência
+          depois).
+        </p>
+      )}
       <div className="flex justify-end gap-2">
         {onCancel ? (
           <Button type="button" variant="outline" size="sm" onClick={onCancel}>
@@ -150,9 +172,11 @@ export function VincularCompetenciaForm({
           type="button"
           size="sm"
           onClick={onSubmit}
-          disabled={!trimmedName || submitting}
+          disabled={count === 0 || submitting}
         >
-          Vincular
+          {submitting
+            ? "Vinculando..."
+            : `Vincular${count > 0 ? ` (${count})` : ""}`}
         </Button>
       </div>
     </div>

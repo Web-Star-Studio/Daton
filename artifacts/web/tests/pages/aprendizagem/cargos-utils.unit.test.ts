@@ -6,6 +6,7 @@ import {
   levelLabel,
   isCritical,
   levelBucket,
+  competencyNamesToLink,
 } from "@/pages/app/aprendizagem/cargos/cargos-utils";
 
 describe("deriveAreas", () => {
@@ -58,9 +59,9 @@ describe("buildPositionSubline", () => {
   });
   it("pluraliza e omite partes ausentes", () => {
     expect(buildPositionSubline({ competencyCount: 1 })).toBe("1 competência");
-    expect(buildPositionSubline({ area: "Logística", competencyCount: 0 })).toBe(
-      "Logística · 0 competências",
-    );
+    expect(
+      buildPositionSubline({ area: "Logística", competencyCount: 0 }),
+    ).toBe("Logística · 0 competências");
     expect(buildPositionSubline({})).toBe("");
   });
 });
@@ -82,5 +83,30 @@ describe("níveis de competência", () => {
     expect(levelBucket(3)).toBe(3);
     expect(levelBucket(4)).toBe(5);
     expect(levelBucket(5)).toBe(5);
+  });
+});
+
+describe("competencyNamesToLink", () => {
+  it("trima, remove vazios e preserva a ordem/grafia da 1ª ocorrência", () => {
+    expect(
+      competencyNamesToLink(["  Liderança ", "", "   ", "Comunicação"], []),
+    ).toEqual(["Liderança", "Comunicação"]);
+  });
+  it("deduplica ignorando caixa e acento", () => {
+    expect(
+      competencyNamesToLink(["Comunicação", "comunicacao", "COMUNICAÇÃO"], []),
+    ).toEqual(["Comunicação"]);
+  });
+  it("exclui as já vinculadas ao cargo (caixa/acento-insensível)", () => {
+    expect(
+      competencyNamesToLink(
+        ["Liderança", "Comunicação", "Adaptabilidade"],
+        ["comunicacao", "LIDERANÇA"],
+      ),
+    ).toEqual(["Adaptabilidade"]);
+  });
+  it("devolve vazio quando tudo já está vinculado ou em branco", () => {
+    expect(competencyNamesToLink(["Foco", " "], ["foco"])).toEqual([]);
+    expect(competencyNamesToLink([], ["foco"])).toEqual([]);
   });
 });
