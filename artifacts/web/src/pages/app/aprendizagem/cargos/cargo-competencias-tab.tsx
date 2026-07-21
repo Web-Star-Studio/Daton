@@ -89,11 +89,26 @@ export function CargoCompetenciasTab({
   // cadastradas antes, reutilizáveis em outros cargos. Falhas parciais não
   // abortam as demais — as que falham ficam selecionadas para nova tentativa.
   const handleLink = async () => {
+    // `requested` = escolhas normalizadas (trim + dedup), sem excluir vínculos;
+    // `names` remove as já vinculadas. A diferença = ignoradas por já existirem.
+    const requested = competencyNamesToLink(link.competencyNames, []);
     const names = competencyNamesToLink(
       link.competencyNames,
       requirements.map((r) => r.competencyName),
     );
-    if (names.length === 0) return;
+    const alreadyLinked = requested.length - names.length;
+    if (names.length === 0) {
+      // Não some em silêncio: se o usuário escolheu algo mas tudo já estava
+      // vinculado, avisa em vez de não fazer nada.
+      if (requested.length > 0) {
+        toast({
+          title: "Nada para vincular",
+          description:
+            "As competências selecionadas já estão vinculadas a este cargo.",
+        });
+      }
+      return;
+    }
     setLinking(true);
     try {
       // Nomes já no catálogo (case-insensitive); atualizado a cada criação para
@@ -151,6 +166,13 @@ export function CargoCompetenciasTab({
         // Mantém apenas as que falharam para nova tentativa.
         setLink((f) => ({ ...f, competencyNames: failed }));
       } else {
+        // Sucesso total: se alguma foi ignorada por já estar vinculada, avisa.
+        if (alreadyLinked > 0) {
+          toast({
+            title: `${names.length} vinculada(s)`,
+            description: `${alreadyLinked} já estava(m) vinculada(s) a este cargo e foi(ram) ignorada(s).`,
+          });
+        }
         resetAdd();
       }
     } finally {
