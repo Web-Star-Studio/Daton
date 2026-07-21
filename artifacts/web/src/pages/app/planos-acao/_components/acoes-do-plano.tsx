@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { updateActionPlanAction } from "@workspace/api-client-react";
-import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ListChecks, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   SearchableSelect,
@@ -11,6 +12,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
+import { cn } from "@/lib/utils";
 import {
   ACTION_STATUS_LABELS,
   calendarDateToStorageIso,
@@ -22,6 +24,7 @@ import {
   useUpdateActionPlanActionWithInvalidation,
   type ActionPlanAction,
   type ActionPlanActionStatus,
+  type ActionPlanActionTask,
   type UpdateActionPlanActionBody,
 } from "@/lib/action-plans-client";
 import { buildResponsibleOptions } from "./responsible-options";
@@ -41,6 +44,7 @@ type ActionDraft = {
   why: string;
   whereAt: string;
   how: string;
+  howTasks: ActionPlanActionTask[];
   howMuch: string;
   responsibleUserId: string;
   dueDate: string;
@@ -54,6 +58,7 @@ function draftFromAction(a: ActionPlanAction): ActionDraft {
     why: a.why ?? "",
     whereAt: a.whereAt ?? "",
     how: a.how ?? "",
+    howTasks: a.howTasks ?? [],
     howMuch: a.howMuch ?? "",
     responsibleUserId:
       a.responsibleUserId != null ? String(a.responsibleUserId) : "",
@@ -63,12 +68,23 @@ function draftFromAction(a: ActionPlanAction): ActionDraft {
   };
 }
 
+/** Só persiste passos com texto — uma linha em branco (recém-adicionada e nunca
+ * preenchida) é ruído, não conteúdo. O servidor faz a mesma limpeza; aqui evita
+ * mandar lixo e mantém o contador "X/Y" honesto. `null` quando não sobra nada. */
+function sanitizeTasks(tasks: ActionPlanActionTask[]): ActionPlanActionTask[] | null {
+  const clean = tasks
+    .map((t) => ({ ...t, text: t.text.trim() }))
+    .filter((t) => t.text !== "");
+  return clean.length > 0 ? clean : null;
+}
+
 function draftToPayload(d: ActionDraft): UpdateActionPlanActionBody {
   return {
     what: d.what.trim() || null,
     why: d.why.trim() || null,
     whereAt: d.whereAt.trim() || null,
     how: d.how.trim() || null,
+    howTasks: sanitizeTasks(d.howTasks),
     howMuch: d.howMuch.trim() || null,
     responsibleUserId: d.responsibleUserId ? Number(d.responsibleUserId) : null,
     dueDate: d.dueDate ? calendarDateToStorageIso(d.dueDate) : null,
@@ -84,10 +100,34 @@ function hasContent(a: ActionPlanAction): boolean {
     a.why?.trim() ||
     a.whereAt?.trim() ||
     a.how?.trim() ||
+    (a.howTasks?.length ?? 0) > 0 ||
     a.howMuch?.trim() ||
     a.notes?.trim() ||
     a.responsibleUserId != null ||
     a.dueDate,
+  );
+}
+
+/** Data de conclusão de um passo, curta, em pt-BR (dd/mm/aaaa). */
+function formatDoneAt(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("pt-BR");
+}
+
+/** Como `hasContent`, mas lê o RASCUNHO atual (não o `action` do servidor, que pode
+ * estar defasado): protege texto/tarefa recém-digitados e ainda não salvos de sumirem
+ * sem confirmação ao remover a ação logo em seguida. */
+function draftHasContent(d: ActionDraft): boolean {
+  return Boolean(
+    d.what.trim() ||
+    d.why.trim() ||
+    d.whereAt.trim() ||
+    d.how.trim() ||
+    d.howTasks.some((t) => t.text.trim() !== "") ||
+    d.howMuch.trim() ||
+    d.notes.trim() ||
+    d.responsibleUserId ||
+    d.dueDate,
   );
 }
 
@@ -224,6 +264,24 @@ export function AcoesDoPlano({
     scheduleSave(actionId);
   }
 
+  // ─── Checklist do "Como" (passos que o responsável marca) ──────────────────
+  // Passo recém-criado a focar quando a linha montar (ver o ref-callback no input).
+  const focusTaskRef = useRef<string | null>(null);
+
+  /** Adiciona um passo em branco. Só local: marca a linha suja (para o resync do
+   * servidor não a apagar enquanto o usuário digita) mas NÃO agenda save — um passo
+   * sem texto não persiste, salvar agora apenas o removeria no round-trip. Ao digitar,
+   * `patchField("howTasks", ...)` agenda o autosave como qualquer outro campo. */
+  function addTask(actionId: number, tasks: ActionPlanActionTask[]) {
+    const task: ActionPlanActionTask = { id: crypto.randomUUID(), text: "", done: false };
+    focusTaskRef.current = task.id;
+    dirtyIdsRef.current.add(actionId);
+    setDrafts((prev) => ({
+      ...prev,
+      [actionId]: { ...prev[actionId], howTasks: [...tasks, task] },
+    }));
+  }
+
   async function save(actionId: number) {
     // Serialização: se já há um PATCH desta ação em voo, não dispara um segundo em
     // paralelo (os dois poderiam completar fora de ordem). Marca "re-salvar" e sai;
@@ -278,9 +336,13 @@ export function AcoesDoPlano({
 
   /** Clears a row's dirty flag ONLY when nothing newer is pending — no live timer
    * AND no queued re-save — the guard that lets the resync effect skip a row still
-   * being written. */
+   * being written. Também mantém suja enquanto houver um passo em branco recém-criado:
+   * o resync do servidor não pode reconstruir a linha e apagar a tarefa vazia antes de
+   * o usuário digitá-la (Enter/autosave na fronteira do debounce). */
   function clearDirtyIfSettled(actionId: number) {
-    if (!timersRef.current[actionId] && !resaveRef.current.has(actionId)) {
+    const hasBlankTask =
+      draftsRef.current[actionId]?.howTasks.some((t) => t.text.trim() === "") ?? false;
+    if (!timersRef.current[actionId] && !resaveRef.current.has(actionId) && !hasBlankTask) {
       dirtyIdsRef.current.delete(actionId);
     }
   }
@@ -312,7 +374,10 @@ export function AcoesDoPlano({
   }
 
   function requestRemove(action: ActionPlanAction) {
-    if (hasContent(action)) {
+    // Confirma pelo rascunho atual (o `action` do servidor pode não ter o que o
+    // usuário acabou de digitar/adicionar e ainda não salvou).
+    const draft = draftsRef.current[action.id];
+    if (draft ? draftHasContent(draft) : hasContent(action)) {
       setARemover(action);
       return;
     }
@@ -376,6 +441,8 @@ export function AcoesDoPlano({
             const draft = drafts[action.id] ?? draftFromAction(action);
             const aberta = expanded.has(action.id);
             const overdue = isActionOverdue(action, today);
+            const filledTasks = draft.howTasks.filter((t) => t.text.trim() !== "");
+            const tasksDone = filledTasks.filter((t) => t.done).length;
             return (
               <div
                 key={action.id}
@@ -388,7 +455,7 @@ export function AcoesDoPlano({
                     onClick={() => toggleExpanded(action.id)}
                     aria-label={aberta ? "Recolher ação" : "Expandir ação"}
                     aria-expanded={aberta}
-                    className="mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground"
+                    className="mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                   >
                     {aberta ? (
                       <ChevronDown className="h-4 w-4" />
@@ -489,8 +556,30 @@ export function AcoesDoPlano({
                     </Button>
                   )}
                 </div>
+                {/* Afeto de expansão explícito: o chevron sozinho não deixava claro
+                    que havia mais (Como/checklist, Por quê, Onde, Quanto, Observações). */}
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(action.id)}
+                  aria-expanded={aberta}
+                  aria-label={aberta ? "Recolher detalhes da ação" : "Expandir detalhes da ação"}
+                  className="flex w-full items-center gap-1.5 border-t px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                >
+                  {aberta ? (
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  <span>{aberta ? "Recolher" : "Como, Por quê, Onde, Quanto"}</span>
+                  {!aberta && filledTasks.length > 0 && (
+                    <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-normal">
+                      <ListChecks className="h-3 w-3" />
+                      {`${tasksDone}/${filledTasks.length} no Como`}
+                    </span>
+                  )}
+                </button>
                 {aberta && (
-                  <div className="border-t bg-muted/20 p-3">
+                  <div className="bg-muted/20 p-3">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Field
                         label="Por quê"
@@ -506,13 +595,42 @@ export function AcoesDoPlano({
                         onChange={(v) => patchField(action.id, "whereAt", v)}
                         readOnly={!canEdit}
                       />
-                      <Field
-                        label="Como"
-                        value={draft.how}
-                        placeholder="Método / passos"
-                        onChange={(v) => patchField(action.id, "how", v)}
-                        readOnly={!canEdit}
-                      />
+                      {/* "Como" ocupa a linha inteira: é a checklist de passos que o
+                          responsável quebra em tarefas e vai marcando. O texto livre
+                          (`how`) foi aposentado da UI — a lista É o método. */}
+                      <div className="space-y-2 sm:col-span-2">
+                        <TasksChecklist
+                          tasks={draft.howTasks}
+                          canEdit={canEdit}
+                          focusTaskRef={focusTaskRef}
+                          onAdd={() => addTask(action.id, draft.howTasks)}
+                          onToggle={(taskId, done) =>
+                            patchField(
+                              action.id,
+                              "howTasks",
+                              draft.howTasks.map((t) =>
+                                t.id === taskId ? { ...t, done } : t,
+                              ),
+                            )
+                          }
+                          onText={(taskId, text) =>
+                            patchField(
+                              action.id,
+                              "howTasks",
+                              draft.howTasks.map((t) =>
+                                t.id === taskId ? { ...t, text } : t,
+                              ),
+                            )
+                          }
+                          onRemove={(taskId) =>
+                            patchField(
+                              action.id,
+                              "howTasks",
+                              draft.howTasks.filter((t) => t.id !== taskId),
+                            )
+                          }
+                        />
+                      </div>
                       <Field
                         label="Quanto"
                         value={draft.howMuch}
@@ -583,6 +701,127 @@ function Field({
         placeholder={placeholder}
         readOnly={readOnly}
       />
+    </div>
+  );
+}
+
+/**
+ * Checklist de passos do "Como": o responsável quebra o método em tarefas e vai
+ * marcando conforme executa. Fica sob o campo "Como" da ação. Cada mudança (texto,
+ * marcação, remoção) salva pelo mesmo autosave debounced dos demais campos da ação;
+ * só a inclusão de uma linha em branco não dispara save (ver `addTask`).
+ */
+function TasksChecklist({
+  tasks,
+  canEdit,
+  focusTaskRef,
+  onAdd,
+  onToggle,
+  onText,
+  onRemove,
+}: {
+  tasks: ActionPlanActionTask[];
+  canEdit: boolean;
+  focusTaskRef: MutableRefObject<string | null>;
+  onAdd: () => void;
+  onToggle: (taskId: string, done: boolean) => void;
+  onText: (taskId: string, text: string) => void;
+  onRemove: (taskId: string) => void;
+}) {
+  const filled = tasks.filter((t) => t.text.trim() !== "");
+  const done = filled.filter((t) => t.done).length;
+
+  // Read-only e sem tarefas: não polui a ficha com um cabeçalho vazio.
+  if (tasks.length === 0 && !canEdit) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        <ListChecks className="h-3.5 w-3.5" />
+        <span>Como</span>
+        {filled.length > 0 && (
+          <span className="font-normal normal-case tracking-normal">
+            · {done}/{filled.length} concluídas
+          </span>
+        )}
+      </div>
+
+      {tasks.length > 0 && (
+        <ul className="space-y-1">
+          {tasks.map((task) => (
+            <li key={task.id} className="space-y-0.5">
+              <div className="flex items-center gap-2">
+              <Checkbox
+                checked={task.done}
+                onCheckedChange={(v) => onToggle(task.id, v === true)}
+                // Um passo sem texto ainda não existe de fato — não deixa marcar.
+                disabled={!canEdit || task.text.trim() === ""}
+                aria-label={
+                  task.done ? "Desmarcar tarefa" : "Marcar tarefa como concluída"
+                }
+                className="shrink-0"
+              />
+              <Input
+                ref={(el) => {
+                  // Foca o passo recém-criado assim que a linha monta (uma vez).
+                  if (el && focusTaskRef.current === task.id) {
+                    el.focus();
+                    focusTaskRef.current = null;
+                  }
+                }}
+                value={task.text}
+                onChange={(e) => onText(task.id, e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter encadeia: salva o passo atual e já abre o próximo.
+                  if (e.key === "Enter" && !e.shiftKey && canEdit) {
+                    e.preventDefault();
+                    onAdd();
+                  }
+                }}
+                placeholder="Descreva o passo…"
+                readOnly={!canEdit}
+                className={cn(
+                  "h-8 flex-1 text-[13px]",
+                  task.done && "text-muted-foreground line-through",
+                )}
+              />
+              {canEdit && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground"
+                  aria-label="Remover tarefa"
+                  onClick={() => onRemove(task.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              </div>
+              {/* Carimbo de conclusão: quando e quem marcou (vem do servidor). */}
+              {task.done && task.doneAt && (
+                <p className="pl-6 text-[11px] text-muted-foreground">
+                  Concluída em {formatDoneAt(task.doneAt)}
+                  {task.doneByUserName ? ` · ${task.doneByUserName}` : ""}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canEdit && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+          onClick={onAdd}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Adicionar tarefa
+        </Button>
+      )}
     </div>
   );
 }

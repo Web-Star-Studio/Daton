@@ -12,6 +12,7 @@ export * from "./actionPlan";
 export * from "./actionPlan5W2H";
 export * from "./actionPlanAction";
 export * from "./actionPlanActionStatus";
+export * from "./actionPlanActionTask";
 export * from "./actionPlanActivityLogEntry";
 export * from "./actionPlanActivityLogEntryAction";
 export * from "./actionPlanActivityLogEntryChanges";
