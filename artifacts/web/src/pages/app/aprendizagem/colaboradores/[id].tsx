@@ -112,7 +112,10 @@ import {
 } from "./_components/FormacaoQualificacoes";
 import { RegistrarConclusaoForm } from "./_components/RegistrarConclusaoForm";
 import { RegistrarEvidenciaDialog } from "./_components/RegistrarEvidenciaDialog";
-import { toChaCompetencyType } from "./_lib/ficha-derivations";
+import {
+  toChaCompetencyType,
+  selectOtherCompetencies,
+} from "./_lib/ficha-derivations";
 import {
   uploadEmployeeRecordFiles,
   mapRecordAttachmentItems,
@@ -214,16 +217,25 @@ type EmployeeProfileItemForm = {
 
 function OverviewSectionTitle({
   title,
+  subtitle,
   action,
 }: {
   title: string;
+  subtitle?: string;
   action?: React.ReactNode;
 }) {
   return (
     <div className="mb-5 flex items-center justify-between gap-3">
-      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-[0.12em]">
-        {title}
-      </h3>
+      <div>
+        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-[0.12em]">
+          {title}
+        </h3>
+        {subtitle ? (
+          <p className="text-[11px] normal-case tracking-normal text-muted-foreground/80 mt-0.5">
+            {subtitle}
+          </p>
+        ) : null}
+      </div>
       {action}
     </div>
   );
@@ -3611,7 +3623,8 @@ export default function ColaboradorDetailPage() {
 
         <div id="secao-competencias">
           <OverviewSectionTitle
-            title="Competências"
+            title="Outras competências"
+            subtitle="Qualificações além das que o cargo exige"
             action={
               canWriteEmployees ? (
                 <Button
@@ -3626,7 +3639,7 @@ export default function ColaboradorDetailPage() {
             }
           />
           <CompetenciasTab
-            competencies={employee.competencies || []}
+            competencies={selectOtherCompetencies(employee.competencies || [])}
             orgId={orgId}
             empId={empId}
             editable={canWriteEmployees}

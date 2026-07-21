@@ -1,6 +1,7 @@
 import {
   CreateCompetencyBodyType as CreateCompetencyBodyTypeValues,
   type CreateCompetencyBodyType,
+  type EmployeeCompetency,
 } from "@workspace/api-client-react";
 
 /**
@@ -22,6 +23,20 @@ export function toChaCompetencyType(value: string): CreateCompetencyBodyType {
   )
     ? (value as CreateCompetencyBodyType)
     : CreateCompetencyBodyTypeValues.conhecimento;
+}
+
+/**
+ * Filtra a lista de competências do colaborador para a seção manual "Outras
+ * competências" (rodapé da ficha): mostra só o que NÃO é requisito do cargo
+ * — requisitos de cargo agora entram via as linhas de "Competências do
+ * cargo" (evidência ligada ao requisito), então repeti-los aqui duplicaria a
+ * competência na tela. `isPositionRequirement` vem pronto do backend
+ * (join por `nome::tipo` contra os requisitos vigentes do cargo).
+ */
+export function selectOtherCompetencies(
+  competencies: EmployeeCompetency[],
+): EmployeeCompetency[] {
+  return competencies.filter((c) => !c.isPositionRequirement);
 }
 
 export function computeTrainingCounters(
