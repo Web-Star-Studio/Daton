@@ -10,6 +10,7 @@ import {
   isNotNull,
   count,
   desc,
+  asc,
   sql,
   exists,
   inArray,
@@ -3329,45 +3330,67 @@ router.post(
       body.data.competencyName,
       body.data.competencyType,
     );
-    const existing = await db
-      .select()
-      .from(employeeCompetenciesTable)
-      .where(eq(employeeCompetenciesTable.employeeId, params.data.empId));
-    const match = existing.find(
-      (c) => buildCompetencyKey(c.name, c.type) === key,
-    );
 
-    let comp: typeof employeeCompetenciesTable.$inferSelect;
-    if (match) {
-      [comp] = await db
-        .update(employeeCompetenciesTable)
-        .set({
-          requiredLevel: body.data.requiredLevel,
-          // Edição manual pode BAIXAR o nível atestado (correção de um
-          // atestado indevido) — ao contrário do fluxo de eficácia de
-          // treinamento (Math.max), aqui o valor do corpo vale exatamente.
-          acquiredLevel: body.data.acquiredLevel,
-          evidence: body.data.evidence ?? null,
-          ...(attachments !== undefined ? { attachments } : {}),
-        })
-        .where(eq(employeeCompetenciesTable.id, match.id))
-        .returning();
-    } else {
-      [comp] = await db
-        .insert(employeeCompetenciesTable)
-        .values({
-          employeeId: params.data.empId,
-          name: body.data.competencyName,
-          type: body.data.competencyType,
-          requiredLevel: body.data.requiredLevel,
-          acquiredLevel: body.data.acquiredLevel,
-          evidence: body.data.evidence ?? null,
-          attachments: attachments || [],
-        })
-        .returning();
-    }
+    // Duas submissões concorrentes com a mesma chave podem, em check-then-act
+    // puro, ambas deixarem de achar `match` e ambas inserirem — a duplicata
+    // que este endpoint existe para evitar. O advisory lock (escopo da
+    // transação, liberado no commit/rollback) serializa upserts da MESMA
+    // dupla (colaborador, chave); não precisa de índice único (proibido: há
+    // duplicatas legadas em produção que fariam a criação do índice falhar).
+    const { comp, isNew } = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(${params.data.empId}, hashtext(${key}))`,
+      );
 
-    res.status(match ? 200 : 201).json(formatCompetencyRecord(comp));
+      const existing = await tx
+        .select()
+        .from(employeeCompetenciesTable)
+        .where(eq(employeeCompetenciesTable.employeeId, params.data.empId))
+        // Duplicatas legadas podem compartilhar a mesma chave; entre elas,
+        // preferir o maior nível adquirido — mesma preferência do resolvedor
+        // (competency-resolver.ts) — para que o match seja determinístico.
+        .orderBy(
+          desc(employeeCompetenciesTable.acquiredLevel),
+          asc(employeeCompetenciesTable.id),
+        );
+      const match = existing.find(
+        (c) => buildCompetencyKey(c.name, c.type) === key,
+      );
+
+      let comp: typeof employeeCompetenciesTable.$inferSelect;
+      if (match) {
+        [comp] = await tx
+          .update(employeeCompetenciesTable)
+          .set({
+            requiredLevel: body.data.requiredLevel,
+            // Edição manual pode BAIXAR o nível atestado (correção de um
+            // atestado indevido) — ao contrário do fluxo de eficácia de
+            // treinamento (Math.max), aqui o valor do corpo vale exatamente.
+            acquiredLevel: body.data.acquiredLevel,
+            evidence: body.data.evidence ?? null,
+            ...(attachments !== undefined ? { attachments } : {}),
+          })
+          .where(eq(employeeCompetenciesTable.id, match.id))
+          .returning();
+      } else {
+        [comp] = await tx
+          .insert(employeeCompetenciesTable)
+          .values({
+            employeeId: params.data.empId,
+            name: body.data.competencyName,
+            type: body.data.competencyType,
+            requiredLevel: body.data.requiredLevel,
+            acquiredLevel: body.data.acquiredLevel,
+            evidence: body.data.evidence ?? null,
+            attachments: attachments || [],
+          })
+          .returning();
+      }
+
+      return { comp, isNew: !match };
+    });
+
+    res.status(isNew ? 201 : 200).json(formatCompetencyRecord(comp));
   },
 );
 

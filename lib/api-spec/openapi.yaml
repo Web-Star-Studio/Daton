@@ -1608,6 +1608,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmployeeCompetency"
+        "201":
+          description: Created competency evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeCompetency"
 
   /organizations/{orgId}/employees/{empId}/trainings:
     get:
