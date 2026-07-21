@@ -19798,12 +19798,18 @@ components:
 
     ActionPlanActionTask:
       type: object
-      description: Item de checklist do campo Como de uma ação (5W2H).
+      description: >-
+        Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt/
+        doneBy* são carimbados pelo servidor ao marcar (ignorados no request) e
+        limpos ao desmarcar.
       required: [id, text, done]
       properties:
         id: { type: string }
         text: { type: string }
         done: { type: boolean }
+        doneAt: { type: string, format: date-time, nullable: true }
+        doneByUserId: { type: integer, nullable: true }
+        doneByUserName: { type: string, nullable: true }
 
     CreateActionPlanActionBody:
       type: object

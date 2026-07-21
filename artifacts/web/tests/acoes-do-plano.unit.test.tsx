@@ -265,6 +265,32 @@ describe("AcoesDoPlano — checklist do Como", () => {
     expect(screen.getByText("1/2")).toBeInTheDocument();
   });
 
+  it("mostra a data e quem concluiu um passo", () => {
+    mockUpdate.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    mockActions.mockReturnValue({
+      data: [
+        action({
+          id: 1,
+          what: "Ação",
+          howTasks: [
+            {
+              id: "a",
+              text: "Passo 1",
+              done: true,
+              doneAt: "2026-07-21T12:00:00.000Z",
+              doneByUserId: 7,
+              doneByUserName: "Ana Oliveira",
+            },
+          ],
+        }),
+      ],
+    });
+    render(<AcoesDoPlano orgId={1} planId={10} orgUsers={[]} canEdit />);
+    fireEvent.click(screen.getByLabelText("Expandir ação"));
+    expect(screen.getByText(/Concluída em/)).toBeInTheDocument();
+    expect(screen.getByText("Ana Oliveira", { exact: false })).toBeInTheDocument();
+  });
+
   it("marcar um passo salva a checklist inteira via PATCH", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-01T12:00:00.000Z"));

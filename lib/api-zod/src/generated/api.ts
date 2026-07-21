@@ -21768,8 +21768,13 @@ export const ListActionPlanActionsResponseItem = zod.object({
           id: zod.string(),
           text: zod.string(),
           done: zod.boolean(),
+          doneAt: zod.string().datetime({}).nullish(),
+          doneByUserId: zod.number().nullish(),
+          doneByUserName: zod.string().nullish(),
         })
-        .describe("Item de checklist do campo Como de uma ação (5W2H)."),
+        .describe(
+          "Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt\/ doneBy\* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.",
+        ),
     )
     .nullish()
     .describe(
@@ -21806,8 +21811,13 @@ export const CreateActionPlanActionBody = zod.object({
           id: zod.string(),
           text: zod.string(),
           done: zod.boolean(),
+          doneAt: zod.string().datetime({}).nullish(),
+          doneByUserId: zod.number().nullish(),
+          doneByUserName: zod.string().nullish(),
         })
-        .describe("Item de checklist do campo Como de uma ação (5W2H)."),
+        .describe(
+          "Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt\/ doneBy\* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.",
+        ),
     )
     .nullish(),
   howMuch: zod.string().nullish(),
@@ -21837,8 +21847,13 @@ export const UpdateActionPlanActionBody = zod.object({
           id: zod.string(),
           text: zod.string(),
           done: zod.boolean(),
+          doneAt: zod.string().datetime({}).nullish(),
+          doneByUserId: zod.number().nullish(),
+          doneByUserName: zod.string().nullish(),
         })
-        .describe("Item de checklist do campo Como de uma ação (5W2H)."),
+        .describe(
+          "Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt\/ doneBy\* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.",
+        ),
     )
     .nullish(),
   howMuch: zod.string().nullish(),
@@ -21865,8 +21880,13 @@ export const UpdateActionPlanActionResponse = zod.object({
           id: zod.string(),
           text: zod.string(),
           done: zod.boolean(),
+          doneAt: zod.string().datetime({}).nullish(),
+          doneByUserId: zod.number().nullish(),
+          doneByUserName: zod.string().nullish(),
         })
-        .describe("Item de checklist do campo Como de uma ação (5W2H)."),
+        .describe(
+          "Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt\/ doneBy\* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.",
+        ),
     )
     .nullish()
     .describe(

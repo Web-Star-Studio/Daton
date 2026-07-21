@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeActionHowTasks } from "../../../artifacts/api-server/src/services/action-plans/how-tasks";
+import {
+  isHowTasksOnlyDoneToggle,
+  normalizeActionHowTasks,
+  stampHowTasks,
+} from "../../../artifacts/api-server/src/services/action-plans/how-tasks";
 
 describe("normalizeActionHowTasks", () => {
   it("devolve null para entrada vazia ou não-array", () => {
@@ -49,5 +53,59 @@ describe("normalizeActionHowTasks", () => {
 
     const long = normalizeActionHowTasks([{ id: "a", text: "x".repeat(1000), done: false }]);
     expect(long![0].text).toHaveLength(500);
+  });
+});
+
+const ACTOR = { userId: 7, userName: "Ana" };
+const NOW = "2026-07-21T12:00:00.000Z";
+
+describe("stampHowTasks", () => {
+  it("carimba quem/quando num passo recém-concluído", () => {
+    const out = stampHowTasks([{ id: "a", text: "Passo", done: true }], [], ACTOR, NOW);
+    expect(out).toEqual([
+      { id: "a", text: "Passo", done: true, doneAt: NOW, doneByUserId: 7, doneByUserName: "Ana" },
+    ]);
+  });
+
+  it("preserva o carimbo de um passo que JÁ estava concluído (não reassina)", () => {
+    const existing = [
+      { id: "a", text: "Passo", done: true, doneAt: "2026-01-01T00:00:00.000Z", doneByUserId: 3, doneByUserName: "Beto" },
+    ];
+    const out = stampHowTasks([{ id: "a", text: "Passo", done: true }], existing, ACTOR, NOW);
+    expect(out![0]).toMatchObject({
+      doneAt: "2026-01-01T00:00:00.000Z",
+      doneByUserId: 3,
+      doneByUserName: "Beto",
+    });
+  });
+
+  it("passo não-concluído não carrega carimbo (reabrir limpa)", () => {
+    const existing = [
+      { id: "a", text: "Passo", done: true, doneAt: NOW, doneByUserId: 7, doneByUserName: "Ana" },
+    ];
+    const out = stampHowTasks([{ id: "a", text: "Passo", done: false }], existing, ACTOR, NOW);
+    expect(out).toEqual([{ id: "a", text: "Passo", done: false }]);
+  });
+
+  it("null continua null", () => {
+    expect(stampHowTasks(null, [], ACTOR, NOW)).toBeNull();
+  });
+});
+
+describe("isHowTasksOnlyDoneToggle", () => {
+  const base = [{ id: "a", text: "Um", done: false }, { id: "b", text: "Dois", done: false }];
+  it("só marcação muda → true", () => {
+    const after = [{ id: "a", text: "Um", done: true }, { id: "b", text: "Dois", done: false }];
+    expect(isHowTasksOnlyDoneToggle(base, after)).toBe(true);
+  });
+  it("texto muda (renomear) → false", () => {
+    const after = [{ id: "a", text: "Um!", done: false }, { id: "b", text: "Dois", done: false }];
+    expect(isHowTasksOnlyDoneToggle(base, after)).toBe(false);
+  });
+  it("incluir/remover passo (tamanho muda) → false", () => {
+    expect(isHowTasksOnlyDoneToggle(base, [base[0]])).toBe(false);
+  });
+  it("null vs vazio → true (nada a registrar)", () => {
+    expect(isHowTasksOnlyDoneToggle(null, [])).toBe(true);
   });
 });

@@ -32,3 +32,66 @@ export function normalizeActionHowTasks(
   }
   return out.length > 0 ? out : null;
 }
+
+/**
+ * Carimba QUEM/QUANDO concluiu cada passo, de forma autoritativa no servidor — o
+ * cliente manda só `{ id, text, done }`; quem e quando não podem ser forjados.
+ *
+ * - passo que passou a `done` agora → grava `doneAt`/`doneBy*` com o ator/hora atuais;
+ * - passo que JÁ estava `done` (mesmo id, ainda marcado) → preserva o carimbo antigo
+ *   (não "reassina" a conclusão a cada save de outro campo);
+ * - passo `done:false` → carimbo limpo (foi reaberto).
+ *
+ * `cleaned` deve ser a saída de `normalizeActionHowTasks` (já sem carimbos do cliente).
+ */
+export function stampHowTasks(
+  cleaned: ActionPlanActionTask[] | null,
+  existing: ActionPlanActionTask[] | null | undefined,
+  actor: { userId: number | null; userName: string | null },
+  nowIso: string,
+): ActionPlanActionTask[] | null {
+  if (!cleaned) return null;
+  const prevById = new Map<string, ActionPlanActionTask>();
+  for (const t of existing ?? []) prevById.set(t.id, t);
+  return cleaned.map((t) => {
+    if (!t.done) return { id: t.id, text: t.text, done: false };
+    const prev = prevById.get(t.id);
+    if (prev?.done && prev.doneAt) {
+      return {
+        id: t.id,
+        text: t.text,
+        done: true,
+        doneAt: prev.doneAt,
+        doneByUserId: prev.doneByUserId ?? null,
+        doneByUserName: prev.doneByUserName ?? null,
+      };
+    }
+    return {
+      id: t.id,
+      text: t.text,
+      done: true,
+      doneAt: nowIso,
+      doneByUserId: actor.userId,
+      doneByUserName: actor.userName,
+    };
+  });
+}
+
+/**
+ * Duas checklists diferem SÓ por marcação/conclusão (mesmos passos, mesma ordem,
+ * mesmo texto — só `done`/carimbo mudou)? Serve para o histórico: marcar/desmarcar
+ * é execução (não vira entrada); incluir/remover/renomear passo é replanejamento
+ * (deve virar). Compara por `id`+`text`; ignora `done` e os carimbos de propósito.
+ */
+export function isHowTasksOnlyDoneToggle(
+  before: ActionPlanActionTask[] | null | undefined,
+  after: ActionPlanActionTask[] | null | undefined,
+): boolean {
+  const a = Array.isArray(before) ? before : [];
+  const b = Array.isArray(after) ? after : [];
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id || a[i].text !== b[i].text) return false;
+  }
+  return true;
+}

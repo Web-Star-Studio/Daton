@@ -5162,12 +5162,15 @@ export const ActionPlanActionStatus = {
 } as const;
 
 /**
- * Item de checklist do campo Como de uma ação (5W2H).
+ * Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt/ doneBy* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.
  */
 export interface ActionPlanActionTask {
   id: string;
   text: string;
   done: boolean;
+  doneAt?: string | null;
+  doneByUserId?: number | null;
+  doneByUserName?: string | null;
 }
 
 export interface ActionPlanAction {

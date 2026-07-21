@@ -108,6 +108,29 @@ function hasContent(a: ActionPlanAction): boolean {
   );
 }
 
+/** Data de conclusão de um passo, curta, em pt-BR (dd/mm/aaaa). */
+function formatDoneAt(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("pt-BR");
+}
+
+/** Como `hasContent`, mas lê o RASCUNHO atual (não o `action` do servidor, que pode
+ * estar defasado): protege texto/tarefa recém-digitados e ainda não salvos de sumirem
+ * sem confirmação ao remover a ação logo em seguida. */
+function draftHasContent(d: ActionDraft): boolean {
+  return Boolean(
+    d.what.trim() ||
+    d.why.trim() ||
+    d.whereAt.trim() ||
+    d.how.trim() ||
+    d.howTasks.some((t) => t.text.trim() !== "") ||
+    d.howMuch.trim() ||
+    d.notes.trim() ||
+    d.responsibleUserId ||
+    d.dueDate,
+  );
+}
+
 /** Overdue = a due date in the past AND the action hasn't reached a final
  * state (open/in_progress only — a completed or cancelled action is never
  * "late"). `today` is a YYYY-MM-DD calendar string, compared lexically
@@ -313,9 +336,13 @@ export function AcoesDoPlano({
 
   /** Clears a row's dirty flag ONLY when nothing newer is pending — no live timer
    * AND no queued re-save — the guard that lets the resync effect skip a row still
-   * being written. */
+   * being written. Também mantém suja enquanto houver um passo em branco recém-criado:
+   * o resync do servidor não pode reconstruir a linha e apagar a tarefa vazia antes de
+   * o usuário digitá-la (Enter/autosave na fronteira do debounce). */
   function clearDirtyIfSettled(actionId: number) {
-    if (!timersRef.current[actionId] && !resaveRef.current.has(actionId)) {
+    const hasBlankTask =
+      draftsRef.current[actionId]?.howTasks.some((t) => t.text.trim() === "") ?? false;
+    if (!timersRef.current[actionId] && !resaveRef.current.has(actionId) && !hasBlankTask) {
       dirtyIdsRef.current.delete(actionId);
     }
   }
@@ -347,7 +374,10 @@ export function AcoesDoPlano({
   }
 
   function requestRemove(action: ActionPlanAction) {
-    if (hasContent(action)) {
+    // Confirma pelo rascunho atual (o `action` do servidor pode não ter o que o
+    // usuário acabou de digitar/adicionar e ainda não salvou).
+    const draft = draftsRef.current[action.id];
+    if (draft ? draftHasContent(draft) : hasContent(action)) {
       setARemover(action);
       return;
     }
@@ -713,7 +743,8 @@ function TasksChecklist({
       {tasks.length > 0 && (
         <ul className="space-y-1">
           {tasks.map((task) => (
-            <li key={task.id} className="flex items-center gap-2">
+            <li key={task.id} className="space-y-0.5">
+              <div className="flex items-center gap-2">
               <Checkbox
                 checked={task.done}
                 onCheckedChange={(v) => onToggle(task.id, v === true)}
@@ -759,6 +790,14 @@ function TasksChecklist({
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
+              )}
+              </div>
+              {/* Carimbo de conclusão: quando e quem marcou (vem do servidor). */}
+              {task.done && task.doneAt && (
+                <p className="pl-6 text-[11px] text-muted-foreground">
+                  Concluída em {formatDoneAt(task.doneAt)}
+                  {task.doneByUserName ? ` · ${task.doneByUserName}` : ""}
+                </p>
               )}
             </li>
           ))}

@@ -24,7 +24,11 @@ import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 import { requirePlanAccess, userCanReachPlan } from "../middlewares/plan-access";
 import { logActionPlanActivity } from "../services/action-plans/activity";
 import { notifyActionPlanActionAssignment } from "../services/action-plans/notify-assignment";
-import { normalizeActionHowTasks } from "../services/action-plans/how-tasks";
+import {
+  isHowTasksOnlyDoneToggle,
+  normalizeActionHowTasks,
+  stampHowTasks,
+} from "../services/action-plans/how-tasks";
 import {
   assertUserBelongsToOrg,
   resolveUserNames,
@@ -138,6 +142,7 @@ router.post(
       .where(eq(actionPlanActionsTable.actionPlanId, params.data.planId));
 
     const status = body.data.status ?? "open";
+    const actorName = await currentUserName(req.auth!.userId);
     const [row] = await db
       .insert(actionPlanActionsTable)
       .values({
@@ -147,7 +152,13 @@ router.post(
         why: body.data.why ?? null,
         whereAt: body.data.whereAt ?? null,
         how: body.data.how ?? null,
-        howTasks: normalizeActionHowTasks(body.data.howTasks),
+        // Passo já criado como concluído ganha o carimbo de quem/quando aqui mesmo.
+        howTasks: stampHowTasks(
+          normalizeActionHowTasks(body.data.howTasks),
+          [],
+          { userId: req.auth!.userId, userName: actorName },
+          new Date().toISOString(),
+        ),
         howMuch: body.data.howMuch ?? null,
         responsibleUserId: body.data.responsibleUserId ?? null,
         dueDate: body.data.dueDate ? new Date(body.data.dueDate) : null,
@@ -160,13 +171,12 @@ router.post(
       })
       .returning();
 
-    const userName = await currentUserName(req.auth!.userId);
     await logActionPlanActivity({
       orgId: params.data.orgId,
       actionPlanId: params.data.planId,
       action: "action_added",
       userId: req.auth!.userId,
-      userName,
+      userName: actorName,
       changes: { kind: "action", actionId: row.id, what: row.what ?? "(sem enunciado)" },
     });
 
@@ -225,6 +235,9 @@ router.patch(
       if (!ok) { res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" }); return; }
     }
 
+    // Ator resolvido uma vez: carimba a conclusão dos passos e assina o log abaixo.
+    const actorName = await currentUserName(req.auth!.userId);
+
     const update: Record<string, unknown> = {};
     for (const field of ["what", "why", "whereAt", "how", "howMuch", "notes"] as const) {
       if (body.data[field] !== undefined) {
@@ -235,8 +248,16 @@ router.patch(
     if (body.data.responsibleUserId !== undefined) update.responsibleUserId = body.data.responsibleUserId;
     if (body.data.dueDate !== undefined) update.dueDate = body.data.dueDate ? new Date(body.data.dueDate) : null;
     if (body.data.sortOrder !== undefined) update.sortOrder = body.data.sortOrder;
-    // Checklist do "Como": array jsonb, não passa pelo laço de strings acima.
-    if (body.data.howTasks !== undefined) update.howTasks = normalizeActionHowTasks(body.data.howTasks);
+    // Checklist do "Como": array jsonb (não passa pelo laço de strings). O servidor
+    // carimba quem/quando concluiu cada passo — o cliente manda só id/text/done.
+    if (body.data.howTasks !== undefined) {
+      update.howTasks = stampHowTasks(
+        normalizeActionHowTasks(body.data.howTasks),
+        existing.howTasks,
+        { userId: req.auth!.userId, userName: actorName },
+        new Date().toISOString(),
+      );
+    }
 
     if (body.data.status !== undefined && body.data.status !== existing.status) {
       update.status = body.data.status;
@@ -262,10 +283,12 @@ router.patch(
     // Log só do que mudou de fato — um autosave que reenvia o mesmo valor não vira entrada.
     const fields: Record<string, { from: unknown; to: unknown }> = {};
     for (const key of Object.keys(update)) {
-      // Marcar um passo da checklist é execução, não replanejamento: não vira
-      // entrada no histórico (evita um "Ação atualizada" por clique, sem detalhe
-      // visível — o renderer só mostra o `what` das mudanças de ação).
-      if (key === "howTasks") continue;
+      if (key === "howTasks") {
+        // Marcar/desmarcar um passo é execução — não vira entrada no histórico
+        // (evitaria um "Ação atualizada" por clique). Mas reestruturar a checklist
+        // (incluir, remover ou renomear passo) é replanejamento e É registrado.
+        if (isHowTasksOnlyDoneToggle(existing.howTasks, row.howTasks)) continue;
+      }
       const before = (existing as Record<string, unknown>)[key];
       const after = (row as Record<string, unknown>)[key];
       if (JSON.stringify(before ?? null) !== JSON.stringify(after ?? null)) {
@@ -273,13 +296,12 @@ router.patch(
       }
     }
     if (Object.keys(fields).length > 0) {
-      const userName = await currentUserName(req.auth!.userId);
       await logActionPlanActivity({
         orgId: params.data.orgId,
         actionPlanId: params.data.planId,
         action: "action_updated",
         userId: req.auth!.userId,
-        userName,
+        userName: actorName,
         changes: { kind: "action", actionId: row.id, what: row.what ?? "(sem enunciado)", fields },
       });
     }

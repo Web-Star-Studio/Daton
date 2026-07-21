@@ -87,6 +87,15 @@ export type ActionPlanActionTask = {
   id: string;
   text: string;
   done: boolean;
+  /**
+   * Carimbo de auditoria da conclusão — QUANDO e QUEM marcou o passo. Preenchido
+   * pelo SERVIDOR ao marcar (não confia no cliente: quem/quando não pode ser
+   * forjado) e limpo ao desmarcar. `doneByUserName` é snapshot (sobrevive à
+   * remoção do usuário, mesma razão do `userName` no log de atividade).
+   */
+  doneAt?: string | null;
+  doneByUserId?: number | null;
+  doneByUserName?: string | null;
 };
 
 /** A normative reference the action addresses, e.g. { code: "ISO 45001", clause: "8.1" }. */
