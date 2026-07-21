@@ -108,6 +108,7 @@ import { FichaHeader } from "./_components/FichaHeader";
 import { DadosCards } from "./_components/DadosCards";
 import { FormacaoQualificacoes } from "./_components/FormacaoQualificacoes";
 import { RegistrarConclusaoForm } from "./_components/RegistrarConclusaoForm";
+import { toChaCompetencyType } from "./_lib/ficha-derivations";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -1638,7 +1639,7 @@ function CompetenciasTab({
     setForm({
       name: comp.name,
       description: comp.description || "",
-      type: comp.type,
+      type: toChaCompetencyType(comp.type),
       requiredLevel: comp.requiredLevel,
       acquiredLevel: comp.acquiredLevel,
       evidence: comp.evidence || "",

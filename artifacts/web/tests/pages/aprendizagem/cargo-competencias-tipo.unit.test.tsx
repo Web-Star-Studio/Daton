@@ -63,7 +63,19 @@ describe("VincularCompetenciaForm — tipo vem do catálogo, não é campo do v�
     expect(screen.getByRole("option", { name: "Atitude" })).toBeInTheDocument();
   });
 
-  it("desativa 'Vincular' sem nome e chama onSubmit com o clique", () => {
+  it("desativa 'Vincular' quando o nome está vazio", () => {
+    render(
+      <VincularCompetenciaForm
+        bankItems={[]}
+        value={EMPTY_VALUE}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Vincular" })).toBeDisabled();
+  });
+
+  it("chama onSubmit ao clicar em Vincular com nome preenchido", () => {
     const onSubmit = vi.fn();
     render(
       <VincularCompetenciaForm
@@ -73,7 +85,9 @@ describe("VincularCompetenciaForm — tipo vem do catálogo, não é campo do v�
         onSubmit={onSubmit}
       />,
     );
-    screen.getByRole("button", { name: "Vincular" }).click();
+    const button = screen.getByRole("button", { name: "Vincular" });
+    expect(button).not.toBeDisabled();
+    button.click();
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 });

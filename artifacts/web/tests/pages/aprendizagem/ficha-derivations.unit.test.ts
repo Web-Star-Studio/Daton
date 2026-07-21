@@ -3,6 +3,7 @@ import {
   computeTrainingCounters,
   computeTenure,
   compareEducation,
+  toChaCompetencyType,
 } from "@/pages/app/aprendizagem/colaboradores/_lib/ficha-derivations";
 
 describe("computeTrainingCounters", () => {
@@ -74,5 +75,37 @@ describe("compareEducation", () => {
   });
   it("sem possui -> nao_informado", () => {
     expect(compareEducation(null, "Médio Completo")).toBe("nao_informado");
+  });
+});
+
+// Achado 1 do revisor (fix/tipo-competencia-fonte-unica): openEdit() do form de
+// edição de competência do colaborador inicializava `form.type` com o valor cru
+// do backend. Há 7 linhas legadas de `employee_competencies` em produção com
+// `formacao`/`experiencia` (enum estreitado para CHA, backfill pendente) — sem
+// normalizar, o <Select> (só 3 opções CHA) ficava sem valor correspondente e o
+// PATCH reenviava o valor legado, que o contrato rejeita com 400.
+describe("toChaCompetencyType", () => {
+  it("valor legado (formacao) cai no fallback conhecimento", () => {
+    expect(toChaCompetencyType("formacao")).toBe("conhecimento");
+  });
+
+  it("valor legado (experiencia) cai no fallback conhecimento", () => {
+    expect(toChaCompetencyType("experiencia")).toBe("conhecimento");
+  });
+
+  it("vazio cai no fallback conhecimento", () => {
+    expect(toChaCompetencyType("")).toBe("conhecimento");
+  });
+
+  it("valor CHA já válido é mantido (habilidade)", () => {
+    expect(toChaCompetencyType("habilidade")).toBe("habilidade");
+  });
+
+  it("valor CHA já válido é mantido (atitude)", () => {
+    expect(toChaCompetencyType("atitude")).toBe("atitude");
+  });
+
+  it("valor CHA já válido é mantido (conhecimento)", () => {
+    expect(toChaCompetencyType("conhecimento")).toBe("conhecimento");
   });
 });
