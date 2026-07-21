@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ActionPlanActionStatus } from "./actionPlanActionStatus";
+import type { ActionPlanActionTask } from "./actionPlanActionTask";
 
 export interface ActionPlanAction {
   id: number;
@@ -14,6 +15,8 @@ export interface ActionPlanAction {
   why?: string | null;
   whereAt?: string | null;
   how?: string | null;
+  /** Checklist de tarefas ("passos") do campo Como. Marcáveis pelo responsável. */
+  howTasks?: ActionPlanActionTask[] | null;
   howMuch?: string | null;
   responsibleUserId?: number | null;
   responsibleUserName?: string | null;

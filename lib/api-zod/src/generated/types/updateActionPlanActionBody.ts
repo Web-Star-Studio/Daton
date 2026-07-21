@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ActionPlanActionTask } from "./actionPlanActionTask";
 import type { UpdateActionPlanActionBodyStatus } from "./updateActionPlanActionBodyStatus";
 
 export interface UpdateActionPlanActionBody {
@@ -12,6 +13,7 @@ export interface UpdateActionPlanActionBody {
   why?: string | null;
   whereAt?: string | null;
   how?: string | null;
+  howTasks?: ActionPlanActionTask[] | null;
   howMuch?: string | null;
   responsibleUserId?: number | null;
   dueDate?: string | null;

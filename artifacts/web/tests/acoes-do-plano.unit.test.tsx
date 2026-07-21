@@ -51,6 +51,7 @@ function action(overrides: Partial<ActionPlanAction>): ActionPlanAction {
     why: null,
     whereAt: null,
     how: null,
+    howTasks: null,
     howMuch: null,
     responsibleUserId: null,
     responsibleUserName: null,
@@ -233,5 +234,122 @@ describe("AcoesDoPlano — flush no unmount", () => {
     expect(planIdArg).toBe(20);
     expect(actionIdArg).toBe(7);
     expect((body as { what?: string | null }).what).toBe("Não perca isto");
+  });
+});
+
+describe("AcoesDoPlano — checklist do Como", () => {
+  beforeEach(() => {
+    mockCreate.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    mockDelete.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("mostra o progresso da checklist (n/m) no cabeçalho recolhido", () => {
+    mockUpdate.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    mockActions.mockReturnValue({
+      data: [
+        action({
+          id: 1,
+          what: "Ação",
+          howTasks: [
+            { id: "a", text: "Passo 1", done: true },
+            { id: "b", text: "Passo 2", done: false },
+          ],
+        }),
+      ],
+    });
+    render(<AcoesDoPlano orgId={1} planId={10} orgUsers={[]} canEdit />);
+    // Recolhido: o progresso aparece no botão de expandir ("Como").
+    expect(screen.getByText("1/2 no Como")).toBeInTheDocument();
+  });
+
+  it("mostra a data e quem concluiu um passo", () => {
+    mockUpdate.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    mockActions.mockReturnValue({
+      data: [
+        action({
+          id: 1,
+          what: "Ação",
+          howTasks: [
+            {
+              id: "a",
+              text: "Passo 1",
+              done: true,
+              doneAt: "2026-07-21T12:00:00.000Z",
+              doneByUserId: 7,
+              doneByUserName: "Ana Oliveira",
+            },
+          ],
+        }),
+      ],
+    });
+    render(<AcoesDoPlano orgId={1} planId={10} orgUsers={[]} canEdit />);
+    fireEvent.click(screen.getByLabelText("Expandir ação"));
+    expect(screen.getByText(/Concluída em/)).toBeInTheDocument();
+    expect(screen.getByText("Ana Oliveira", { exact: false })).toBeInTheDocument();
+  });
+
+  it("marcar um passo salva a checklist inteira via PATCH", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-01T12:00:00.000Z"));
+    const mutateAsync = vi.fn().mockResolvedValue({});
+    mockUpdate.mockReturnValue({ mutateAsync, isPending: false });
+    mockActions.mockReturnValue({
+      data: [
+        action({
+          id: 1,
+          what: "Ação",
+          howTasks: [{ id: "a", text: "Passo 1", done: false }],
+        }),
+      ],
+    });
+    render(<AcoesDoPlano orgId={1} planId={10} orgUsers={[]} canEdit />);
+
+    fireEvent.click(screen.getByLabelText("Expandir ação"));
+    fireEvent.click(screen.getByLabelText("Marcar tarefa como concluída"));
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    const data = mutateAsync.mock.calls.at(-1)?.[0]?.data as {
+      howTasks?: Array<{ id: string; text: string; done: boolean }> | null;
+    };
+    expect(data?.howTasks).toEqual([{ id: "a", text: "Passo 1", done: true }]);
+  });
+
+  it("adicionar um passo em branco não dispara PATCH; digitar, sim (e o vazio não persiste)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-01T12:00:00.000Z"));
+    const mutateAsync = vi.fn().mockResolvedValue({});
+    mockUpdate.mockReturnValue({ mutateAsync, isPending: false });
+    mockActions.mockReturnValue({
+      data: [action({ id: 1, what: "Ação", howTasks: null })],
+    });
+    render(<AcoesDoPlano orgId={1} planId={10} orgUsers={[]} canEdit />);
+
+    fireEvent.click(screen.getByLabelText("Expandir ação"));
+
+    // Adiciona uma linha em branco: nenhum save agendado.
+    fireEvent.click(screen.getByText("Adicionar tarefa"));
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(mutateAsync).not.toHaveBeenCalled();
+
+    // Ao digitar, o autosave dispara e persiste só o passo com texto.
+    fireEvent.change(screen.getByPlaceholderText("Descreva o passo…"), {
+      target: { value: "Comprar material" },
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    const data = mutateAsync.mock.calls.at(-1)?.[0]?.data as {
+      howTasks?: Array<{ text: string; done: boolean }> | null;
+    };
+    expect(data?.howTasks).toHaveLength(1);
+    expect(data?.howTasks?.[0]).toMatchObject({ text: "Comprar material", done: false });
   });
 });

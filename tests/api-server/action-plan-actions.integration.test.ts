@@ -288,6 +288,77 @@ describe("ações do plano", () => {
     expect(res.status).toBe(400);
   });
 
+  it("checklist do Como: cria com passos (descarta vazio), o PATCH marca e persiste, e marcar não vira histórico", async () => {
+    const context = await createTestContext({ seed: "action-how-tasks" });
+    contexts.push(context);
+    const plan = await createPlan(context).expect(201);
+
+    const created = await request(app)
+      .post(actionsUrl(context, plan.body.id))
+      .set(authHeader(context))
+      .send({
+        what: "Trocar filtros",
+        howTasks: [
+          { id: "a", text: "Comprar filtros", done: false },
+          { id: "b", text: "   ", done: false }, // vazio → descartado
+        ],
+      })
+      .expect(201);
+    expect(created.body.howTasks).toEqual([{ id: "a", text: "Comprar filtros", done: false }]);
+
+    // Marca o passo como concluído — o servidor carimba QUANDO e QUEM.
+    const patched = await request(app)
+      .patch(actionsUrl(context, plan.body.id, created.body.id))
+      .set(authHeader(context))
+      .send({ howTasks: [{ id: "a", text: "Comprar filtros", done: true }] })
+      .expect(200);
+    expect(patched.body.howTasks[0]).toMatchObject({ id: "a", text: "Comprar filtros", done: true });
+    expect(patched.body.howTasks[0].doneAt).toBeTruthy();
+    expect(patched.body.howTasks[0].doneByUserId).toBe(context.userId);
+    expect(patched.body.howTasks[0].doneByUserName).toBeTruthy();
+    const stampedAt = patched.body.howTasks[0].doneAt;
+
+    // Persistiu de fato — recarrega a lista.
+    const list = await request(app)
+      .get(actionsUrl(context, plan.body.id))
+      .set(authHeader(context))
+      .expect(200);
+    expect(list.body[0].howTasks[0]).toMatchObject({
+      id: "a",
+      text: "Comprar filtros",
+      done: true,
+      doneByUserId: context.userId,
+    });
+
+    // Editar o TEXTO do passo já concluído não re-carimba a conclusão (preserva quem/quando).
+    const renamed = await request(app)
+      .patch(actionsUrl(context, plan.body.id, created.body.id))
+      .set(authHeader(context))
+      .send({ howTasks: [{ id: "a", text: "Comprar filtros novos", done: true }] })
+      .expect(200);
+    expect(renamed.body.howTasks[0].doneAt).toBe(stampedAt);
+
+    // Reabrir (desmarcar) limpa o carimbo.
+    const reopened = await request(app)
+      .patch(actionsUrl(context, plan.body.id, created.body.id))
+      .set(authHeader(context))
+      .send({ howTasks: [{ id: "a", text: "Comprar filtros novos", done: false }] })
+      .expect(200);
+    expect(reopened.body.howTasks[0].done).toBe(false);
+    expect(reopened.body.howTasks[0].doneAt ?? null).toBeNull();
+
+    // Histórico: marcar/desmarcar (2 PATCHes) é execução e NÃO loga; renomear o passo
+    // (1 PATCH) é reestruturação e loga exatamente 1 `action_updated`.
+    const activity = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${plan.body.id}/activity`)
+      .set(authHeader(context))
+      .expect(200);
+    const updates = (activity.body as { action: string }[]).filter(
+      (e) => e.action === "action_updated",
+    );
+    expect(updates).toHaveLength(1);
+  });
+
   it("GET de planId inexistente devolve 404 (não 200 [])", async () => {
     const context = await createTestContext({ seed: "action-get-missing-plan" });
     contexts.push(context);
