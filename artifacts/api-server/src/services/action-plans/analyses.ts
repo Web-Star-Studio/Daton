@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  ACTION_PLAN_ANALYSIS_METHOD_KEYS,
   BARRIER_STATUSES,
   BARRIER_TYPES,
   FAULT_TREE_GATES,

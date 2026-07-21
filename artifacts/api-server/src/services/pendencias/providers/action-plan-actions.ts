@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNotNull, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lt, not, or } from "drizzle-orm";
 import { db, actionPlanActionsTable, actionPlansTable } from "@workspace/db";
 import {
   classifyUrgency,
@@ -45,6 +45,18 @@ export const actionPlanActionPendenciaProvider: PendenciaProvider = {
           isNotNull(actionPlanActionsTable.responsibleUserId),
           inArray(actionPlanActionsTable.responsibleUserId, ctx.responsibleUserIds),
           inArray(actionPlanActionsTable.status, ["open", "in_progress"]),
+          // Plano encerrado trava a edição da ação (409). Surgir aqui viraria pendência
+          // sem saída: o usuário não consegue concluir nem remover. Espelha
+          // `isActionPlanEncerrado`: cancelado, ou concluído COM veredito de eficácia.
+          not(
+            or(
+              eq(actionPlansTable.status, "cancelled"),
+              and(
+                eq(actionPlansTable.status, "completed"),
+                inArray(actionPlansTable.effectivenessResult, ["effective", "ineffective"]),
+              ),
+            )!,
+          ),
         ),
       );
 

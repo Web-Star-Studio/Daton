@@ -1,6 +1,6 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
-import { actionPlansTable, db } from "@workspace/db";
+import { actionPlanActionsTable, actionPlansTable, db } from "@workspace/db";
 import type { ActionPlanSourceModule } from "@workspace/db";
 import app from "../../src/app";
 import {
@@ -314,5 +314,37 @@ describe("action plan detail access", () => {
       .set(authHeader(context));
 
     expect(response.status).toBe(200);
+  });
+
+  // Regressão: quem executa uma AÇÃO do plano (sem ser ponto focal, co-responsável
+  // nem ter módulo) recebe a ação em "Suas Pendências" com link para a ficha. Sem
+  // este acesso, a pendência viraria um beco: 403 ao abrir o plano e as ações.
+  it("allows the responsible of an ACTION-ITEM even with no module at all", async () => {
+    const context = await createTestContext({
+      seed: "ap-detail-action-assignee",
+      role: "operator",
+    });
+    contexts.push(context);
+    const outro = await createTestUser(context, { suffix: "focal", role: "operator" });
+    const planId = await createPlan(context.organizationId, {
+      sourceModule: "manual",
+      responsibleUserId: outro.id, // ponto focal é OUTRA pessoa
+    });
+    await db.insert(actionPlanActionsTable).values({
+      organizationId: context.organizationId,
+      actionPlanId: planId,
+      what: "Executar",
+      responsibleUserId: context.userId, // o usuário do contexto só executa a ação
+    });
+
+    const detail = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}`)
+      .set(authHeader(context));
+    expect(detail.status).toBe(200);
+
+    const actions = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${planId}/actions`)
+      .set(authHeader(context));
+    expect(actions.status).toBe(200);
   });
 });

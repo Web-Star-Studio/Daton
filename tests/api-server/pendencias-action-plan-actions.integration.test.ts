@@ -1,5 +1,7 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import { actionPlansTable, db } from "@workspace/db";
 import app from "../../artifacts/api-server/src/app";
 import {
   authHeader,
@@ -79,5 +81,37 @@ describe("pendências das ações do plano", () => {
     const suas = await request(app).get(pendenciasUrl(context)).set(authHeader(context));
     const ids = (suas.body.items ?? suas.body).map((p: { id: string }) => p.id);
     expect(ids).not.toContain(`action_plan_action:${action.body.id}`);
+  });
+
+  it("plano encerrado tira a ação das pendências (senão vira beco: 409 ao concluir)", async () => {
+    const context = await createTestContext({ seed: "pendencia-action-locked" });
+    contexts.push(context);
+    const executor = await createTestUser(context, { role: "operator", suffix: "executor" });
+
+    const plan = await createPlan(context, { responsibleUserId: context.userId }).expect(201);
+    const action = await request(app)
+      .post(actionsUrl(context, plan.body.id))
+      .set(authHeader(context))
+      .send({ what: "Treinar motoristas", responsibleUserId: executor.id })
+      .expect(201);
+
+    // Com o plano ativo, a ação aparece para o executor.
+    const antes = await request(app)
+      .get(pendenciasUrl(context))
+      .set({ Authorization: `Bearer ${executor.token}` });
+    const idsAntes = (antes.body.items ?? antes.body).map((p: { id: string }) => p.id);
+    expect(idsAntes).toContain(`action_plan_action:${action.body.id}`);
+
+    // Encerra o plano (cancelado). A ação continua "open", mas editá-la agora dá 409.
+    await db
+      .update(actionPlansTable)
+      .set({ status: "cancelled" })
+      .where(eq(actionPlansTable.id, plan.body.id));
+
+    const depois = await request(app)
+      .get(pendenciasUrl(context))
+      .set({ Authorization: `Bearer ${executor.token}` });
+    const idsDepois = (depois.body.items ?? depois.body).map((p: { id: string }) => p.id);
+    expect(idsDepois).not.toContain(`action_plan_action:${action.body.id}`);
   });
 });

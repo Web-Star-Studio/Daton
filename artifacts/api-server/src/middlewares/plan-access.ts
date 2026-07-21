@@ -6,7 +6,7 @@ import { Request, Response, NextFunction } from "express";
 import { and, eq } from "drizzle-orm";
 import { actionPlansTable, db, type ActionPlanSourceModule } from "@workspace/db";
 import { userHasModuleAccess, type AppModule } from "./auth";
-import { isPlanCoResponsible } from "../services/action-plans/responsibles";
+import { isPlanCoResponsible, isPlanActionAssignee } from "../services/action-plans/responsibles";
 
 /**
  * Module that owns each action-plan origin. The hub (`actionPlans`) sees every
@@ -36,8 +36,9 @@ export const SOURCE_MODULE_OWNER: Record<ActionPlanSourceModule, AppModule> = {
  * Guards every `/:planId` route. Without it the hub gate would be bypassable by
  * anyone in the org who guesses a plan id. A plan belongs to whoever holds the
  * hub module, holds the module that owns its origin, or is personally assigned
- * to it — o ponto focal, os co-responsáveis e o avaliador da eficácia alcançam os
- * próprios planos a partir de "Suas Pendências" sem nunca ter `actionPlans`.
+ * to it — o ponto focal, os co-responsáveis, o avaliador da eficácia e o
+ * responsável por qualquer AÇÃO do plano alcançam os próprios planos a partir de
+ * "Suas Pendências" sem nunca ter `actionPlans`.
  *
  * Registered after `requireAuth`. Unknown ids and malformed params fall through
  * untouched so the routes keep answering 404/400 exactly as before.
@@ -67,7 +68,8 @@ export function requirePlanAccess() {
       plan.effectivenessEvaluatorUserId === userId ||
       (await userHasModuleAccess(req.auth!, "actionPlans")) ||
       (await userHasModuleAccess(req.auth!, SOURCE_MODULE_OWNER[plan.sourceModule])) ||
-      (await isPlanCoResponsible(planId, userId));
+      (await isPlanCoResponsible(planId, userId)) ||
+      (await isPlanActionAssignee(planId, userId));
     if (!allowed) { res.status(403).json({ error: "Sem acesso a este plano de ação" }); return; }
 
     next();
