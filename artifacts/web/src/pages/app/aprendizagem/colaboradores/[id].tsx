@@ -2084,10 +2084,14 @@ function TreinamentosTab({
     setForm((current) => ({
       ...current,
       ...prefillTraining,
-      targetCompetencyType:
-        prefillTraining.targetCompetencyType ||
-        current.targetCompetencyType ||
-        CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
+      // `targetCompetencyType` chega cru da query string (deep link de outra
+      // tela) e pode carregar um valor legado de competência — normaliza pro
+      // CHA só quando não-vazio; vazio preserva o fallback existente (treino
+      // sem competência-alvo continua sem competência-alvo).
+      targetCompetencyType: prefillTraining.targetCompetencyType
+        ? toChaCompetencyType(prefillTraining.targetCompetencyType)
+        : current.targetCompetencyType ||
+          CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
       targetCompetencyLevel:
         prefillTraining.targetCompetencyLevel ?? current.targetCompetencyLevel,
     }));
@@ -2157,9 +2161,13 @@ function TreinamentosTab({
       institution: t.institution || "",
       instructor: t.instructor || "",
       targetCompetencyName: t.targetCompetencyName || "",
-      targetCompetencyType:
-        t.targetCompetencyType ||
-        CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
+      // Mesmo achado do form de competência (openEdit acima): normaliza um
+      // valor legado pro CHA na abertura do form, senão o <Select> (só 3
+      // opções CHA) fica sem opção e o PATCH reenvia o legado -> 400. Vazio
+      // preserva o fallback existente (treino sem competência-alvo).
+      targetCompetencyType: t.targetCompetencyType
+        ? toChaCompetencyType(t.targetCompetencyType)
+        : CreateTrainingBodyTargetCompetencyTypeValues.habilidade,
       targetCompetencyLevel: t.targetCompetencyLevel || 0,
       evaluationMethod: t.evaluationMethod || "",
       renewalMonths: t.renewalMonths || 0,

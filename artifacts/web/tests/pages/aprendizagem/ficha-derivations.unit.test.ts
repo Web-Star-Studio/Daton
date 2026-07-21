@@ -109,3 +109,22 @@ describe("toChaCompetencyType", () => {
     expect(toChaCompetencyType("conhecimento")).toBe("conhecimento");
   });
 });
+
+// Achado simétrico (mesmo branch): `targetCompetencyType` do treino (form em
+// colaboradores/[id].tsx, abertura de edição e prefill via query string) tem
+// a mesma armadilha do achado acima e reusa o MESMO helper — não há valor
+// legado em produção hoje (0 treinos), mas o `<Select>` também só tem as 3
+// opções CHA, então o form ficaria sem opção correspondente se um valor
+// legado chegasse por lá (ex.: deep link ?targetCompetencyType=... de outra
+// tela, sem validação). O caso "vazio" aqui é tratado no call site (treino
+// sem competência-alvo preserva o fallback local `habilidade`, não passa
+// por este helper) — coberto pelos testes de call site, não aqui.
+describe("toChaCompetencyType (reuso no form de treino)", () => {
+  it("valor legado de treino cai no fallback conhecimento", () => {
+    expect(toChaCompetencyType("experiencia")).toBe("conhecimento");
+  });
+
+  it("valor CHA de treino já válido é mantido", () => {
+    expect(toChaCompetencyType("atitude")).toBe("atitude");
+  });
+});
