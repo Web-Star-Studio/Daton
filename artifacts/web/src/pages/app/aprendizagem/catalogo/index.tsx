@@ -31,7 +31,7 @@ import {
   mergeLabelOptions,
   activeEvidenceTypes,
   evidenceTypeByCode,
-  evidenceCodeProves,
+  evidenceProves,
   type TrainingCatalogOption,
 } from "@/lib/training-catalog-options-client";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -161,8 +161,10 @@ function formToBody(form: CatalogForm): CreateTrainingCatalogItemBody {
     title: form.title.trim(),
     category: form.category || undefined,
     modality: form.modality || undefined,
-    developmentNature: form.developmentNature || undefined,
-    knowledgeArea: form.knowledgeArea || undefined,
+    // Opcionais e LIMPÁVEIS: manda null (não undefined) ao esvaziar, para o PATCH
+    // de fato apagar o valor — undefined seria omitido e manteria o antigo.
+    developmentNature: form.developmentNature || null,
+    knowledgeArea: form.knowledgeArea || null,
     normIds: form.normIds,
     workloadHours: form.workloadHours ? Number(form.workloadHours) : undefined,
     validityMonths:
@@ -443,10 +445,7 @@ export default function CatalogoPage() {
     }
     return active;
   }, [trainingOptions, form.evidenceType, evidenceByCode]);
-  const formEvidenceProves = evidenceCodeProves(
-    evidenceByCode,
-    form.evidenceType,
-  );
+  const formEvidenceProves = evidenceProves(trainingOptions, form.evidenceType);
 
   // Engrenagem "Gerenciar" → Configurações → Sistema → aba Treinamentos.
   const goToTrainingConfig = () => {
@@ -926,7 +925,7 @@ export default function CatalogoPage() {
               {/* Só tipos que comprovam competência exibem vínculos — não mostrar
                   os de um item que não comprova (ex.: conscientização com lista
                   gravada por outra via), para não enganar. */}
-              {evidenceCodeProves(evidenceByCode, fichaItem.evidenceType) &&
+              {evidenceProves(trainingOptions, fichaItem.evidenceType) &&
               fichaItem.targetCompetencies &&
               fichaItem.targetCompetencies.length > 0 ? (
                 <span>
@@ -1112,7 +1111,7 @@ export default function CatalogoPage() {
                 const v = e.target.value;
                 // Só tipos que comprovam competência mantêm o vínculo. Ao mudar
                 // para um tipo que não comprova (ou nenhum), limpa as competências.
-                const proves = evidenceCodeProves(evidenceByCode, v);
+                const proves = evidenceProves(trainingOptions, v);
                 setForm((f) => ({
                   ...f,
                   evidenceType: v,

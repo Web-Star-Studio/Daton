@@ -236,6 +236,15 @@ describe("training catalog options API", () => {
     expect(created.status).toBe(201);
     expect(created.body.developmentNature).toBe("Interno");
     expect(created.body.knowledgeArea).toBe("Segurança do trabalho");
+
+    // Limpar (PATCH null) de fato apaga — não pode ficar preso no valor antigo.
+    const cleared = await request(app)
+      .patch(`${catalogBase}/${created.body.id}`)
+      .set(authHeader(ctx))
+      .send({ developmentNature: null, knowledgeArea: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.developmentNature).toBeNull();
+    expect(cleared.body.knowledgeArea).toBeNull();
   });
 
   it("blocks non-admin writes (403) but allows reads", async () => {

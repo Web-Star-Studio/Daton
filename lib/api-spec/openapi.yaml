@@ -11130,8 +11130,10 @@ components:
           type: string
         developmentNature:
           type: string
+          nullable: true
         knowledgeArea:
           type: string
+          nullable: true
         norm:
           type: string
           deprecated: true
@@ -11195,8 +11197,10 @@ components:
           type: string
         developmentNature:
           type: string
+          nullable: true
         knowledgeArea:
           type: string
+          nullable: true
         norm:
           type: string
           deprecated: true

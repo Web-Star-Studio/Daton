@@ -12,8 +12,8 @@ export interface CreateTrainingCatalogItemBody {
   title: string;
   category?: string;
   modality?: string;
-  developmentNature?: string;
-  knowledgeArea?: string;
+  developmentNature?: string | null;
+  knowledgeArea?: string | null;
   /** @deprecated */
   norm?: string;
   /** @deprecated */

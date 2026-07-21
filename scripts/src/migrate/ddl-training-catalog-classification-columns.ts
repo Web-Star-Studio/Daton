@@ -30,11 +30,12 @@ async function main() {
   const client = new pg.Client({ connectionString: DATABASE_URL });
   await client.connect();
 
+  // Um único ALTER (atômico): as duas colunas entram juntas ou nenhuma —
+  // uma segunda instrução interrompida não deixa o schema pela metade.
   await client.query(
-    `ALTER TABLE training_catalog ADD COLUMN IF NOT EXISTS development_nature text`,
-  );
-  await client.query(
-    `ALTER TABLE training_catalog ADD COLUMN IF NOT EXISTS knowledge_area text`,
+    `ALTER TABLE training_catalog
+       ADD COLUMN IF NOT EXISTS development_nature text,
+       ADD COLUMN IF NOT EXISTS knowledge_area text`,
   );
 
   const check = await client.query(`

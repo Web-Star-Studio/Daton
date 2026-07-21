@@ -106,3 +106,24 @@ export function evidenceCodeProves(
   if (!code) return false;
   return byCode.get(code)?.provesCompetency ?? false;
 }
+
+/** Vocabulário legado que comprova (fallback quando o catálogo de evidência
+ *  está vazio — janela DDL→backfill). Espelha o backend. */
+const LEGACY_PROVING_EVIDENCE_CODES = ["capacitacao", "habilitacao"];
+
+/**
+ * Um item comprova competência, com o MESMO fallback legado do backend: se a org
+ * ainda não tem NENHUM tipo de evidência no catálogo (janela deploy→backfill),
+ * `capacitacao`/`habilitacao` continuam comprovando — senão os itens já
+ * classificados perderiam o vínculo na UI. Com catálogo populado, ele manda.
+ */
+export function evidenceProves(
+  all: TrainingCatalogOption[],
+  code: string | null | undefined,
+): boolean {
+  if (!code) return false;
+  const evidence = optionsOfKind(all, "evidence_type");
+  if (evidence.length === 0)
+    return LEGACY_PROVING_EVIDENCE_CODES.includes(code);
+  return evidence.some((o) => o.code === code && o.provesCompetency);
+}
