@@ -75,6 +75,20 @@ export type ActionPlan5W2H = {
   howMuch?: string;
 };
 
+/**
+ * Item de checklist do campo "Como" de uma ação (5W2H). O responsável quebra o
+ * método em passos e vai marcando cada um. Vive num jsonb na própria ação (não
+ * numa tabela): ao contrário das ações, um passo NÃO é consultado por
+ * responsável nem por prazo — é só progresso dentro de uma ação —, então não
+ * precisa indexar. `id` é gerado no cliente (uuid) só para dar key estável às
+ * linhas e casar edições; não é FK de nada.
+ */
+export type ActionPlanActionTask = {
+  id: string;
+  text: string;
+  done: boolean;
+};
+
 /** A normative reference the action addresses, e.g. { code: "ISO 45001", clause: "8.1" }. */
 export type ActionPlanNormRef = {
   code: string;
@@ -292,6 +306,8 @@ export const actionPlanActionsTable = pgTable(
     /** Onde. `where` é palavra reservada em SQL — não usar como nome de coluna. */
     whereAt: text("where_at"),
     how: text("how"),
+    /** Checklist de tarefas ("passos") do "Como" — o responsável marca conforme executa. */
+    howTasks: jsonb("how_tasks").$type<ActionPlanActionTask[]>(),
     howMuch: text("how_much"),
     responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     dueDate: timestamp("due_date", { withTimezone: true }),

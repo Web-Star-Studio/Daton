@@ -24,6 +24,7 @@ import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 import { requirePlanAccess, userCanReachPlan } from "../middlewares/plan-access";
 import { logActionPlanActivity } from "../services/action-plans/activity";
 import { notifyActionPlanActionAssignment } from "../services/action-plans/notify-assignment";
+import { normalizeActionHowTasks } from "../services/action-plans/how-tasks";
 import {
   assertUserBelongsToOrg,
   resolveUserNames,
@@ -146,6 +147,7 @@ router.post(
         why: body.data.why ?? null,
         whereAt: body.data.whereAt ?? null,
         how: body.data.how ?? null,
+        howTasks: normalizeActionHowTasks(body.data.howTasks),
         howMuch: body.data.howMuch ?? null,
         responsibleUserId: body.data.responsibleUserId ?? null,
         dueDate: body.data.dueDate ? new Date(body.data.dueDate) : null,
@@ -233,6 +235,8 @@ router.patch(
     if (body.data.responsibleUserId !== undefined) update.responsibleUserId = body.data.responsibleUserId;
     if (body.data.dueDate !== undefined) update.dueDate = body.data.dueDate ? new Date(body.data.dueDate) : null;
     if (body.data.sortOrder !== undefined) update.sortOrder = body.data.sortOrder;
+    // Checklist do "Como": array jsonb, não passa pelo laço de strings acima.
+    if (body.data.howTasks !== undefined) update.howTasks = normalizeActionHowTasks(body.data.howTasks);
 
     if (body.data.status !== undefined && body.data.status !== existing.status) {
       update.status = body.data.status;
@@ -258,6 +262,10 @@ router.patch(
     // Log só do que mudou de fato — um autosave que reenvia o mesmo valor não vira entrada.
     const fields: Record<string, { from: unknown; to: unknown }> = {};
     for (const key of Object.keys(update)) {
+      // Marcar um passo da checklist é execução, não replanejamento: não vira
+      // entrada no histórico (evita um "Ação atualizada" por clique, sem detalhe
+      // visível — o renderer só mostra o `what` das mudanças de ação).
+      if (key === "howTasks") continue;
       const before = (existing as Record<string, unknown>)[key];
       const after = (row as Record<string, unknown>)[key];
       if (JSON.stringify(before ?? null) !== JSON.stringify(after ?? null)) {

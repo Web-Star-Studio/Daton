@@ -5161,6 +5161,15 @@ export const ActionPlanActionStatus = {
   cancelled: "cancelled",
 } as const;
 
+/**
+ * Item de checklist do campo Como de uma ação (5W2H).
+ */
+export interface ActionPlanActionTask {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 export interface ActionPlanAction {
   id: number;
   actionPlanId: number;
@@ -5168,6 +5177,8 @@ export interface ActionPlanAction {
   why?: string | null;
   whereAt?: string | null;
   how?: string | null;
+  /** Checklist de tarefas ("passos") do campo Como. Marcáveis pelo responsável. */
+  howTasks?: ActionPlanActionTask[] | null;
   howMuch?: string | null;
   responsibleUserId?: number | null;
   responsibleUserName?: string | null;
@@ -5194,6 +5205,7 @@ export interface CreateActionPlanActionBody {
   why?: string | null;
   whereAt?: string | null;
   how?: string | null;
+  howTasks?: ActionPlanActionTask[] | null;
   howMuch?: string | null;
   responsibleUserId?: number | null;
   dueDate?: string | null;
@@ -5216,6 +5228,7 @@ export interface UpdateActionPlanActionBody {
   why?: string | null;
   whereAt?: string | null;
   how?: string | null;
+  howTasks?: ActionPlanActionTask[] | null;
   howMuch?: string | null;
   responsibleUserId?: number | null;
   dueDate?: string | null;

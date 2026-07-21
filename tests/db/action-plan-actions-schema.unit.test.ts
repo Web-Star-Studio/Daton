@@ -14,6 +14,7 @@ describe("schema das ações do plano", () => {
         "why",
         "whereAt",
         "how",
+        "howTasks",
         "howMuch",
         "responsibleUserId",
         "dueDate",

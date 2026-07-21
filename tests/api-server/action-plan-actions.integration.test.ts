@@ -288,6 +288,50 @@ describe("ações do plano", () => {
     expect(res.status).toBe(400);
   });
 
+  it("checklist do Como: cria com passos (descarta vazio), o PATCH marca e persiste, e marcar não vira histórico", async () => {
+    const context = await createTestContext({ seed: "action-how-tasks" });
+    contexts.push(context);
+    const plan = await createPlan(context).expect(201);
+
+    const created = await request(app)
+      .post(actionsUrl(context, plan.body.id))
+      .set(authHeader(context))
+      .send({
+        what: "Trocar filtros",
+        howTasks: [
+          { id: "a", text: "Comprar filtros", done: false },
+          { id: "b", text: "   ", done: false }, // vazio → descartado
+        ],
+      })
+      .expect(201);
+    expect(created.body.howTasks).toEqual([{ id: "a", text: "Comprar filtros", done: false }]);
+
+    // Marca o passo como concluído.
+    const patched = await request(app)
+      .patch(actionsUrl(context, plan.body.id, created.body.id))
+      .set(authHeader(context))
+      .send({ howTasks: [{ id: "a", text: "Comprar filtros", done: true }] })
+      .expect(200);
+    expect(patched.body.howTasks).toEqual([{ id: "a", text: "Comprar filtros", done: true }]);
+
+    // Persistiu de fato — recarrega a lista.
+    const list = await request(app)
+      .get(actionsUrl(context, plan.body.id))
+      .set(authHeader(context))
+      .expect(200);
+    expect(list.body[0].howTasks).toEqual([{ id: "a", text: "Comprar filtros", done: true }]);
+
+    // Marcar um passo é execução, não replanejamento: não gera `action_updated`.
+    const activity = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${plan.body.id}/activity`)
+      .set(authHeader(context))
+      .expect(200);
+    const updates = (activity.body as { action: string }[]).filter(
+      (e) => e.action === "action_updated",
+    );
+    expect(updates).toHaveLength(0);
+  });
+
   it("GET de planId inexistente devolve 404 (não 200 [])", async () => {
     const context = await createTestContext({ seed: "action-get-missing-plan" });
     contexts.push(context);

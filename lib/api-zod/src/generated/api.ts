@@ -21761,6 +21761,20 @@ export const ListActionPlanActionsResponseItem = zod.object({
   why: zod.string().nullish(),
   whereAt: zod.string().nullish(),
   how: zod.string().nullish(),
+  howTasks: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          done: zod.boolean(),
+        })
+        .describe("Item de checklist do campo Como de uma ação (5W2H)."),
+    )
+    .nullish()
+    .describe(
+      'Checklist de tarefas (\"passos\") do campo Como. Marcáveis pelo responsável.',
+    ),
   howMuch: zod.string().nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
@@ -21785,6 +21799,17 @@ export const CreateActionPlanActionBody = zod.object({
   why: zod.string().nullish(),
   whereAt: zod.string().nullish(),
   how: zod.string().nullish(),
+  howTasks: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          done: zod.boolean(),
+        })
+        .describe("Item de checklist do campo Como de uma ação (5W2H)."),
+    )
+    .nullish(),
   howMuch: zod.string().nullish(),
   responsibleUserId: zod.number().nullish(),
   dueDate: zod.string().datetime({}).nullish(),
@@ -21805,6 +21830,17 @@ export const UpdateActionPlanActionBody = zod.object({
   why: zod.string().nullish(),
   whereAt: zod.string().nullish(),
   how: zod.string().nullish(),
+  howTasks: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          done: zod.boolean(),
+        })
+        .describe("Item de checklist do campo Como de uma ação (5W2H)."),
+    )
+    .nullish(),
   howMuch: zod.string().nullish(),
   responsibleUserId: zod.number().nullish(),
   dueDate: zod.string().datetime({}).nullish(),
@@ -21822,6 +21858,20 @@ export const UpdateActionPlanActionResponse = zod.object({
   why: zod.string().nullish(),
   whereAt: zod.string().nullish(),
   how: zod.string().nullish(),
+  howTasks: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          done: zod.boolean(),
+        })
+        .describe("Item de checklist do campo Como de uma ação (5W2H)."),
+    )
+    .nullish()
+    .describe(
+      'Checklist de tarefas (\"passos\") do campo Como. Marcáveis pelo responsável.',
+    ),
   howMuch: zod.string().nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),

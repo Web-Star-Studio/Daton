@@ -19781,6 +19781,11 @@ components:
         why: { type: string, nullable: true }
         whereAt: { type: string, nullable: true }
         how: { type: string, nullable: true }
+        howTasks:
+          type: array
+          nullable: true
+          description: Checklist de tarefas ("passos") do campo Como. Marcáveis pelo responsável.
+          items: { $ref: "#/components/schemas/ActionPlanActionTask" }
         howMuch: { type: string, nullable: true }
         responsibleUserId: { type: integer, nullable: true }
         responsibleUserName: { type: string, nullable: true }
@@ -19791,6 +19796,15 @@ components:
         sortOrder: { type: integer }
         createdAt: { type: string, format: date-time }
 
+    ActionPlanActionTask:
+      type: object
+      description: Item de checklist do campo Como de uma ação (5W2H).
+      required: [id, text, done]
+      properties:
+        id: { type: string }
+        text: { type: string }
+        done: { type: boolean }
+
     CreateActionPlanActionBody:
       type: object
       properties:
@@ -19798,6 +19812,10 @@ components:
         why: { type: string, nullable: true }
         whereAt: { type: string, nullable: true }
         how: { type: string, nullable: true }
+        howTasks:
+          type: array
+          nullable: true
+          items: { $ref: "#/components/schemas/ActionPlanActionTask" }
         howMuch: { type: string, nullable: true }
         responsibleUserId: { type: integer, nullable: true }
         dueDate: { type: string, format: date-time, nullable: true }
@@ -19811,6 +19829,10 @@ components:
         why: { type: string, nullable: true }
         whereAt: { type: string, nullable: true }
         how: { type: string, nullable: true }
+        howTasks:
+          type: array
+          nullable: true
+          items: { $ref: "#/components/schemas/ActionPlanActionTask" }
         howMuch: { type: string, nullable: true }
         responsibleUserId: { type: integer, nullable: true }
         dueDate: { type: string, format: date-time, nullable: true }
