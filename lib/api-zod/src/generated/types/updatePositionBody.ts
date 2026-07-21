@@ -18,5 +18,6 @@ export interface UpdatePositionBody {
   maxSalary?: number;
   area?: string;
   areaId?: number | null;
+  departmentId?: number | null;
   principalNormId?: number | null;
 }

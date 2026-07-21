@@ -22,7 +22,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAllNorms, buildNormLabelMap } from "@/lib/norms-client";
-import { useAllAreas, buildAreaLabelMap } from "@/lib/areas-client";
+import { useAllDepartments, buildDepartmentLabelMap } from "@/lib/departments-client";
 import { PositionFormDialog } from "./position-form-dialog";
 import { CargoCompetenciasTab } from "./cargo-competencias-tab";
 import { deriveAreas, filterPositions, buildPositionSubline } from "./cargos-utils";
@@ -49,15 +49,17 @@ export default function AprendizagemCargosPage() {
       queryKey: getListPositionsQueryKey(orgId),
     },
   });
-  const { data: allAreas = [] } = useAllAreas(orgId);
-  const areaLabelMap = buildAreaLabelMap(allAreas);
-  // Resolve o rótulo da área pelo catálogo (`areaId`); cai no texto legado
-  // (`area`) para cargos ainda não backfillados. A tela toda — tabela, filtro,
-  // subtítulo — passa a operar sobre esse rótulo resolvido.
+  const { data: departments = [] } = useAllDepartments(orgId);
+  const departmentLabelMap = buildDepartmentLabelMap(departments);
+  // Resolve o rótulo do setor pelo Departamento (`departmentId`); cai no texto
+  // legado (`area`) para cargos ainda não migrados. A tela toda — tabela, filtro,
+  // subtítulo — opera sobre esse rótulo resolvido (mantido no campo `area`).
   const positionList = (positions ?? []).map((p) => ({
     ...p,
     area:
-      (p.areaId != null ? areaLabelMap.get(p.areaId) : undefined) ??
+      (p.departmentId != null
+        ? departmentLabelMap.get(p.departmentId)
+        : undefined) ??
       p.area ??
       null,
   }));
@@ -178,7 +180,7 @@ export default function AprendizagemCargosPage() {
           onChange={(e) => setAreaFilter(e.target.value)}
           className="h-10 w-52 text-[13px]"
         >
-          <option value="">Todas as áreas</option>
+          <option value="">Todos os departamentos</option>
           {areas.map((a) => (
             <option key={a} value={a}>
               {a}
@@ -214,7 +216,7 @@ export default function AprendizagemCargosPage() {
                 <thead>
                   <tr className="border-b bg-muted/30 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     <th className="px-4 py-2.5">Cargo</th>
-                    <th className="px-4 py-2.5">Área</th>
+                    <th className="px-4 py-2.5">Departamento</th>
                     <th className="px-4 py-2.5">Competências</th>
                     <th className="px-4 py-2.5">ISO</th>
                     {canManagePositions && <th className="px-4 py-2.5 w-20" />}

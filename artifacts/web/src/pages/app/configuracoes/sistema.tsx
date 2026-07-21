@@ -8,29 +8,13 @@ import { OrganizationUsersSettingsSection } from "@/components/settings/Organiza
 import { OrganizationNormsSettingsSection } from "@/components/settings/OrganizationNormsSettingsSection";
 import { OrganizationAnalysisMethodsSettingsSection } from "@/components/settings/OrganizationAnalysisMethodsSettingsSection";
 import { EffectivenessMethodsSettingsSection } from "@/components/settings/EffectivenessMethodsSettingsSection";
-import { OrganizationAreasSettingsSection } from "@/components/settings/OrganizationAreasSettingsSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUpdateMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type SystemTab = "users" | "norms" | "tratativas" | "effectiveness-methods" | "areas" | "appearance";
+type SystemTab = "users" | "norms" | "tratativas" | "effectiveness-methods" | "appearance";
 type ThemePreference = "light" | "dark" | "system";
-
-const SYSTEM_TABS: SystemTab[] = [
-  "users",
-  "norms",
-  "tratativas",
-  "effectiveness-methods",
-  "areas",
-  "appearance",
-];
-
-/** Aba inicial vinda de `?tab=` (ex.: engrenagem do campo Área → `?tab=areas`). */
-function readInitialTab(): SystemTab | null {
-  const t = new URLSearchParams(window.location.search).get("tab");
-  return t && (SYSTEM_TABS as string[]).includes(t) ? (t as SystemTab) : null;
-}
 
 export default function SystemSettingsPage() {
   const { isOrgAdmin } = usePermissions();
@@ -40,18 +24,12 @@ export default function SystemSettingsPage() {
   // Último tema selecionado, para descartar respostas obsoletas (ver abaixo).
   const latestThemeRef = useRef<ThemePreference | null>(null);
   const defaultTab: SystemTab = isOrgAdmin ? "users" : "appearance";
-  // Aba pedida por `?tab=` na URL (engrenagem do campo Área). Lida uma vez; se
-  // presente, ela manda e não é sobrescrita quando o papel resolve.
-  const urlTabRef = useRef<SystemTab | null>(readInitialTab());
-  const [activeTab, setActiveTab] = useState<SystemTab>(urlTabRef.current ?? defaultTab);
+  const [activeTab, setActiveTab] = useState<SystemTab>(defaultTab);
 
   usePageTitle("Ajustes do sistema");
   usePageSubtitle("Gerencie acessos internos e configurações estruturais do ambiente.");
 
   useEffect(() => {
-    // Só ajusta para o default quando NÃO veio aba pela URL — assim o deep-link
-    // (`?tab=areas`) sobrevive à resolução do papel (isOrgAdmin).
-    if (urlTabRef.current) return;
     setActiveTab(defaultTab);
   }, [defaultTab]);
 
@@ -94,7 +72,6 @@ export default function SystemSettingsPage() {
           {isOrgAdmin && (
             <TabsTrigger value="effectiveness-methods">Métodos de verificação</TabsTrigger>
           )}
-          {isOrgAdmin && <TabsTrigger value="areas">Áreas</TabsTrigger>}
           <TabsTrigger value="appearance">Aparência</TabsTrigger>
         </TabsList>
 
@@ -119,12 +96,6 @@ export default function SystemSettingsPage() {
         {isOrgAdmin && (
           <TabsContent value="effectiveness-methods">
             <EffectivenessMethodsSettingsSection />
-          </TabsContent>
-        )}
-
-        {isOrgAdmin && (
-          <TabsContent value="areas">
-            <OrganizationAreasSettingsSection />
           </TabsContent>
         )}
 
