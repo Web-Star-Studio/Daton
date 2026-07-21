@@ -455,7 +455,7 @@ export function AcoesDoPlano({
                     onClick={() => toggleExpanded(action.id)}
                     aria-label={aberta ? "Recolher ação" : "Expandir ação"}
                     aria-expanded={aberta}
-                    className="mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground"
+                    className="mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                   >
                     {aberta ? (
                       <ChevronDown className="h-4 w-4" />
@@ -480,16 +480,6 @@ export function AcoesDoPlano({
                           className="shrink-0 text-[10px]"
                         >
                           Atrasada
-                        </Badge>
-                      )}
-                      {/* Progresso da checklist visível sem precisar expandir. */}
-                      {!aberta && filledTasks.length > 0 && (
-                        <Badge
-                          variant="secondary"
-                          className="shrink-0 gap-1 text-[10px] font-normal"
-                        >
-                          <ListChecks className="h-3 w-3" />
-                          {tasksDone}/{filledTasks.length}
                         </Badge>
                       )}
                     </div>
@@ -566,8 +556,30 @@ export function AcoesDoPlano({
                     </Button>
                   )}
                 </div>
+                {/* Afeto de expansão explícito: o chevron sozinho não deixava claro
+                    que havia mais (Como/checklist, Por quê, Onde, Quanto, Observações). */}
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(action.id)}
+                  aria-expanded={aberta}
+                  aria-label={aberta ? "Recolher detalhes da ação" : "Expandir detalhes da ação"}
+                  className="flex w-full items-center gap-1.5 border-t px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                >
+                  {aberta ? (
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  <span>{aberta ? "Recolher" : "Como, Por quê, Onde, Quanto"}</span>
+                  {!aberta && filledTasks.length > 0 && (
+                    <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-normal">
+                      <ListChecks className="h-3 w-3" />
+                      {`${tasksDone}/${filledTasks.length} no Como`}
+                    </span>
+                  )}
+                </button>
                 {aberta && (
-                  <div className="border-t bg-muted/20 p-3">
+                  <div className="bg-muted/20 p-3">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Field
                         label="Por quê"

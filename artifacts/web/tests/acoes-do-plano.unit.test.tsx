@@ -261,8 +261,8 @@ describe("AcoesDoPlano — checklist do Como", () => {
       ],
     });
     render(<AcoesDoPlano orgId={1} planId={10} orgUsers={[]} canEdit />);
-    // Recolhido: só o badge de progresso (não o "concluídas" de dentro).
-    expect(screen.getByText("1/2")).toBeInTheDocument();
+    // Recolhido: o progresso aparece no botão de expandir ("Como").
+    expect(screen.getByText("1/2 no Como")).toBeInTheDocument();
   });
 
   it("mostra a data e quem concluiu um passo", () => {
