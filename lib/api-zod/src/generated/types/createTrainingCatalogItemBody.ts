@@ -6,13 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CompetencyTarget } from "./competencyTarget";
-import type { CreateTrainingCatalogItemBodyEvidenceType } from "./createTrainingCatalogItemBodyEvidenceType";
 
 export interface CreateTrainingCatalogItemBody {
   /** @minLength 1 */
   title: string;
   category?: string;
   modality?: string;
+  developmentNature?: string | null;
+  knowledgeArea?: string | null;
   /** @deprecated */
   norm?: string;
   /** @deprecated */
@@ -23,7 +24,7 @@ export interface CreateTrainingCatalogItemBody {
   isMandatory?: boolean;
   status?: string;
   /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
-  evidenceType?: CreateTrainingCatalogItemBodyEvidenceType;
+  evidenceType?: string | null;
   targetCompetencyName?: string;
   targetCompetencyType?: string;
   targetCompetencyLevel?: number;

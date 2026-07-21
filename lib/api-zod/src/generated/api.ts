@@ -19752,6 +19752,162 @@ export const UpdateEffectivenessMethodResponse = zod
   );
 
 /**
+ * @summary List the organization's training catalog option lists (category, modality, evidence type)
+ */
+export const ListTrainingCatalogOptionsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListTrainingCatalogOptionsQueryParams = zod.object({
+  kind: zod
+    .enum([
+      "category",
+      "modality",
+      "evidence_type",
+      "development_nature",
+      "knowledge_area",
+    ])
+    .optional()
+    .describe("Filter by list. Omit to return all kinds."),
+});
+
+export const ListTrainingCatalogOptionsResponseItem = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    kind: zod.enum([
+      "category",
+      "modality",
+      "evidence_type",
+      "development_nature",
+      "knowledge_area",
+    ]),
+    label: zod.string(),
+    code: zod
+      .string()
+      .nullish()
+      .describe(
+        "Código estável (máquina) do tipo de evidência; null para categoria\/modalidade.",
+      ),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+    provesCompetency: zod.boolean(),
+    requiresValidity: zod.boolean(),
+  })
+  .describe(
+    "Item de uma das listas de opções do catálogo de treinamentos, por organização: `category`, `modality` ou `evidence_type`. `code` e as flags semânticas (`provesCompetency`, `requiresValidity`) só têm significado para `evidence_type` — o motor de competência consulta `provesCompetency`.",
+  );
+export const ListTrainingCatalogOptionsResponse = zod.array(
+  ListTrainingCatalogOptionsResponseItem,
+);
+
+/**
+ * @summary Add an option to one of the training catalog lists
+ */
+export const CreateTrainingCatalogOptionParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateTrainingCatalogOptionBody = zod.object({
+  kind: zod.enum([
+    "category",
+    "modality",
+    "evidence_type",
+    "development_nature",
+    "knowledge_area",
+  ]),
+  label: zod.string().min(1),
+  code: zod
+    .string()
+    .optional()
+    .describe("Só para evidence_type. Se omitido, é derivado do rótulo."),
+  provesCompetency: zod
+    .boolean()
+    .optional()
+    .describe("Só para evidence_type. Default false."),
+  requiresValidity: zod
+    .boolean()
+    .optional()
+    .describe("Só para evidence_type. Default false."),
+});
+
+export const CreateTrainingCatalogOptionResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    kind: zod.enum([
+      "category",
+      "modality",
+      "evidence_type",
+      "development_nature",
+      "knowledge_area",
+    ]),
+    label: zod.string(),
+    code: zod
+      .string()
+      .nullish()
+      .describe(
+        "Código estável (máquina) do tipo de evidência; null para categoria\/modalidade.",
+      ),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+    provesCompetency: zod.boolean(),
+    requiresValidity: zod.boolean(),
+  })
+  .describe(
+    "Item de uma das listas de opções do catálogo de treinamentos, por organização: `category`, `modality` ou `evidence_type`. `code` e as flags semânticas (`provesCompetency`, `requiresValidity`) só têm significado para `evidence_type` — o motor de competência consulta `provesCompetency`.",
+  );
+
+/**
+ * @summary Update a training catalog option (label, active flag, sort order, or evidence-type semantics)
+ */
+export const UpdateTrainingCatalogOptionParams = zod.object({
+  orgId: zod.coerce.number(),
+  optionId: zod.coerce.number(),
+});
+
+export const UpdateTrainingCatalogOptionBody = zod.object({
+  label: zod.string().min(1).optional(),
+  active: zod.boolean().optional(),
+  sortOrder: zod.number().optional(),
+  provesCompetency: zod
+    .boolean()
+    .optional()
+    .describe("Só para evidence_type; ignorado nos demais kinds."),
+  requiresValidity: zod
+    .boolean()
+    .optional()
+    .describe("Só para evidence_type; ignorado nos demais kinds."),
+});
+
+export const UpdateTrainingCatalogOptionResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    kind: zod.enum([
+      "category",
+      "modality",
+      "evidence_type",
+      "development_nature",
+      "knowledge_area",
+    ]),
+    label: zod.string(),
+    code: zod
+      .string()
+      .nullish()
+      .describe(
+        "Código estável (máquina) do tipo de evidência; null para categoria\/modalidade.",
+      ),
+    active: zod.boolean(),
+    sortOrder: zod.number(),
+    provesCompetency: zod.boolean(),
+    requiresValidity: zod.boolean(),
+  })
+  .describe(
+    "Item de uma das listas de opções do catálogo de treinamentos, por organização: `category`, `modality` ou `evidence_type`. `code` e as flags semânticas (`provesCompetency`, `requiresValidity`) só têm significado para `evidence_type` — o motor de competência consulta `provesCompetency`.",
+  );
+
+/**
  * @summary List the organization's position area (sector) catalog
  */
 export const ListAreasParams = zod.object({
@@ -22388,6 +22544,18 @@ export const ListTrainingCatalogResponse = zod.object({
         title: zod.string(),
         category: zod.string().nullish(),
         modality: zod.string().nullish(),
+        developmentNature: zod
+          .string()
+          .nullish()
+          .describe(
+            "Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções).",
+          ),
+        knowledgeArea: zod
+          .string()
+          .nullish()
+          .describe(
+            "Área do conhecimento (catálogo gerenciável; sobe sem opções).",
+          ),
         norm: zod
           .string()
           .nullish()
@@ -22406,7 +22574,7 @@ export const ListTrainingCatalogResponse = zod.object({
         isMandatory: zod.boolean(),
         status: zod.string(),
         evidenceType: zod
-          .enum(["capacitacao", "habilitacao", "conscientizacao"])
+          .string()
           .nullish()
           .describe(
             "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
@@ -22457,6 +22625,8 @@ export const CreateTrainingCatalogItemBody = zod.object({
   title: zod.string().min(1),
   category: zod.string().optional(),
   modality: zod.string().optional(),
+  developmentNature: zod.string().nullish(),
+  knowledgeArea: zod.string().nullish(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
   normIds: zod.array(zod.number()).optional(),
@@ -22465,7 +22635,7 @@ export const CreateTrainingCatalogItemBody = zod.object({
   isMandatory: zod.boolean().optional(),
   status: zod.string().optional(),
   evidenceType: zod
-    .enum(["capacitacao", "habilitacao", "conscientizacao"])
+    .string()
     .nullish()
     .describe(
       "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
@@ -22510,6 +22680,18 @@ export const GetTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
+    developmentNature: zod
+      .string()
+      .nullish()
+      .describe(
+        "Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções).",
+      ),
+    knowledgeArea: zod
+      .string()
+      .nullish()
+      .describe(
+        "Área do conhecimento (catálogo gerenciável; sobe sem opções).",
+      ),
     norm: zod
       .string()
       .nullish()
@@ -22526,7 +22708,7 @@ export const GetTrainingCatalogItemResponse = zod
     isMandatory: zod.boolean(),
     status: zod.string(),
     evidenceType: zod
-      .enum(["capacitacao", "habilitacao", "conscientizacao"])
+      .string()
       .nullish()
       .describe(
         "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
@@ -22570,6 +22752,8 @@ export const UpdateTrainingCatalogItemBody = zod.object({
   title: zod.string().min(1).optional(),
   category: zod.string().optional(),
   modality: zod.string().optional(),
+  developmentNature: zod.string().nullish(),
+  knowledgeArea: zod.string().nullish(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
   normIds: zod.array(zod.number()).optional(),
@@ -22578,7 +22762,7 @@ export const UpdateTrainingCatalogItemBody = zod.object({
   isMandatory: zod.boolean().optional(),
   status: zod.string().optional(),
   evidenceType: zod
-    .enum(["capacitacao", "habilitacao", "conscientizacao"])
+    .string()
     .nullish()
     .describe(
       "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",
@@ -22615,6 +22799,18 @@ export const UpdateTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
+    developmentNature: zod
+      .string()
+      .nullish()
+      .describe(
+        "Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções).",
+      ),
+    knowledgeArea: zod
+      .string()
+      .nullish()
+      .describe(
+        "Área do conhecimento (catálogo gerenciável; sobe sem opções).",
+      ),
     norm: zod
       .string()
       .nullish()
@@ -22631,7 +22827,7 @@ export const UpdateTrainingCatalogItemResponse = zod
     isMandatory: zod.boolean(),
     status: zod.string(),
     evidenceType: zod
-      .enum(["capacitacao", "habilitacao", "conscientizacao"])
+      .string()
       .nullish()
       .describe(
         "O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.",

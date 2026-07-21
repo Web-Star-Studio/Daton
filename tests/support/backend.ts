@@ -18,6 +18,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { issueAuthToken, type AppModule, type UserRole } from "../../artifacts/api-server/src/middlewares/auth";
+import { ensureDefaultTrainingCatalogOptions } from "../../artifacts/api-server/src/services/training-catalog-options/defaults";
 import { cleanupTestData } from "../../e2e/support/cleanup";
 import { makeTestPrefix } from "../../e2e/support/data";
 
@@ -47,6 +48,12 @@ export async function createTestContext(options: {
       authVersion: 1,
     })
     .returning({ id: organizationsTable.id });
+
+  // Semeia as listas do catálogo de treinamentos (categoria/modalidade/tipo de
+  // evidência), como um org real via register — o tipo de evidência precisa
+  // existir no catálogo para a rota do catálogo aceitá-lo e para o resolvedor de
+  // competência classificar "capacitacao"/"habilitacao" como comprovantes.
+  await ensureDefaultTrainingCatalogOptions(organization.id);
 
   const role = options.role ?? "org_admin";
   const [user] = await db

@@ -15,19 +15,6 @@ export interface CompetencyTarget {
 }
 
 /**
- * O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
- */
-export type TrainingCatalogItemEvidenceType =
-  | (typeof TrainingCatalogItemEvidenceType)[keyof typeof TrainingCatalogItemEvidenceType]
-  | null;
-
-export const TrainingCatalogItemEvidenceType = {
-  capacitacao: "capacitacao",
-  habilitacao: "habilitacao",
-  conscientizacao: "conscientizacao",
-} as const;
-
-/**
  * Item do catálogo de treinamentos (definição reutilizável).
  */
 export interface TrainingCatalogItem {
@@ -36,6 +23,10 @@ export interface TrainingCatalogItem {
   title: string;
   category?: string | null;
   modality?: string | null;
+  /** Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções). */
+  developmentNature?: string | null;
+  /** Área do conhecimento (catálogo gerenciável; sobe sem opções). */
+  knowledgeArea?: string | null;
   /**
    * Deprecated — use normIds. Kept for backward compatibility.
    * @deprecated
@@ -52,7 +43,7 @@ export interface TrainingCatalogItem {
   isMandatory: boolean;
   status: string;
   /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
-  evidenceType?: TrainingCatalogItemEvidenceType;
+  evidenceType?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: string | null;
   targetCompetencyLevel?: number | null;
@@ -66,24 +57,13 @@ export interface TrainingCatalogItem {
   updatedAt: string;
 }
 
-/**
- * O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
- */
-export type CreateTrainingCatalogItemBodyEvidenceType =
-  | (typeof CreateTrainingCatalogItemBodyEvidenceType)[keyof typeof CreateTrainingCatalogItemBodyEvidenceType]
-  | null;
-
-export const CreateTrainingCatalogItemBodyEvidenceType = {
-  capacitacao: "capacitacao",
-  habilitacao: "habilitacao",
-  conscientizacao: "conscientizacao",
-} as const;
-
 export interface CreateTrainingCatalogItemBody {
   /** @minLength 1 */
   title: string;
   category?: string;
   modality?: string;
+  developmentNature?: string | null;
+  knowledgeArea?: string | null;
   /** @deprecated */
   norm?: string;
   /** @deprecated */
@@ -94,7 +74,7 @@ export interface CreateTrainingCatalogItemBody {
   isMandatory?: boolean;
   status?: string;
   /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
-  evidenceType?: CreateTrainingCatalogItemBodyEvidenceType;
+  evidenceType?: string | null;
   targetCompetencyName?: string;
   targetCompetencyType?: string;
   targetCompetencyLevel?: number;
@@ -106,24 +86,13 @@ export interface CreateTrainingCatalogItemBody {
   evaluationMethod?: string;
 }
 
-/**
- * O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado.
- */
-export type UpdateTrainingCatalogItemBodyEvidenceType =
-  | (typeof UpdateTrainingCatalogItemBodyEvidenceType)[keyof typeof UpdateTrainingCatalogItemBodyEvidenceType]
-  | null;
-
-export const UpdateTrainingCatalogItemBodyEvidenceType = {
-  capacitacao: "capacitacao",
-  habilitacao: "habilitacao",
-  conscientizacao: "conscientizacao",
-} as const;
-
 export interface UpdateTrainingCatalogItemBody {
   /** @minLength 1 */
   title?: string;
   category?: string;
   modality?: string;
+  developmentNature?: string | null;
+  knowledgeArea?: string | null;
   /** @deprecated */
   norm?: string;
   /** @deprecated */
@@ -134,7 +103,7 @@ export interface UpdateTrainingCatalogItemBody {
   isMandatory?: boolean;
   status?: string;
   /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
-  evidenceType?: UpdateTrainingCatalogItemBodyEvidenceType;
+  evidenceType?: string | null;
   targetCompetencyName?: string;
   targetCompetencyType?: string;
   targetCompetencyLevel?: number;
@@ -4849,6 +4818,67 @@ export interface UpdateEffectivenessMethodBody {
   sortOrder?: number;
 }
 
+export type TrainingCatalogOptionKind =
+  (typeof TrainingCatalogOptionKind)[keyof typeof TrainingCatalogOptionKind];
+
+export const TrainingCatalogOptionKind = {
+  category: "category",
+  modality: "modality",
+  evidence_type: "evidence_type",
+  development_nature: "development_nature",
+  knowledge_area: "knowledge_area",
+} as const;
+
+/**
+ * Item de uma das listas de opções do catálogo de treinamentos, por organização: `category`, `modality` ou `evidence_type`. `code` e as flags semânticas (`provesCompetency`, `requiresValidity`) só têm significado para `evidence_type` — o motor de competência consulta `provesCompetency`.
+ */
+export interface TrainingCatalogOption {
+  id: number;
+  organizationId: number;
+  kind: TrainingCatalogOptionKind;
+  label: string;
+  /** Código estável (máquina) do tipo de evidência; null para categoria/modalidade. */
+  code?: string | null;
+  active: boolean;
+  sortOrder: number;
+  provesCompetency: boolean;
+  requiresValidity: boolean;
+}
+
+export type CreateTrainingCatalogOptionBodyKind =
+  (typeof CreateTrainingCatalogOptionBodyKind)[keyof typeof CreateTrainingCatalogOptionBodyKind];
+
+export const CreateTrainingCatalogOptionBodyKind = {
+  category: "category",
+  modality: "modality",
+  evidence_type: "evidence_type",
+  development_nature: "development_nature",
+  knowledge_area: "knowledge_area",
+} as const;
+
+export interface CreateTrainingCatalogOptionBody {
+  kind: CreateTrainingCatalogOptionBodyKind;
+  /** @minLength 1 */
+  label: string;
+  /** Só para evidence_type. Se omitido, é derivado do rótulo. */
+  code?: string;
+  /** Só para evidence_type. Default false. */
+  provesCompetency?: boolean;
+  /** Só para evidence_type. Default false. */
+  requiresValidity?: boolean;
+}
+
+export interface UpdateTrainingCatalogOptionBody {
+  /** @minLength 1 */
+  label?: string;
+  active?: boolean;
+  sortOrder?: number;
+  /** Só para evidence_type; ignorado nos demais kinds. */
+  provesCompetency?: boolean;
+  /** Só para evidence_type; ignorado nos demais kinds. */
+  requiresValidity?: boolean;
+}
+
 /**
  * Item do catálogo de áreas (setores) de cargo da organização (referenciado pelos cargos).
  */
@@ -7608,6 +7638,24 @@ export type UpdateSwotMethodology201 = {
   versionNumber: number;
   activeVersionId: number;
 };
+
+export type ListTrainingCatalogOptionsParams = {
+  /**
+   * Filter by list. Omit to return all kinds.
+   */
+  kind?: ListTrainingCatalogOptionsKind;
+};
+
+export type ListTrainingCatalogOptionsKind =
+  (typeof ListTrainingCatalogOptionsKind)[keyof typeof ListTrainingCatalogOptionsKind];
+
+export const ListTrainingCatalogOptionsKind = {
+  category: "category",
+  modality: "modality",
+  evidence_type: "evidence_type",
+  development_nature: "development_nature",
+  knowledge_area: "knowledge_area",
+} as const;
 
 export type ListActionPlansParams = {
   status?: ActionPlanStatus;

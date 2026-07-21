@@ -8,12 +8,19 @@ import { OrganizationUsersSettingsSection } from "@/components/settings/Organiza
 import { OrganizationNormsSettingsSection } from "@/components/settings/OrganizationNormsSettingsSection";
 import { OrganizationAnalysisMethodsSettingsSection } from "@/components/settings/OrganizationAnalysisMethodsSettingsSection";
 import { EffectivenessMethodsSettingsSection } from "@/components/settings/EffectivenessMethodsSettingsSection";
+import { TrainingCatalogSettingsSection } from "@/components/settings/TrainingCatalogSettingsSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUpdateMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type SystemTab = "users" | "norms" | "tratativas" | "effectiveness-methods" | "appearance";
+type SystemTab =
+  | "users"
+  | "norms"
+  | "tratativas"
+  | "effectiveness-methods"
+  | "training-catalog"
+  | "appearance";
 type ThemePreference = "light" | "dark" | "system";
 
 export default function SystemSettingsPage() {
@@ -30,8 +37,26 @@ export default function SystemSettingsPage() {
   usePageSubtitle("Gerencie acessos internos e configurações estruturais do ambiente.");
 
   useEffect(() => {
-    setActiveTab(defaultTab);
-  }, [defaultTab]);
+    // Deep-link por hash (ex.: a engrenagem do catálogo de treinamentos navega
+    // para /app/configuracoes/sistema#training-catalog). Só aplica um hash que
+    // seja uma aba válida para o perfil; senão cai no padrão.
+    const fromHash = window.location.hash.replace(/^#/, "");
+    const valid: SystemTab[] = isOrgAdmin
+      ? [
+          "users",
+          "norms",
+          "tratativas",
+          "effectiveness-methods",
+          "training-catalog",
+          "appearance",
+        ]
+      : ["appearance"];
+    if (fromHash && (valid as string[]).includes(fromHash)) {
+      setActiveTab(fromHash as SystemTab);
+    } else {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab, isOrgAdmin]);
 
   // Aplica a escolha imediatamente neste dispositivo (next-themes) e a
   // persiste na conta, para que sobreviva a novo login / outro navegador.
@@ -72,6 +97,9 @@ export default function SystemSettingsPage() {
           {isOrgAdmin && (
             <TabsTrigger value="effectiveness-methods">Métodos de verificação</TabsTrigger>
           )}
+          {isOrgAdmin && (
+            <TabsTrigger value="training-catalog">Treinamentos</TabsTrigger>
+          )}
           <TabsTrigger value="appearance">Aparência</TabsTrigger>
         </TabsList>
 
@@ -96,6 +124,12 @@ export default function SystemSettingsPage() {
         {isOrgAdmin && (
           <TabsContent value="effectiveness-methods">
             <EffectivenessMethodsSettingsSection />
+          </TabsContent>
+        )}
+
+        {isOrgAdmin && (
+          <TabsContent value="training-catalog">
+            <TrainingCatalogSettingsSection />
           </TabsContent>
         )}
 

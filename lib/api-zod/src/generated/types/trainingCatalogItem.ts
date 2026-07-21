@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CompetencyTarget } from "./competencyTarget";
-import type { TrainingCatalogItemEvidenceType } from "./trainingCatalogItemEvidenceType";
 
 /**
  * Item do catálogo de treinamentos (definição reutilizável).
@@ -17,6 +16,10 @@ export interface TrainingCatalogItem {
   title: string;
   category?: string | null;
   modality?: string | null;
+  /** Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções). */
+  developmentNature?: string | null;
+  /** Área do conhecimento (catálogo gerenciável; sobe sem opções). */
+  knowledgeArea?: string | null;
   /**
    * Deprecated — use normIds. Kept for backward compatibility.
    * @deprecated
@@ -33,7 +36,7 @@ export interface TrainingCatalogItem {
   isMandatory: boolean;
   status: string;
   /** O que este item comprova quando concluído e válido. `capacitacao` e `habilitacao` provam a competência-alvo; `conscientizacao` não prova (DDS, reunião matinal — ISO 9001 §7.3); ausente = não classificado. */
-  evidenceType?: TrainingCatalogItemEvidenceType;
+  evidenceType?: string | null;
   targetCompetencyName?: string | null;
   targetCompetencyType?: string | null;
   targetCompetencyLevel?: number | null;

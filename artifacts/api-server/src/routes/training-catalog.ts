@@ -20,6 +20,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 import { assertNormsBelongToOrg } from "../services/norms/validate";
+import { assertEvidenceTypeBelongsToOrg } from "../services/training-catalog-options/validate";
 
 const router: IRouter = Router();
 
@@ -137,6 +138,19 @@ router.post(
         .json({ error: "Norma(s) inválida(s) para esta organização" });
       return;
     }
+    // Tipo de evidência agora é catálogo gerenciável (training_catalog_options):
+    // aceita só códigos do catálogo da org (ou vazio = não classificado).
+    if (
+      !(await assertEvidenceTypeBelongsToOrg(
+        params.data.orgId,
+        body.data.evidenceType,
+      ))
+    ) {
+      res
+        .status(400)
+        .json({ error: "Tipo de evidência inválido para esta organização" });
+      return;
+    }
     // Um item pode comprovar VÁRIAS competências (ISO 10015): targetCompetencies
     // é a lista canônica. As colunas singulares (targetCompetencyName/Type/Level)
     // são legado e espelham o 1º item da lista — quem envia só o singular
@@ -150,6 +164,8 @@ router.post(
         title,
         category: body.data.category ?? null,
         modality: body.data.modality ?? null,
+        developmentNature: body.data.developmentNature ?? null,
+        knowledgeArea: body.data.knowledgeArea ?? null,
         norm: body.data.norm ?? null,
         clause: body.data.clause ?? null,
         normIds: body.data.normIds ?? [],
@@ -239,6 +255,10 @@ router.patch(
     }
     if (b.category !== undefined) updates.category = b.category;
     if (b.modality !== undefined) updates.modality = b.modality;
+    if (b.developmentNature !== undefined)
+      updates.developmentNature = b.developmentNature;
+    if (b.knowledgeArea !== undefined)
+      updates.knowledgeArea = b.knowledgeArea;
     if (b.norm !== undefined) updates.norm = b.norm;
     if (b.clause !== undefined) updates.clause = b.clause;
     if (b.normIds !== undefined) {
@@ -255,7 +275,20 @@ router.patch(
       updates.validityMonths = b.validityMonths;
     if (b.isMandatory !== undefined) updates.isMandatory = b.isMandatory;
     if (b.status !== undefined) updates.status = b.status;
-    if (b.evidenceType !== undefined) updates.evidenceType = b.evidenceType;
+    if (b.evidenceType !== undefined) {
+      if (
+        !(await assertEvidenceTypeBelongsToOrg(
+          params.data.orgId,
+          b.evidenceType,
+        ))
+      ) {
+        res
+          .status(400)
+          .json({ error: "Tipo de evidência inválido para esta organização" });
+        return;
+      }
+      updates.evidenceType = b.evidenceType;
+    }
     if (b.targetCompetencyName !== undefined)
       updates.targetCompetencyName = b.targetCompetencyName;
     if (b.targetCompetencyType !== undefined)
