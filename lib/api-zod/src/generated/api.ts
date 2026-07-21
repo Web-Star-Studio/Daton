@@ -1608,6 +1608,7 @@ export const ListEmployeesResponse = zod.object({
                 .nullable(),
               gapLevel: zod.number(),
               critical: zod.boolean(),
+              manualCompetencyId: zod.number().nullish(),
             }),
           ),
           gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -2406,6 +2407,7 @@ export const GetEmployeeResponse = zod
               .nullable(),
             gapLevel: zod.number(),
             critical: zod.boolean(),
+            manualCompetencyId: zod.number().nullish(),
           }),
         ),
         gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -2463,6 +2465,7 @@ export const GetEmployeeResponse = zod
                   ),
               }),
             ),
+            isPositionRequirement: zod.boolean().optional(),
             createdAt: zod.string().datetime({}).optional(),
             updatedAt: zod.string().datetime({}).optional(),
           }),
@@ -2858,6 +2861,7 @@ export const UpdateEmployeeResponse = zod.object({
             .nullable(),
           gapLevel: zod.number(),
           critical: zod.boolean(),
+          manualCompetencyId: zod.number().nullish(),
         }),
       ),
       gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -2927,6 +2931,7 @@ export const ListCompetenciesResponseItem = zod.object({
         .regex(listCompetenciesResponseAttachmentsItemObjectPathRegExp),
     }),
   ),
+  isPositionRequirement: zod.boolean().optional(),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
 });
@@ -3077,6 +3082,7 @@ export const UpdateCompetencyResponse = zod.object({
         .regex(updateCompetencyResponseAttachmentsItemObjectPathRegExp),
     }),
   ),
+  isPositionRequirement: zod.boolean().optional(),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
 });
@@ -3088,6 +3094,104 @@ export const DeleteCompetencyParams = zod.object({
   orgId: zod.coerce.number(),
   empId: zod.coerce.number(),
   compId: zod.coerce.number(),
+});
+
+/**
+ * @summary Register manual evidence for a competency requirement
+ */
+export const CreateCompetencyRequirementEvidenceParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+export const createCompetencyRequirementEvidenceBodyRequiredLevelMin = 0;
+export const createCompetencyRequirementEvidenceBodyRequiredLevelMax = 5;
+
+export const createCompetencyRequirementEvidenceBodyAcquiredLevelMin = 0;
+export const createCompetencyRequirementEvidenceBodyAcquiredLevelMax = 5;
+
+export const createCompetencyRequirementEvidenceBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const createCompetencyRequirementEvidenceBodyAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateCompetencyRequirementEvidenceBody = zod.object({
+  competencyName: zod.string().min(1),
+  competencyType: zod.enum(["conhecimento", "habilidade", "atitude"]),
+  requiredLevel: zod
+    .number()
+    .min(createCompetencyRequirementEvidenceBodyRequiredLevelMin)
+    .max(createCompetencyRequirementEvidenceBodyRequiredLevelMax),
+  acquiredLevel: zod
+    .number()
+    .min(createCompetencyRequirementEvidenceBodyAcquiredLevelMin)
+    .max(createCompetencyRequirementEvidenceBodyAcquiredLevelMax),
+  evidence: zod.string().nullish(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            createCompetencyRequirementEvidenceBodyAttachmentsItemFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            createCompetencyRequirementEvidenceBodyAttachmentsItemObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+});
+
+export const createCompetencyRequirementEvidenceResponseRequiredLevelMin = 0;
+export const createCompetencyRequirementEvidenceResponseRequiredLevelMax = 5;
+
+export const createCompetencyRequirementEvidenceResponseAcquiredLevelMin = 0;
+export const createCompetencyRequirementEvidenceResponseAcquiredLevelMax = 5;
+
+export const createCompetencyRequirementEvidenceResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const createCompetencyRequirementEvidenceResponseAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateCompetencyRequirementEvidenceResponse = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  type: zod.enum(["conhecimento", "habilidade", "atitude"]),
+  requiredLevel: zod
+    .number()
+    .min(createCompetencyRequirementEvidenceResponseRequiredLevelMin)
+    .max(createCompetencyRequirementEvidenceResponseRequiredLevelMax),
+  acquiredLevel: zod
+    .number()
+    .min(createCompetencyRequirementEvidenceResponseAcquiredLevelMin)
+    .max(createCompetencyRequirementEvidenceResponseAcquiredLevelMax),
+  evidence: zod.string().nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(
+          createCompetencyRequirementEvidenceResponseAttachmentsItemFileSizeMax,
+        ),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          createCompetencyRequirementEvidenceResponseAttachmentsItemObjectPathRegExp,
+        ),
+    }),
+  ),
+  isPositionRequirement: zod.boolean().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -5164,6 +5268,7 @@ export const GetDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
+                manualCompetencyId: zod.number().nullish(),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -5499,6 +5604,7 @@ export const UpdateDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
+                manualCompetencyId: zod.number().nullish(),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -5881,6 +5987,7 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
+                manualCompetencyId: zod.number().nullish(),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -6278,6 +6385,7 @@ export const SubmitDocumentForReviewResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
+                manualCompetencyId: zod.number().nullish(),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -6591,6 +6699,7 @@ export const ApproveDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
+                manualCompetencyId: zod.number().nullish(),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -6904,6 +7013,7 @@ export const RejectDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
+                manualCompetencyId: zod.number().nullish(),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -7213,6 +7323,7 @@ export const ReviseDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
+                manualCompetencyId: zod.number().nullish(),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -7522,6 +7633,7 @@ export const DistributeDocumentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
+                manualCompetencyId: zod.number().nullish(),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -7851,6 +7963,7 @@ export const UpdateDocumentContentResponse = zod.object({
                   .nullable(),
                 gapLevel: zod.number(),
                 critical: zod.boolean(),
+                manualCompetencyId: zod.number().nullish(),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),

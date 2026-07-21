@@ -1579,6 +1579,36 @@ paths:
         "204":
           description: Competency deleted
 
+  /organizations/{orgId}/employees/{empId}/competency-requirement-evidence:
+    post:
+      operationId: createCompetencyRequirementEvidence
+      tags: [competencies]
+      summary: Register manual evidence for a competency requirement
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCompetencyRequirementEvidenceBody"
+      responses:
+        "200":
+          description: Created/updated competency record with evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeCompetency"
+
   /organizations/{orgId}/employees/{empId}/trainings:
     get:
       operationId: listTrainings
@@ -13132,6 +13162,9 @@ components:
                 type: integer
               critical:
                 type: boolean
+              manualCompetencyId:
+                type: integer
+                nullable: true
             required:
               - competencyName
               - competencyType
@@ -13259,6 +13292,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EmployeeRecordAttachment"
+        isPositionRequirement:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -14181,6 +14216,32 @@ components:
             $ref: "#/components/schemas/EmployeeRecordAttachment"
       required:
         - name
+
+    CreateCompetencyRequirementEvidenceBody:
+      type: object
+      required: [competencyName, competencyType, requiredLevel, acquiredLevel]
+      properties:
+        competencyName:
+          type: string
+          minLength: 1
+        competencyType:
+          type: string
+          enum: [conhecimento, habilidade, atitude]
+        requiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        acquiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        evidence:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
 
     CreateTrainingBody:
       type: object

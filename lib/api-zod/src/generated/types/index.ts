@@ -107,6 +107,8 @@ export * from "./createCompetencyBody";
 export * from "./createCompetencyBodyType";
 export * from "./createCompetencyCatalogItemBody";
 export * from "./createCompetencyCatalogItemBodyCompetencyType";
+export * from "./createCompetencyRequirementEvidenceBody";
+export * from "./createCompetencyRequirementEvidenceBodyCompetencyType";
 export * from "./createCorrectiveActionBody";
 export * from "./createDepartmentBody";
 export * from "./createDocumentBody";

@@ -21,4 +21,5 @@ export type EmployeeCompetencyConformanceRequirementsItem = {
   evidence: EmployeeCompetencyConformanceRequirementsItemEvidence;
   gapLevel: number;
   critical: boolean;
+  manualCompetencyId?: number | null;
 };

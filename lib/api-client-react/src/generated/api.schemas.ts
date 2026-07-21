@@ -1392,6 +1392,7 @@ export type EmployeeCompetencyConformanceRequirementsItem = {
   evidence: EmployeeCompetencyConformanceRequirementsItemEvidence;
   gapLevel: number;
   critical: boolean;
+  manualCompetencyId?: number | null;
 };
 
 /**
@@ -1490,6 +1491,7 @@ export interface EmployeeCompetency {
   acquiredLevel: number;
   evidence?: string | null;
   attachments: EmployeeRecordAttachment[];
+  isPositionRequirement?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -2017,6 +2019,33 @@ export interface CreateCompetencyBody {
   acquiredLevel?: number;
   evidence?: string;
   /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
+}
+
+export type CreateCompetencyRequirementEvidenceBodyCompetencyType =
+  (typeof CreateCompetencyRequirementEvidenceBodyCompetencyType)[keyof typeof CreateCompetencyRequirementEvidenceBodyCompetencyType];
+
+export const CreateCompetencyRequirementEvidenceBodyCompetencyType = {
+  conhecimento: "conhecimento",
+  habilidade: "habilidade",
+  atitude: "atitude",
+} as const;
+
+export interface CreateCompetencyRequirementEvidenceBody {
+  /** @minLength 1 */
+  competencyName: string;
+  competencyType: CreateCompetencyRequirementEvidenceBodyCompetencyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  requiredLevel: number;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  acquiredLevel: number;
+  evidence?: string | null;
   attachments?: EmployeeRecordAttachment[];
 }
 
