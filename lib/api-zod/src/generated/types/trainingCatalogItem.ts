@@ -16,6 +16,10 @@ export interface TrainingCatalogItem {
   title: string;
   category?: string | null;
   modality?: string | null;
+  /** Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções). */
+  developmentNature?: string | null;
+  /** Área do conhecimento (catálogo gerenciável; sobe sem opções). */
+  knowledgeArea?: string | null;
   /**
    * Deprecated — use normIds. Kept for backward compatibility.
    * @deprecated

@@ -28,8 +28,15 @@ export const trainingCatalogTable = pgTable("training_catalog", {
     .notNull()
     .references(() => organizationsTable.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  // `category` = "Tipo de treinamento" na UI (rótulo renomeado; a coluna e o
+  // kind do catálogo continuam `category` para não migrar dados).
   category: text("category"),
   modality: text("modality"),
+  // Classificações adicionais, texto livre governado pelo catálogo gerenciável
+  // (training_catalog_options, kinds development_nature/knowledge_area). Sobem
+  // sem opções — o cliente cadastra em Configurações → Sistema → Treinamentos.
+  developmentNature: text("development_nature"),
+  knowledgeArea: text("knowledge_area"),
   // `norm`/`clause` são legado (texto livre / lista hardcoded). A norma passou a
   // referenciar o catálogo gerenciável (regulatory_norms) por id, multi-seleção,
   // mesmo modelo de training_requirements. Colunas mantidas p/ migração — não dropar.

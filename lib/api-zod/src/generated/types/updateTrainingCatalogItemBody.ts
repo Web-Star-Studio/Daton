@@ -12,6 +12,8 @@ export interface UpdateTrainingCatalogItemBody {
   title?: string;
   category?: string;
   modality?: string;
+  developmentNature?: string;
+  knowledgeArea?: string;
   /** @deprecated */
   norm?: string;
   /** @deprecated */

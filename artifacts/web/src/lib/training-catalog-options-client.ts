@@ -9,7 +9,16 @@ export type { TrainingCatalogOption };
 export type TrainingCatalogOptionKind =
   | "category"
   | "modality"
-  | "evidence_type";
+  | "evidence_type"
+  | "development_nature"
+  | "knowledge_area";
+
+/** Kinds que são listas de rótulo simples (sem semântica), com seletor por texto. */
+export type LabelKind =
+  | "category"
+  | "modality"
+  | "development_nature"
+  | "knowledge_area";
 
 /**
  * Catálogo completo de opções do catálogo de treinamentos (as três listas,
@@ -32,10 +41,10 @@ export function optionsOfKind(
   return all.filter((o) => o.kind === kind);
 }
 
-/** Rótulos ativos de um kind de rótulo (categoria/modalidade). */
+/** Rótulos ativos de um kind de rótulo (categoria/modalidade/natureza/área). */
 export function activeLabelsOfKind(
   all: TrainingCatalogOption[],
-  kind: "category" | "modality",
+  kind: LabelKind,
 ): string[] {
   return optionsOfKind(all, kind)
     .filter((o) => o.active)

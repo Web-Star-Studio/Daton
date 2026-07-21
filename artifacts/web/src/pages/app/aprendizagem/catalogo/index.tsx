@@ -100,6 +100,8 @@ type CatalogForm = {
   title: string;
   category: string;
   modality: string;
+  developmentNature: string;
+  knowledgeArea: string;
   normIds: number[];
   workloadHours: string;
   validityMonths: string;
@@ -119,6 +121,8 @@ const EMPTY_FORM: CatalogForm = {
   title: "",
   category: "Capacitação",
   modality: "Presencial",
+  developmentNature: "",
+  knowledgeArea: "",
   normIds: [],
   workloadHours: "",
   validityMonths: "",
@@ -136,6 +140,8 @@ function itemToForm(item: TrainingCatalogItem): CatalogForm {
     title: item.title,
     category: item.category ?? "Capacitação",
     modality: item.modality ?? "Presencial",
+    developmentNature: item.developmentNature ?? "",
+    knowledgeArea: item.knowledgeArea ?? "",
     normIds: item.normIds ?? [],
     workloadHours: item.workloadHours != null ? String(item.workloadHours) : "",
     validityMonths:
@@ -155,6 +161,8 @@ function formToBody(form: CatalogForm): CreateTrainingCatalogItemBody {
     title: form.title.trim(),
     category: form.category || undefined,
     modality: form.modality || undefined,
+    developmentNature: form.developmentNature || undefined,
+    knowledgeArea: form.knowledgeArea || undefined,
     normIds: form.normIds,
     workloadHours: form.workloadHours ? Number(form.workloadHours) : undefined,
     validityMonths:
@@ -378,6 +386,14 @@ export default function CatalogoPage() {
     () => activeLabelsOfKind(trainingOptions, "modality"),
     [trainingOptions],
   );
+  const activeDevNatureLabels = useMemo(
+    () => activeLabelsOfKind(trainingOptions, "development_nature"),
+    [trainingOptions],
+  );
+  const activeKnowledgeAreaLabels = useMemo(
+    () => activeLabelsOfKind(trainingOptions, "knowledge_area"),
+    [trainingOptions],
+  );
   // Filtro: ativos ∪ rótulos legados presentes nos itens ∪ o filtro atual (para
   // um valor selecionado não sumir do <Select> ao desativar a opção).
   const categoryFilterOptions = useMemo(
@@ -404,6 +420,16 @@ export default function CatalogoPage() {
   const modalityFormOptions = useMemo(
     () => mergeLabelOptions(activeModalityLabels, [form.modality]),
     [activeModalityLabels, form.modality],
+  );
+  // Natureza do desenvolvimento / Área do conhecimento: sobem sem opções; o
+  // seletor oferta os ativos ∪ o valor atual (opcionais → "—" sempre disponível).
+  const devNatureFormOptions = useMemo(
+    () => mergeLabelOptions(activeDevNatureLabels, [form.developmentNature]),
+    [activeDevNatureLabels, form.developmentNature],
+  );
+  const knowledgeAreaFormOptions = useMemo(
+    () => mergeLabelOptions(activeKnowledgeAreaLabels, [form.knowledgeArea]),
+    [activeKnowledgeAreaLabels, form.knowledgeArea],
   );
   // Tipos de evidência ofertados: ativos + o já selecionado (mesmo inativo).
   const evidenceOptions = useMemo(() => {
@@ -602,7 +628,7 @@ export default function CatalogoPage() {
           onChange={(e) => setCategory(e.target.value)}
           className="w-auto"
         >
-          <option value="">Todas as categorias</option>
+          <option value="">Todos os tipos de treinamento</option>
           {categoryFilterOptions.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -829,7 +855,10 @@ export default function CatalogoPage() {
         {fichaItem ? (
           <div className="space-y-4 text-sm">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Info label="Categoria" value={fichaItem.category} />
+              <Info
+                label="Tipo de treinamento"
+                value={fichaItem.category}
+              />
               <Info
                 label="Carga horária"
                 value={
@@ -847,6 +876,18 @@ export default function CatalogoPage() {
                 }
               />
               <Info label="Modalidade" value={fichaItem.modality} />
+              {fichaItem.developmentNature ? (
+                <Info
+                  label="Natureza do desenvolvimento"
+                  value={fichaItem.developmentNature}
+                />
+              ) : null}
+              {fichaItem.knowledgeArea ? (
+                <Info
+                  label="Área do conhecimento"
+                  value={fichaItem.knowledgeArea}
+                />
+              ) : null}
             </div>
             {fichaItem.objective || fichaItem.programContent ? (
               <div className="grid gap-4 md:grid-cols-2">
@@ -955,7 +996,7 @@ export default function CatalogoPage() {
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
           </Field>
-          <Field label="Categoria" action={manageGear}>
+          <Field label="Tipo de Treinamento" action={manageGear}>
             <Select
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -972,6 +1013,36 @@ export default function CatalogoPage() {
             >
               {modalityFormOptions.map((m) => (
                 <option key={m}>{m}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Natureza do desenvolvimento" action={manageGear}>
+            <Select
+              value={form.developmentNature}
+              onChange={(e) =>
+                setForm({ ...form, developmentNature: e.target.value })
+              }
+            >
+              <option value="">—</option>
+              {devNatureFormOptions.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Área do conhecimento" action={manageGear}>
+            <Select
+              value={form.knowledgeArea}
+              onChange={(e) =>
+                setForm({ ...form, knowledgeArea: e.target.value })
+              }
+            >
+              <option value="">—</option>
+              {knowledgeAreaFormOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
               ))}
             </Select>
           </Field>

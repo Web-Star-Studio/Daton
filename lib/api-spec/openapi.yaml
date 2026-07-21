@@ -9349,7 +9349,7 @@ paths:
           description: Filter by list. Omit to return all kinds.
           schema:
             type: string
-            enum: [category, modality, evidence_type]
+            enum: [category, modality, evidence_type, development_nature, knowledge_area]
       responses:
         "200":
           description: Training catalog options
@@ -11032,6 +11032,14 @@ components:
         modality:
           type: string
           nullable: true
+        developmentNature:
+          type: string
+          nullable: true
+          description: Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções).
+        knowledgeArea:
+          type: string
+          nullable: true
+          description: Área do conhecimento (catálogo gerenciável; sobe sem opções).
         norm:
           type: string
           nullable: true
@@ -11120,6 +11128,10 @@ components:
           type: string
         modality:
           type: string
+        developmentNature:
+          type: string
+        knowledgeArea:
+          type: string
         norm:
           type: string
           deprecated: true
@@ -11180,6 +11192,10 @@ components:
         category:
           type: string
         modality:
+          type: string
+        developmentNature:
+          type: string
+        knowledgeArea:
           type: string
         norm:
           type: string
@@ -19600,7 +19616,7 @@ components:
           type: integer
         kind:
           type: string
-          enum: [category, modality, evidence_type]
+          enum: [category, modality, evidence_type, development_nature, knowledge_area]
         label:
           type: string
         code:
@@ -19622,7 +19638,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [category, modality, evidence_type]
+          enum: [category, modality, evidence_type, development_nature, knowledge_area]
         label:
           type: string
           minLength: 1

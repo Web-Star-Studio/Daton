@@ -164,6 +164,8 @@ router.post(
         title,
         category: body.data.category ?? null,
         modality: body.data.modality ?? null,
+        developmentNature: body.data.developmentNature ?? null,
+        knowledgeArea: body.data.knowledgeArea ?? null,
         norm: body.data.norm ?? null,
         clause: body.data.clause ?? null,
         normIds: body.data.normIds ?? [],
@@ -253,6 +255,10 @@ router.patch(
     }
     if (b.category !== undefined) updates.category = b.category;
     if (b.modality !== undefined) updates.modality = b.modality;
+    if (b.developmentNature !== undefined)
+      updates.developmentNature = b.developmentNature;
+    if (b.knowledgeArea !== undefined)
+      updates.knowledgeArea = b.knowledgeArea;
     if (b.norm !== undefined) updates.norm = b.norm;
     if (b.clause !== undefined) updates.clause = b.clause;
     if (b.normIds !== undefined) {

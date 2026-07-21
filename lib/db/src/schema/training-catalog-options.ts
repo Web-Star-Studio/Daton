@@ -34,6 +34,8 @@ export const TRAINING_CATALOG_OPTION_KINDS = [
   "category",
   "modality",
   "evidence_type",
+  "development_nature",
+  "knowledge_area",
 ] as const;
 export type TrainingCatalogOptionKind =
   (typeof TRAINING_CATALOG_OPTION_KINDS)[number];

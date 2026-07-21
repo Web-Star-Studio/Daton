@@ -198,6 +198,46 @@ describe("training catalog options API", () => {
     expect(bad.status).toBe(400);
   });
 
+  it("supports the label-only kinds development_nature/knowledge_area and round-trips them on a training item", async () => {
+    const ctx = await createTestContext({ seed: "tco-newkinds" });
+    contexts.push(ctx);
+    const base = `/api/organizations/${ctx.organizationId}/training-catalog-options`;
+
+    // Sobem sem opções: nada semeado para estes kinds.
+    const beforeNature = await request(app)
+      .get(`${base}?kind=development_nature`)
+      .set(authHeader(ctx));
+    expect(beforeNature.body).toEqual([]);
+
+    const nature = await request(app)
+      .post(base)
+      .set(authHeader(ctx))
+      .send({ kind: "development_nature", label: "Interno" });
+    expect(nature.status).toBe(201);
+    expect(nature.body.code).toBeNull(); // label-only, sem código
+
+    const area = await request(app)
+      .post(base)
+      .set(authHeader(ctx))
+      .send({ kind: "knowledge_area", label: "Segurança do trabalho" });
+    expect(area.status).toBe(201);
+
+    // Os campos fazem round-trip no item do catálogo (texto livre, sem validação
+    // contra o catálogo — diferente de evidence_type).
+    const catalogBase = `/api/organizations/${ctx.organizationId}/training-catalog`;
+    const created = await request(app)
+      .post(catalogBase)
+      .set(authHeader(ctx))
+      .send({
+        title: "NR-35",
+        developmentNature: "Interno",
+        knowledgeArea: "Segurança do trabalho",
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.developmentNature).toBe("Interno");
+    expect(created.body.knowledgeArea).toBe("Segurança do trabalho");
+  });
+
   it("blocks non-admin writes (403) but allows reads", async () => {
     const ctx = await createTestContext({ seed: "tco-gate" });
     contexts.push(ctx);

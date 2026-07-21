@@ -360,6 +360,8 @@ export function TrainingCatalogSettingsSection() {
   const categories = optionsOfKind(all, "category");
   const modalities = optionsOfKind(all, "modality");
   const evidenceTypes = optionsOfKind(all, "evidence_type");
+  const developmentNatures = optionsOfKind(all, "development_nature");
+  const knowledgeAreas = optionsOfKind(all, "knowledge_area");
 
   if (isLoading) {
     return (
@@ -374,8 +376,8 @@ export function TrainingCatalogSettingsSection() {
       <OptionListManager
         orgId={orgId}
         kind="category"
-        title="Categorias de treinamento"
-        description="Alimentam o seletor “Categoria” do catálogo de treinamentos. Desative em vez de excluir para preservar os treinamentos que já usam a categoria."
+        title="Tipos de treinamento"
+        description="Alimentam o seletor “Tipo de Treinamento” do catálogo de treinamentos. Desative em vez de excluir para preservar os treinamentos que já usam o tipo."
         placeholder="Ex.: Onboarding"
         options={categories}
         onChanged={invalidate}
@@ -396,6 +398,24 @@ export function TrainingCatalogSettingsSection() {
         description="Classificam o que um treinamento comprova. “Comprova competência” liga o treino à competência-alvo (capacitação/habilitação); os que não comprovam (conscientização) não geram vínculo. “Tem validade” sinaliza treinos com vencimento (ex.: habilitação). Alterar “Comprova competência” afeta os treinamentos já classificados com o tipo."
         placeholder="Ex.: Palestra"
         options={evidenceTypes}
+        onChanged={invalidate}
+      />
+      <OptionListManager
+        orgId={orgId}
+        kind="development_nature"
+        title="Natureza do desenvolvimento"
+        description="Alimenta o seletor “Natureza do desenvolvimento” do catálogo de treinamentos. Começa sem opções — cadastre as usadas pela sua organização."
+        placeholder="Ex.: Interno"
+        options={developmentNatures}
+        onChanged={invalidate}
+      />
+      <OptionListManager
+        orgId={orgId}
+        kind="knowledge_area"
+        title="Áreas do conhecimento"
+        description="Alimenta o seletor “Área do conhecimento” do catálogo de treinamentos. Começa sem opções — cadastre as áreas usadas pela sua organização."
+        placeholder="Ex.: Segurança do trabalho"
+        options={knowledgeAreas}
         onChanged={invalidate}
       />
     </div>

@@ -23,6 +23,10 @@ export interface TrainingCatalogItem {
   title: string;
   category?: string | null;
   modality?: string | null;
+  /** Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções). */
+  developmentNature?: string | null;
+  /** Área do conhecimento (catálogo gerenciável; sobe sem opções). */
+  knowledgeArea?: string | null;
   /**
    * Deprecated — use normIds. Kept for backward compatibility.
    * @deprecated
@@ -58,6 +62,8 @@ export interface CreateTrainingCatalogItemBody {
   title: string;
   category?: string;
   modality?: string;
+  developmentNature?: string;
+  knowledgeArea?: string;
   /** @deprecated */
   norm?: string;
   /** @deprecated */
@@ -85,6 +91,8 @@ export interface UpdateTrainingCatalogItemBody {
   title?: string;
   category?: string;
   modality?: string;
+  developmentNature?: string;
+  knowledgeArea?: string;
   /** @deprecated */
   norm?: string;
   /** @deprecated */
@@ -4787,6 +4795,8 @@ export const TrainingCatalogOptionKind = {
   category: "category",
   modality: "modality",
   evidence_type: "evidence_type",
+  development_nature: "development_nature",
+  knowledge_area: "knowledge_area",
 } as const;
 
 /**
@@ -4812,6 +4822,8 @@ export const CreateTrainingCatalogOptionBodyKind = {
   category: "category",
   modality: "modality",
   evidence_type: "evidence_type",
+  development_nature: "development_nature",
+  knowledge_area: "knowledge_area",
 } as const;
 
 export interface CreateTrainingCatalogOptionBody {
@@ -7595,6 +7607,8 @@ export const ListTrainingCatalogOptionsKind = {
   category: "category",
   modality: "modality",
   evidence_type: "evidence_type",
+  development_nature: "development_nature",
+  knowledge_area: "knowledge_area",
 } as const;
 
 export type ListActionPlansParams = {

@@ -13,4 +13,6 @@ export const CreateTrainingCatalogOptionBodyKind = {
   category: "category",
   modality: "modality",
   evidence_type: "evidence_type",
+  development_nature: "development_nature",
+  knowledge_area: "knowledge_area",
 } as const;

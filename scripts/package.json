@@ -43,6 +43,7 @@
     "backfill-areas-to-departments": "tsx --env-file ../.env ./src/migrate/areas-to-departments-backfill.ts",
     "ddl-training-catalog-options": "tsx --env-file ../.env ./src/migrate/ddl-training-catalog-options.ts",
     "backfill-training-catalog-options": "tsx --env-file ../.env ./src/migrate/training-catalog-options-backfill.ts",
+    "ddl-training-catalog-classification-columns": "tsx --env-file ../.env ./src/migrate/ddl-training-catalog-classification-columns.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

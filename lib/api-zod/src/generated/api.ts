@@ -19587,7 +19587,13 @@ export const ListTrainingCatalogOptionsParams = zod.object({
 
 export const ListTrainingCatalogOptionsQueryParams = zod.object({
   kind: zod
-    .enum(["category", "modality", "evidence_type"])
+    .enum([
+      "category",
+      "modality",
+      "evidence_type",
+      "development_nature",
+      "knowledge_area",
+    ])
     .optional()
     .describe("Filter by list. Omit to return all kinds."),
 });
@@ -19596,7 +19602,13 @@ export const ListTrainingCatalogOptionsResponseItem = zod
   .object({
     id: zod.number(),
     organizationId: zod.number(),
-    kind: zod.enum(["category", "modality", "evidence_type"]),
+    kind: zod.enum([
+      "category",
+      "modality",
+      "evidence_type",
+      "development_nature",
+      "knowledge_area",
+    ]),
     label: zod.string(),
     code: zod
       .string()
@@ -19624,7 +19636,13 @@ export const CreateTrainingCatalogOptionParams = zod.object({
 });
 
 export const CreateTrainingCatalogOptionBody = zod.object({
-  kind: zod.enum(["category", "modality", "evidence_type"]),
+  kind: zod.enum([
+    "category",
+    "modality",
+    "evidence_type",
+    "development_nature",
+    "knowledge_area",
+  ]),
   label: zod.string().min(1),
   code: zod
     .string()
@@ -19644,7 +19662,13 @@ export const CreateTrainingCatalogOptionResponse = zod
   .object({
     id: zod.number(),
     organizationId: zod.number(),
-    kind: zod.enum(["category", "modality", "evidence_type"]),
+    kind: zod.enum([
+      "category",
+      "modality",
+      "evidence_type",
+      "development_nature",
+      "knowledge_area",
+    ]),
     label: zod.string(),
     code: zod
       .string()
@@ -19687,7 +19711,13 @@ export const UpdateTrainingCatalogOptionResponse = zod
   .object({
     id: zod.number(),
     organizationId: zod.number(),
-    kind: zod.enum(["category", "modality", "evidence_type"]),
+    kind: zod.enum([
+      "category",
+      "modality",
+      "evidence_type",
+      "development_nature",
+      "knowledge_area",
+    ]),
     label: zod.string(),
     code: zod
       .string()
@@ -22271,6 +22301,18 @@ export const ListTrainingCatalogResponse = zod.object({
         title: zod.string(),
         category: zod.string().nullish(),
         modality: zod.string().nullish(),
+        developmentNature: zod
+          .string()
+          .nullish()
+          .describe(
+            "Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções).",
+          ),
+        knowledgeArea: zod
+          .string()
+          .nullish()
+          .describe(
+            "Área do conhecimento (catálogo gerenciável; sobe sem opções).",
+          ),
         norm: zod
           .string()
           .nullish()
@@ -22340,6 +22382,8 @@ export const CreateTrainingCatalogItemBody = zod.object({
   title: zod.string().min(1),
   category: zod.string().optional(),
   modality: zod.string().optional(),
+  developmentNature: zod.string().optional(),
+  knowledgeArea: zod.string().optional(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
   normIds: zod.array(zod.number()).optional(),
@@ -22393,6 +22437,18 @@ export const GetTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
+    developmentNature: zod
+      .string()
+      .nullish()
+      .describe(
+        "Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções).",
+      ),
+    knowledgeArea: zod
+      .string()
+      .nullish()
+      .describe(
+        "Área do conhecimento (catálogo gerenciável; sobe sem opções).",
+      ),
     norm: zod
       .string()
       .nullish()
@@ -22453,6 +22509,8 @@ export const UpdateTrainingCatalogItemBody = zod.object({
   title: zod.string().min(1).optional(),
   category: zod.string().optional(),
   modality: zod.string().optional(),
+  developmentNature: zod.string().optional(),
+  knowledgeArea: zod.string().optional(),
   norm: zod.string().optional(),
   clause: zod.string().optional(),
   normIds: zod.array(zod.number()).optional(),
@@ -22498,6 +22556,18 @@ export const UpdateTrainingCatalogItemResponse = zod
     title: zod.string(),
     category: zod.string().nullish(),
     modality: zod.string().nullish(),
+    developmentNature: zod
+      .string()
+      .nullish()
+      .describe(
+        "Natureza do desenvolvimento (catálogo gerenciável; sobe sem opções).",
+      ),
+    knowledgeArea: zod
+      .string()
+      .nullish()
+      .describe(
+        "Área do conhecimento (catálogo gerenciável; sobe sem opções).",
+      ),
     norm: zod
       .string()
       .nullish()
