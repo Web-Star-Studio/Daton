@@ -50,6 +50,7 @@ import {
   storageIsoToCalendarDate,
   todayCalendarDate,
   useActionPlan,
+  useActionPlanActions,
   useAddActionPlanEvidenceWithInvalidation,
   useAllAnalysisMethods,
   buildAnalysisMethodLabelMap,
@@ -126,6 +127,9 @@ export default function ActionPlanFichaPage() {
   usePageSubtitle("");
 
   const { data: plan, isLoading } = useActionPlan(orgId, planId);
+  // Mesma query que a lista de ações usa (React Query dedupa) — serve o guard de
+  // conclusão, que precisa contar só ações em aberto, não `total - concluídas`.
+  const { data: planActions = [] } = useActionPlanActions(orgId, planId);
   // GET /organizations/:id/users is restricted to admins and managers. Asking for
   // it as an operator only buys a 403 in the console — the responsible name comes
   // from the plan itself (see buildResponsibleOptions).
@@ -458,7 +462,11 @@ export default function ActionPlanFichaPage() {
     if (!planId) return;
     // Soft guard: an open/in-progress action left behind is worth a second look,
     // but never blocks the conclusion — the user may confirm and proceed anyway.
-    const pending = (plan?.actionsTotal ?? 0) - (plan?.actionsDone ?? 0);
+    // Conta só open/in_progress: uma ação CANCELADA é final, não uma pendência
+    // (por isso não dá para usar `actionsTotal - actionsDone`, que a inclui).
+    const pending = planActions.filter(
+      (a) => a.status === "open" || a.status === "in_progress",
+    ).length;
     if (pending > 0) {
       setConcludeConfirmOpen(true);
       return;

@@ -184,4 +184,39 @@ describe("tratativas no plano", () => {
 
     expect(lido.body.analyses).toEqual([{ key: "a3", data: { goal: "Meta atual" } }]);
   });
+
+  it("limpar as tratativas de um plano legado COLA (não ressuscita os porquês)", async () => {
+    const context = await createTestContext({ seed: "plan-analyses-clear" });
+    contexts.push(context);
+
+    const created = await createPlan(context, {});
+    expect(created.status).toBe(201);
+
+    // Plano legado: porquês na coluna antiga, `analyses` vazio.
+    await db
+      .update(actionPlansTable)
+      .set({ analyses: null, rootCauseWhys: ["Primeiro porquê", "Segundo porquê"] })
+      .where(eq(actionPlansTable.id, created.body.id));
+
+    // A queda de leitura mostra os porquês (comportamento já testado acima).
+    const antes = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${created.body.id}`)
+      .set(authHeader(context));
+    expect(antes.body.analyses).toEqual([
+      { key: "five_whys", data: { whys: ["Primeiro porquê", "Segundo porquê"] } },
+    ]);
+
+    // Usuário LIMPA as tratativas (analyses = [] → o servidor grava null).
+    const patch = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/action-plans/${created.body.id}`)
+      .set(authHeader(context))
+      .send({ analyses: [] });
+    expect(patch.status).toBe(200);
+
+    // O clear precisa colar: sem consumir o legado, a queda ressuscitaria os porquês.
+    const depois = await request(app)
+      .get(`/api/organizations/${context.organizationId}/action-plans/${created.body.id}`)
+      .set(authHeader(context));
+    expect(depois.body.analyses).toBeNull();
+  });
 });

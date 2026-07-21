@@ -80,7 +80,15 @@ router.patch(
       update.label = label;
     }
     if (body.data.isDefault !== undefined) update.isDefault = body.data.isDefault;
-    if (body.data.sortOrder !== undefined) update.sortOrder = body.data.sortOrder;
+    if (body.data.sortOrder !== undefined) {
+      // `sort_order` é coluna integer — um fracionário estoura no Postgres (22P02 → 500).
+      // Rejeita antes, com 400, já que o schema gerado tipa como number (sem `.int()`).
+      if (!Number.isInteger(body.data.sortOrder)) {
+        res.status(400).json({ error: "sortOrder deve ser um número inteiro." });
+        return;
+      }
+      update.sortOrder = body.data.sortOrder;
+    }
     if (body.data.active !== undefined) {
       update.active = body.data.active;
       // Uma tratativa desativada não pode continuar sendo pré-marcada na criação do plano

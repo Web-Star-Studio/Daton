@@ -101,4 +101,21 @@ describe("catálogo de tratativas", () => {
     expect(res.body.active).toBe(false);
     expect(res.body.isDefault).toBe(false);
   });
+
+  it("rejeita sortOrder fracionário com 400 (coluna é integer — não deixa estourar em 500)", async () => {
+    const context = await createTestContext({ seed: "analysis-methods-frac-sort" });
+    contexts.push(context);
+    await ensureAnalysisMethods(context.organizationId);
+    const [method] = await db
+      .select()
+      .from(actionPlanAnalysisMethodsTable)
+      .where(eq(actionPlanAnalysisMethodsTable.organizationId, context.organizationId));
+
+    const res = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/action-plan-analysis-methods/${method.id}`)
+      .set(authHeader(context))
+      .send({ sortOrder: 1.5 });
+
+    expect(res.status).toBe(400);
+  });
 });

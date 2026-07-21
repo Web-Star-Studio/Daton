@@ -599,6 +599,13 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
       const list = normalizeAnalyses(parsed.value);
       update.analyses = list.length ? list : null;
     }
+    // Limpar as tratativas tem que "colar". Sem isto, `analyses → vazio` não segura: o
+    // `composeAnalyses` cai de volta em `root_cause_whys` (rede de rollback) e ressuscita os
+    // porquês legados na próxima leitura. Ao gerenciar `analyses` explicitamente e zerá-lo,
+    // consome o campo legado — os dados ou já foram para `analyses`, ou o usuário os removeu.
+    if (update.analyses === null && existing.rootCauseWhys != null) {
+      update.rootCauseWhys = null;
+    }
   }
   if (body.data.rootCause !== undefined || body.data.analyses !== undefined) {
     const normalized = normalizePlanning(

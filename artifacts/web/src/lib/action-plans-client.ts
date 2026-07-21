@@ -470,9 +470,11 @@ export function useActionPlanActions(orgId: number, planId: number | null) {
   });
 }
 
-/** Invalidates both the plan's action list AND the plan itself — the plan carries
- * `actionsTotal`/`actionsDone` (and the timeline stage derives from them), so both
- * need to refresh when an action is created/updated/deleted. */
+/** Invalidates the plan's action list, the plan itself AND the plans listing — all
+ * three carry `actionsTotal`/`actionsDone` (the timeline stage derives from them and
+ * the hub list shows the counts per row), so every one needs to refresh when an action
+ * is created/updated/deleted. The listing key is passed without `params` so React Query
+ * matches every filtered variant by prefix. */
 function invalidateActionPlanActions(
   queryClient: ReturnType<typeof useQueryClient>,
   orgId: number,
@@ -480,6 +482,7 @@ function invalidateActionPlanActions(
 ) {
   queryClient.invalidateQueries({ queryKey: getListActionPlanActionsQueryKey(orgId, planId) });
   queryClient.invalidateQueries({ queryKey: getGetActionPlanQueryKey(orgId, planId) });
+  queryClient.invalidateQueries({ queryKey: getListActionPlansQueryKey(orgId) });
 }
 
 export function useCreateActionPlanActionWithInvalidation(orgId: number, planId: number) {

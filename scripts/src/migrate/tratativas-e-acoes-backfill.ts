@@ -227,9 +227,20 @@ export function parseWhenDate(when: string): Date | null {
     return valid ? date : null;
   }
 
-  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
-    const date = new Date(trimmed);
-    return Number.isNaN(date.getTime()) ? null : date;
+  // ISO (aaaa-mm-dd, aceitando sufixo de hora). Valida os componentes com
+  // round-trip como o caminho br acima — senão `new Date("2025-02-31")` viraria
+  // 03/03 em silêncio (JS rola o mês). Data inválida cai para o prazo do plano.
+  const iso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const year = Number(iso[1]);
+    const month = Number(iso[2]);
+    const day = Number(iso[3]);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    const valid =
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day;
+    return valid ? date : null;
   }
 
   return null;

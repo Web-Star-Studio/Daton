@@ -1,6 +1,15 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Espiona só a função CRUA `updateActionPlanAction` (usada no flush do unmount),
+// preservando o resto do pacote (os hooks que o action-plans-client reexporta).
+vi.mock("@workspace/api-client-react", async () => {
+  const actual = await vi.importActual<typeof import("@workspace/api-client-react")>(
+    "@workspace/api-client-react",
+  );
+  return { ...actual, updateActionPlanAction: vi.fn().mockResolvedValue({}) };
+});
+
 // Partial mock: keep every pure helper/label map from the real module (used
 // internally by the component), replace only the data/mutation hooks so the
 // test never touches the network.
@@ -17,6 +26,7 @@ vi.mock("@/lib/action-plans-client", async () => {
   };
 });
 
+import { updateActionPlanAction } from "@workspace/api-client-react";
 import {
   useActionPlanActions,
   useCreateActionPlanActionWithInvalidation,
@@ -25,6 +35,8 @@ import {
   type ActionPlanAction,
 } from "@/lib/action-plans-client";
 import { AcoesDoPlano } from "@/pages/app/planos-acao/_components/acoes-do-plano";
+
+const mockRawUpdate = updateActionPlanAction as unknown as ReturnType<typeof vi.fn>;
 
 const mockActions = useActionPlanActions as unknown as ReturnType<typeof vi.fn>;
 const mockCreate = useCreateActionPlanActionWithInvalidation as unknown as ReturnType<typeof vi.fn>;
@@ -153,5 +165,73 @@ describe("AcoesDoPlano — autosave por linha (race)", () => {
     // A edição de "Quando" sobreviveu: o último PATCH leva a data nova, não o vazio.
     const lastData = mutateAsync.mock.calls.at(-1)?.[0]?.data as { dueDate?: string | null };
     expect(lastData?.dueDate).toBe("2026-05-05T12:00:00.000Z");
+  });
+
+  // Serialização: se um segundo save da MESMA linha é disparado enquanto o primeiro
+  // PATCH ainda está em voo, não sai um segundo PATCH em paralelo (os dois poderiam
+  // completar fora de ordem). Ao terminar o primeiro, re-salva uma vez com o valor atual.
+  it("serializa: nunca dois PATCHes em voo na mesma linha; o re-save leva o valor final", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-01T12:00:00.000Z"));
+
+    let resolveFirst: ((v?: unknown) => void) | undefined;
+    const first = new Promise((r) => { resolveFirst = r; });
+    const mutateAsync = vi.fn().mockImplementationOnce(() => first).mockResolvedValue({});
+    mockUpdate.mockReturnValue({ mutateAsync, isPending: false });
+    mockActions.mockReturnValue({ data: [action({ id: 1, what: "", status: "open" })] });
+
+    render(<AcoesDoPlano orgId={1} planId={10} orgUsers={[]} canEdit />);
+    const input = screen.getByPlaceholderText("O que será feito");
+
+    // Edita e deixa T1 disparar → PATCH-1 fica em voo.
+    fireEvent.change(input, { target: { value: "A" } });
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+
+    // Edita de novo e deixa T2 disparar ENQUANTO PATCH-1 ainda está em voo → NÃO
+    // dispara um segundo PATCH; marca re-save.
+    fireEvent.change(input, { target: { value: "AB" } });
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+
+    // PATCH-1 resolve → o re-save dispara UMA vez, com o valor final.
+    await act(async () => { resolveFirst?.({}); await Promise.resolve(); });
+    expect(mutateAsync).toHaveBeenCalledTimes(2);
+    expect(mutateAsync.mock.calls.at(-1)?.[0]?.data?.what).toBe("AB");
+  });
+});
+
+describe("AcoesDoPlano — flush no unmount", () => {
+  beforeEach(() => {
+    mockRawUpdate.mockClear();
+    mockRawUpdate.mockResolvedValue({});
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // Sair da tela dentro da janela do debounce não pode perder a edição: o cleanup
+  // dispara o PATCH pendente direto no cliente (a última versão do rascunho).
+  it("dispara o PATCH pendente ao desmontar (edição dentro do debounce não se perde)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-01T12:00:00.000Z"));
+    mockUpdate.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({}), isPending: false });
+    mockActions.mockReturnValue({ data: [action({ id: 7, what: "", status: "open" })] });
+
+    const { unmount } = render(<AcoesDoPlano orgId={3} planId={20} orgUsers={[]} canEdit />);
+
+    // Edita mas NÃO deixa o debounce completar (avança só 300ms).
+    fireEvent.change(screen.getByPlaceholderText("O que será feito"), { target: { value: "Não perca isto" } });
+    await act(async () => { vi.advanceTimersByTime(300); });
+
+    // Desmonta antes do debounce → flush.
+    unmount();
+
+    expect(mockRawUpdate).toHaveBeenCalledTimes(1);
+    const [orgIdArg, planIdArg, actionIdArg, body] = mockRawUpdate.mock.calls[0];
+    expect(orgIdArg).toBe(3);
+    expect(planIdArg).toBe(20);
+    expect(actionIdArg).toBe(7);
+    expect((body as { what?: string | null }).what).toBe("Não perca isto");
   });
 });
