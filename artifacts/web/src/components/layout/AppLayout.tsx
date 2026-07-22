@@ -205,17 +205,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/qualidade/legislacoes", module: "legislations" },
       { prefix: "/qualidade/fornecedores", module: "suppliers" },
       { prefix: "/qualidade/regulatorios", module: "regulatoryDocuments" },
-      { prefix: "/aprendizagem/gestao-treinamentos", module: "employees" },
       { prefix: "/aprendizagem/dashboard", module: "employees" },
+      { prefix: "/aprendizagem/minha-area", module: "employees" },
+      { prefix: "/aprendizagem/gestao-treinamentos", module: "employees" },
       { prefix: "/aprendizagem/colaboradores", module: "employees" },
-      { prefix: "/aprendizagem/catalogo", module: "employees" },
       { prefix: "/aprendizagem/cargos", module: "employees" },
+      { prefix: "/aprendizagem/catalogo", module: "employees" },
+      { prefix: "/aprendizagem/programa", module: "employees" },
       { prefix: "/aprendizagem/obrigatoriedades", module: "employees" },
       { prefix: "/aprendizagem/turmas", module: "employees" },
-      { prefix: "/aprendizagem/programa", module: "employees" },
       { prefix: "/aprendizagem/eficacia", module: "employees" },
       { prefix: "/aprendizagem/indicadores", module: "employees" },
-      { prefix: "/aprendizagem/minha-area", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
       { prefix: "/organizacao/swot", module: "swot" },
@@ -271,13 +271,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     } else if (normalizedLocation.startsWith("/aprendizagem")) {
       crumbs.push({ label: "Aprendizagem" });
 
-      if (normalizedLocation.startsWith("/aprendizagem/gestao-treinamentos")) {
+      if (normalizedLocation.startsWith("/aprendizagem/dashboard")) {
+        crumbs.push({ label: "Dashboard", href: "/aprendizagem/dashboard" });
+      } else if (normalizedLocation.startsWith("/aprendizagem/minha-area")) {
+        crumbs.push({ label: "Minha área", href: "/aprendizagem/minha-area" });
+      } else if (
+        normalizedLocation.startsWith("/aprendizagem/gestao-treinamentos")
+      ) {
         crumbs.push({
           label: "Gestão de treinamentos",
           href: "/aprendizagem/gestao-treinamentos",
         });
-      } else if (normalizedLocation.startsWith("/aprendizagem/dashboard")) {
-        crumbs.push({ label: "Dashboard", href: "/aprendizagem/dashboard" });
       } else if (normalizedLocation.startsWith("/aprendizagem/colaboradores")) {
         crumbs.push({
           label: "Colaboradores",
@@ -289,12 +293,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         ) {
           crumbs.push({ label: pageTitle });
         }
-      } else if (normalizedLocation.startsWith("/aprendizagem/catalogo")) {
-        crumbs.push({ label: "Catálogo", href: "/aprendizagem/catalogo" });
       } else if (normalizedLocation.startsWith("/aprendizagem/cargos")) {
         crumbs.push({
           label: "Cargos e competências",
           href: "/aprendizagem/cargos",
+        });
+      } else if (normalizedLocation.startsWith("/aprendizagem/catalogo")) {
+        crumbs.push({ label: "Catálogo", href: "/aprendizagem/catalogo" });
+      } else if (normalizedLocation.startsWith("/aprendizagem/programa")) {
+        crumbs.push({
+          label: "Programa anual",
+          href: "/aprendizagem/programa",
         });
       } else if (
         normalizedLocation.startsWith("/aprendizagem/obrigatoriedades")
@@ -305,11 +314,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         });
       } else if (normalizedLocation.startsWith("/aprendizagem/turmas")) {
         crumbs.push({ label: "Turmas", href: "/aprendizagem/turmas" });
-      } else if (normalizedLocation.startsWith("/aprendizagem/programa")) {
-        crumbs.push({
-          label: "Programa anual",
-          href: "/aprendizagem/programa",
-        });
       } else if (normalizedLocation.startsWith("/aprendizagem/eficacia")) {
         crumbs.push({
           label: "Avaliação de eficácia",
@@ -320,8 +324,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           label: "Indicadores LMS",
           href: "/aprendizagem/indicadores",
         });
-      } else if (normalizedLocation.startsWith("/aprendizagem/minha-area")) {
-        crumbs.push({ label: "Minha área", href: "/aprendizagem/minha-area" });
       }
     } else if (normalizedLocation.startsWith("/organizacao")) {
       crumbs.push({ label: "Organização", href: "/organizacao" });
@@ -472,20 +474,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const aprendizagemLinks: NavLink[] = [
     ...(hasModuleAccess("employees")
       ? [
+          { href: "/aprendizagem/dashboard", label: "Dashboard" },
+          { href: "/aprendizagem/minha-area", label: "Minha área" },
           {
             href: "/aprendizagem/gestao-treinamentos",
             label: "Gestão de treinamentos",
           },
-          { href: "/aprendizagem/dashboard", label: "Dashboard" },
           { href: "/aprendizagem/colaboradores", label: "Colaboradores" },
           { href: "/aprendizagem/cargos", label: "Cargos e competências" },
           { href: "/aprendizagem/catalogo", label: "Catálogo" },
+          { href: "/aprendizagem/programa", label: "Programa anual" },
           { href: "/aprendizagem/obrigatoriedades", label: "Obrigatoriedades" },
           { href: "/aprendizagem/turmas", label: "Turmas" },
-          { href: "/aprendizagem/programa", label: "Programa anual" },
           { href: "/aprendizagem/eficacia", label: "Avaliação de eficácia" },
           { href: "/aprendizagem/indicadores", label: "Indicadores LMS" },
-          { href: "/aprendizagem/minha-area", label: "Minha área" },
         ]
       : []),
   ];
