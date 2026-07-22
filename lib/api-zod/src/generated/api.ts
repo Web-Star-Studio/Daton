@@ -3141,7 +3141,7 @@ export const CreateCompetencyRequirementEvidenceBody = zod.object({
     .number()
     .min(createCompetencyRequirementEvidenceBodyAcquiredLevelMin)
     .max(createCompetencyRequirementEvidenceBodyAcquiredLevelMax),
-  evidence: zod.string().nullish(),
+  evidence: zod.string().min(1),
   attachments: zod
     .array(
       zod.object({

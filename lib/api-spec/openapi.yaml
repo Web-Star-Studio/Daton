@@ -14335,7 +14335,8 @@ components:
 
     CreateCompetencyRequirementEvidenceBody:
       type: object
-      required: [competencyName, competencyType, requiredLevel, acquiredLevel]
+      required:
+        [competencyName, competencyType, requiredLevel, acquiredLevel, evidence]
       properties:
         competencyName:
           type: string
@@ -14353,7 +14354,7 @@ components:
           maximum: 5
         evidence:
           type: string
-          nullable: true
+          minLength: 1
         attachments:
           type: array
           items:
