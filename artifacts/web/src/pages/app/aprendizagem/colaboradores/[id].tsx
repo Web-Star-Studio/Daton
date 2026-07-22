@@ -28,6 +28,8 @@ import {
   useDeleteEmployeeProfileItemAttachment,
   useLinkEmployeeUnit,
   useUnlinkEmployeeUnit,
+  useUpsertGapDeadline,
+  useClearGapDeadline,
   listStrategicPlans,
   getStrategicPlan,
   getGetEmployeeQueryKey,
@@ -3353,6 +3355,56 @@ export default function ColaboradorDetailPage() {
       queryKey: getGetEmployeeQueryKey(orgId!, empId),
     });
 
+  // Prazo de regularização de gap (escolaridade ou competência do cargo) —
+  // ação direta na linha, sem diálogo: o próprio <input type="date"> dispara
+  // a mutation ao escolher a data (FormacaoQualificacoes/DeadlineControl).
+  const setDeadlineMutation = useUpsertGapDeadline();
+  const clearDeadlineMutation = useClearGapDeadline();
+  const handleSetEducationDeadline = (dueDate: string) => {
+    setDeadlineMutation.mutate(
+      { orgId: orgId!, empId, data: { requirementType: "education", dueDate } },
+      { onSuccess: invalidate },
+    );
+  };
+  const handleClearEducationDeadline = () => {
+    clearDeadlineMutation.mutate(
+      { orgId: orgId!, empId, params: { requirementType: "education" } },
+      { onSuccess: invalidate },
+    );
+  };
+  const handleSetRequirementDeadline = (
+    requirement: RequirementRow,
+    dueDate: string,
+  ) => {
+    setDeadlineMutation.mutate(
+      {
+        orgId: orgId!,
+        empId,
+        data: {
+          requirementType: "competency",
+          competencyName: requirement.competencyName,
+          competencyType: requirement.competencyType,
+          dueDate,
+        },
+      },
+      { onSuccess: invalidate },
+    );
+  };
+  const handleClearRequirementDeadline = (requirement: RequirementRow) => {
+    clearDeadlineMutation.mutate(
+      {
+        orgId: orgId!,
+        empId,
+        params: {
+          requirementType: "competency",
+          competencyName: requirement.competencyName,
+          competencyType: requirement.competencyType,
+        },
+      },
+      { onSuccess: invalidate },
+    );
+  };
+
   // Painel único: não há mais abas para trocar. `?tab=` (usado por outras
   // telas, ex. treinamentos.tsx "Abrir competência") agora rola até a seção
   // correspondente em vez de trocar de aba — a seção já está sempre visível.
@@ -3577,6 +3629,7 @@ export default function ColaboradorDetailPage() {
         <FormacaoQualificacoes
           education={employee.education}
           requiredEducation={employeePositionRecord?.education ?? null}
+          educationDeadline={employee.educationDeadline ?? null}
           conformance={employee.competencyConformance ?? null}
           editable={canWriteEmployees}
           onAttachEvidence={(requirement) => setEvidenceTarget({ requirement })}
@@ -3588,6 +3641,10 @@ export default function ColaboradorDetailPage() {
               ),
             })
           }
+          onSetEducationDeadline={handleSetEducationDeadline}
+          onClearEducationDeadline={handleClearEducationDeadline}
+          onSetRequirementDeadline={handleSetRequirementDeadline}
+          onClearRequirementDeadline={handleClearRequirementDeadline}
         />
 
         <div id="secao-treinamentos">

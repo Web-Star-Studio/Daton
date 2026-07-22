@@ -71,6 +71,10 @@ export interface ResolvedRequirement {
 export interface EmployeeConformance {
   employeeId: number;
   positionName: string | null;
+  // Escolaridade mínima do cargo casado (positions.education), para o gap de
+  // escolaridade (fora do CHA) reusar a MESMA resolução de cargo em vez de
+  // repeti-la — usado pelo self-healing de employee_gap_deadlines.
+  positionEducation: string | null;
   requirements: ResolvedRequirement[];
   gapStatus: GapStatus;
 }
@@ -381,6 +385,7 @@ export async function resolveEmployeeCompetencies(
     conformanceMap.set(employee.id, {
       employeeId: employee.id,
       positionName: position?.name ?? null,
+      positionEducation: position?.education ?? null,
       requirements,
       gapStatus,
     });

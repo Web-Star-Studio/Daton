@@ -182,7 +182,11 @@ export async function createDepartment(
 
 export async function createPosition(
   context: Pick<TestOrgContext, "organizationId">,
-  options: { name: string; requirements?: string | null } = { name: "Cargo" },
+  options: {
+    name: string;
+    requirements?: string | null;
+    education?: string | null;
+  } = { name: "Cargo" },
 ) {
   const [position] = await db
     .insert(positionsTable)
@@ -190,6 +194,7 @@ export async function createPosition(
       organizationId: context.organizationId,
       name: options.name,
       requirements: options.requirements ?? null,
+      education: options.education ?? null,
     })
     .returning();
 
@@ -204,6 +209,7 @@ export async function createEmployee(
     department?: string | null;
     position?: string | null;
     admissionDate?: string;
+    education?: string | null;
   },
 ) {
   const [employee] = await db
@@ -215,6 +221,7 @@ export async function createEmployee(
       department: options.department ?? null,
       position: options.position ?? null,
       admissionDate: options.admissionDate ?? "2024-01-10",
+      education: options.education ?? null,
       contractType: "clt",
       status: "active",
     })
