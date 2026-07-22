@@ -1031,7 +1031,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   {entry.sections.map((section, si) => (
                     <div key={section.label || si} className="space-y-0.5">
                       {section.label && (
-                        <p className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-600 dark:text-amber-500/90">
+                        <p className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5B6472] dark:text-[#98A2B3]">
                           {section.label}
                         </p>
                       )}
