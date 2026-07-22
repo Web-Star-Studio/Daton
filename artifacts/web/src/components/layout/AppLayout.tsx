@@ -471,26 +471,52 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       : []),
   ];
 
-  const aprendizagemLinks: NavLink[] = [
-    ...(hasModuleAccess("employees")
-      ? [
-          { href: "/aprendizagem/dashboard", label: "Dashboard" },
-          { href: "/aprendizagem/minha-area", label: "Minha área" },
-          {
-            href: "/aprendizagem/gestao-treinamentos",
-            label: "Gestão de treinamentos",
-          },
-          { href: "/aprendizagem/colaboradores", label: "Colaboradores" },
-          { href: "/aprendizagem/cargos", label: "Cargos e competências" },
-          { href: "/aprendizagem/catalogo", label: "Catálogo" },
-          { href: "/aprendizagem/programa", label: "Programa anual" },
-          { href: "/aprendizagem/obrigatoriedades", label: "Obrigatoriedades" },
-          { href: "/aprendizagem/turmas", label: "Turmas" },
-          { href: "/aprendizagem/eficacia", label: "Avaliação de eficácia" },
-          { href: "/aprendizagem/indicadores", label: "Indicadores LMS" },
-        ]
-      : []),
-  ];
+  // Agrupado em seções (cabeçalho = segmentação, item = página) espelhando o
+  // mockup lms_gabardo. A ordem plana dos itens é preservada de #196.
+  const aprendizagemSections: NavSection[] = hasModuleAccess("employees")
+    ? [
+        {
+          label: "Visão geral",
+          links: [
+            { href: "/aprendizagem/dashboard", label: "Dashboard" },
+            { href: "/aprendizagem/minha-area", label: "Minha área" },
+          ],
+        },
+        {
+          label: "RH / SGI — Gestão",
+          links: [
+            {
+              href: "/aprendizagem/gestao-treinamentos",
+              label: "Gestão de treinamentos",
+            },
+            { href: "/aprendizagem/colaboradores", label: "Colaboradores" },
+            { href: "/aprendizagem/cargos", label: "Cargos e competências" },
+          ],
+        },
+        {
+          label: "Execução",
+          links: [
+            { href: "/aprendizagem/catalogo", label: "Catálogo" },
+            { href: "/aprendizagem/programa", label: "Programa anual" },
+            {
+              href: "/aprendizagem/obrigatoriedades",
+              label: "Obrigatoriedades",
+            },
+            { href: "/aprendizagem/turmas", label: "Turmas" },
+          ],
+        },
+        {
+          label: "Qualidade",
+          links: [
+            { href: "/aprendizagem/eficacia", label: "Avaliação de eficácia" },
+            { href: "/aprendizagem/indicadores", label: "Indicadores LMS" },
+          ],
+        },
+      ]
+    : [];
+  const aprendizagemLinks: NavLink[] = aprendizagemSections.flatMap(
+    (section) => section.links,
+  );
 
   const qualidadeLinks: NavLink[] = [
     ...(hasModuleAccess("legislations")
@@ -1062,9 +1088,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             orgPopoverPos,
             organizacaoTimeoutRef,
           )}
-          {renderPopover(
-            "Aprendizagem",
-            aprendizagemLinks,
+          {renderSectionPopover(
+            aprendizagemSections,
             aprendizagemPopover,
             setAprendizagemPopover,
             aprendizagemPopoverPos,
