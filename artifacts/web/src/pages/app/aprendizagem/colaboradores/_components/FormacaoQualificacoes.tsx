@@ -112,22 +112,33 @@ export function FormacaoQualificacoes({
   const naoClassificadoItems = requirements.filter(
     (r) => r.status === "nao_classificado",
   );
-  const progressDenom = atendeItems.length + gapItems.length;
+  // "nao_classificado" NÃO conta como lacuna nem como requisito atendido
+  // (invariante da Fase 1: marcar de gap o que o sistema não sabe avaliar é
+  // o bug que aquela fase corrigiu) — mas PRECISA entrar no denominador.
+  // Excluí-lo dali fazia "3 atende + 2 não classificados" virar "3/3 · 100%",
+  // escondendo do usuário que ainda faltam evidências (bug real relatado por
+  // cliente: selo e barra diziam "atendido" enquanto o rodapé, isolado,
+  // avisava "2 requisitos ainda não avaliáveis").
+  const progressDenom =
+    atendeItems.length + gapItems.length + naoClassificadoItems.length;
   const compliancePercent =
     progressDenom > 0
       ? Math.round((atendeItems.length / progressDenom) * 100)
       : 0;
 
-  // "nao_classificado" NÃO é lacuna (invariante da Fase 1) — ele fica fora do
-  // selo, da barra e do denominador. O selo vermelho só acende com lacuna real.
   const hasGaps = veredito === "gap" || gapItems.length > 0;
-  // Selo verde só quando algo foi de fato avaliado (progressDenom > 0) e não
-  // há lacuna — senão "Requisitos atendidos" é enganoso quando nada foi
-  // avaliado ainda (ex.: cargo com requisitos só "nao_classificado").
-  // Educação "atende" também é uma avaliação positiva: um cargo sem competência
-  // classificável mas com escolaridade OK não deve dizer "Sem avaliação ainda".
-  const isUnevaluated =
-    !hasGaps && progressDenom === 0 && veredito !== "atende";
+  // Educação "atende" conta como sinal positivo, no mesmo pé de um requisito
+  // de competência atendido — um cargo sem competência classificável mas com
+  // escolaridade OK não deve dizer "Sem avaliação ainda".
+  const hasPositiveSignal = atendeItems.length > 0 || veredito === "atende";
+  // Pendente: já existe sinal positivo, mas ainda sobra item não classificado
+  // — não é "Sem avaliação ainda" (algo já foi avaliado) nem "Requisitos
+  // atendidos" (ainda falta evidência para fechar 100%).
+  const hasPending =
+    !hasGaps && naoClassificadoItems.length > 0 && hasPositiveSignal;
+  // Selo cinza só quando NADA foi avaliado (nem competência, nem educação) —
+  // senão "Sem avaliação ainda" contradiz um requisito já atendido.
+  const isUnevaluated = !hasGaps && !hasPending && !hasPositiveSignal;
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card p-5 space-y-5">
@@ -140,16 +151,20 @@ export function FormacaoQualificacoes({
             "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium shrink-0",
             hasGaps
               ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
-              : isUnevaluated
-                ? "bg-muted text-muted-foreground"
-                : "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+              : hasPending
+                ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                : isUnevaluated
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
           )}
         >
           {hasGaps
             ? "Gaps encontrados"
-            : isUnevaluated
-              ? "Sem avaliação ainda"
-              : "Requisitos atendidos"}
+            : hasPending
+              ? "Avaliação pendente"
+              : isUnevaluated
+                ? "Sem avaliação ainda"
+                : "Requisitos atendidos"}
         </span>
       </div>
 
