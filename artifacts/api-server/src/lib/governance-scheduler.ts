@@ -2,6 +2,7 @@ import { schedule as cronSchedule, validate as cronValidate, type ScheduledTask 
 import { runGovernanceMaintenancePass } from "./governance";
 import { runRegulatoryDocumentAlertsPass } from "../services/regulatory-documents/alerts";
 import { runActionPlanEscalationPass, runActionPlanEffectivenessEscalationPass } from "../services/action-plans/escalation";
+import { runGapDeadlineEscalationPass } from "../services/aprendizagem/gap-deadline-escalation";
 
 // --- Defaults ---
 //
@@ -20,6 +21,7 @@ import { runActionPlanEscalationPass, runActionPlanEffectivenessEscalationPass }
 const DEFAULT_GOVERNANCE_CRON = "0 * * * *"; // every hour at :00
 const DEFAULT_REGULATORY_CRON = "0 1 * * *"; // every day at 01:00 server-local
 const DEFAULT_ACTION_PLAN_CRON = "0 9 * * *"; // every day at 09:00 server-local
+const DEFAULT_GAP_DEADLINE_CRON = "30 9 * * *"; // every day at 09:30 server-local (offset from action-plan pass)
 const DEFAULT_INITIAL_DELAY_MS = 5_000;
 const DEFAULT_TIMEZONE = "America/Sao_Paulo";
 
@@ -79,6 +81,7 @@ export function startGovernanceMaintenanceScheduler() {
   const governanceCron = process.env.GOVERNANCE_MAINTENANCE_CRON ?? DEFAULT_GOVERNANCE_CRON;
   const regulatoryCron = process.env.REGULATORY_ALERTS_CRON ?? DEFAULT_REGULATORY_CRON;
   const actionPlanCron = process.env.ACTION_PLAN_ESCALATION_CRON ?? DEFAULT_ACTION_PLAN_CRON;
+  const gapDeadlineCron = process.env.GAP_DEADLINE_ESCALATION_CRON ?? DEFAULT_GAP_DEADLINE_CRON;
   const initialDelayMs = parsePositiveInt(
     process.env.GOVERNANCE_MAINTENANCE_INITIAL_DELAY_MS,
     DEFAULT_INITIAL_DELAY_MS,
@@ -90,12 +93,14 @@ export function startGovernanceMaintenanceScheduler() {
     void runPass("regulatory-alerts", runRegulatoryDocumentAlertsPass);
     void runPass("action-plan-escalation", runActionPlanEscalationPass);
     void runPass("action-plan-effectiveness-escalation", runActionPlanEffectivenessEscalationPass);
+    void runPass("gap-deadline-escalation", runGapDeadlineEscalationPass);
   }, initialDelayMs);
 
   scheduleIfValid("governance-maintenance", governanceCron, runGovernanceMaintenancePass, timezone);
   scheduleIfValid("regulatory-alerts", regulatoryCron, runRegulatoryDocumentAlertsPass, timezone);
   scheduleIfValid("action-plan-escalation", actionPlanCron, runActionPlanEscalationPass, timezone);
   scheduleIfValid("action-plan-effectiveness-escalation", actionPlanCron, runActionPlanEffectivenessEscalationPass, timezone);
+  scheduleIfValid("gap-deadline-escalation", gapDeadlineCron, runGapDeadlineEscalationPass, timezone);
 }
 
 export function stopGovernanceMaintenanceScheduler() {
