@@ -88,7 +88,7 @@ function hasLinkedCompetency(item: {
 }): boolean {
   return (
     Boolean(item.targetCompetencies && item.targetCompetencies.length > 0) ||
-    Boolean(item.targetCompetencyName)
+    Boolean(item.targetCompetencyName?.trim())
   );
 }
 /** Quantos badges de norma cabem no cabeçalho do card antes do "+N". */
