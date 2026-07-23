@@ -165,7 +165,8 @@ describe("FormacaoQualificacoes", () => {
     expect(
       screen.getByText(/Não avaliável — treinamento não classificado/i),
     ).toBeInTheDocument();
-    // barra: 1 atende / (1 atende + 1 gap) -> 1 não avaliável no rodapé
+    // barra: 1 atende / 3 requisitos (atende+gap+não classificado) -> 1 não
+    // avaliável no rodapé
     expect(
       screen.getByText(/1 requisito ainda não avaliável/i),
     ).toBeInTheDocument();
@@ -283,7 +284,7 @@ describe("FormacaoQualificacoes", () => {
     expect(screen.queryByText("Requisitos atendidos")).not.toBeInTheDocument();
   });
 
-  it("0 requisitos avaliáveis MAS educação atende -> selo 'Requisitos atendidos' (não 'Sem avaliação')", () => {
+  it("0 requisitos avaliáveis MAS educação atende -> selo 'Avaliação pendente' (não 'Sem avaliação' nem 'Requisitos atendidos')", () => {
     render(
       <FormacaoQualificacoes
         education="Superior Completo"
@@ -292,9 +293,27 @@ describe("FormacaoQualificacoes", () => {
       />,
     );
     // Educação atendida é uma avaliação positiva: o card não deve dizer que
-    // nada foi avaliado.
-    expect(screen.getByText("Requisitos atendidos")).toBeInTheDocument();
+    // nada foi avaliado. Mas ainda existe 1 competência não classificada sem
+    // evidência anexada — dizer "Requisitos atendidos" aqui seria o mesmo bug
+    // relatado por cliente (selo verde/100% escondendo pendência real).
+    expect(screen.getByText("Avaliação pendente")).toBeInTheDocument();
     expect(screen.queryByText("Sem avaliação ainda")).not.toBeInTheDocument();
+    expect(screen.queryByText("Requisitos atendidos")).not.toBeInTheDocument();
+  });
+
+  it("atende + gap + não classificado -> denominador inclui os 3, percentual honesto (não 100% quando falta evidência)", () => {
+    render(
+      <FormacaoQualificacoes
+        education="Superior Completo"
+        requiredEducation="Médio Completo"
+        conformance={conformance}
+      />,
+    );
+    // 1 atende / (1 atende + 1 gap + 1 não classificado) = 1/3 -> 33%.
+    // Antes do fix, "nao_classificado" saía do denominador e a conta virava
+    // 1/1 -> 100%, escondendo o requisito ainda sem evidência.
+    expect(screen.getByText("1/3 requisitos atendidos")).toBeInTheDocument();
+    expect(screen.getByText("33%")).toBeInTheDocument();
   });
 });
 
@@ -328,7 +347,9 @@ describe("FormacaoQualificacoes — prazo de regularização de gap", () => {
         conformance={null}
       />,
     );
-    expect(screen.queryByText(/Prazo para regularização/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Prazo para regularização/i),
+    ).not.toBeInTheDocument();
   });
 
   it("editable: mostra o campo de data e salva ao escolher uma data", async () => {
