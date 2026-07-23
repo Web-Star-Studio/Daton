@@ -16,7 +16,7 @@
  * renomeado), o colaborador é pulado nesta rodada: sem aviso falso, sem
  * resolver um prazo real por engano.
  */
-import { and, eq, gte, inArray, isNull, lt, or } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import {
   db,
   employeeGapDeadlinesTable,
@@ -38,6 +38,53 @@ import {
 const NOTIFICATION_TYPE = "employee_gap_overdue";
 const RELATED_ENTITY_TYPE = "employee_gap";
 const DEFAULT_ORG_CONCURRENCY = 5;
+const SCHEDULER_TIMEZONE = process.env.SCHEDULER_TIMEZONE ?? "America/Sao_Paulo";
+
+/**
+ * Meia-noite de "hoje" NO FUSO DO AGENDADOR (America/Sao_Paulo por padrão),
+ * não no fuso do processo Node — que em produção normalmente é UTC. Achado
+ * do revisor: usar `new Date().setHours(0,0,0,0)` (fuso do processo) faz o
+ * boot warmup — que roda a qualquer hora, no deploy — tratar um prazo que
+ * ainda não venceu no horário local como já vencido perto da meia-noite em
+ * São Paulo, e estreita a janela de dedupe do dia pelo mesmo motivo.
+ */
+function todayBoundaryInSchedulerTimezone(): { todayIso: string; todayStart: Date } {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: SCHEDULER_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)!.value);
+
+  // Os campos formatados no fuso-alvo, tratados como se fossem UTC — dá pra
+  // calcular o offset comparando com o instante real (`now`), e esse offset
+  // já reflete horário de verão se algum dia existir de novo.
+  const nowAsIfUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
+  const offsetMs = now.getTime() - nowAsIfUtc;
+
+  const y = get("year");
+  const m = get("month");
+  const d = get("day");
+  const midnightAsIfUtc = Date.UTC(y, m - 1, d, 0, 0, 0);
+
+  return {
+    todayIso: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+    todayStart: new Date(midnightAsIfUtc + offsetMs),
+  };
+}
 
 export interface GapDeadlineEscalationResult {
   scanned: number;
@@ -69,9 +116,7 @@ export async function runGapDeadlineEscalationPass(
     emailsSent: 0,
   };
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayIso = todayStart.toISOString().slice(0, 10);
+  const { todayIso, todayStart } = todayBoundaryInSchedulerTimezone();
 
   const conditions = [
     lt(employeeGapDeadlinesTable.dueDate, todayIso),
@@ -181,31 +226,46 @@ export async function runGapDeadlineEscalationPass(
         : `${emp.name} continua sem atender ${details.length} requisitos do cargo (${labels.join(", ")}) — prazos vencidos.`;
 
     for (const admin of recipients) {
-      const [existing] = await db
-        .select({ id: notificationsTable.id })
-        .from(notificationsTable)
-        .where(
-          and(
-            eq(notificationsTable.organizationId, emp.organizationId),
-            eq(notificationsTable.userId, admin.id),
-            eq(notificationsTable.relatedEntityType, RELATED_ENTITY_TYPE),
-            eq(notificationsTable.relatedEntityId, employeeId),
-            eq(notificationsTable.type, NOTIFICATION_TYPE),
-            gte(notificationsTable.createdAt, todayStart),
-          ),
-        )
-        .limit(1);
-      if (existing) continue;
+      // Achado do revisor: check-then-insert puro é sujeito a corrida (duas
+      // instâncias da passada rodando ao mesmo tempo poderiam ambas passar
+      // no SELECT antes de qualquer uma inserir). O advisory lock (escopo da
+      // transação) serializa tentativas para a MESMA tripla
+      // (colaborador, admin, tipo) — mesmo padrão já usado no upsert de
+      // evidência de competência (routes/employees.ts).
+      const dedupeKey = `${employeeId}:${admin.id}:${NOTIFICATION_TYPE}`;
+      const created = await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(${emp.organizationId}, hashtext(${dedupeKey}))`,
+        );
 
-      await db.insert(notificationsTable).values({
-        organizationId: emp.organizationId,
-        userId: admin.id,
-        type: NOTIFICATION_TYPE,
-        title,
-        description,
-        relatedEntityType: RELATED_ENTITY_TYPE,
-        relatedEntityId: employeeId,
+        const [existing] = await tx
+          .select({ id: notificationsTable.id })
+          .from(notificationsTable)
+          .where(
+            and(
+              eq(notificationsTable.organizationId, emp.organizationId),
+              eq(notificationsTable.userId, admin.id),
+              eq(notificationsTable.relatedEntityType, RELATED_ENTITY_TYPE),
+              eq(notificationsTable.relatedEntityId, employeeId),
+              eq(notificationsTable.type, NOTIFICATION_TYPE),
+              gte(notificationsTable.createdAt, todayStart),
+            ),
+          )
+          .limit(1);
+        if (existing) return false;
+
+        await tx.insert(notificationsTable).values({
+          organizationId: emp.organizationId,
+          userId: admin.id,
+          type: NOTIFICATION_TYPE,
+          title,
+          description,
+          relatedEntityType: RELATED_ENTITY_TYPE,
+          relatedEntityId: employeeId,
+        });
+        return true;
       });
+      if (!created) continue;
       result.alertsCreated += 1;
 
       try {

@@ -147,8 +147,9 @@ describe("runGapDeadlineEscalationPass", () => {
       position: position.name,
       education: "Médio Completo",
     });
-    // Atestado abaixo do requerido -> status "gap" de verdade.
-    await request(app)
+    // Atestado abaixo do requerido -> status "gap" de verdade (não
+    // "nao_classificado" — evidence é texto obrigatório desde #200).
+    const evidence = await request(app)
       .post(
         `/api/organizations/${context.organizationId}/employees/${employee.id}/competency-requirement-evidence`,
       )
@@ -158,7 +159,9 @@ describe("runGapDeadlineEscalationPass", () => {
         competencyType: "conhecimento",
         requiredLevel: 3,
         acquiredLevel: 1,
+        evidence: "Certificado parcial",
       });
+    expect(evidence.status).toBe(201);
 
     await setDeadline(context, employee.id, {
       requirementType: "education",

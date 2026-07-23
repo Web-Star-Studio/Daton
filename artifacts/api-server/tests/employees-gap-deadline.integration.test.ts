@@ -97,6 +97,7 @@ describe("POST/DELETE .../gaps/deadline — prazo de regularização", () => {
         competencyType: "conhecimento",
         requiredLevel: 3,
         acquiredLevel: 1,
+        evidence: "Certificado parcial",
       });
     expect(evidence.status).toBe(201);
 
