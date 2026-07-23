@@ -62,7 +62,14 @@ import {
 } from "@/components/ui/searchable-select";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Copy, Pencil, Trash2, Settings } from "lucide-react";
+import {
+  AlertTriangle,
+  Plus,
+  Copy,
+  Pencil,
+  Trash2,
+  Settings,
+} from "lucide-react";
 
 /** Rótulo descritivo de um tipo de evidência derivado das flags do catálogo. */
 function evidenceOptionLabel(o: TrainingCatalogOption): string {
@@ -854,10 +861,7 @@ export default function CatalogoPage() {
         {fichaItem ? (
           <div className="space-y-4 text-sm">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Info
-                label="Tipo de treinamento"
-                value={fichaItem.category}
-              />
+              <Info label="Tipo de treinamento" value={fichaItem.category} />
               <Info
                 label="Carga horária"
                 value={
@@ -1142,6 +1146,15 @@ export default function CatalogoPage() {
                 {form.evidenceType
                   ? "Este tipo de evidência não comprova competência — o vínculo fica desabilitado."
                   : "Escolha um tipo de evidência que comprova competência para vincular o que este treino comprova."}
+              </p>
+            ) : form.targetCompetencies.length === 0 ? (
+              <p className="mt-1 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-0.5" />
+                <span>
+                  Este tipo de evidência comprova competência, mas nenhuma foi
+                  vinculada ainda — sem isso, a conclusão deste treinamento não
+                  conta automaticamente para nenhum requisito de cargo.
+                </span>
               </p>
             ) : null}
           </Field>
