@@ -1,17 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetTrainingClass,
   useUpdateTrainingClassParticipant,
   useUpdateTrainingClass,
   getGetTrainingClassQueryKey,
+  useListUnits,
+  getListUnitsQueryKey,
+  useListUserOptions,
+  getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
 import type { TrainingClassParticipant } from "@workspace/api-client-react";
 import { toast } from "@/hooks/use-toast";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { Plus, Pencil } from "lucide-react";
 import {
   uploadFilesToStorage,
   formatFileSize,
@@ -78,6 +86,44 @@ export function TurmaDetailPanel({
       queryKey: getGetTrainingClassQueryKey(orgId, classId),
     });
   };
+
+  // ─── Edição inline de filiais + responsável ──────────────────────────────
+  const [editingUnits, setEditingUnits] = useState(false);
+  const [editUnitIds, setEditUnitIds] = useState<number[]>([]);
+  const [editResponsibleId, setEditResponsibleId] = useState<string>("");
+  const [savingUnits, setSavingUnits] = useState(false);
+  // Picker de responsável: busca server-side, só carrega em modo de edição.
+  const [respSearch, setRespSearch] = useState("");
+  const debouncedRespSearch = useDebouncedValue(respSearch, 300);
+  const respParams = {
+    search: debouncedRespSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  };
+  const respUsersQuery = useListUserOptions(orgId, respParams, {
+    query: {
+      enabled: !!orgId && editingUnits,
+      queryKey: getListUserOptionsQueryKey(orgId, respParams),
+    },
+  });
+  const { data: allUnits = [], isLoading: unitsLoading } = useListUnits(orgId, {
+    query: {
+      enabled: !!orgId && editingUnits,
+      queryKey: getListUnitsQueryKey(orgId),
+    },
+  });
+  // Mantém o nome do responsável já escolhido visível mesmo se a busca mudar.
+  const [pickedUserNames, setPickedUserNames] = useState<Record<number, string>>(
+    {},
+  );
+  const respUserOptions = useMemo(() => {
+    const byValue = new Map<string, string>();
+    for (const u of respUsersQuery.data ?? []) byValue.set(String(u.id), u.name);
+    for (const [id, name] of Object.entries(pickedUserNames)) {
+      if (!byValue.has(id)) byValue.set(id, name);
+    }
+    return [...byValue].map(([value, label]) => ({ value, label }));
+  }, [respUsersQuery.data, pickedUserNames]);
 
   const setAttendance = async (
     p: TrainingClassParticipant,
@@ -156,6 +202,77 @@ export function TurmaDetailPanel({
   const isDone = detail.status === "realizada";
   const enrolledIds = new Set(participants.map((p) => p.employeeId));
 
+  const startEditUnits = () => {
+    setEditUnitIds((detail.units ?? []).map((u) => u.unitId));
+    setEditResponsibleId(
+      detail.responsibleUserId != null ? String(detail.responsibleUserId) : "",
+    );
+    // Semeia o nome atual para o campo não abrir vazio antes da busca carregar.
+    if (detail.responsibleUserId != null && detail.responsibleUserName) {
+      setPickedUserNames({
+        [detail.responsibleUserId]: detail.responsibleUserName,
+      });
+    } else {
+      setPickedUserNames({});
+    }
+    setRespSearch("");
+    setEditingUnits(true);
+  };
+
+  const cancelEditUnits = () => {
+    setEditingUnits(false);
+    setRespSearch("");
+  };
+
+  const toggleEditUnit = (unitId: number) =>
+    setEditUnitIds((prev) =>
+      prev.includes(unitId)
+        ? prev.filter((id) => id !== unitId)
+        : [...prev, unitId],
+    );
+
+  const toggleAllEditUnits = () =>
+    setEditUnitIds((prev) => {
+      const allSelected =
+        allUnits.length > 0 && allUnits.every((u) => prev.includes(u.id));
+      return allSelected ? [] : allUnits.map((u) => u.id);
+    });
+
+  const setEditResponsible = (value: string) => {
+    if (value) {
+      const name = respUserOptions.find((o) => o.value === value)?.label;
+      if (name) setPickedUserNames((prev) => ({ ...prev, [Number(value)]: name }));
+    }
+    setEditResponsibleId(value);
+  };
+
+  const saveUnits = async () => {
+    setSavingUnits(true);
+    try {
+      await updateClass.mutateAsync({
+        orgId,
+        id: classId,
+        data: {
+          units: editUnitIds.map((unitId) => ({ unitId })),
+          // null limpa o responsável no backend (replace-all explícito).
+          responsibleUserId: editResponsibleId ? Number(editResponsibleId) : null,
+        },
+      });
+      invalidateDetail();
+      onChanged();
+      setEditingUnits(false);
+      toast({ title: "Turma atualizada" });
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar filiais/responsável",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingUnits(false);
+    }
+  };
+
   return (
     <div className="rounded-xl border bg-card shadow-sm">
       <div className="border-b px-4 py-3">
@@ -178,9 +295,75 @@ export function TurmaDetailPanel({
                 ? ` · Responsável: ${detail.responsibleUserName}`
                 : ""}
             </p>
-            {detail.units && detail.units.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {detail.units.map((u) => (
+            {editingUnits ? (
+              <div className="mt-2 max-w-md space-y-2 rounded-lg border bg-muted/20 p-3">
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Filiais
+                  </Label>
+                  <SearchableMultiSelect
+                    options={allUnits.map((u) => ({
+                      value: u.id,
+                      label: u.name,
+                    }))}
+                    selected={editUnitIds}
+                    onToggle={toggleEditUnit}
+                    onToggleAll={toggleAllEditUnits}
+                    selectAllLabel={`Selecionar todas as filiais (${allUnits.length})`}
+                    placeholder="Selecione as filiais..."
+                    searchPlaceholder="Buscar filial..."
+                    emptyMessage={
+                      unitsLoading ? "Carregando..." : "Nenhuma filial cadastrada."
+                    }
+                    disabled={unitsLoading}
+                    renderSummary={(selected) =>
+                      allUnits.length > 0 && selected.length === allUnits.length
+                        ? `Todas as filiais (${selected.length})`
+                        : selected.length === 1
+                          ? selected[0].label
+                          : `${selected.length} filiais selecionadas`
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Responsável pela turma
+                  </Label>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      value={editResponsibleId}
+                      onChange={setEditResponsible}
+                      options={respUserOptions}
+                      searchValue={respSearch}
+                      onSearchChange={setRespSearch}
+                      isLoading={respUsersQuery.isLoading}
+                      placeholder="Sem responsável"
+                      searchPlaceholder="Buscar usuário…"
+                      emptyMessage="Nenhum usuário com conta. Cadastre em Configurações → Usuários."
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={cancelEditUnits}
+                    disabled={savingUnits}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => void saveUnits()}
+                    disabled={savingUnits}
+                  >
+                    {savingUnits ? "Salvando…" : "Salvar"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {(detail.units ?? []).map((u) => (
                   <span
                     key={u.unitId}
                     className="inline-flex items-center rounded-full border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground"
@@ -188,8 +371,24 @@ export function TurmaDetailPanel({
                     {u.unitName ?? `#${u.unitId}`}
                   </span>
                 ))}
+                {(detail.units ?? []).length === 0 ? (
+                  <span className="text-[11px] text-muted-foreground">
+                    Sem filial definida
+                  </span>
+                ) : null}
+                {canWrite ? (
+                  <button
+                    type="button"
+                    onClick={startEditUnits}
+                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
+                    title="Editar filiais e responsável"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Editar
+                  </button>
+                ) : null}
               </div>
-            ) : null}
+            )}
           </div>
           {canWrite ? (
             <Button

@@ -184,6 +184,56 @@ describe("responsável pela turma — lado do responsável", () => {
     expect(actorNotifs.length).toBe(0);
   });
 
+  it("PATCH troca o responsável (notifica o novo) e null limpa", async () => {
+    const ctx = await createTestContext({ seed: "tcr-patch", role: "org_admin" });
+    contexts.push(ctx);
+    const base = `/api/organizations/${ctx.organizationId}/training-classes`;
+    const catalogItemId = await createCatalogItem(ctx, `Treino ${ctx.prefix}`);
+    const poa = await createUnit(ctx, `POA ${ctx.prefix}`);
+    const resp1 = await createTestUser(ctx, { role: "operator", suffix: "r1" });
+    const resp2 = await createTestUser(ctx, { role: "operator", suffix: "r2" });
+
+    const created = await request(app)
+      .post(base)
+      .set(authHeader(ctx))
+      .send({
+        catalogItemId,
+        code: "T-PATCH",
+        startDate: "2026-09-01",
+        responsibleUserId: resp1.id,
+        units: [{ unitId: poa.id }],
+      });
+    const classId = created.body.id as number;
+
+    // Troca para resp2 → notifica resp2.
+    const changed = await request(app)
+      .patch(`${base}/${classId}`)
+      .set(authHeader(ctx))
+      .send({ responsibleUserId: resp2.id });
+    expect(changed.status).toBe(200);
+    expect(changed.body.responsibleUserId).toBe(resp2.id);
+    await new Promise((r) => setTimeout(r, 300));
+    const notifsR2 = await db
+      .select()
+      .from(notificationsTable)
+      .where(
+        and(
+          eq(notificationsTable.userId, resp2.id),
+          eq(notificationsTable.type, "training_class_responsible_assigned"),
+        ),
+      );
+    expect(notifsR2.length).toBe(1);
+
+    // null limpa o responsável.
+    const cleared = await request(app)
+      .patch(`${base}/${classId}`)
+      .set(authHeader(ctx))
+      .send({ responsibleUserId: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.responsibleUserId).toBeNull();
+    expect(cleared.body.responsibleUserName).toBeNull();
+  });
+
   it("re-salvar a turma sem mudar o responsável NÃO gera notificação repetida", async () => {
     const ctx = await createTestContext({ seed: "tcr-renotif", role: "org_admin" });
     contexts.push(ctx);
