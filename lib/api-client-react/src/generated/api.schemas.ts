@@ -2032,7 +2032,8 @@ export interface CreateCompetencyRequirementEvidenceBody {
    * @maximum 5
    */
   acquiredLevel: number;
-  evidence?: string | null;
+  /** @minLength 1 */
+  evidence: string;
   attachments?: EmployeeRecordAttachment[];
 }
 

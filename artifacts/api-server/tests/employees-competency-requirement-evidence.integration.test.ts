@@ -182,6 +182,7 @@ describe("POST .../competency-requirement-evidence — upsert por requisito", ()
         competencyType: "conhecimento",
         requiredLevel: 3,
         acquiredLevel: 3,
+        evidence: "Certificado",
         attachments: [
           {
             fileName: "arquivo.txt",
@@ -190,6 +191,31 @@ describe("POST .../competency-requirement-evidence — upsert por requisito", ()
             objectPath: "/objects/uploads/arquivo.txt",
           },
         ],
+      });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("evidência ausente retorna 400", async () => {
+    const context = await createTestContext({
+      seed: "comp-req-evidencia-ausente",
+    });
+    contexts.push(context);
+
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+    });
+
+    const response = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}/competency-requirement-evidence`,
+      )
+      .set(authHeader(context))
+      .send({
+        competencyName: `Auditor W ${context.prefix}`,
+        competencyType: "conhecimento",
+        requiredLevel: 3,
+        acquiredLevel: 3,
       });
 
     expect(response.status).toBe(400);
@@ -387,6 +413,7 @@ describe("POST .../competency-requirement-evidence — upsert por requisito", ()
         competencyType: "conhecimento",
         requiredLevel: 3,
         acquiredLevel: 1,
+        evidence: "Correção de atestado indevido",
       });
     expect(updated.status).toBe(200);
 
