@@ -3,24 +3,55 @@ import { Link, useLocation } from "wouter";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useLayoutState } from "@/contexts/LayoutContext";
 import {
+  Activity,
+  BadgeCheck,
   BarChart2,
   Bell,
+  BookMarked,
+  BookOpen,
+  Briefcase,
+  Building,
   Building2,
+  Calendar,
   ChevronRight,
+  ClipboardCheck,
   ClipboardList,
+  Droplets,
+  FileCheck,
+  FileText,
+  FileWarning,
+  Gauge,
+  Gavel,
   GraduationCap,
+  Home,
+  Layers,
+  LayoutGrid,
   Leaf,
   Landmark,
+  Lightbulb,
+  LineChart,
   ListChecks,
   LogOut,
+  Map,
+  Network,
+  Package,
   PanelLeftClose,
   PanelLeftOpen,
+  Presentation,
   Scale,
+  Server,
   Settings,
+  ShieldAlert,
   Sparkles,
+  Target,
   TrafficCone,
+  Truck,
+  User,
+  Users,
+  Workflow,
   Wrench,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn, formatFirstAndLastName } from "@/lib/utils";
 import { matchesGuardedPath } from "@/components/layout/module-route-guard";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -53,6 +84,7 @@ type AppModule =
 type NavLink = {
   href: string;
   label: string;
+  Icon?: LucideIcon;
 };
 
 type NavSection = {
@@ -240,6 +272,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isActive = (path: string) => normalizedLocation.startsWith(path);
   const isNavLinkActive = (href: string) =>
     normalizedLocation === href || normalizedLocation.startsWith(`${href}/`);
+
+  // Acordeão da sidebar aberta: qual grupo está expandido. O grupo do módulo
+  // ativo abre automaticamente ao navegar; o clique no cabeçalho alterna.
+  const activeGroupKey = isActive("/organizacao")
+    ? "organizacao"
+    : isActive("/aprendizagem")
+      ? "aprendizagem"
+      : isActive("/governanca")
+        ? "governanca"
+        : isActive("/ambiental")
+          ? "ambiental"
+          : isActive("/infraestrutura")
+            ? "infraestrutura"
+            : isActive("/qualidade")
+              ? "qualidade"
+              : null;
+  const [openGroup, setOpenGroup] = useState<string | null>(activeGroupKey);
+  useEffect(() => {
+    setOpenGroup(activeGroupKey);
+  }, [activeGroupKey]);
 
   const getBreadcrumbs = (): { label: string; href?: string }[] => {
     const crumbs: { label: string; href?: string }[] = [];
@@ -459,57 +511,134 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const breadcrumbs = getBreadcrumbs();
 
   const organizacaoLinks: NavLink[] = [
-    { href: "/organizacao", label: "Visão Geral" },
+    { href: "/organizacao", label: "Visão Geral", Icon: Home },
     ...(hasModuleAccess("units")
-      ? [{ href: "/organizacao/unidades", label: "Unidades" }]
+      ? [{ href: "/organizacao/unidades", label: "Unidades", Icon: Building }]
       : []),
     ...(hasModuleAccess("departments")
-      ? [{ href: "/organizacao/departamentos", label: "Departamentos" }]
+      ? [
+          {
+            href: "/organizacao/departamentos",
+            label: "Departamentos",
+            Icon: Network,
+          },
+        ]
       : []),
     ...(hasModuleAccess("swot")
-      ? [{ href: "/organizacao/swot", label: "SWOT" }]
+      ? [{ href: "/organizacao/swot", label: "SWOT", Icon: Target }]
       : []),
   ];
 
-  const aprendizagemLinks: NavLink[] = [
-    ...(hasModuleAccess("employees")
-      ? [
-          { href: "/aprendizagem/dashboard", label: "Dashboard" },
-          { href: "/aprendizagem/minha-area", label: "Minha área" },
-          {
-            href: "/aprendizagem/gestao-treinamentos",
-            label: "Gestão de treinamentos",
-          },
-          { href: "/aprendizagem/colaboradores", label: "Colaboradores" },
-          { href: "/aprendizagem/cargos", label: "Cargos e competências" },
-          { href: "/aprendizagem/catalogo", label: "Catálogo" },
-          { href: "/aprendizagem/programa", label: "Programa anual" },
-          { href: "/aprendizagem/obrigatoriedades", label: "Obrigatoriedades" },
-          { href: "/aprendizagem/turmas", label: "Turmas" },
-          { href: "/aprendizagem/eficacia", label: "Avaliação de eficácia" },
-          { href: "/aprendizagem/indicadores", label: "Indicadores LMS" },
-        ]
-      : []),
-  ];
+  // Agrupado em seções (cabeçalho = segmentação, item = página) espelhando o
+  // mockup lms_gabardo. A ordem plana dos itens é preservada de #196.
+  const aprendizagemSections: NavSection[] = hasModuleAccess("employees")
+    ? [
+        {
+          label: "Visão geral",
+          links: [
+            {
+              href: "/aprendizagem/dashboard",
+              label: "Dashboard",
+              Icon: LayoutGrid,
+            },
+            {
+              href: "/aprendizagem/minha-area",
+              label: "Minha área",
+              Icon: User,
+            },
+          ],
+        },
+        {
+          label: "RH / SGI — Gestão",
+          links: [
+            {
+              href: "/aprendizagem/gestao-treinamentos",
+              label: "Gestão de treinamentos",
+              Icon: ClipboardCheck,
+            },
+            {
+              href: "/aprendizagem/colaboradores",
+              label: "Colaboradores",
+              Icon: Users,
+            },
+            {
+              href: "/aprendizagem/cargos",
+              label: "Cargos e competências",
+              Icon: Briefcase,
+            },
+          ],
+        },
+        {
+          label: "Execução",
+          links: [
+            {
+              href: "/aprendizagem/catalogo",
+              label: "Catálogo",
+              Icon: BookOpen,
+            },
+            {
+              href: "/aprendizagem/programa",
+              label: "Programa anual",
+              Icon: Calendar,
+            },
+            {
+              href: "/aprendizagem/obrigatoriedades",
+              label: "Obrigatoriedades",
+              Icon: Layers,
+            },
+            {
+              href: "/aprendizagem/turmas",
+              label: "Turmas",
+              Icon: Presentation,
+            },
+          ],
+        },
+        {
+          label: "Qualidade",
+          links: [
+            {
+              href: "/aprendizagem/eficacia",
+              label: "Avaliação de eficácia",
+              Icon: BadgeCheck,
+            },
+            {
+              href: "/aprendizagem/indicadores",
+              label: "Indicadores LMS",
+              Icon: Activity,
+            },
+          ],
+        },
+      ]
+    : [];
+  const aprendizagemLinks: NavLink[] = aprendizagemSections.flatMap(
+    (section) => section.links,
+  );
 
   const qualidadeLinks: NavLink[] = [
     ...(hasModuleAccess("legislations")
-      ? [{ href: "/qualidade/legislacoes", label: "Legislações" }]
+      ? [{ href: "/qualidade/legislacoes", label: "Legislações", Icon: Gavel }]
       : []),
     ...(hasModuleAccess("regulatoryDocuments")
-      ? [{ href: "/qualidade/regulatorios", label: "Documentos Regulatórios" }]
+      ? [
+          {
+            href: "/qualidade/regulatorios",
+            label: "Documentos Regulatórios",
+            Icon: FileCheck,
+          },
+        ]
       : []),
     ...(hasModuleAccess("suppliers")
-      ? [{ href: "/qualidade/fornecedores", label: "Fornecedores" }]
+      ? [{ href: "/qualidade/fornecedores", label: "Fornecedores", Icon: Truck }]
       : []),
-    { href: "/qualidade/documentacao", label: "Documentação" },
+    { href: "/qualidade/documentacao", label: "Documentação", Icon: FileText },
   ];
 
   const governancaLinks: NavLink[] = [
-    { href: "/governanca/planejamento", label: "Planejamento" },
+    { href: "/governanca/planejamento", label: "Planejamento", Icon: Map },
     {
       href: "/governanca/riscos-oportunidades",
       label: "Riscos e Oportunidades",
+      Icon: ShieldAlert,
     },
   ];
   const governancaSections: NavSection[] = [
@@ -523,31 +652,50 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {
           href: "/governanca/planejamento-operacional",
           label: "Planejamento Operacional",
+          Icon: ClipboardList,
         },
       ],
     },
     {
       label: "Gestão do Sistema",
       links: [
-        { href: "/governanca/processos-sgq", label: "Processos SGQ" },
+        {
+          href: "/governanca/processos-sgq",
+          label: "Processos SGQ",
+          Icon: Workflow,
+        },
         {
           href: "/governanca/projeto-desenvolvimento",
           label: "Projeto e Desenvolvimento",
+          Icon: Lightbulb,
         },
         {
           href: "/governanca/conhecimento-critico",
           label: "Conhecimento Crítico",
+          Icon: BookMarked,
         },
-        { href: "/governanca/auditorias", label: "Auditorias" },
-        { href: "/governanca/nao-conformidades", label: "Não Conformidades" },
-        { href: "/governanca/analises-criticas", label: "Análises Críticas" },
+        {
+          href: "/governanca/auditorias",
+          label: "Auditorias",
+          Icon: ClipboardCheck,
+        },
+        {
+          href: "/governanca/nao-conformidades",
+          label: "Não Conformidades",
+          Icon: FileWarning,
+        },
+        {
+          href: "/governanca/analises-criticas",
+          label: "Análises Críticas",
+          Icon: LineChart,
+        },
       ],
     },
   ];
   const ambientalSections: NavSection[] = [
     {
       label: "Gestão Ambiental",
-      links: [{ href: "/ambiental/laia", label: "LAIA" }],
+      links: [{ href: "/ambiental/laia", label: "LAIA", Icon: Droplets }],
     },
   ];
 
@@ -559,9 +707,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const infraestruturaLinks: NavLink[] = [
     ...(hasModuleAccess("assets")
       ? [
-          { href: "/infraestrutura/ativos", label: "Ativos" },
-          { href: "/infraestrutura/ambiente", label: "Ambiente Operacional" },
-          { href: "/infraestrutura/medicao", label: "Instrumentos de Medição" },
+          { href: "/infraestrutura/ativos", label: "Ativos", Icon: Package },
+          {
+            href: "/infraestrutura/ambiente",
+            label: "Ambiente Operacional",
+            Icon: Server,
+          },
+          {
+            href: "/infraestrutura/medicao",
+            label: "Instrumentos de Medição",
+            Icon: Gauge,
+          },
         ]
       : []),
   ];
@@ -710,6 +866,212 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     );
   };
 
+  // Modelo único dos itens da navegação principal (usado pelo acordeão da
+  // sidebar aberta). Módulos "flat" viram uma seção única sem rótulo.
+  type NavEntry =
+    | {
+        type: "link";
+        key: string;
+        label: string;
+        Icon: typeof ListChecks;
+        href: string;
+        match: string;
+        show: boolean;
+      }
+    | {
+        type: "group";
+        key: string;
+        label: string;
+        Icon: typeof ListChecks;
+        match: string;
+        sections: NavSection[];
+        show: boolean;
+      };
+  const navEntries: NavEntry[] = [
+    {
+      type: "link",
+      key: "pendencias",
+      label: "Suas Pendências",
+      Icon: ListChecks,
+      href: "/pendencias",
+      match: "/pendencias",
+      show: true,
+    },
+    {
+      type: "group",
+      key: "organizacao",
+      label: "Organização",
+      Icon: Building2,
+      match: "/organizacao",
+      sections: [{ label: "", links: organizacaoLinks }],
+      show: true,
+    },
+    {
+      type: "group",
+      key: "aprendizagem",
+      label: "Aprendizagem",
+      Icon: GraduationCap,
+      match: "/aprendizagem",
+      sections: aprendizagemSections,
+      show: showAprendizagem,
+    },
+    {
+      type: "group",
+      key: "governanca",
+      label: "Governança",
+      Icon: Landmark,
+      match: "/governanca",
+      sections: governancaSections,
+      show: showGovernanca,
+    },
+    {
+      type: "group",
+      key: "ambiental",
+      label: "Ambiental",
+      Icon: Leaf,
+      match: "/ambiental",
+      sections: ambientalSections,
+      show: showAmbiental,
+    },
+    {
+      type: "link",
+      key: "kpi",
+      label: "Indicadores",
+      Icon: BarChart2,
+      href: "/kpi/indicadores",
+      match: "/kpi",
+      show: showKpi,
+    },
+    {
+      type: "link",
+      key: "road",
+      label: "Fatores de Desempenho",
+      Icon: TrafficCone,
+      href: "/fatores-desempenho",
+      match: "/fatores-desempenho",
+      show: showRoadSafety,
+    },
+    {
+      type: "link",
+      key: "acoes",
+      label: "Gestão de Ações",
+      Icon: ClipboardList,
+      href: "/planos-acao",
+      match: "/planos-acao",
+      show: showActionPlans,
+    },
+    {
+      type: "group",
+      key: "infraestrutura",
+      label: "Infraestrutura",
+      Icon: Wrench,
+      match: "/infraestrutura",
+      sections: [{ label: "", links: infraestruturaLinks }],
+      show: showInfraestrutura,
+    },
+    {
+      type: "group",
+      key: "qualidade",
+      label: "Qualidade",
+      Icon: Scale,
+      match: "/qualidade",
+      sections: [{ label: "", links: qualidadeLinks }],
+      show: showQualidade,
+    },
+  ];
+
+  const renderAccordionNav = () => (
+    <>
+      {navEntries
+        .filter((entry) => entry.show)
+        .map((entry) => {
+          const active = isActive(entry.match);
+          const Icon = entry.Icon;
+          if (entry.type === "link") {
+            return (
+              <Link
+                key={entry.key}
+                href={entry.href}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                  active
+                    ? "bg-primary/10 font-medium text-primary"
+                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                )}
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                <span className="flex-1">{entry.label}</span>
+              </Link>
+            );
+          }
+          const expanded = openGroup === entry.key;
+          return (
+            <div key={entry.key}>
+              <button
+                type="button"
+                onClick={() => setOpenGroup(expanded ? null : entry.key)}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                  active
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                <span className="flex-1 text-left">{entry.label}</span>
+                <ChevronRight
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-transform",
+                    expanded && "rotate-90",
+                  )}
+                />
+              </button>
+              {expanded && (
+                <div className="mb-1.5 mt-0.5 space-y-0.5">
+                  {entry.sections.map((section, si) => (
+                    <div key={section.label || si} className="space-y-0.5">
+                      {section.label && (
+                        <p className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5B6472] dark:text-[#98A2B3]">
+                          {section.label}
+                        </p>
+                      )}
+                      {section.links.map((link) => {
+                        const LinkIcon = link.Icon;
+                        return (
+                          <Link
+                            key={link.href}
+                            href={link.href}
+                            className={cn(
+                              "flex items-center gap-2.5 rounded-lg py-2 pl-4 pr-2.5 text-[13px] transition-colors cursor-pointer",
+                              isNavLinkActive(link.href)
+                                ? "bg-primary/10 font-medium text-primary"
+                                : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                            )}
+                          >
+                            {LinkIcon && (
+                              <LinkIcon
+                                className={cn(
+                                  "h-[17px] w-[17px] shrink-0",
+                                  isNavLinkActive(link.href)
+                                    ? "text-primary"
+                                    : "text-muted-foreground/70",
+                                )}
+                              />
+                            )}
+                            <span className="flex-1 truncate">{link.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+    </>
+  );
+
   return (
     <div
       className="app-bg-overlay flex h-screen w-full overflow-hidden gap-2.5 bg-cover bg-center bg-no-repeat p-2.5"
@@ -735,6 +1097,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex-1 space-y-1 overflow-y-auto px-2.5 py-5">
+          {isSidebarOpen ? (
+            renderAccordionNav()
+          ) : (
+            <>
           <Link
             href="/pendencias"
             className={cn(
@@ -1062,9 +1428,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             orgPopoverPos,
             organizacaoTimeoutRef,
           )}
-          {renderPopover(
-            "Aprendizagem",
-            aprendizagemLinks,
+          {renderSectionPopover(
+            aprendizagemSections,
             aprendizagemPopover,
             setAprendizagemPopover,
             aprendizagemPopoverPos,
@@ -1099,6 +1464,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             setInfraestruturaPopover,
             infraestruturaPopoverPos,
             infraestruturaTimeoutRef,
+          )}
+            </>
           )}
         </div>
 
