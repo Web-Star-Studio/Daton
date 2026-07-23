@@ -63,7 +63,7 @@ describe("POST/DELETE .../gaps/deadline — prazo de regularização", () => {
     expect(detailAfter.body.educationDeadline?.resolvedAt).not.toBeNull();
   });
 
-  it("competência: prazo aparece na linha do requisito certo (deadline por requirement, não global)", async () => {
+  it("competência: prazo aparece na linha do requisito certo (deadline por requirement, não global), e não resolve sozinho enquanto o gap continuar aberto", async () => {
     const context = await createTestContext({ seed: "gap-deadline-comp" });
     contexts.push(context);
 
@@ -84,6 +84,22 @@ describe("POST/DELETE .../gaps/deadline — prazo de regularização", () => {
       position: position.name,
     });
 
+    // Atestado manual ABAIXO do requerido -> status genuinamente "gap" (não
+    // "nao_classificado"), para exercitar de fato o caminho que o prazo
+    // acompanha.
+    const evidence = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}/competency-requirement-evidence`,
+      )
+      .set(authHeader(context))
+      .send({
+        competencyName,
+        competencyType: "conhecimento",
+        requiredLevel: 3,
+        acquiredLevel: 1,
+      });
+    expect(evidence.status).toBe(201);
+
     const set = await request(app)
       .post(
         `/api/organizations/${context.organizationId}/employees/${employee.id}/gaps/deadline`,
@@ -103,11 +119,117 @@ describe("POST/DELETE .../gaps/deadline — prazo de regularização", () => {
     const row = (
       detail.body.competencyConformance.requirements as {
         competencyName: string;
-        deadline: { dueDate: string; overdue: boolean } | null;
+        status: string;
+        deadline: { dueDate: string; overdue: boolean; resolvedAt: string | null } | null;
       }[]
     ).find((r) => r.competencyName === competencyName);
+    expect(row?.status).toBe("gap");
     expect(row?.deadline?.dueDate).toBe("2026-09-15");
     expect(row?.deadline?.overdue).toBe(false);
+    expect(row?.deadline?.resolvedAt).toBeNull();
+  });
+
+  // Achado do revisor: resolver o prazo por "status !== gap" apagava o prazo
+  // por engano sempre que a leitura ficasse ambígua (nao_classificado, ou o
+  // cargo deixa de casar por nome). A regra correta é resolver só por
+  // confirmação POSITIVA de "atende" — nao_classificado mantém o prazo
+  // aberto, porque o sistema não sabe se o requisito foi atendido.
+  it("competência nao_classificado (sem atestado manual, sem treino provável) mantém o prazo aberto — não resolve por incerteza", async () => {
+    const context = await createTestContext({
+      seed: "gap-deadline-nao-classificado",
+    });
+    contexts.push(context);
+
+    const position = await createPosition(context, {
+      name: `Cargo ${context.prefix}`,
+    });
+    const competencyName = `Auditor Sem Atestado ${context.prefix}`;
+    const requirement = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/positions/${position.id}/competency-requirements`,
+      )
+      .set(authHeader(context))
+      .send({ competencyName, competencyType: "conhecimento", requiredLevel: 3 });
+    expect(requirement.status).toBe(201);
+
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+      position: position.name,
+    });
+
+    // Prazo definido via API diretamente (a UI não oferece essa ação numa
+    // linha nao_classificado) — cobre o cenário do revisor onde o backend
+    // precisa se comportar bem mesmo sem a UI mediar.
+    const set = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}/gaps/deadline`,
+      )
+      .set(authHeader(context))
+      .send({
+        requirementType: "competency",
+        competencyName,
+        competencyType: "conhecimento",
+        dueDate: "2026-09-15",
+      });
+    expect(set.status).toBe(200);
+
+    const detail = await request(app)
+      .get(`/api/organizations/${context.organizationId}/employees/${employee.id}`)
+      .set(authHeader(context));
+    const row = (
+      detail.body.competencyConformance.requirements as {
+        competencyName: string;
+        status: string;
+        deadline: { resolvedAt: string | null } | null;
+      }[]
+    ).find((r) => r.competencyName === competencyName);
+    expect(row?.status).toBe("nao_classificado");
+    expect(row?.deadline?.resolvedAt).toBeNull();
+  });
+
+  it("cargo deixa de casar por nome (posição renomeada): prazos existentes NÃO são resolvidos por engano", async () => {
+    const context = await createTestContext({
+      seed: "gap-deadline-position-mismatch",
+    });
+    contexts.push(context);
+
+    const position = await createPosition(context, {
+      name: `Auxiliar de Pessoal ${context.prefix}`,
+      education: "Ensino Médio Completo",
+    });
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+      position: position.name,
+      education: "Fundamental Incompleto",
+    });
+
+    const set = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/employees/${employee.id}/gaps/deadline`,
+      )
+      .set(authHeader(context))
+      .send({ requirementType: "education", dueDate: "2026-09-15" });
+    expect(set.status).toBe(200);
+
+    // Cargo renomeado -> employee.position (texto livre) não bate mais com
+    // nenhum position.name cadastrado -> resolvedConformance vira null.
+    const renamePosition = await request(app)
+      .patch(
+        `/api/organizations/${context.organizationId}/positions/${position.id}`,
+      )
+      .set(authHeader(context))
+      .send({ name: `Auxiliar de Pessoal Renomeado ${context.prefix}` });
+    expect(renamePosition.status).toBe(200);
+
+    const detail = await request(app)
+      .get(`/api/organizations/${context.organizationId}/employees/${employee.id}`)
+      .set(authHeader(context));
+    // Sem cargo casado, a ficha não devolve competencyConformance nem
+    // recalcula escolaridade — mas o prazo já existente continua intacto,
+    // não resolvido por engano.
+    expect(detail.body.competencyConformance).toBeNull();
+    expect(detail.body.educationDeadline?.resolvedAt).toBeNull();
+    expect(detail.body.educationDeadline?.dueDate).toBe("2026-09-15");
   });
 
   it("prazo vencido e não atendido -> overdue: true", async () => {

@@ -2897,25 +2897,37 @@ router.get(
 
     // Prazo de regularização (Fase 1, feat/prazo-regularizacao-gap): a mesma
     // leitura que já recomputa conformidade também self-heala prazos abertos
-    // cujo gap não existe mais — sem job separado. `openGapKeys` reúne as
-    // chaves (competência em status "gap") + escolaridade (quando o veredito
-    // é "gap"), no MESMO formato "tipo::chave" usado pela persistência.
-    const educationVeredito = compareEducation(
-      rows[0].education,
-      resolvedConformance?.positionEducation ?? null,
-    );
-    const openGapKeys = new Set(
-      (resolvedConformance?.requirements ?? [])
-        .filter((r) => r.status === "gap")
-        .map(
-          (r) =>
-            `competency::${buildCompetencyKey(r.competencyName, r.competencyType)}`,
-        ),
-    );
-    if (educationVeredito === "gap") {
-      openGapKeys.add(`education::${buildGapRequirementKey("education")}`);
+    // cujo gap não existe mais — sem job separado. Regra: só resolve por
+    // confirmação POSITIVA de "atende"; qualquer outro estado (gap,
+    // nao_classificado, nao_informado/sem_requisito) mantém o prazo aberto.
+    // Achado do revisor: resolver por "!== gap" apagava o prazo por
+    // engano sempre que a leitura ficasse ambígua — ex.: o cargo é renomeado
+    // e o match por nome (employee.position === position.name) para de
+    // bater, resolvedConformance vira null, e um prazo real desapareceria
+    // silenciosamente sem o gap ter sido atendido de verdade. Por isso, sem
+    // `positionMatched` (cargo não identificado nesta leitura), a autocura
+    // nem roda — os prazos existentes ficam como estão, nunca resolvidos por
+    // incerteza.
+    const positionMatched =
+      resolvedConformance !== null && resolvedConformance.positionName !== null;
+    if (positionMatched) {
+      const openGapKeys = new Set(
+        resolvedConformance!.requirements
+          .filter((r) => r.status !== "atende")
+          .map(
+            (r) =>
+              `competency::${buildCompetencyKey(r.competencyName, r.competencyType)}`,
+          ),
+      );
+      const educationVeredito = compareEducation(
+        rows[0].education,
+        resolvedConformance!.positionEducation,
+      );
+      if (educationVeredito !== "atende") {
+        openGapKeys.add(`education::${buildGapRequirementKey("education")}`);
+      }
+      await resolveGapDeadlinesForEmployee(db, params.data.empId, openGapKeys);
     }
-    await resolveGapDeadlinesForEmployee(db, params.data.empId, openGapKeys);
     const deadlinesByKey = await loadGapDeadlinesForEmployee(
       db,
       params.data.empId,
@@ -3537,6 +3549,16 @@ router.delete(
     const query = ClearGapDeadlineQueryParams.safeParse(req.query);
     if (!query.success) {
       res.status(400).json({ error: query.error.message });
+      return;
+    }
+    if (
+      query.data.requirementType === "competency" &&
+      (!query.data.competencyName || !query.data.competencyType)
+    ) {
+      res.status(400).json({
+        error:
+          "competencyName e competencyType são obrigatórios quando requirementType=competency",
+      });
       return;
     }
 
