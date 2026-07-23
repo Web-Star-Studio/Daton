@@ -379,6 +379,58 @@ export const positionCompetencyMatrixRevisionsTable = pgTable(
   ],
 );
 
+// Prazo de regularização de um gap (escolaridade ou competência do cargo) —
+// dá visibilidade e uma data-limite pro colaborador atender o requisito.
+// `requirementType` distingue a natureza do gap; `requirementKey` identifica
+// QUAL: "education" para escolaridade, ou a mesma chave normalizada de
+// buildCompetencyKey (nome::tipo) para competência — sem FK numérica porque
+// o requisito do cargo pode ser editado/removido depois de o prazo existir.
+// `resolvedAt` é preenchido por compose-on-read (mesmo padrão do resolvedor
+// de competência): toda leitura da ficha recalcula o gap e marca resolvido
+// quem não está mais aberto, sem job separado. `lastNotifiedOverdueAt` é o
+// dedupe do escalonamento (Fase 2, ainda não implementada nesta entrega).
+export const employeeGapDeadlinesTable = pgTable(
+  "employee_gap_deadlines",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employeesTable.id, { onDelete: "cascade" }),
+    requirementType: text("requirement_type").notNull(),
+    requirementKey: text("requirement_key").notNull(),
+    dueDate: date("due_date").notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    lastNotifiedOverdueAt: timestamp("last_notified_overdue_at", {
+      withTimezone: true,
+    }),
+    createdById: integer("created_by_id")
+      .notNull()
+      .references(() => usersTable.id),
+    updatedById: integer("updated_by_id")
+      .notNull()
+      .references(() => usersTable.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("employee_gap_deadline_unique").on(
+      table.employeeId,
+      table.requirementType,
+      table.requirementKey,
+    ),
+    // Escalonamento (Fase 2): varre vencidos ainda não resolvidos.
+    index("egd_due_date_idx").on(table.dueDate, table.resolvedAt),
+  ],
+);
+
 export const employeeUnitsTable = pgTable("employee_units", {
   id: serial("id").primaryKey(),
   employeeId: integer("employee_id")
@@ -441,3 +493,9 @@ export type PositionCompetencyRequirement =
 
 export type PositionCompetencyMatrixRevision =
   typeof positionCompetencyMatrixRevisionsTable.$inferSelect;
+
+export const insertGapDeadlineSchema = createInsertSchema(
+  employeeGapDeadlinesTable,
+).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertGapDeadline = z.infer<typeof insertGapDeadlineSchema>;
+export type EmployeeGapDeadline = typeof employeeGapDeadlinesTable.$inferSelect;

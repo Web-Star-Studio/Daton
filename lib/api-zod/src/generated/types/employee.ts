@@ -11,6 +11,7 @@ import type { EmployeeCompetencyGapStatus } from "./employeeCompetencyGapStatus"
 import type { EmployeeContractType } from "./employeeContractType";
 import type { EmployeeManagersItem } from "./employeeManagersItem";
 import type { EmployeeStatus } from "./employeeStatus";
+import type { GapDeadline } from "./gapDeadline";
 
 export interface Employee {
   /** Resumo do auto-vínculo de obrigatoriedades (presente na resposta de criar/editar). */
@@ -39,6 +40,8 @@ export interface Employee {
   competencyGapStatus?: EmployeeCompetencyGapStatus;
   /** Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por /competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET /employees/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado. */
   competencyConformance?: EmployeeCompetencyConformance | null;
+  /** Prazo de regularização do gap de escolaridade, quando definido (POST /employees/:empId/gaps/deadline com requirementType=education). Presente apenas na resposta de GET /employees/:empId (detalhe). */
+  educationDeadline?: GapDeadline | null;
   createdAt: string;
   updatedAt: string;
 }
