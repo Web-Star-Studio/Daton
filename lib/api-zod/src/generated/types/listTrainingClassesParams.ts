@@ -10,4 +10,8 @@ export type ListTrainingClassesParams = {
   status?: string;
   unitId?: number;
   catalogItemId?: number;
+  /**
+   * Filtra turmas em que este usuário é responsável por ALGUMA filial (via training_class_units). Usado pela aba "Minhas turmas como responsável".
+   */
+  responsibleUserId?: number;
 };

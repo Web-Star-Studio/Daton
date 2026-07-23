@@ -8,6 +8,7 @@ import {
   jsonb,
   timestamp,
   uniqueIndex,
+  index,
   numeric,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -15,6 +16,7 @@ import { organizationsTable } from "./organizations";
 import { positionsTable } from "./departments";
 import { unitsTable } from "./units";
 import { employeesTable, type EmployeeRecordAttachment } from "./employees";
+import { usersTable } from "./users";
 
 /**
  * Catálogo de treinamentos (definições reutilizáveis) — ISO 10015.
@@ -200,6 +202,10 @@ export const trainingClassesTable = pgTable("training_classes", {
   code: text("code"),
   startDate: date("start_date").notNull(),
   endDate: date("end_date"),
+  // LEGADO/derivado: a turma passou a abranger N filiais (training_class_units).
+  // Esta coluna é mantida como espelho da PRIMEIRA filial vinculada — escrita
+  // sempre pelo mesmo helper que grava os vínculos (replaceClassUnits), nunca
+  // isoladamente, para não divergir da lista. Leia `units`, não este campo.
   unitId: integer("unit_id").references(() => unitsTable.id, {
     onDelete: "set null",
   }),
@@ -213,6 +219,14 @@ export const trainingClassesTable = pgTable("training_classes", {
   }),
   capacity: integer("capacity"),
   minScore: integer("min_score"),
+  // Responsável pela turma (opcional). Decisão da cliente (2026-07-23): quando o
+  // treinamento envolve várias filiais é online, com UM instrutor e UM
+  // responsável pela turma inteira — não um por filial. FK para `users`
+  // (responsável precisa de login para receber notificação/e-mail).
+  responsibleUserId: integer("responsible_user_id").references(
+    () => usersTable.id,
+    { onDelete: "set null" },
+  ),
   status: text("status").notNull().default("agendada"),
   notes: text("notes"),
   attachments: jsonb("attachments")
@@ -227,6 +241,41 @@ export const trainingClassesTable = pgTable("training_classes", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+/**
+ * Filiais de uma turma (N:N turma ↔ filial). Uma mesma turma pode atender
+ * várias filiais (treino online/corporativo).
+ *
+ * `responsibleUserId` (por filial) está DORMENTE: a cliente decidiu
+ * (2026-07-23) que o responsável é da TURMA inteira, não por filial — ver
+ * `trainingClassesTable.responsibleUserId`. A coluna é mantida (não dropada)
+ * para reversibilidade caso um dia queiram cobrança local por unidade; a
+ * aplicação não a lê nem escreve.
+ */
+export const trainingClassUnitsTable = pgTable(
+  "training_class_units",
+  {
+    id: serial("id").primaryKey(),
+    classId: integer("class_id")
+      .notNull()
+      .references(() => trainingClassesTable.id, { onDelete: "cascade" }),
+    unitId: integer("unit_id")
+      .notNull()
+      .references(() => unitsTable.id, { onDelete: "cascade" }),
+    // DORMENTE — ver comentário do bloco. Não usar; o responsável é da turma.
+    responsibleUserId: integer("responsible_user_id").references(
+      () => usersTable.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("training_class_unit_uq").on(table.classId, table.unitId),
+    index("training_class_units_unit_idx").on(table.unitId),
+  ],
+);
 
 export const trainingClassParticipantsTable = pgTable(
   "training_class_participants",
@@ -257,6 +306,7 @@ export const trainingClassParticipantsTable = pgTable(
 );
 
 export type TrainingClass = typeof trainingClassesTable.$inferSelect;
+export type TrainingClassUnit = typeof trainingClassUnitsTable.$inferSelect;
 export type TrainingClassParticipant =
   typeof trainingClassParticipantsTable.$inferSelect;
 

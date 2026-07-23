@@ -23722,6 +23722,12 @@ export const ListTrainingClassesQueryParams = zod.object({
   status: zod.coerce.string().optional(),
   unitId: zod.coerce.number().optional(),
   catalogItemId: zod.coerce.number().optional(),
+  responsibleUserId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      'Filtra turmas em que este usuário é responsável por ALGUMA filial (via training_class_units). Usado pela aba \"Minhas turmas como responsável\".',
+    ),
 });
 
 export const listTrainingClassesResponseDataItemAttachmentsItemFileSizeMax = 20971520;
@@ -23739,13 +23745,37 @@ export const ListTrainingClassesResponse = zod.object({
         code: zod.string().nullish(),
         startDate: zod.string(),
         endDate: zod.string().nullish(),
-        unitId: zod.number().nullish(),
+        unitId: zod
+          .number()
+          .nullish()
+          .describe(
+            "LEGADO — espelho da primeira filial de `units`, mantido para compatibilidade. Use `units`, que é a lista completa.",
+          ),
+        units: zod
+          .array(
+            zod
+              .object({
+                unitId: zod.number(),
+                unitName: zod.string().nullish(),
+              })
+              .describe("Filial atendida pela turma."),
+          )
+          .describe(
+            "Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida.",
+          ),
         location: zod.string().nullish(),
         instructor: zod.string().nullish(),
         modality: zod.string().nullish(),
         workloadHours: zod.number().nullish(),
         capacity: zod.number().nullish(),
         minScore: zod.number().nullish(),
+        responsibleUserId: zod
+          .number()
+          .nullish()
+          .describe(
+            "Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só.",
+          ),
+        responsibleUserName: zod.string().nullish(),
         status: zod.string(),
         notes: zod.string().nullish(),
         attachments: zod.array(
@@ -23791,6 +23821,8 @@ export const CreateTrainingClassParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
+export const createTrainingClassBodyUnitsMax = 200;
+
 export const createTrainingClassBodyMinScoreMin = 0;
 export const createTrainingClassBodyMinScoreMax = 10;
 
@@ -23805,9 +23837,27 @@ export const CreateTrainingClassBody = zod.object({
   code: zod.string().optional(),
   startDate: zod.string(),
   endDate: zod.string().optional(),
-  unitId: zod.number().optional(),
+  unitId: zod
+    .number()
+    .optional()
+    .describe(
+      "LEGADO — atalho para uma única filial. Ignorado quando `units` vem no mesmo corpo.",
+    ),
+  units: zod
+    .array(
+      zod.object({
+        unitId: zod.number(),
+      }),
+    )
+    .max(createTrainingClassBodyUnitsMax)
+    .optional()
+    .describe("Filiais atendidas pela turma."),
   location: zod.string().optional(),
   instructor: zod.string().optional(),
+  responsibleUserId: zod
+    .number()
+    .nullish()
+    .describe("Responsável pela turma (um por turma, opcional)."),
   modality: zod.string().optional(),
   workloadHours: zod.number().optional(),
   capacity: zod.number().optional(),
@@ -23858,13 +23908,37 @@ export const GetTrainingClassResponse = zod
     code: zod.string().nullish(),
     startDate: zod.string(),
     endDate: zod.string().nullish(),
-    unitId: zod.number().nullish(),
+    unitId: zod
+      .number()
+      .nullish()
+      .describe(
+        "LEGADO — espelho da primeira filial de `units`, mantido para compatibilidade. Use `units`, que é a lista completa.",
+      ),
+    units: zod
+      .array(
+        zod
+          .object({
+            unitId: zod.number(),
+            unitName: zod.string().nullish(),
+          })
+          .describe("Filial atendida pela turma."),
+      )
+      .describe(
+        "Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida.",
+      ),
     location: zod.string().nullish(),
     instructor: zod.string().nullish(),
     modality: zod.string().nullish(),
     workloadHours: zod.number().nullish(),
     capacity: zod.number().nullish(),
     minScore: zod.number().nullish(),
+    responsibleUserId: zod
+      .number()
+      .nullish()
+      .describe(
+        "Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só.",
+      ),
+    responsibleUserName: zod.string().nullish(),
     status: zod.string(),
     notes: zod.string().nullish(),
     attachments: zod.array(
@@ -23926,6 +24000,8 @@ export const UpdateTrainingClassParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const updateTrainingClassBodyUnitsMax = 200;
+
 export const updateTrainingClassBodyMinScoreMin = 0;
 export const updateTrainingClassBodyMinScoreMax = 10;
 
@@ -23939,9 +24015,29 @@ export const UpdateTrainingClassBody = zod.object({
   code: zod.string().optional(),
   startDate: zod.string().optional(),
   endDate: zod.string().optional(),
-  unitId: zod.number().nullish(),
+  unitId: zod
+    .number()
+    .nullish()
+    .describe(
+      "LEGADO — substitui a lista de filiais por esta única (ou por nenhuma, quando null). Ignorado quando `units` vem no mesmo corpo.",
+    ),
+  units: zod
+    .array(
+      zod.object({
+        unitId: zod.number(),
+      }),
+    )
+    .max(updateTrainingClassBodyUnitsMax)
+    .optional()
+    .describe(
+      "Substitui a lista inteira de filiais da turma (replace-all). Omitir mantém as filiais atuais; `[]` remove todas.",
+    ),
   location: zod.string().optional(),
   instructor: zod.string().optional(),
+  responsibleUserId: zod
+    .number()
+    .nullish()
+    .describe("Responsável pela turma (um por turma). null remove."),
   modality: zod.string().optional(),
   workloadHours: zod.number().optional(),
   capacity: zod.number().optional(),
@@ -23982,13 +24078,37 @@ export const UpdateTrainingClassResponse = zod
     code: zod.string().nullish(),
     startDate: zod.string(),
     endDate: zod.string().nullish(),
-    unitId: zod.number().nullish(),
+    unitId: zod
+      .number()
+      .nullish()
+      .describe(
+        "LEGADO — espelho da primeira filial de `units`, mantido para compatibilidade. Use `units`, que é a lista completa.",
+      ),
+    units: zod
+      .array(
+        zod
+          .object({
+            unitId: zod.number(),
+            unitName: zod.string().nullish(),
+          })
+          .describe("Filial atendida pela turma."),
+      )
+      .describe(
+        "Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida.",
+      ),
     location: zod.string().nullish(),
     instructor: zod.string().nullish(),
     modality: zod.string().nullish(),
     workloadHours: zod.number().nullish(),
     capacity: zod.number().nullish(),
     minScore: zod.number().nullish(),
+    responsibleUserId: zod
+      .number()
+      .nullish()
+      .describe(
+        "Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só.",
+      ),
+    responsibleUserName: zod.string().nullish(),
     status: zod.string(),
     notes: zod.string().nullish(),
     attachments: zod.array(
@@ -24056,13 +24176,37 @@ export const AddTrainingClassParticipantsResponse = zod
     code: zod.string().nullish(),
     startDate: zod.string(),
     endDate: zod.string().nullish(),
-    unitId: zod.number().nullish(),
+    unitId: zod
+      .number()
+      .nullish()
+      .describe(
+        "LEGADO — espelho da primeira filial de `units`, mantido para compatibilidade. Use `units`, que é a lista completa.",
+      ),
+    units: zod
+      .array(
+        zod
+          .object({
+            unitId: zod.number(),
+            unitName: zod.string().nullish(),
+          })
+          .describe("Filial atendida pela turma."),
+      )
+      .describe(
+        "Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida.",
+      ),
     location: zod.string().nullish(),
     instructor: zod.string().nullish(),
     modality: zod.string().nullish(),
     workloadHours: zod.number().nullish(),
     capacity: zod.number().nullish(),
     minScore: zod.number().nullish(),
+    responsibleUserId: zod
+      .number()
+      .nullish()
+      .describe(
+        "Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só.",
+      ),
+    responsibleUserName: zod.string().nullish(),
     status: zod.string(),
     notes: zod.string().nullish(),
     attachments: zod.array(

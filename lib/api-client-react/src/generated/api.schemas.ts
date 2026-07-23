@@ -244,6 +244,14 @@ export interface TrainingRequirementPreview {
   requirements: TrainingRequirement[];
 }
 
+/**
+ * Filial atendida pela turma.
+ */
+export interface TrainingClassUnit {
+  unitId: number;
+  unitName?: string | null;
+}
+
 export interface EmployeeRecordAttachment {
   fileName: string;
   /** @maximum 20971520 */
@@ -263,13 +271,19 @@ export interface TrainingClass {
   code?: string | null;
   startDate: string;
   endDate?: string | null;
+  /** LEGADO — espelho da primeira filial de `units`, mantido para compatibilidade. Use `units`, que é a lista completa. */
   unitId?: number | null;
+  /** Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida. */
+  units: TrainingClassUnit[];
   location?: string | null;
   instructor?: string | null;
   modality?: string | null;
   workloadHours?: number | null;
   capacity?: number | null;
   minScore?: number | null;
+  /** Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só. */
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
   status: string;
   notes?: string | null;
   attachments: EmployeeRecordAttachment[];
@@ -280,6 +294,10 @@ export interface TrainingClass {
   confirmedCount?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TrainingClassUnitInput {
+  unitId: number;
 }
 
 export interface TrainingClassParticipant {
@@ -307,9 +325,17 @@ export interface CreateTrainingClassBody {
   code?: string;
   startDate: string;
   endDate?: string;
+  /** LEGADO — atalho para uma única filial. Ignorado quando `units` vem no mesmo corpo. */
   unitId?: number;
+  /**
+   * Filiais atendidas pela turma.
+   * @maxItems 200
+   */
+  units?: TrainingClassUnitInput[];
   location?: string;
   instructor?: string;
+  /** Responsável pela turma (um por turma, opcional). */
+  responsibleUserId?: number | null;
   modality?: string;
   workloadHours?: number;
   capacity?: number;
@@ -328,9 +354,17 @@ export interface UpdateTrainingClassBody {
   code?: string;
   startDate?: string;
   endDate?: string;
+  /** LEGADO — substitui a lista de filiais por esta única (ou por nenhuma, quando null). Ignorado quando `units` vem no mesmo corpo. */
   unitId?: number | null;
+  /**
+   * Substitui a lista inteira de filiais da turma (replace-all). Omitir mantém as filiais atuais; `[]` remove todas.
+   * @maxItems 200
+   */
+  units?: TrainingClassUnitInput[];
   location?: string;
   instructor?: string;
+  /** Responsável pela turma (um por turma). null remove. */
+  responsibleUserId?: number | null;
   modality?: string;
   workloadHours?: number;
   capacity?: number;
@@ -7796,6 +7830,10 @@ export type ListTrainingClassesParams = {
   status?: string;
   unitId?: number;
   catalogItemId?: number;
+  /**
+   * Filtra turmas em que este usuário é responsável por ALGUMA filial (via training_class_units). Usado pela aba "Minhas turmas como responsável".
+   */
+  responsibleUserId?: number;
 };
 
 export type ListTrainingClasses200 = {

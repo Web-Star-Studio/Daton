@@ -6,14 +6,23 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
+import type { TrainingClassUnitInput } from "./trainingClassUnitInput";
 
 export interface UpdateTrainingClassBody {
   code?: string;
   startDate?: string;
   endDate?: string;
+  /** LEGADO — substitui a lista de filiais por esta única (ou por nenhuma, quando null). Ignorado quando `units` vem no mesmo corpo. */
   unitId?: number | null;
+  /**
+   * Substitui a lista inteira de filiais da turma (replace-all). Omitir mantém as filiais atuais; `[]` remove todas.
+   * @maxItems 200
+   */
+  units?: TrainingClassUnitInput[];
   location?: string;
   instructor?: string;
+  /** Responsável pela turma (um por turma). null remove. */
+  responsibleUserId?: number | null;
   modality?: string;
   workloadHours?: number;
   capacity?: number;

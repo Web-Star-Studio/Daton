@@ -30,6 +30,8 @@ import {
   SearchableSelect,
   toNameOptions,
 } from "@/components/ui/searchable-select";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { formatClassUnitsLabel } from "@/pages/app/aprendizagem/_components/class-units";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import { TurmaDetailPanel } from "./detail-panel";
@@ -54,7 +56,10 @@ type ClassForm = {
   code: string;
   startDate: string;
   endDate: string;
-  unitId: string;
+  unitIds: number[];
+  // Responsável pela TURMA (um só). Treino multi-filial é online: um instrutor
+  // e um responsável pela turma inteira (decisão da cliente, 2026-07-23).
+  responsibleUserId: string;
   location: string;
   instructor: string;
   modality: string;
@@ -69,7 +74,8 @@ const EMPTY_FORM: ClassForm = {
   code: "",
   startDate: "",
   endDate: "",
-  unitId: "",
+  unitIds: [],
+  responsibleUserId: "",
   location: "",
   instructor: "",
   modality: "Presencial",
@@ -111,9 +117,13 @@ export default function TurmasPage() {
 
   const [statusFilter, setStatusFilter] = useState("");
   const [unitFilter, setUnitFilter] = useState("");
+  // "Minhas turmas como responsável": filtra pelo usuário logado como
+  // responsável de alguma filial (via training_class_units).
+  const [mineOnly, setMineOnly] = useState(false);
   const listParams = {
     status: statusFilter || undefined,
     unitId: unitFilter ? Number(unitFilter) : undefined,
+    responsibleUserId: mineOnly ? user?.id : undefined,
   };
   const { data: result, isLoading } = useListTrainingClasses(
     orgId ?? 0,
@@ -155,12 +165,71 @@ export default function TurmasPage() {
 
   // ─── Nova turma (stepper) ───────────────────────────────────────────────
   const [open, setOpen] = useState(false);
-  // Reseta a busca do picker de instrutor ao fechar (evita reabrir filtrado). #119
+  // Reseta as buscas dos pickers de usuário ao fechar (evita reabrir filtrado). #119
   useEffect(() => {
-    if (!open) setUserSearch("");
+    if (!open) {
+      setUserSearch("");
+      setRespSearch("");
+    }
   }, [open]);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<ClassForm>(EMPTY_FORM);
+
+  // Responsável pela turma: picker próprio (id do usuário), com busca
+  // server-side independente da do instrutor — buscar um não pode filtrar o
+  // outro. Só carrega no passo em que o campo aparece.
+  const [respSearch, setRespSearch] = useState("");
+  const debouncedRespSearch = useDebouncedValue(respSearch, 300);
+  const respParams = {
+    search: debouncedRespSearch || undefined,
+    page: 1,
+    pageSize: 100,
+  };
+  const respUsersQuery = useListUserOptions(orgId ?? 0, respParams, {
+    query: {
+      enabled: !!orgId && open && step === 2,
+      queryKey: getListUserOptionsQueryKey(orgId ?? 0, respParams),
+    },
+  });
+  // Nome do responsável já escolhido. Sem isso, limpar a busca (ou trocar de
+  // página de usuários) tiraria a opção da lista e o campo voltaria ao
+  // placeholder mesmo com alguém selecionado.
+  const [pickedUserNames, setPickedUserNames] = useState<Record<number, string>>(
+    {},
+  );
+  const respUserOptions = useMemo(() => {
+    const byValue = new Map<string, string>();
+    for (const u of respUsersQuery.data ?? []) byValue.set(String(u.id), u.name);
+    for (const [id, name] of Object.entries(pickedUserNames)) {
+      if (!byValue.has(id)) byValue.set(id, name);
+    }
+    return [...byValue].map(([value, label]) => ({ value, label }));
+  }, [respUsersQuery.data, pickedUserNames]);
+
+  const toggleFormUnit = (unitId: number) =>
+    setForm((prev) =>
+      prev.unitIds.includes(unitId)
+        ? { ...prev, unitIds: prev.unitIds.filter((id) => id !== unitId) }
+        : { ...prev, unitIds: [...prev.unitIds, unitId] },
+    );
+
+  const toggleAllFormUnits = () =>
+    setForm((prev) => {
+      const allSelected =
+        units.length > 0 && units.every((u) => prev.unitIds.includes(u.id));
+      return {
+        ...prev,
+        unitIds: allSelected ? [] : units.map((u) => u.id),
+      };
+    });
+
+  const setTurmaResponsible = (value: string) => {
+    if (value) {
+      const name = respUserOptions.find((o) => o.value === value)?.label;
+      if (name) setPickedUserNames((prev) => ({ ...prev, [Number(value)]: name }));
+    }
+    setForm((prev) => ({ ...prev, responsibleUserId: value }));
+  };
   // Preview do treinamento selecionado no passo 1 (fidelidade ao mockup)
   const selectedCatalogItem = useMemo(
     () => catalogItems.find((c) => String(c.id) === form.catalogItemId) ?? null,
@@ -225,9 +294,12 @@ export default function TurmasPage() {
         code: form.code || undefined,
         startDate: form.startDate,
         endDate: form.endDate || undefined,
-        unitId: form.unitId ? Number(form.unitId) : undefined,
+        units: form.unitIds.map((unitId) => ({ unitId })),
         location: form.location || undefined,
         instructor: form.instructor || undefined,
+        responsibleUserId: form.responsibleUserId
+          ? Number(form.responsibleUserId)
+          : undefined,
         modality: form.modality || undefined,
         workloadHours: form.workloadHours
           ? Number(form.workloadHours)
@@ -279,6 +351,16 @@ export default function TurmasPage() {
             </option>
           ))}
         </Select>
+        <Button
+          type="button"
+          variant={mineOnly ? "default" : "outline"}
+          size="sm"
+          onClick={() => setMineOnly((v) => !v)}
+          aria-pressed={mineOnly}
+          title="Mostrar apenas as turmas em que você é responsável por alguma filial"
+        >
+          Minhas como responsável
+        </Button>
         <span className="ml-auto text-sm text-muted-foreground">
           {classes.length} turma{classes.length !== 1 ? "s" : ""}
         </span>
@@ -306,7 +388,9 @@ export default function TurmasPage() {
                 </tr>
               </thead>
               <tbody>
-                {classes.map((c: TrainingClass) => (
+                {classes.map((c: TrainingClass) => {
+                  const unitsLabel = formatClassUnitsLabel(c, unitName);
+                  return (
                   <tr
                     key={c.id}
                     className={`cursor-pointer border-b last:border-0 hover:bg-muted/40 ${
@@ -319,8 +403,11 @@ export default function TurmasPage() {
                         `#${c.catalogItemId}`}
                       {c.code ? ` — ${c.code}` : ""}
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {c.unitId ? (unitName.get(c.unitId) ?? "—") : "—"}
+                    <td
+                      className="px-4 py-2 text-muted-foreground"
+                      title={unitsLabel.title}
+                    >
+                      {unitsLabel.text}
                     </td>
                     <td className="px-4 py-2 text-muted-foreground">
                       {c.startDate}
@@ -333,7 +420,8 @@ export default function TurmasPage() {
                       </Badge>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -457,17 +545,42 @@ export default function TurmasPage() {
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
               />
             </Field>
-            <Field label="Filial">
-              <SearchableSelect
-                value={form.unitId}
-                onChange={(v) => setForm({ ...form, unitId: v })}
-                options={units.map((u) => ({
-                  value: String(u.id),
-                  label: u.name,
-                }))}
-                isLoading={unitsLoading}
-                placeholder="Selecione a filial..."
+            <div className="md:col-span-2">
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Filiais
+              </Label>
+              <SearchableMultiSelect
+                options={units.map((u) => ({ value: u.id, label: u.name }))}
+                selected={form.unitIds}
+                onToggle={toggleFormUnit}
+                onToggleAll={toggleAllFormUnits}
+                selectAllLabel={`Selecionar todas as filiais (${units.length})`}
+                placeholder="Selecione as filiais..."
                 searchPlaceholder="Buscar filial..."
+                emptyMessage={
+                  unitsLoading ? "Carregando..." : "Nenhuma filial cadastrada."
+                }
+                disabled={unitsLoading}
+                renderSummary={(selected) =>
+                  units.length > 0 && selected.length === units.length
+                    ? `Todas as filiais (${selected.length})`
+                    : selected.length === 1
+                      ? selected[0].label
+                      : `${selected.length} filiais selecionadas`
+                }
+              />
+            </div>
+            <Field label="Responsável pela turma">
+              <SearchableSelect
+                value={form.responsibleUserId}
+                onChange={setTurmaResponsible}
+                options={respUserOptions}
+                searchValue={respSearch}
+                onSearchChange={setRespSearch}
+                isLoading={respUsersQuery.isLoading}
+                placeholder="Sem responsável"
+                searchPlaceholder="Buscar usuário…"
+                emptyMessage="Nenhum usuário com conta. Cadastre em Configurações → Usuários."
               />
             </Field>
             <Field label="Local / sala">

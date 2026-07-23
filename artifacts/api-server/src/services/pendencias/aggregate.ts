@@ -111,6 +111,7 @@ export async function aggregatePendencias(
       nonconformity: 0,
       regulatory_document: 0,
       training_effectiveness: 0,
+      training_class_responsible: 0,
     },
   };
   for (const item of items) {

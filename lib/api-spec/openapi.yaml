@@ -10727,6 +10727,15 @@ paths:
           required: false
           schema:
             type: integer
+        - name: responsibleUserId
+          in: query
+          required: false
+          description: >-
+            Filtra turmas em que este usuário é responsável por ALGUMA filial
+            (via training_class_units). Usado pela aba "Minhas turmas como
+            responsável".
+          schema:
+            type: integer
       responses:
         "200":
           description: Training classes
@@ -11607,6 +11616,16 @@ components:
         unitId:
           type: integer
           nullable: true
+          description: >-
+            LEGADO — espelho da primeira filial de `units`, mantido para
+            compatibilidade. Use `units`, que é a lista completa.
+        units:
+          type: array
+          description: >-
+            Filiais atendidas pela turma, cada uma com o seu responsável local.
+            Lista vazia = turma sem filial definida.
+          items:
+            $ref: "#/components/schemas/TrainingClassUnit"
         location:
           type: string
           nullable: true
@@ -11624,6 +11643,15 @@ components:
           nullable: true
         minScore:
           type: integer
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+          description: >-
+            Responsável pela turma (opcional). Um por turma — treino online
+            multi-filial tem um instrutor e um responsável só.
+        responsibleUserName:
+          type: string
           nullable: true
         status:
           type: string
@@ -11662,8 +11690,29 @@ components:
         - startDate
         - status
         - attachments
+        - units
         - createdAt
         - updatedAt
+
+    TrainingClassUnit:
+      type: object
+      description: "Filial atendida pela turma."
+      properties:
+        unitId:
+          type: integer
+        unitName:
+          type: string
+          nullable: true
+      required:
+        - unitId
+
+    TrainingClassUnitInput:
+      type: object
+      properties:
+        unitId:
+          type: integer
+      required:
+        - unitId
 
     TrainingClassParticipant:
       type: object
@@ -11725,10 +11774,23 @@ components:
           type: string
         unitId:
           type: integer
+          description: >-
+            LEGADO — atalho para uma única filial. Ignorado quando `units` vem
+            no mesmo corpo.
+        units:
+          type: array
+          maxItems: 200
+          description: "Filiais atendidas pela turma."
+          items:
+            $ref: "#/components/schemas/TrainingClassUnitInput"
         location:
           type: string
         instructor:
           type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+          description: "Responsável pela turma (um por turma, opcional)."
         modality:
           type: string
         workloadHours:
@@ -11764,10 +11826,25 @@ components:
         unitId:
           type: integer
           nullable: true
+          description: >-
+            LEGADO — substitui a lista de filiais por esta única (ou por
+            nenhuma, quando null). Ignorado quando `units` vem no mesmo corpo.
+        units:
+          type: array
+          maxItems: 200
+          description: >-
+            Substitui a lista inteira de filiais da turma (replace-all).
+            Omitir mantém as filiais atuais; `[]` remove todas.
+          items:
+            $ref: "#/components/schemas/TrainingClassUnitInput"
         location:
           type: string
         instructor:
           type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+          description: "Responsável pela turma (um por turma). null remove."
         modality:
           type: string
         workloadHours:

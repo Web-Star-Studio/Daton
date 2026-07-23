@@ -6,6 +6,7 @@ import {
   type TrainingClass,
 } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
+import { formatClassUnitsLabel } from "@/pages/app/aprendizagem/_components/class-units";
 
 const STATUS_BADGE: Record<string, string> = {
   agendada: "bg-amber-50 text-amber-700",
@@ -89,8 +90,11 @@ export function TurmasDoTreinamento({
                   <td className="py-1.5 pr-3 text-muted-foreground">
                     {formatDate(c.startDate)}
                   </td>
-                  <td className="py-1.5 pr-3 text-muted-foreground">
-                    {c.unitId ? (unitName.get(c.unitId) ?? "—") : "—"}
+                  <td
+                    className="py-1.5 pr-3 text-muted-foreground"
+                    title={formatClassUnitsLabel(c, unitName).title}
+                  >
+                    {formatClassUnitsLabel(c, unitName).text}
                   </td>
                   <td className="py-1.5 pr-3">{c.participantCount ?? 0}</td>
                   {/* "Realizados" = participantes aprovados. Numa turma ainda
