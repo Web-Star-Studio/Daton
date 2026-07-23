@@ -51,15 +51,15 @@ const STATUS_LABEL: Record<string, string> = {
 };
 const MODALITIES = ["Presencial", "EAD", "Híbrido", "Externo"];
 
-/** Filial da turma + responsável local (um por filial). */
-type ClassFormUnit = { unitId: number; responsibleUserId: number | null };
-
 type ClassForm = {
   catalogItemId: string;
   code: string;
   startDate: string;
   endDate: string;
-  units: ClassFormUnit[];
+  unitIds: number[];
+  // Responsável pela TURMA (um só). Treino multi-filial é online: um instrutor
+  // e um responsável pela turma inteira (decisão da cliente, 2026-07-23).
+  responsibleUserId: string;
   location: string;
   instructor: string;
   modality: string;
@@ -74,7 +74,8 @@ const EMPTY_FORM: ClassForm = {
   code: "",
   startDate: "",
   endDate: "",
-  units: [],
+  unitIds: [],
+  responsibleUserId: "",
   location: "",
   instructor: "",
   modality: "Presencial",
@@ -174,7 +175,7 @@ export default function TurmasPage() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<ClassForm>(EMPTY_FORM);
 
-  // Responsável por filial: picker próprio (id do usuário, não nome), com busca
+  // Responsável pela turma: picker próprio (id do usuário), com busca
   // server-side independente da do instrutor — buscar um não pode filtrar o
   // outro. Só carrega no passo em que o campo aparece.
   const [respSearch, setRespSearch] = useState("");
@@ -190,8 +191,8 @@ export default function TurmasPage() {
       queryKey: getListUserOptionsQueryKey(orgId ?? 0, respParams),
     },
   });
-  // Nomes dos responsáveis já escolhidos. Sem isso, limpar a busca (ou trocar de
-  // página de usuários) tiraria a opção da lista e o campo voltaria a exibir o
+  // Nome do responsável já escolhido. Sem isso, limpar a busca (ou trocar de
+  // página de usuários) tiraria a opção da lista e o campo voltaria ao
   // placeholder mesmo com alguém selecionado.
   const [pickedUserNames, setPickedUserNames] = useState<Record<number, string>>(
     {},
@@ -207,42 +208,27 @@ export default function TurmasPage() {
 
   const toggleFormUnit = (unitId: number) =>
     setForm((prev) =>
-      prev.units.some((u) => u.unitId === unitId)
-        ? { ...prev, units: prev.units.filter((u) => u.unitId !== unitId) }
-        : {
-            ...prev,
-            units: [...prev.units, { unitId, responsibleUserId: null }],
-          },
+      prev.unitIds.includes(unitId)
+        ? { ...prev, unitIds: prev.unitIds.filter((id) => id !== unitId) }
+        : { ...prev, unitIds: [...prev.unitIds, unitId] },
     );
 
   const toggleAllFormUnits = () =>
     setForm((prev) => {
       const allSelected =
-        units.length > 0 &&
-        units.every((u) => prev.units.some((f) => f.unitId === u.id));
-      if (allSelected) return { ...prev, units: [] };
-      // Marcar todas preserva os responsáveis já definidos.
-      const current = new Map(prev.units.map((u) => [u.unitId, u]));
+        units.length > 0 && units.every((u) => prev.unitIds.includes(u.id));
       return {
         ...prev,
-        units: units.map(
-          (u) => current.get(u.id) ?? { unitId: u.id, responsibleUserId: null },
-        ),
+        unitIds: allSelected ? [] : units.map((u) => u.id),
       };
     });
 
-  const setUnitResponsible = (unitId: number, value: string) => {
-    const userId = value ? Number(value) : null;
-    if (userId != null) {
+  const setTurmaResponsible = (value: string) => {
+    if (value) {
       const name = respUserOptions.find((o) => o.value === value)?.label;
-      if (name) setPickedUserNames((prev) => ({ ...prev, [userId]: name }));
+      if (name) setPickedUserNames((prev) => ({ ...prev, [Number(value)]: name }));
     }
-    setForm((prev) => ({
-      ...prev,
-      units: prev.units.map((u) =>
-        u.unitId === unitId ? { ...u, responsibleUserId: userId } : u,
-      ),
-    }));
+    setForm((prev) => ({ ...prev, responsibleUserId: value }));
   };
   // Preview do treinamento selecionado no passo 1 (fidelidade ao mockup)
   const selectedCatalogItem = useMemo(
@@ -308,9 +294,12 @@ export default function TurmasPage() {
         code: form.code || undefined,
         startDate: form.startDate,
         endDate: form.endDate || undefined,
-        units: form.units,
+        units: form.unitIds.map((unitId) => ({ unitId })),
         location: form.location || undefined,
         instructor: form.instructor || undefined,
+        responsibleUserId: form.responsibleUserId
+          ? Number(form.responsibleUserId)
+          : undefined,
         modality: form.modality || undefined,
         workloadHours: form.workloadHours
           ? Number(form.workloadHours)
@@ -562,7 +551,7 @@ export default function TurmasPage() {
               </Label>
               <SearchableMultiSelect
                 options={units.map((u) => ({ value: u.id, label: u.name }))}
-                selected={form.units.map((u) => u.unitId)}
+                selected={form.unitIds}
                 onToggle={toggleFormUnit}
                 onToggleAll={toggleAllFormUnits}
                 selectAllLabel={`Selecionar todas as filiais (${units.length})`}
@@ -580,39 +569,20 @@ export default function TurmasPage() {
                       : `${selected.length} filiais selecionadas`
                 }
               />
-              {form.units.length > 0 ? (
-                <div className="mt-2 space-y-2 rounded-lg border bg-muted/20 p-3">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Responsável por filial (opcional)
-                  </p>
-                  {form.units.map((u) => (
-                    <div
-                      key={u.unitId}
-                      className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"
-                    >
-                      <span className="min-w-0 truncate text-sm text-foreground">
-                        {unitName.get(u.unitId) ?? `#${u.unitId}`}
-                      </span>
-                      <SearchableSelect
-                        value={
-                          u.responsibleUserId != null
-                            ? String(u.responsibleUserId)
-                            : ""
-                        }
-                        onChange={(v) => setUnitResponsible(u.unitId, v)}
-                        options={respUserOptions}
-                        searchValue={respSearch}
-                        onSearchChange={setRespSearch}
-                        isLoading={respUsersQuery.isLoading}
-                        placeholder="Sem responsável"
-                        searchPlaceholder="Buscar usuário…"
-                        emptyMessage="Nenhum usuário com conta. Cadastre em Configurações → Usuários."
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : null}
             </div>
+            <Field label="Responsável pela turma">
+              <SearchableSelect
+                value={form.responsibleUserId}
+                onChange={setTurmaResponsible}
+                options={respUserOptions}
+                searchValue={respSearch}
+                onSearchChange={setRespSearch}
+                isLoading={respUsersQuery.isLoading}
+                placeholder="Sem responsável"
+                searchPlaceholder="Buscar usuário…"
+                emptyMessage="Nenhum usuário com conta. Cadastre em Configurações → Usuários."
+              />
+            </Field>
             <Field label="Local / sala">
               <Input
                 value={form.location}

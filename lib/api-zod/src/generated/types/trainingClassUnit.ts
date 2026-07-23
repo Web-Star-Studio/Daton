@@ -7,11 +7,9 @@
  */
 
 /**
- * Vínculo turma ↔ filial, com o responsável local da turma naquela filial.
+ * Filial atendida pela turma.
  */
 export interface TrainingClassUnit {
   unitId: number;
   unitName?: string | null;
-  responsibleUserId?: number | null;
-  responsibleUserName?: string | null;
 }

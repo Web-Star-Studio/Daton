@@ -28,6 +28,9 @@ export interface TrainingClass {
   workloadHours?: number | null;
   capacity?: number | null;
   minScore?: number | null;
+  /** Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só. */
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
   status: string;
   notes?: string | null;
   attachments: EmployeeRecordAttachment[];

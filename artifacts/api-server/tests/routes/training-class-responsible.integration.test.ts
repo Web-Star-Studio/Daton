@@ -32,7 +32,7 @@ function daysFromNow(n: number): string {
   return new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
 }
 
-describe("responsável de filial em turma — lado do responsável", () => {
+describe("responsável pela turma — lado do responsável", () => {
   it("turma agendada aparece nas Pendências do responsável (scope=mine)", async () => {
     const ctx = await createTestContext({ seed: "tcr-pend", role: "org_admin" });
     contexts.push(ctx);
@@ -51,11 +51,11 @@ describe("responsável de filial em turma — lado do responsável", () => {
         code: "T-PEND",
         startDate,
         status: "agendada",
-        units: [{ unitId: poa.id, responsibleUserId: resp.id }],
+        responsibleUserId: resp.id,
+        units: [{ unitId: poa.id }],
       })
       .expect(201);
 
-    // Pendências do próprio responsável.
     const res = await request(app)
       .get(`/api/organizations/${ctx.organizationId}/pendencias`)
       .set({ Authorization: `Bearer ${resp.token}` });
@@ -64,7 +64,7 @@ describe("responsável de filial em turma — lado do responsável", () => {
       (i: { source: string }) => i.source === "training_class_responsible",
     );
     expect(mine.length).toBe(1);
-    expect(mine[0].subtitle).toContain("POA");
+    expect(mine[0].title).toContain("T-PEND");
     expect(mine[0].dueDate).toBe(startDate);
     expect(res.body.counts.bySource.training_class_responsible).toBe(1);
   });
@@ -82,9 +82,10 @@ describe("responsável de filial em turma — lado do responsável", () => {
       .set(authHeader(ctx))
       .send({
         catalogItemId,
-        startDate: "2026-09-01",
+        startDate: daysFromNow(3),
         status: "agendada",
-        units: [{ unitId: poa.id, responsibleUserId: resp.id }],
+        responsibleUserId: resp.id,
+        units: [{ unitId: poa.id }],
       });
     await request(app)
       .patch(`${base}/${created.body.id}`)
@@ -107,7 +108,6 @@ describe("responsável de filial em turma — lado do responsável", () => {
     const base = `/api/organizations/${ctx.organizationId}/training-classes`;
     const catalogItemId = await createCatalogItem(ctx, `Treino ${ctx.prefix}`);
     const poa = await createUnit(ctx, `POA ${ctx.prefix}`);
-    const outra = await createUnit(ctx, `OUTRA ${ctx.prefix}`);
     const resp = await createTestUser(ctx, { role: "operator", suffix: "resp" });
 
     const minha = await request(app)
@@ -116,8 +116,8 @@ describe("responsável de filial em turma — lado do responsável", () => {
       .send({
         catalogItemId,
         startDate: "2026-09-01",
-        // resp é responsável pela SEGUNDA filial — o filtro tem que achar mesmo assim.
-        units: [{ unitId: poa.id }, { unitId: outra.id, responsibleUserId: resp.id }],
+        responsibleUserId: resp.id,
+        units: [{ unitId: poa.id }],
       });
     await request(app)
       .post(base)
@@ -149,7 +149,8 @@ describe("responsável de filial em turma — lado do responsável", () => {
         catalogItemId,
         code: "T-NOTIF",
         startDate: "2026-09-01",
-        units: [{ unitId: poa.id, responsibleUserId: resp.id }],
+        responsibleUserId: resp.id,
+        units: [{ unitId: poa.id }],
       })
       .expect(201);
 
@@ -197,18 +198,16 @@ describe("responsável de filial em turma — lado do responsável", () => {
       .send({
         catalogItemId,
         startDate: "2026-09-01",
-        units: [{ unitId: poa.id, responsibleUserId: resp.id }],
+        responsibleUserId: resp.id,
+        units: [{ unitId: poa.id }],
       });
     await new Promise((r) => setTimeout(r, 200));
 
-    // PATCH que mantém o mesmo par filial↔responsável.
+    // PATCH que mantém o mesmo responsável.
     await request(app)
       .patch(`${base}/${created.body.id}`)
       .set(authHeader(ctx))
-      .send({
-        code: "T-EDIT",
-        units: [{ unitId: poa.id, responsibleUserId: resp.id }],
-      })
+      .send({ code: "T-EDIT", responsibleUserId: resp.id })
       .expect(200);
     await new Promise((r) => setTimeout(r, 200));
 

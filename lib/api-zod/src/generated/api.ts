@@ -23757,12 +23757,8 @@ export const ListTrainingClassesResponse = zod.object({
               .object({
                 unitId: zod.number(),
                 unitName: zod.string().nullish(),
-                responsibleUserId: zod.number().nullish(),
-                responsibleUserName: zod.string().nullish(),
               })
-              .describe(
-                "Vínculo turma ↔ filial, com o responsável local da turma naquela filial.",
-              ),
+              .describe("Filial atendida pela turma."),
           )
           .describe(
             "Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida.",
@@ -23773,6 +23769,13 @@ export const ListTrainingClassesResponse = zod.object({
         workloadHours: zod.number().nullish(),
         capacity: zod.number().nullish(),
         minScore: zod.number().nullish(),
+        responsibleUserId: zod
+          .number()
+          .nullish()
+          .describe(
+            "Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só.",
+          ),
+        responsibleUserName: zod.string().nullish(),
         status: zod.string(),
         notes: zod.string().nullish(),
         attachments: zod.array(
@@ -23844,14 +23847,17 @@ export const CreateTrainingClassBody = zod.object({
     .array(
       zod.object({
         unitId: zod.number(),
-        responsibleUserId: zod.number().nullish(),
       }),
     )
     .max(createTrainingClassBodyUnitsMax)
     .optional()
-    .describe("Filiais da turma, cada uma com o responsável local (opcional)."),
+    .describe("Filiais atendidas pela turma."),
   location: zod.string().optional(),
   instructor: zod.string().optional(),
+  responsibleUserId: zod
+    .number()
+    .nullish()
+    .describe("Responsável pela turma (um por turma, opcional)."),
   modality: zod.string().optional(),
   workloadHours: zod.number().optional(),
   capacity: zod.number().optional(),
@@ -23914,12 +23920,8 @@ export const GetTrainingClassResponse = zod
           .object({
             unitId: zod.number(),
             unitName: zod.string().nullish(),
-            responsibleUserId: zod.number().nullish(),
-            responsibleUserName: zod.string().nullish(),
           })
-          .describe(
-            "Vínculo turma ↔ filial, com o responsável local da turma naquela filial.",
-          ),
+          .describe("Filial atendida pela turma."),
       )
       .describe(
         "Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida.",
@@ -23930,6 +23932,13 @@ export const GetTrainingClassResponse = zod
     workloadHours: zod.number().nullish(),
     capacity: zod.number().nullish(),
     minScore: zod.number().nullish(),
+    responsibleUserId: zod
+      .number()
+      .nullish()
+      .describe(
+        "Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só.",
+      ),
+    responsibleUserName: zod.string().nullish(),
     status: zod.string(),
     notes: zod.string().nullish(),
     attachments: zod.array(
@@ -24016,7 +24025,6 @@ export const UpdateTrainingClassBody = zod.object({
     .array(
       zod.object({
         unitId: zod.number(),
-        responsibleUserId: zod.number().nullish(),
       }),
     )
     .max(updateTrainingClassBodyUnitsMax)
@@ -24026,6 +24034,10 @@ export const UpdateTrainingClassBody = zod.object({
     ),
   location: zod.string().optional(),
   instructor: zod.string().optional(),
+  responsibleUserId: zod
+    .number()
+    .nullish()
+    .describe("Responsável pela turma (um por turma). null remove."),
   modality: zod.string().optional(),
   workloadHours: zod.number().optional(),
   capacity: zod.number().optional(),
@@ -24078,12 +24090,8 @@ export const UpdateTrainingClassResponse = zod
           .object({
             unitId: zod.number(),
             unitName: zod.string().nullish(),
-            responsibleUserId: zod.number().nullish(),
-            responsibleUserName: zod.string().nullish(),
           })
-          .describe(
-            "Vínculo turma ↔ filial, com o responsável local da turma naquela filial.",
-          ),
+          .describe("Filial atendida pela turma."),
       )
       .describe(
         "Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida.",
@@ -24094,6 +24102,13 @@ export const UpdateTrainingClassResponse = zod
     workloadHours: zod.number().nullish(),
     capacity: zod.number().nullish(),
     minScore: zod.number().nullish(),
+    responsibleUserId: zod
+      .number()
+      .nullish()
+      .describe(
+        "Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só.",
+      ),
+    responsibleUserName: zod.string().nullish(),
     status: zod.string(),
     notes: zod.string().nullish(),
     attachments: zod.array(
@@ -24173,12 +24188,8 @@ export const AddTrainingClassParticipantsResponse = zod
           .object({
             unitId: zod.number(),
             unitName: zod.string().nullish(),
-            responsibleUserId: zod.number().nullish(),
-            responsibleUserName: zod.string().nullish(),
           })
-          .describe(
-            "Vínculo turma ↔ filial, com o responsável local da turma naquela filial.",
-          ),
+          .describe("Filial atendida pela turma."),
       )
       .describe(
         "Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida.",
@@ -24189,6 +24200,13 @@ export const AddTrainingClassParticipantsResponse = zod
     workloadHours: zod.number().nullish(),
     capacity: zod.number().nullish(),
     minScore: zod.number().nullish(),
+    responsibleUserId: zod
+      .number()
+      .nullish()
+      .describe(
+        "Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só.",
+      ),
+    responsibleUserName: zod.string().nullish(),
     status: zod.string(),
     notes: zod.string().nullish(),
     attachments: zod.array(

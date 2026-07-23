@@ -21,6 +21,8 @@ export interface UpdateTrainingClassBody {
   units?: TrainingClassUnitInput[];
   location?: string;
   instructor?: string;
+  /** Responsável pela turma (um por turma). null remove. */
+  responsibleUserId?: number | null;
   modality?: string;
   workloadHours?: number;
   capacity?: number;

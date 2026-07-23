@@ -25,7 +25,7 @@ async function createCatalogItem(context: TestOrgContext, title: string) {
 }
 
 describe("turma com múltiplas filiais", () => {
-  it("cria turma abrangendo N filiais, com responsável por filial", async () => {
+  it("cria turma abrangendo N filiais, com um responsável pela turma", async () => {
     const context = await createTestContext({ seed: "class-units-create" });
     contexts.push(context);
     const base = `/api/organizations/${context.organizationId}/training-classes`;
@@ -43,31 +43,25 @@ describe("turma com múltiplas filiais", () => {
       .send({
         catalogItemId,
         startDate: "2026-08-10",
-        units: [
-          { unitId: poa.id, responsibleUserId: responsavel.id },
-          { unitId: cariacica.id },
-        ],
+        responsibleUserId: responsavel.id,
+        units: [{ unitId: poa.id }, { unitId: cariacica.id }],
       });
     expect(created.status).toBe(201);
     expect(created.body.units).toHaveLength(2);
+    // Responsável é da TURMA, um só.
+    expect(created.body.responsibleUserId).toBe(responsavel.id);
+    expect(created.body.responsibleUserName).toBeTruthy();
+    expect(
+      created.body.units.map((u: { unitName: string }) => u.unitName).join(" "),
+    ).toContain("POA");
 
-    const poaLink = created.body.units.find(
-      (u: { unitId: number }) => u.unitId === poa.id,
-    );
-    expect(poaLink.responsibleUserId).toBe(responsavel.id);
-    expect(poaLink.responsibleUserName).toBeTruthy();
-    expect(poaLink.unitName).toContain("POA");
-    const cariacicaLink = created.body.units.find(
-      (u: { unitId: number }) => u.unitId === cariacica.id,
-    );
-    expect(cariacicaLink.responsibleUserId).toBeNull();
-
-    // Detalhe e listagem devolvem a mesma lista de filiais.
+    // Detalhe e listagem devolvem a mesma lista de filiais + responsável.
     const detail = await request(app)
       .get(`${base}/${created.body.id}`)
       .set(authHeader(context));
     expect(detail.status).toBe(200);
     expect(detail.body.units).toHaveLength(2);
+    expect(detail.body.responsibleUserId).toBe(responsavel.id);
 
     const list = await request(app).get(base).set(authHeader(context));
     expect(list.status).toBe(200);
@@ -217,7 +211,8 @@ describe("turma com múltiplas filiais", () => {
       .send({
         catalogItemId,
         startDate: "2026-08-10",
-        units: [{ unitId: minha.id, responsibleUserId: usuarioAlheio.id }],
+        units: [{ unitId: minha.id }],
+        responsibleUserId: usuarioAlheio.id,
       });
     expect(comRespAlheio.status).toBe(400);
   });

@@ -11,79 +11,59 @@ export interface ClassResponsibleNotifyTarget {
   trainingTitle: string;
   code: string | null;
   startDate: string | null;
+  responsibleUserId: number | null;
 }
 
 /**
- * Notifica — in-app + e-mail — os usuários que acabaram de virar responsáveis por
- * uma filial na turma. Recebe a lista JÁ filtrada de "novos" (quem não era
- * responsável daquela filial antes), com o nome da filial de cada um.
+ * Notifica — in-app + e-mail — o RESPONSÁVEL PELA TURMA que acabou de ser
+ * vinculado. O responsável é um por turma (treino online multi-filial).
  *
- * Best-effort, igual ao padrão dos planos de ação: nunca lança, para não
- * derrubar o create/update da turma. Não avisa quem se auto-atribuiu.
+ * Best-effort, igual ao padrão dos planos de ação: nunca lança (não derruba o
+ * create/update) e não pinga quem se auto-atribuiu. Quem chama já garante que
+ * só dispara quando o responsável MUDOU.
  */
-export async function notifyClassResponsibleAssignments(
+export async function notifyClassResponsibleAssignment(
   turma: ClassResponsibleNotifyTarget,
-  assignments: { userId: number; unitName: string }[],
   actorUserId: number | null,
 ): Promise<void> {
-  // Um usuário pode virar responsável por várias filiais de uma vez — agrupa
-  // por usuário para mandar um aviso só, listando as filiais.
-  const byUser = new Map<number, string[]>();
-  for (const a of assignments) {
-    if (a.userId === actorUserId) continue; // não pinga quem se atribuiu
-    const list = byUser.get(a.userId);
-    if (list) list.push(a.unitName);
-    else byUser.set(a.userId, [a.unitName]);
-  }
-
-  for (const [userId, unitNames] of byUser) {
-    await deliver(turma, userId, unitNames).catch((err) =>
-      console.error("[turmas] falha ao notificar responsável de filial", err),
-    );
-  }
-}
-
-async function deliver(
-  turma: ClassResponsibleNotifyTarget,
-  userId: number,
-  unitNames: string[],
-): Promise<void> {
-  const [user] = await db
-    .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId))
-    .limit(1);
-  if (!user) return;
-
-  const ref = turma.code ? `${turma.code} — ` : "";
-  const filiais =
-    unitNames.length === 1
-      ? `da filial ${unitNames[0]}`
-      : `das filiais ${unitNames.join(", ")}`;
-  const quando = turma.startDate ? ` Início: ${formatDateBR(turma.startDate)}.` : "";
-  const title = `Você é responsável por uma turma: ${ref}${turma.trainingTitle}`;
-  const description = `Você foi definido como responsável ${filiais} nesta turma.${quando} Abra Turmas para acompanhar a preparação, a presença e as notas.`;
-
-  await db.insert(notificationsTable).values({
-    organizationId: turma.organizationId,
-    userId: user.id,
-    type: "training_class_responsible_assigned",
-    title,
-    description,
-    relatedEntityType: RELATED_ENTITY_TYPE,
-    relatedEntityId: turma.classId,
-  });
-
   try {
-    await sendEmail({
-      to: user.email,
-      responsibleName: user.name,
+    const recipientId = turma.responsibleUserId;
+    if (!recipientId || recipientId === actorUserId) return;
+
+    const [user] = await db
+      .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.id, recipientId))
+      .limit(1);
+    if (!user) return;
+
+    const ref = turma.code ? `${turma.code} — ` : "";
+    const quando = turma.startDate ? ` Início: ${formatDateBR(turma.startDate)}.` : "";
+    const title = `Você é responsável por uma turma: ${ref}${turma.trainingTitle}`;
+    const description = `Você foi definido como responsável por esta turma.${quando} Abra Turmas para acompanhar a preparação, a presença e as notas.`;
+
+    await db.insert(notificationsTable).values({
+      organizationId: turma.organizationId,
+      userId: user.id,
+      type: "training_class_responsible_assigned",
       title,
       description,
-      reason: `foi definido como responsável ${filiais} em uma turma`,
+      relatedEntityType: RELATED_ENTITY_TYPE,
+      relatedEntityId: turma.classId,
     });
+
+    try {
+      await sendEmail({
+        to: user.email,
+        responsibleName: user.name,
+        title,
+        description,
+      });
+    } catch (err) {
+      console.error("[turmas] falha ao enviar e-mail de responsável", err);
+    }
   } catch (err) {
-    console.error("[turmas] falha ao enviar e-mail de responsável", err);
+    console.error("[turmas] falha ao notificar responsável da turma", err);
   }
 }
 
@@ -97,13 +77,11 @@ async function sendEmail({
   responsibleName,
   title,
   description,
-  reason,
 }: {
   to: string;
   responsibleName: string;
   title: string;
   description: string;
-  reason: string;
 }): Promise<void> {
   const { client, fromEmail } = await getResendClient();
   const appUrl = process.env.APP_BASE_URL ?? "";
@@ -122,7 +100,7 @@ async function sendEmail({
           ? `<p style="margin: 16px 0;"><a href="${link}" style="background:#0f172a;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;">Abrir Turmas</a></p>`
           : ""}
         <p style="font-size: 12px; color: #6b7280; margin-top: 24px;">
-          Mensagem automática do Daton. Você está recebendo este aviso porque ${escapeHtml(reason)}.
+          Mensagem automática do Daton. Você está recebendo este aviso porque foi definido como responsável por uma turma.
         </p>
       </div>
     `,

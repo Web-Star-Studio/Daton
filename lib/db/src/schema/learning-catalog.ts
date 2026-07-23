@@ -219,6 +219,14 @@ export const trainingClassesTable = pgTable("training_classes", {
   }),
   capacity: integer("capacity"),
   minScore: integer("min_score"),
+  // Responsável pela turma (opcional). Decisão da cliente (2026-07-23): quando o
+  // treinamento envolve várias filiais é online, com UM instrutor e UM
+  // responsável pela turma inteira — não um por filial. FK para `users`
+  // (responsável precisa de login para receber notificação/e-mail).
+  responsibleUserId: integer("responsible_user_id").references(
+    () => usersTable.id,
+    { onDelete: "set null" },
+  ),
   status: text("status").notNull().default("agendada"),
   notes: text("notes"),
   attachments: jsonb("attachments")
@@ -236,11 +244,13 @@ export const trainingClassesTable = pgTable("training_classes", {
 
 /**
  * Filiais de uma turma (N:N turma ↔ filial). Uma mesma turma pode atender
- * várias filiais (treino corporativo/EAD), e cada filial pode ter o seu próprio
- * responsável local — daí o vínculo ser uma linha e não um array de ids.
+ * várias filiais (treino online/corporativo).
  *
- * `responsibleUserId` aponta para `users` (convenção do projeto: "responsável"
- * é sempre um usuário com login, para receber notificação/e-mail).
+ * `responsibleUserId` (por filial) está DORMENTE: a cliente decidiu
+ * (2026-07-23) que o responsável é da TURMA inteira, não por filial — ver
+ * `trainingClassesTable.responsibleUserId`. A coluna é mantida (não dropada)
+ * para reversibilidade caso um dia queiram cobrança local por unidade; a
+ * aplicação não a lê nem escreve.
  */
 export const trainingClassUnitsTable = pgTable(
   "training_class_units",
@@ -252,6 +262,7 @@ export const trainingClassUnitsTable = pgTable(
     unitId: integer("unit_id")
       .notNull()
       .references(() => unitsTable.id, { onDelete: "cascade" }),
+    // DORMENTE — ver comentário do bloco. Não usar; o responsável é da turma.
     responsibleUserId: integer("responsible_user_id").references(
       () => usersTable.id,
       { onDelete: "set null" },

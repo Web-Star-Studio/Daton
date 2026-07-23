@@ -245,13 +245,11 @@ export interface TrainingRequirementPreview {
 }
 
 /**
- * Vínculo turma ↔ filial, com o responsável local da turma naquela filial.
+ * Filial atendida pela turma.
  */
 export interface TrainingClassUnit {
   unitId: number;
   unitName?: string | null;
-  responsibleUserId?: number | null;
-  responsibleUserName?: string | null;
 }
 
 export interface EmployeeRecordAttachment {
@@ -283,6 +281,9 @@ export interface TrainingClass {
   workloadHours?: number | null;
   capacity?: number | null;
   minScore?: number | null;
+  /** Responsável pela turma (opcional). Um por turma — treino online multi-filial tem um instrutor e um responsável só. */
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
   status: string;
   notes?: string | null;
   attachments: EmployeeRecordAttachment[];
@@ -297,7 +298,6 @@ export interface TrainingClass {
 
 export interface TrainingClassUnitInput {
   unitId: number;
-  responsibleUserId?: number | null;
 }
 
 export interface TrainingClassParticipant {
@@ -328,12 +328,14 @@ export interface CreateTrainingClassBody {
   /** LEGADO — atalho para uma única filial. Ignorado quando `units` vem no mesmo corpo. */
   unitId?: number;
   /**
-   * Filiais da turma, cada uma com o responsável local (opcional).
+   * Filiais atendidas pela turma.
    * @maxItems 200
    */
   units?: TrainingClassUnitInput[];
   location?: string;
   instructor?: string;
+  /** Responsável pela turma (um por turma, opcional). */
+  responsibleUserId?: number | null;
   modality?: string;
   workloadHours?: number;
   capacity?: number;
@@ -361,6 +363,8 @@ export interface UpdateTrainingClassBody {
   units?: TrainingClassUnitInput[];
   location?: string;
   instructor?: string;
+  /** Responsável pela turma (um por turma). null remove. */
+  responsibleUserId?: number | null;
   modality?: string;
   workloadHours?: number;
   capacity?: number;

@@ -16,12 +16,14 @@ export interface CreateTrainingClassBody {
   /** LEGADO — atalho para uma única filial. Ignorado quando `units` vem no mesmo corpo. */
   unitId?: number;
   /**
-   * Filiais da turma, cada uma com o responsável local (opcional).
+   * Filiais atendidas pela turma.
    * @maxItems 200
    */
   units?: TrainingClassUnitInput[];
   location?: string;
   instructor?: string;
+  /** Responsável pela turma (um por turma, opcional). */
+  responsibleUserId?: number | null;
   modality?: string;
   workloadHours?: number;
   capacity?: number;

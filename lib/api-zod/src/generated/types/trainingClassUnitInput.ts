@@ -8,5 +8,4 @@
 
 export interface TrainingClassUnitInput {
   unitId: number;
-  responsibleUserId?: number | null;
 }

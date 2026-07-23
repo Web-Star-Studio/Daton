@@ -9,6 +9,7 @@ import {
   trainingClassParticipantsTable,
   trainingClassUnitsTable,
   unitsTable,
+  usersTable,
 } from "@workspace/db";
 import {
   AddTrainingClassParticipantsBody,
@@ -33,30 +34,65 @@ import {
   replaceClassUnits,
   resolveUnitsFromBody,
   validateClassUnits,
-  type NewResponsibleAssignment,
   type SerializedClassUnit,
 } from "../services/aprendizagem/class-units";
-import { notifyClassResponsibleAssignments } from "../services/aprendizagem/notify-class-responsible";
+import { notifyClassResponsibleAssignment } from "../services/aprendizagem/notify-class-responsible";
 
 const router: IRouter = Router();
 
 function serializeClass(
   row: typeof trainingClassesTable.$inferSelect,
-  participantCount?: number,
-  approvedCount?: number,
-  confirmedCount?: number,
-  units: SerializedClassUnit[] = [],
+  opts: {
+    participantCount?: number;
+    approvedCount?: number;
+    confirmedCount?: number;
+    units?: SerializedClassUnit[];
+    responsibleUserName?: string | null;
+  } = {},
 ) {
+  const { participantCount, approvedCount, confirmedCount } = opts;
   return {
     ...row,
     attachments: row.attachments ?? [],
-    units,
+    units: opts.units ?? [],
+    responsibleUserName: opts.responsibleUserName ?? null,
     ...(participantCount !== undefined ? { participantCount } : {}),
     ...(approvedCount !== undefined ? { approvedCount } : {}),
     ...(confirmedCount !== undefined ? { confirmedCount } : {}),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/** Nomes dos responsáveis (users) por id — para serializar responsibleUserName. */
+async function loadResponsibleNames(
+  ids: (number | null)[],
+): Promise<Map<number, string>> {
+  const unique = [...new Set(ids.filter((id): id is number => id != null))];
+  if (unique.length === 0) return new Map();
+  const rows = await db
+    .select({ id: usersTable.id, name: usersTable.name })
+    .from(usersTable)
+    .where(inArray(usersTable.id, unique));
+  return new Map(rows.map((r) => [r.id, r.name]));
+}
+
+/** Valida que o responsável (opcional) é usuário da própria org. */
+async function validateResponsible(
+  orgId: number,
+  responsibleUserId: number | null | undefined,
+): Promise<boolean> {
+  if (responsibleUserId == null) return true;
+  const [u] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(
+      and(
+        eq(usersTable.id, responsibleUserId),
+        eq(usersTable.organizationId, orgId),
+      ),
+    );
+  return !!u;
 }
 
 function serializeParticipant(
@@ -103,14 +139,15 @@ async function loadDetail(orgId: number, classId: number) {
     .where(eq(trainingClassParticipantsTable.classId, classId))
     .orderBy(asc(trainingClassParticipantsTable.id));
   const unitsByClass = await loadClassUnits([classId]);
+  const names = await loadResponsibleNames([cls.responsibleUserId]);
   return {
-    ...serializeClass(
-      cls,
-      rows.length,
-      undefined,
-      undefined,
-      unitsByClass.get(classId) ?? [],
-    ),
+    ...serializeClass(cls, {
+      participantCount: rows.length,
+      units: unitsByClass.get(classId) ?? [],
+      responsibleUserName: cls.responsibleUserId
+        ? (names.get(cls.responsibleUserId) ?? null)
+        : null,
+    }),
     participants: rows.map((r) =>
       serializeParticipant(r.participant, r.employeeName),
     ),
@@ -173,25 +210,11 @@ router.get(
             ),
         ),
       );
-    // "Minhas turmas como responsável": turma em que o usuário é responsável por
-    // ALGUMA filial.
+    // "Minhas turmas como responsável": turma cujo responsável é o usuário.
     const responsibleFilter = query.data.responsibleUserId;
     if (responsibleFilter)
       conditions.push(
-        exists(
-          db
-            .select({ one: sql`1` })
-            .from(trainingClassUnitsTable)
-            .where(
-              and(
-                eq(trainingClassUnitsTable.classId, trainingClassesTable.id),
-                eq(
-                  trainingClassUnitsTable.responsibleUserId,
-                  responsibleFilter,
-                ),
-              ),
-            ),
-        ),
+        eq(trainingClassesTable.responsibleUserId, responsibleFilter),
       );
     if (query.data.catalogItemId)
       conditions.push(
@@ -225,17 +248,22 @@ router.get(
       : [];
     const countByClass = new Map(counts.map((c) => [c.classId, c]));
     const unitsByClass = await loadClassUnits(classIds);
+    const respNames = await loadResponsibleNames(
+      rows.map((r) => r.responsibleUserId),
+    );
 
     res.json({
       data: rows.map((r) => {
         const c = countByClass.get(r.id);
-        return serializeClass(
-          r,
-          c?.n ?? 0,
-          c?.approved ?? 0,
-          c?.confirmed ?? 0,
-          unitsByClass.get(r.id) ?? [],
-        );
+        return serializeClass(r, {
+          participantCount: c?.n ?? 0,
+          approvedCount: c?.approved ?? 0,
+          confirmedCount: c?.confirmed ?? 0,
+          units: unitsByClass.get(r.id) ?? [],
+          responsibleUserName: r.responsibleUserId
+            ? (respNames.get(r.responsibleUserId) ?? null)
+            : null,
+        });
       }),
     });
   },
@@ -282,8 +310,13 @@ router.post(
       res.status(400).json({ error: unitsError });
       return;
     }
+    // Responsável pela turma (opcional, um só).
+    const responsibleUserId = body.data.responsibleUserId ?? null;
+    if (!(await validateResponsible(params.data.orgId, responsibleUserId))) {
+      res.status(400).json({ error: "Responsável não encontrado" });
+      return;
+    }
 
-    let newAssignments: NewResponsibleAssignment[] = [];
     const row = await db.transaction(async (tx) => {
       const [created] = await tx
         .insert(trainingClassesTable)
@@ -297,6 +330,7 @@ router.post(
           unitId: null,
           location: body.data.location ?? null,
           instructor: body.data.instructor ?? null,
+          responsibleUserId,
           modality: body.data.modality ?? null,
           workloadHours: body.data.workloadHours ?? null,
           capacity: body.data.capacity ?? null,
@@ -306,30 +340,37 @@ router.post(
           attachments: body.data.attachments ?? [],
         })
         .returning();
-      newAssignments = await replaceClassUnits(tx, created.id, units);
+      await replaceClassUnits(tx, created.id, units);
       return { ...created, unitId: units[0]?.unitId ?? null };
     });
 
-    // Notifica os responsáveis recém-vinculados (in-app + e-mail). Best-effort:
+    // Notifica o responsável recém-vinculado (in-app + e-mail). Best-effort:
     // fora da transação, não bloqueia a resposta, não derruba o create.
-    void notifyClassResponsibleAssignments(
-      {
-        classId: row.id,
-        organizationId: row.organizationId,
-        trainingTitle: await catalogTitleFor(row.catalogItemId),
-        code: row.code,
-        startDate: row.startDate,
-      },
-      newAssignments,
-      req.auth!.userId,
-    );
+    if (row.responsibleUserId) {
+      void notifyClassResponsibleAssignment(
+        {
+          classId: row.id,
+          organizationId: row.organizationId,
+          trainingTitle: await catalogTitleFor(row.catalogItemId),
+          code: row.code,
+          startDate: row.startDate,
+          responsibleUserId: row.responsibleUserId,
+        },
+        req.auth!.userId,
+      );
+    }
 
     const unitsByClass = await loadClassUnits([row.id]);
-    res
-      .status(201)
-      .json(
-        serializeClass(row, 0, undefined, undefined, unitsByClass.get(row.id) ?? []),
-      );
+    const names = await loadResponsibleNames([row.responsibleUserId]);
+    res.status(201).json(
+      serializeClass(row, {
+        participantCount: 0,
+        units: unitsByClass.get(row.id) ?? [],
+        responsibleUserName: row.responsibleUserId
+          ? (names.get(row.responsibleUserId) ?? null)
+          : null,
+      }),
+    );
   },
 );
 
@@ -387,6 +428,13 @@ router.patch(
         return;
       }
     }
+    if (
+      b.responsibleUserId !== undefined &&
+      !(await validateResponsible(params.data.orgId, b.responsibleUserId))
+    ) {
+      res.status(400).json({ error: "Responsável não encontrado" });
+      return;
+    }
     const updates: Partial<typeof trainingClassesTable.$inferInsert> = {};
     if (b.code !== undefined) updates.code = b.code;
     if (b.startDate !== undefined) updates.startDate = b.startDate;
@@ -395,6 +443,8 @@ router.patch(
     // sempre a partir da mesma lista — é o que impede os dois divergirem.
     if (b.location !== undefined) updates.location = b.location;
     if (b.instructor !== undefined) updates.instructor = b.instructor;
+    if (b.responsibleUserId !== undefined)
+      updates.responsibleUserId = b.responsibleUserId;
     if (b.modality !== undefined) updates.modality = b.modality;
     if (b.workloadHours !== undefined) updates.workloadHours = b.workloadHours;
     if (b.capacity !== undefined) updates.capacity = b.capacity;
@@ -409,8 +459,15 @@ router.patch(
       eq(trainingClassesTable.id, params.data.id),
       eq(trainingClassesTable.organizationId, params.data.orgId),
     );
-    let newAssignments: NewResponsibleAssignment[] = [];
+    // Responsável anterior — para só notificar quando REALMENTE muda.
+    let priorResponsibleId: number | null = null;
     const row = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ responsibleUserId: trainingClassesTable.responsibleUserId })
+        .from(trainingClassesTable)
+        .where(scope);
+      if (!existing) return null;
+      priorResponsibleId = existing.responsibleUserId;
       // drizzle rejeita .set({}) — um PATCH vazio só relê a turma.
       const [updated] = Object.keys(updates).length
         ? await tx
@@ -421,37 +478,40 @@ router.patch(
         : await tx.select().from(trainingClassesTable).where(scope);
       if (!updated) return null;
       if (units === undefined) return updated;
-      newAssignments = await replaceClassUnits(tx, updated.id, units);
+      await replaceClassUnits(tx, updated.id, units);
       return { ...updated, unitId: units[0]?.unitId ?? null };
     });
     if (!row) {
       res.status(404).json({ error: "Turma não encontrada" });
       return;
     }
-    // Avisa só quem virou responsável AGORA (replaceClassUnits já filtrou os
-    // pares novos). Best-effort, fora da transação.
-    if (newAssignments.length > 0) {
-      void notifyClassResponsibleAssignments(
+    // Notifica só quando o responsável mudou para alguém novo (não repete se
+    // re-salvar com o mesmo). Best-effort, fora da transação.
+    if (
+      row.responsibleUserId &&
+      row.responsibleUserId !== priorResponsibleId
+    ) {
+      void notifyClassResponsibleAssignment(
         {
           classId: row.id,
           organizationId: row.organizationId,
           trainingTitle: await catalogTitleFor(row.catalogItemId),
           code: row.code,
           startDate: row.startDate,
+          responsibleUserId: row.responsibleUserId,
         },
-        newAssignments,
         req.auth!.userId,
       );
     }
     const unitsByClass = await loadClassUnits([row.id]);
+    const names = await loadResponsibleNames([row.responsibleUserId]);
     res.json(
-      serializeClass(
-        row,
-        undefined,
-        undefined,
-        undefined,
-        unitsByClass.get(row.id) ?? [],
-      ),
+      serializeClass(row, {
+        units: unitsByClass.get(row.id) ?? [],
+        responsibleUserName: row.responsibleUserId
+          ? (names.get(row.responsibleUserId) ?? null)
+          : null,
+      }),
     );
   },
 );

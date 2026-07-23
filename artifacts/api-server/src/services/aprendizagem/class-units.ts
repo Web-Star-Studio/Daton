@@ -4,29 +4,25 @@ import {
   trainingClassUnitsTable,
   trainingClassesTable,
   unitsTable,
-  usersTable,
 } from "@workspace/db";
 
 /**
- * Filiais de uma turma (N:N). Uma turma pode atender várias filiais e cada
- * filial tem o seu próprio responsável local.
+ * Filiais de uma turma (N:N). Uma turma pode atender várias filiais (treino
+ * online). O RESPONSÁVEL é da turma inteira (training_classes.responsible_user_id),
+ * não por filial — decisão da cliente (2026-07-23). A coluna
+ * training_class_units.responsible_user_id ficou dormente; este módulo não a lê
+ * nem escreve.
  *
- * A coluna legada `training_classes.unit_id` continua existindo como espelho da
- * PRIMEIRA filial da lista. Ela é escrita exclusivamente por
- * `replaceClassUnits`, na mesma transação dos vínculos — é o que impede as duas
- * representações de divergirem.
+ * A coluna legada `training_classes.unit_id` continua como espelho da PRIMEIRA
+ * filial da lista, escrita só por `replaceClassUnits`, na mesma transação — é o
+ * que impede as duas representações de divergirem.
  */
 
-export type ClassUnitInput = {
-  unitId: number;
-  responsibleUserId?: number | null;
-};
+export type ClassUnitInput = { unitId: number };
 
 export type SerializedClassUnit = {
   unitId: number;
   unitName: string | null;
-  responsibleUserId: number | null;
-  responsibleUserName: string | null;
 };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -44,7 +40,7 @@ export function dedupeClassUnits(units: ClassUnitInput[]): ClassUnitInput[] {
 }
 
 /**
- * Isolamento multi-tenant: filiais e responsáveis têm de ser da própria org.
+ * Isolamento multi-tenant: as filiais têm de ser da própria org.
  * Devolve a mensagem de erro (400) ou null quando está tudo certo.
  */
 export async function validateClassUnits(
@@ -52,7 +48,6 @@ export async function validateClassUnits(
   units: ClassUnitInput[],
 ): Promise<string | null> {
   if (units.length === 0) return null;
-
   const unitIds = units.map((u) => u.unitId);
   const orgUnits = await db
     .select({ id: unitsTable.id })
@@ -64,71 +59,26 @@ export async function validateClassUnits(
   if (unitIds.some((id) => !validUnitIds.has(id))) {
     return "Filial não encontrada";
   }
-
-  const responsibleIds = units
-    .map((u) => u.responsibleUserId)
-    .filter((id): id is number => id != null);
-  if (responsibleIds.length > 0) {
-    const orgUsers = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(
-        and(
-          inArray(usersTable.id, responsibleIds),
-          eq(usersTable.organizationId, orgId),
-        ),
-      );
-    const validUserIds = new Set(orgUsers.map((u) => u.id));
-    if (responsibleIds.some((id) => !validUserIds.has(id))) {
-      return "Responsável não encontrado";
-    }
-  }
-
   return null;
 }
-
-/** Um usuário que passou a ser responsável por uma filial nesta gravação. */
-export type NewResponsibleAssignment = { userId: number; unitName: string };
 
 /**
  * Substitui a lista inteira de filiais da turma (replace-all) e sincroniza o
  * espelho legado `training_classes.unit_id`. Precisa rodar dentro da mesma
  * transação da escrita da turma.
- *
- * Devolve as atribuições de responsável que são NOVAS em relação ao estado
- * anterior (mesmo par filial↔usuário que já existia não gera aviso repetido) —
- * é o que alimenta a notificação sem pingar quem já era responsável.
  */
 export async function replaceClassUnits(
   tx: Tx,
   classId: number,
   units: ClassUnitInput[],
-): Promise<NewResponsibleAssignment[]> {
-  // Estado anterior (antes do delete): par filial↔responsável já existente.
-  const prior = await tx
-    .select({
-      unitId: trainingClassUnitsTable.unitId,
-      responsibleUserId: trainingClassUnitsTable.responsibleUserId,
-    })
-    .from(trainingClassUnitsTable)
-    .where(eq(trainingClassUnitsTable.classId, classId));
-  const priorPairs = new Set(
-    prior
-      .filter((p) => p.responsibleUserId != null)
-      .map((p) => `${p.unitId}:${p.responsibleUserId}`),
-  );
-
+): Promise<void> {
   await tx
     .delete(trainingClassUnitsTable)
     .where(eq(trainingClassUnitsTable.classId, classId));
 
   if (units.length > 0) {
     await tx.insert(trainingClassUnitsTable).values(
-      units.map((u) => ({
-        classId,
-        unitId: u.unitId,
-        responsibleUserId: u.responsibleUserId ?? null,
-      })),
+      units.map((u) => ({ classId, unitId: u.unitId })),
     );
   }
 
@@ -136,39 +86,9 @@ export async function replaceClassUnits(
     .update(trainingClassesTable)
     .set({ unitId: units[0]?.unitId ?? null })
     .where(eq(trainingClassesTable.id, classId));
-
-  // Pares novos (filial↔responsável) que ganharam responsável agora.
-  const newPairs = units.filter(
-    (u) =>
-      u.responsibleUserId != null &&
-      !priorPairs.has(`${u.unitId}:${u.responsibleUserId}`),
-  );
-  if (newPairs.length === 0) return [];
-
-  const unitNameById = new Map(
-    (
-      await tx
-        .select({ id: unitsTable.id, name: unitsTable.name })
-        .from(unitsTable)
-        .where(
-          inArray(
-            unitsTable.id,
-            newPairs.map((u) => u.unitId),
-          ),
-        )
-    ).map((u) => [u.id, u.name]),
-  );
-
-  return newPairs.map((u) => ({
-    userId: u.responsibleUserId!,
-    unitName: unitNameById.get(u.unitId) ?? `#${u.unitId}`,
-  }));
 }
 
-/**
- * Filiais serializadas por turma. Os ids já devem vir com escopo de org
- * (a consulta que os produziu filtra por organization_id).
- */
+/** Filiais serializadas por turma (só nome; o responsável é da turma). */
 export async function loadClassUnits(
   classIds: number[],
 ): Promise<Map<number, SerializedClassUnit[]>> {
@@ -180,26 +100,15 @@ export async function loadClassUnits(
       classId: trainingClassUnitsTable.classId,
       unitId: trainingClassUnitsTable.unitId,
       unitName: unitsTable.name,
-      responsibleUserId: trainingClassUnitsTable.responsibleUserId,
-      responsibleUserName: usersTable.name,
     })
     .from(trainingClassUnitsTable)
     .leftJoin(unitsTable, eq(trainingClassUnitsTable.unitId, unitsTable.id))
-    .leftJoin(
-      usersTable,
-      eq(trainingClassUnitsTable.responsibleUserId, usersTable.id),
-    )
     .where(inArray(trainingClassUnitsTable.classId, classIds))
     .orderBy(asc(unitsTable.name), asc(trainingClassUnitsTable.unitId));
 
   for (const r of rows) {
     const list = byClass.get(r.classId) ?? [];
-    list.push({
-      unitId: r.unitId,
-      unitName: r.unitName ?? null,
-      responsibleUserId: r.responsibleUserId ?? null,
-      responsibleUserName: r.responsibleUserName ?? null,
-    });
+    list.push({ unitId: r.unitId, unitName: r.unitName ?? null });
     byClass.set(r.classId, list);
   }
   return byClass;

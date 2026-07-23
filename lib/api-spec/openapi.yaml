@@ -11644,6 +11644,15 @@ components:
         minScore:
           type: integer
           nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+          description: >-
+            Responsável pela turma (opcional). Um por turma — treino online
+            multi-filial tem um instrutor e um responsável só.
+        responsibleUserName:
+          type: string
+          nullable: true
         status:
           type: string
         notes:
@@ -11687,17 +11696,11 @@ components:
 
     TrainingClassUnit:
       type: object
-      description: "Vínculo turma ↔ filial, com o responsável local da turma naquela filial."
+      description: "Filial atendida pela turma."
       properties:
         unitId:
           type: integer
         unitName:
-          type: string
-          nullable: true
-        responsibleUserId:
-          type: integer
-          nullable: true
-        responsibleUserName:
           type: string
           nullable: true
       required:
@@ -11708,9 +11711,6 @@ components:
       properties:
         unitId:
           type: integer
-        responsibleUserId:
-          type: integer
-          nullable: true
       required:
         - unitId
 
@@ -11780,13 +11780,17 @@ components:
         units:
           type: array
           maxItems: 200
-          description: "Filiais da turma, cada uma com o responsável local (opcional)."
+          description: "Filiais atendidas pela turma."
           items:
             $ref: "#/components/schemas/TrainingClassUnitInput"
         location:
           type: string
         instructor:
           type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+          description: "Responsável pela turma (um por turma, opcional)."
         modality:
           type: string
         workloadHours:
@@ -11837,6 +11841,10 @@ components:
           type: string
         instructor:
           type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+          description: "Responsável pela turma (um por turma). null remove."
         modality:
           type: string
         workloadHours:

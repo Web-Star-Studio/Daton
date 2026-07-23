@@ -108,10 +108,17 @@ function opcao(text: string | RegExp): HTMLElement {
   return found[0];
 }
 
+/** Gatilho do campo "Responsável pela turma" (o combobox dentro dele). */
+const seletorResponsavel = () =>
+  screen
+    .getByText("Responsável pela turma")
+    .closest("div")!
+    .querySelectorAll<HTMLElement>('button[role="combobox"]')[0];
+
 async function criar(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: /Próximo/ }));
   await user.click(screen.getByRole("button", { name: /Criar turma/ }));
-  return createMutate.mock.calls[0][0].data.units;
+  return createMutate.mock.calls[0][0].data;
 }
 
 beforeEach(() => {
@@ -119,7 +126,7 @@ beforeEach(() => {
   addParticipantsMutate.mockClear();
 });
 
-describe("Nova turma — múltiplas filiais", () => {
+describe("Nova turma — múltiplas filiais + responsável da turma", () => {
   it("marca várias filiais e envia todas na criação", async () => {
     const user = userEvent.setup();
     await abrirPasso2(user);
@@ -130,10 +137,10 @@ describe("Nova turma — múltiplas filiais", () => {
     await user.keyboard("{Escape}");
 
     expect(screen.getByText("2 filiais selecionadas")).toBeInTheDocument();
-    expect(await criar(user)).toEqual([
-      { unitId: 1, responsibleUserId: null },
-      { unitId: 2, responsibleUserId: null },
-    ]);
+    const data = await criar(user);
+    expect(data.units).toEqual([{ unitId: 1 }, { unitId: 2 }]);
+    // Responsável é opcional — sem definir, não vai no payload.
+    expect(data.responsibleUserId).toBeUndefined();
   });
 
   it("'Selecionar todas' marca a organização inteira de uma vez", async () => {
@@ -145,11 +152,8 @@ describe("Nova turma — múltiplas filiais", () => {
     await user.keyboard("{Escape}");
 
     expect(screen.getByText("Todas as filiais (3)")).toBeInTheDocument();
-    expect(await criar(user)).toEqual([
-      { unitId: 1, responsibleUserId: null },
-      { unitId: 2, responsibleUserId: null },
-      { unitId: 3, responsibleUserId: null },
-    ]);
+    const data = await criar(user);
+    expect(data.units).toEqual([{ unitId: 1 }, { unitId: 2 }, { unitId: 3 }]);
   });
 
   it("clicar 'Selecionar todas' de novo limpa a seleção", async () => {
@@ -162,10 +166,11 @@ describe("Nova turma — múltiplas filiais", () => {
     await user.keyboard("{Escape}");
 
     expect(screen.getByText("Selecione as filiais...")).toBeInTheDocument();
-    expect(await criar(user)).toEqual([]);
+    const data = await criar(user);
+    expect(data.units).toEqual([]);
   });
 
-  it("cada filial tem o seu próprio responsável", async () => {
+  it("define UM responsável pela turma (não por filial)", async () => {
     const user = userEvent.setup();
     await abrirPasso2(user);
 
@@ -174,59 +179,30 @@ describe("Nova turma — múltiplas filiais", () => {
     await user.click(opcao("CARIACICA"));
     await user.keyboard("{Escape}");
 
-    // Uma linha de responsável por filial marcada.
-    const semResponsavel = screen.getAllByText("Sem responsável");
-    expect(semResponsavel).toHaveLength(2);
-
-    // Define o responsável só da 1ª filial (PORTO ALEGRE).
-    await user.click(semResponsavel[0]);
+    // Um único campo de responsável, independente das filiais.
+    await user.click(seletorResponsavel());
     await user.click(opcao("Ana Souza"));
 
-    expect(await criar(user)).toEqual([
-      { unitId: 1, responsibleUserId: 50 },
-      { unitId: 2, responsibleUserId: null },
-    ]);
+    const data = await criar(user);
+    expect(data.units).toEqual([{ unitId: 1 }, { unitId: 2 }]);
+    expect(data.responsibleUserId).toBe(50);
   });
 
-  it("desmarcar a filial leva o responsável junto", async () => {
+  it("o responsável não muda ao alterar as filiais", async () => {
     const user = userEvent.setup();
     await abrirPasso2(user);
 
-    await user.click(seletorDeFiliais());
-    await user.click(opcao("PORTO ALEGRE"));
-    await user.keyboard("{Escape}");
-
-    await user.click(screen.getByText("Sem responsável"));
+    await user.click(seletorResponsavel());
     await user.click(opcao("Bruno Lima"));
     expect(screen.getByText("Bruno Lima")).toBeInTheDocument();
 
+    // Mexer nas filiais não afeta o responsável da turma.
     await user.click(seletorDeFiliais());
     await user.click(opcao("PORTO ALEGRE"));
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByText("Bruno Lima")).not.toBeInTheDocument();
-    expect(await criar(user)).toEqual([]);
-  });
-
-  it("marcar todas preserva o responsável já definido", async () => {
-    const user = userEvent.setup();
-    await abrirPasso2(user);
-
-    await user.click(seletorDeFiliais());
-    await user.click(opcao("CARIACICA"));
-    await user.keyboard("{Escape}");
-
-    await user.click(screen.getByText("Sem responsável"));
-    await user.click(opcao("Ana Souza"));
-
-    await user.click(seletorDeFiliais());
-    await user.click(opcao(/Selecionar todas as filiais \(3\)/));
-    await user.keyboard("{Escape}");
-
-    const enviado = await criar(user);
-    expect(enviado).toHaveLength(3);
-    expect(
-      enviado.find((u: { unitId: number }) => u.unitId === 2).responsibleUserId,
-    ).toBe(50);
+    const data = await criar(user);
+    expect(data.units).toEqual([{ unitId: 1 }]);
+    expect(data.responsibleUserId).toBe(51);
   });
 });
