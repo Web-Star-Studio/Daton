@@ -11,6 +11,7 @@ import {
   actionPlansTable,
   isActionPlanEncerrado,
   type ActionPlan,
+  type ActionPlanActionTask,
 } from "@workspace/db";
 import {
   CreateActionPlanActionBody,
@@ -23,8 +24,14 @@ import {
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 import { requirePlanAccess, userCanReachPlan } from "../middlewares/plan-access";
 import { logActionPlanActivity } from "../services/action-plans/activity";
-import { notifyActionPlanActionAssignment } from "../services/action-plans/notify-assignment";
 import {
+  notifyActionPlanActionAssignment,
+  notifyActionPlanCoResponsibleAssignment,
+} from "../services/action-plans/notify-assignment";
+import { recomputePlanResponsiblesMirror } from "../services/action-plans/responsibles";
+import {
+  applyTaskAssigneeDoneOnly,
+  collectTaskAssigneeIds,
   isHowTasksOnlyDoneToggle,
   normalizeActionHowTasks,
   stampHowTasks,
@@ -44,6 +51,35 @@ async function currentUserName(userId: number | null | undefined): Promise<strin
   if (userId == null) return null;
   const map = await resolveUserNames([userId]);
   return map.get(userId) ?? null;
+}
+
+/**
+ * Após uma mutação de ação (criar/editar/excluir), recalcula o espelho de co-responsáveis
+ * do plano — que é DERIVADO dos responsáveis de ação + donos de passo — e notifica só quem
+ * ENTROU. Pula `skipUserId` (o responsável da própria ação, que já recebeu o aviso
+ * específico de ação) e o próprio ator (o notificador ignora o ator internamente).
+ */
+async function syncPlanMirrorAndNotify(
+  plan: ActionPlan,
+  actorUserId: number,
+  skipUserId: number | null,
+): Promise<void> {
+  const { added } = await recomputePlanResponsiblesMirror(plan.organizationId, plan.id, plan.responsibleUserId);
+  for (const uid of added) {
+    if (uid === skipUserId) continue;
+    await notifyActionPlanCoResponsibleAssignment(plan, uid, actorUserId);
+  }
+}
+
+/** Nomes (id → nome) do responsável da ação e de todos os donos de passo, numa
+ *  resolução só — para o serializer compor `responsibleUserName` e `assigneeUserName`. */
+async function resolveActionNames(
+  rows: { responsibleUserId: number | null; howTasks: ActionPlanActionTask[] | null }[],
+): Promise<Map<number, string>> {
+  return resolveUserNames([
+    ...rows.map((r) => r.responsibleUserId),
+    ...rows.flatMap((r) => collectTaskAssigneeIds(r.howTasks)),
+  ]);
 }
 
 type LoadEditablePlanResult =
@@ -101,8 +137,10 @@ router.get(
       ))
       .orderBy(asc(actionPlanActionsTable.sortOrder), asc(actionPlanActionsTable.id));
 
-    const names = await resolveUserNames(rows.map((r) => r.responsibleUserId));
-    res.json(rows.map((r) => serializeAction(r, r.responsibleUserId ? names.get(r.responsibleUserId) ?? null : null)));
+    const names = await resolveActionNames(rows);
+    res.json(rows.map((r) =>
+      serializeAction(r, r.responsibleUserId ? names.get(r.responsibleUserId) ?? null : null, names),
+    ));
   },
 );
 
@@ -136,6 +174,13 @@ router.post(
       if (!ok) { res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" }); return; }
     }
 
+    // Donos de passo: cada um tem de ser usuário DESTA org (barra cross-tenant + FK).
+    const cleanedTasks = normalizeActionHowTasks(body.data.howTasks);
+    for (const assigneeId of collectTaskAssigneeIds(cleanedTasks)) {
+      const ok = await assertUserBelongsToOrg(assigneeId, params.data.orgId);
+      if (!ok) { res.status(400).json({ error: "O responsável de um passo do \"Como\" não corresponde a um usuário desta organização" }); return; }
+    }
+
     const [{ value: currentMax } = { value: null }] = await db
       .select({ value: max(actionPlanActionsTable.sortOrder) })
       .from(actionPlanActionsTable)
@@ -154,7 +199,7 @@ router.post(
         how: body.data.how ?? null,
         // Passo já criado como concluído ganha o carimbo de quem/quando aqui mesmo.
         howTasks: stampHowTasks(
-          normalizeActionHowTasks(body.data.howTasks),
+          cleanedTasks,
           [],
           { userId: req.auth!.userId, userName: actorName },
           new Date().toISOString(),
@@ -181,10 +226,13 @@ router.post(
     });
 
     await notifyActionPlanActionAssignment(loaded.plan, row, req.auth!.userId);
+    // O responsável da ação e os donos de passo entram no espelho de co-responsáveis
+    // do plano (pendências/escalonamento/acesso à ficha). Notifica só quem entrou.
+    await syncPlanMirrorAndNotify(loaded.plan, req.auth!.userId, row.responsibleUserId);
 
-    const names = await resolveUserNames([row.responsibleUserId]);
+    const names = await resolveActionNames([row]);
     res.status(201).json(
-      serializeAction(row, row.responsibleUserId ? names.get(row.responsibleUserId) ?? null : null),
+      serializeAction(row, row.responsibleUserId ? names.get(row.responsibleUserId) ?? null : null, names),
     );
   },
 );
@@ -219,24 +267,60 @@ router.patch(
       ));
     if (!existing) { res.status(404).json({ error: "Ação não encontrada" }); return; }
 
-    // Least privilege: quem não conduz o plano (só executa uma ação) só pode mexer na
-    // PRÓPRIA ação. `requirePlanAccess({ allowActionAssignee })` o deixou entrar; aqui
-    // fecha para que ele não edite as ações dos outros.
-    if (existing.responsibleUserId !== req.auth!.userId) {
-      const planLevel = await userCanReachPlan(req.auth!, params.data.orgId, params.data.planId);
-      if (!planLevel) {
-        res.status(403).json({ error: "Você só pode editar a ação atribuída a você." });
-        return;
-      }
+    // ── Bandas de acesso à ESCRITA da ação (least privilege) ────────────────────
+    // Condutor do plano → edita qualquer ação; responsável da ação → edita a ação
+    // dele; dono de passo → só marca os PRÓPRIOS passos. `requireWriteAccess` já barrou
+    // analista, e `requirePlanAccess({ allowActionAssignee })` deixou o executante entrar.
+    const actorId = req.auth!.userId;
+    const isActionResponsible = existing.responsibleUserId === actorId;
+    const planLevel = isActionResponsible
+      ? true
+      : await userCanReachPlan(req.auth!, params.data.orgId, params.data.planId);
+    const ownsTask =
+      !isActionResponsible &&
+      !planLevel &&
+      collectTaskAssigneeIds(existing.howTasks).includes(actorId);
+
+    if (!isActionResponsible && !planLevel && !ownsTask) {
+      res.status(403).json({ error: "Você só pode editar a ação ou o passo atribuído a você." });
+      return;
     }
 
+    // Ator resolvido uma vez: carimba a conclusão dos passos e assina o log abaixo.
+    const actorName = await currentUserName(actorId);
+
+    // ── Faixa estreita: dono de passo (não conduz o plano, não é responsável da ação) ──
+    // Só pode marcar/desmarcar os PASSOS DELE. Ignora todo o resto do payload — texto,
+    // prazo, status, reatribuição, passos de outros —, daí retornar antes do fluxo genérico.
+    if (ownsTask) {
+      if (body.data.howTasks === undefined) {
+        const names = await resolveActionNames([existing]);
+        res.json(serializeAction(existing, existing.responsibleUserId ? names.get(existing.responsibleUserId) ?? null : null, names));
+        return;
+      }
+      const nextTasks = stampHowTasks(
+        applyTaskAssigneeDoneOnly(existing.howTasks, body.data.howTasks, actorId),
+        existing.howTasks,
+        { userId: actorId, userName: actorName },
+        new Date().toISOString(),
+      );
+      const [row] = await db
+        .update(actionPlanActionsTable)
+        .set({ howTasks: nextTasks })
+        .where(eq(actionPlanActionsTable.id, params.data.actionId))
+        .returning();
+      // Marcar passo é execução: não vira entrada no histórico, e os donos de passo não
+      // mudaram ⇒ o espelho de co-responsáveis segue igual (sem recompute nem notificação).
+      const names = await resolveActionNames([row]);
+      res.json(serializeAction(row, row.responsibleUserId ? names.get(row.responsibleUserId) ?? null : null, names));
+      return;
+    }
+
+    // ── Faixa cheia: responsável da ação ou condutor do plano ───────────────────
     if (body.data.responsibleUserId != null) {
       const ok = await assertUserBelongsToOrg(body.data.responsibleUserId, params.data.orgId);
       if (!ok) { res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" }); return; }
     }
-
-    // Ator resolvido uma vez: carimba a conclusão dos passos e assina o log abaixo.
-    const actorName = await currentUserName(req.auth!.userId);
 
     const update: Record<string, unknown> = {};
     for (const field of ["what", "why", "whereAt", "how", "howMuch", "notes"] as const) {
@@ -249,12 +333,17 @@ router.patch(
     if (body.data.dueDate !== undefined) update.dueDate = body.data.dueDate ? new Date(body.data.dueDate) : null;
     if (body.data.sortOrder !== undefined) update.sortOrder = body.data.sortOrder;
     // Checklist do "Como": array jsonb (não passa pelo laço de strings). O servidor
-    // carimba quem/quando concluiu cada passo — o cliente manda só id/text/done.
+    // carimba quem/quando concluiu cada passo — o cliente manda id/text/done/assigneeUserId.
     if (body.data.howTasks !== undefined) {
+      const cleanedTasks = normalizeActionHowTasks(body.data.howTasks);
+      for (const assigneeId of collectTaskAssigneeIds(cleanedTasks)) {
+        const ok = await assertUserBelongsToOrg(assigneeId, params.data.orgId);
+        if (!ok) { res.status(400).json({ error: "O responsável de um passo do \"Como\" não corresponde a um usuário desta organização" }); return; }
+      }
       update.howTasks = stampHowTasks(
-        normalizeActionHowTasks(body.data.howTasks),
+        cleanedTasks,
         existing.howTasks,
-        { userId: req.auth!.userId, userName: actorName },
+        { userId: actorId, userName: actorName },
         new Date().toISOString(),
       );
     }
@@ -309,9 +398,13 @@ router.patch(
     if (row.responsibleUserId !== existing.responsibleUserId) {
       await notifyActionPlanActionAssignment(loaded.plan, row, req.auth!.userId);
     }
+    // Responsável da ação ou donos de passo podem ter mudado ⇒ recalcula o espelho de
+    // co-responsáveis do plano e notifica quem entrou (pulando o responsável da ação,
+    // que já recebeu o aviso específico acima).
+    await syncPlanMirrorAndNotify(loaded.plan, actorId, row.responsibleUserId);
 
-    const names = await resolveUserNames([row.responsibleUserId]);
-    res.json(serializeAction(row, row.responsibleUserId ? names.get(row.responsibleUserId) ?? null : null));
+    const names = await resolveActionNames([row]);
+    res.json(serializeAction(row, row.responsibleUserId ? names.get(row.responsibleUserId) ?? null : null, names));
   },
 );
 
@@ -351,6 +444,10 @@ router.delete(
       userName,
       changes: { kind: "action", actionId: removed.id, what: removed.what ?? "(sem enunciado)" },
     });
+
+    // A ação removida pode ter sido a única a envolver alguém (responsável ou dono de
+    // passo) ⇒ recalcula o espelho para tirá-lo. Sem notificação (ninguém entra ao remover).
+    await syncPlanMirrorAndNotify(loaded.plan, req.auth!.userId, null);
 
     res.status(204).end();
   },

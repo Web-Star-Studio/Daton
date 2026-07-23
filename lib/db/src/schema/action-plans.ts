@@ -76,17 +76,29 @@ export type ActionPlan5W2H = {
 };
 
 /**
- * Item de checklist do campo "Como" de uma ação (5W2H). O responsável quebra o
- * método em passos e vai marcando cada um. Vive num jsonb na própria ação (não
- * numa tabela): ao contrário das ações, um passo NÃO é consultado por
- * responsável nem por prazo — é só progresso dentro de uma ação —, então não
- * precisa indexar. `id` é gerado no cliente (uuid) só para dar key estável às
- * linhas e casar edições; não é FK de nada.
+ * Item de checklist do campo "Como" de uma ação (5W2H). O responsável da ação
+ * quebra o método em passos, designa cada um (a outra pessoa ou a si) e vai
+ * marcando. Vive num jsonb na própria ação (não numa tabela): não é consultado
+ * por PRAZO — não há vencimento por passo —, então não precisa indexar. `id` é
+ * gerado no cliente (uuid) só para dar key estável às linhas e casar edições;
+ * não é FK de nada.
+ *
+ * Consultar por RESPONSÁVEL, por outro lado, passou a existir (acesso à ficha e
+ * o espelho de co-responsáveis do plano) — mas é uma varredura das ações do
+ * plano, não uma junção indexada; o volume por plano é pequeno.
  */
 export type ActionPlanActionTask = {
   id: string;
   text: string;
   done: boolean;
+  /**
+   * Quem executa o passo. É o mecanismo pelo qual o responsável da ação distribui
+   * o "Como". Guarda só o id (FK lógica p/ `users.id`); o NOME é resolvido na
+   * leitura (serializer), como o `responsibleUserName` da ação — assim não
+   * envelhece com rename e cai num fallback se o usuário some. `null`/ausente = o
+   * passo é do próprio responsável da ação (default implícito, não materializado).
+   */
+  assigneeUserId?: number | null;
   /**
    * Carimbo de auditoria da conclusão — QUANDO e QUEM marcou o passo. Preenchido
    * pelo SERVIDOR ao marcar (não confia no cliente: quem/quando não pode ser

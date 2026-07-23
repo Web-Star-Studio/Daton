@@ -28,9 +28,55 @@ export function normalizeActionHowTasks(
     let id = typeof item?.id === "string" && item.id.trim() !== "" ? item.id : randomUUID();
     if (seen.has(id)) id = randomUUID();
     seen.add(id);
-    out.push({ id, text, done: Boolean(item?.done) });
+    // Sanitiza o dono do passo aqui (higiene); a rota valida em seguida que o id é
+    // usuário DESTA org — como já faz com o `responsibleUserId` da ação.
+    const assigneeUserId =
+      typeof item?.assigneeUserId === "number" &&
+      Number.isInteger(item.assigneeUserId) &&
+      item.assigneeUserId > 0
+        ? item.assigneeUserId
+        : null;
+    out.push({ id, text, done: Boolean(item?.done), assigneeUserId });
   }
   return out.length > 0 ? out : null;
+}
+
+/** Ids distintos e válidos dos donos de passo de uma checklist (para validar org
+ *  e alimentar o espelho de co-responsáveis do plano). Ignora passos sem dono. */
+export function collectTaskAssigneeIds(
+  tasks: ActionPlanActionTask[] | null | undefined,
+): number[] {
+  if (!Array.isArray(tasks)) return [];
+  const ids = new Set<number>();
+  for (const t of tasks) {
+    if (typeof t.assigneeUserId === "number" && t.assigneeUserId > 0) ids.add(t.assigneeUserId);
+  }
+  return [...ids];
+}
+
+/**
+ * Faixa ESTREITA do dono de passo: aplica, sobre a checklist já existente, apenas
+ * as marcações (`done`) dos passos DELE. Descarta todo o resto do payload — texto,
+ * inclusão/remoção, reatribuição, ou marcar o passo de outro. Esse ator não conduz
+ * a ação; só executa os próprios passos, e o cliente manda a lista inteira (autosave),
+ * então não dá para confiar no payload. A saída ainda passa por `stampHowTasks`
+ * (o carimbo de quem/quando é do servidor).
+ */
+export function applyTaskAssigneeDoneOnly(
+  existing: ActionPlanActionTask[] | null | undefined,
+  incoming: ActionPlanActionTask[] | null | undefined,
+  assigneeUserId: number,
+): ActionPlanActionTask[] | null {
+  const base = Array.isArray(existing) ? existing : [];
+  if (base.length === 0) return null;
+  const incomingById = new Map<string, ActionPlanActionTask>();
+  for (const t of Array.isArray(incoming) ? incoming : []) incomingById.set(t.id, t);
+  return base.map((t) => {
+    if (t.assigneeUserId !== assigneeUserId) return t; // não é dele → intocado
+    const inc = incomingById.get(t.id);
+    if (!inc) return t; // não veio no payload → intocado
+    return { ...t, done: Boolean(inc.done) }; // só o `done` muda
+  });
 }
 
 /**
@@ -54,12 +100,14 @@ export function stampHowTasks(
   const prevById = new Map<string, ActionPlanActionTask>();
   for (const t of existing ?? []) prevById.set(t.id, t);
   return cleaned.map((t) => {
-    if (!t.done) return { id: t.id, text: t.text, done: false };
+    // O dono do passo (`assigneeUserId`) é do cliente e sobrevive ao carimbo — só
+    // quem/quando concluiu é autoritativo do servidor.
+    const base = { id: t.id, text: t.text, assigneeUserId: t.assigneeUserId ?? null };
+    if (!t.done) return { ...base, done: false };
     const prev = prevById.get(t.id);
     if (prev?.done && prev.doneAt) {
       return {
-        id: t.id,
-        text: t.text,
+        ...base,
         done: true,
         doneAt: prev.doneAt,
         doneByUserId: prev.doneByUserId ?? null,
@@ -67,8 +115,7 @@ export function stampHowTasks(
       };
     }
     return {
-      id: t.id,
-      text: t.text,
+      ...base,
       done: true,
       doneAt: nowIso,
       doneByUserId: actor.userId,
@@ -80,8 +127,9 @@ export function stampHowTasks(
 /**
  * Duas checklists diferem SÓ por marcação/conclusão (mesmos passos, mesma ordem,
  * mesmo texto — só `done`/carimbo mudou)? Serve para o histórico: marcar/desmarcar
- * é execução (não vira entrada); incluir/remover/renomear passo é replanejamento
- * (deve virar). Compara por `id`+`text`; ignora `done` e os carimbos de propósito.
+ * é execução (não vira entrada); incluir/remover/renomear/reatribuir passo é
+ * replanejamento (deve virar). Compara por `id`+`text`+`assigneeUserId`; ignora
+ * `done` e os carimbos de propósito.
  */
 export function isHowTasksOnlyDoneToggle(
   before: ActionPlanActionTask[] | null | undefined,
@@ -91,7 +139,13 @@ export function isHowTasksOnlyDoneToggle(
   const b = Array.isArray(after) ? after : [];
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
-    if (a[i].id !== b[i].id || a[i].text !== b[i].text) return false;
+    if (
+      a[i].id !== b[i].id ||
+      a[i].text !== b[i].text ||
+      (a[i].assigneeUserId ?? null) !== (b[i].assigneeUserId ?? null)
+    ) {
+      return false;
+    }
   }
   return true;
 }

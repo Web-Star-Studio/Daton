@@ -45,9 +45,9 @@ import { requirePlanAccess, SOURCE_MODULE_OWNER } from "../middlewares/plan-acce
 import { resolveSourceContexts } from "../services/action-plans/source-context";
 import { normalizeAnalyses, parseAnalyses } from "../services/action-plans/analyses";
 import {
-  isPlanCoResponsible,
   listCoResponsibleIds,
   listCoResponsiblesByPlan,
+  recomputePlanResponsiblesMirror,
   setPlanCoResponsibles,
 } from "../services/action-plans/responsibles";
 import {
@@ -814,7 +814,8 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
     if (diff) await logActionPlanActivity({ ...logBase, action: "updated", changes: diff });
   }
 
-  // Notifica o ponto focal se ele mudou, e só os co-responsáveis que ENTRARAM.
+  // Notifica o ponto focal se ele mudou, e só os co-responsáveis que ENTRARAM
+  // (caminho manual legado — dormente; o front não envia mais co-responsável à mão).
   if (row.responsibleUserId !== existing.responsibleUserId) {
     await notifyActionPlanAssignment(row, req.auth!.userId);
   }
@@ -823,6 +824,17 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireP
   }
   if (row.effectivenessEvaluatorUserId !== existing.effectivenessEvaluatorUserId) {
     await notifyActionPlanEvaluatorAssignment(row, req.auth!.userId);
+  }
+
+  // Trocar o ponto focal muda o espelho DERIVADO de co-responsáveis: o novo focal sai
+  // da lista, e o antigo entra se ainda responde por alguma ação/passo. Recalcula e
+  // notifica quem entrou (pulando o próprio focal, já avisado acima).
+  if (row.responsibleUserId !== existing.responsibleUserId) {
+    const mirror = await recomputePlanResponsiblesMirror(params.data.orgId, params.data.planId, row.responsibleUserId);
+    for (const userId of mirror.added) {
+      if (userId === row.responsibleUserId) continue;
+      await notifyActionPlanCoResponsibleAssignment(row, userId, req.auth!.userId);
+    }
   }
 
   const out = await loadAndSerializePlan(params.data.orgId, row.id);

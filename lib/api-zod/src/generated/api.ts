@@ -22656,12 +22656,19 @@ export const ListActionPlanActionsResponseItem = zod.object({
           id: zod.string(),
           text: zod.string(),
           done: zod.boolean(),
+          assigneeUserId: zod
+            .number()
+            .nullish()
+            .describe(
+              "Dono do passo (id de usuário). null = passo do próprio responsável da ação.",
+            ),
+          assigneeUserName: zod.string().nullish(),
           doneAt: zod.string().datetime({}).nullish(),
           doneByUserId: zod.number().nullish(),
           doneByUserName: zod.string().nullish(),
         })
         .describe(
-          "Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt\/ doneBy\* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.",
+          "Item de checklist do campo Como de uma ação (5W2H). O responsável da ação designa cada passo (via assigneeUserId). Os campos doneAt\/doneBy\* e assigneeUserName são preenchidos pelo servidor (ignorados no request): os carimbos ao marcar\/desmarcar, e assigneeUserName resolvido do id na leitura.",
         ),
     )
     .nullish()
@@ -22699,12 +22706,19 @@ export const CreateActionPlanActionBody = zod.object({
           id: zod.string(),
           text: zod.string(),
           done: zod.boolean(),
+          assigneeUserId: zod
+            .number()
+            .nullish()
+            .describe(
+              "Dono do passo (id de usuário). null = passo do próprio responsável da ação.",
+            ),
+          assigneeUserName: zod.string().nullish(),
           doneAt: zod.string().datetime({}).nullish(),
           doneByUserId: zod.number().nullish(),
           doneByUserName: zod.string().nullish(),
         })
         .describe(
-          "Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt\/ doneBy\* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.",
+          "Item de checklist do campo Como de uma ação (5W2H). O responsável da ação designa cada passo (via assigneeUserId). Os campos doneAt\/doneBy\* e assigneeUserName são preenchidos pelo servidor (ignorados no request): os carimbos ao marcar\/desmarcar, e assigneeUserName resolvido do id na leitura.",
         ),
     )
     .nullish(),
@@ -22735,12 +22749,19 @@ export const UpdateActionPlanActionBody = zod.object({
           id: zod.string(),
           text: zod.string(),
           done: zod.boolean(),
+          assigneeUserId: zod
+            .number()
+            .nullish()
+            .describe(
+              "Dono do passo (id de usuário). null = passo do próprio responsável da ação.",
+            ),
+          assigneeUserName: zod.string().nullish(),
           doneAt: zod.string().datetime({}).nullish(),
           doneByUserId: zod.number().nullish(),
           doneByUserName: zod.string().nullish(),
         })
         .describe(
-          "Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt\/ doneBy\* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.",
+          "Item de checklist do campo Como de uma ação (5W2H). O responsável da ação designa cada passo (via assigneeUserId). Os campos doneAt\/doneBy\* e assigneeUserName são preenchidos pelo servidor (ignorados no request): os carimbos ao marcar\/desmarcar, e assigneeUserName resolvido do id na leitura.",
         ),
     )
     .nullish(),
@@ -22768,12 +22789,19 @@ export const UpdateActionPlanActionResponse = zod.object({
           id: zod.string(),
           text: zod.string(),
           done: zod.boolean(),
+          assigneeUserId: zod
+            .number()
+            .nullish()
+            .describe(
+              "Dono do passo (id de usuário). null = passo do próprio responsável da ação.",
+            ),
+          assigneeUserName: zod.string().nullish(),
           doneAt: zod.string().datetime({}).nullish(),
           doneByUserId: zod.number().nullish(),
           doneByUserName: zod.string().nullish(),
         })
         .describe(
-          "Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt\/ doneBy\* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.",
+          "Item de checklist do campo Como de uma ação (5W2H). O responsável da ação designa cada passo (via assigneeUserId). Os campos doneAt\/doneBy\* e assigneeUserName são preenchidos pelo servidor (ignorados no request): os carimbos ao marcar\/desmarcar, e assigneeUserName resolvido do id na leitura.",
         ),
     )
     .nullish()
