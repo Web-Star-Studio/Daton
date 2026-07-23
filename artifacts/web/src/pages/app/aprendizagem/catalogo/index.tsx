@@ -77,6 +77,20 @@ function evidenceOptionLabel(o: TrainingCatalogOption): string {
     return `${o.label} — comprova competência${o.requiresValidity ? " (com validade)" : ""}`;
   return `${o.label} — não comprova competência`;
 }
+
+/** Um item tem competência vinculada se a lista canônica não está vazia OU se
+ *  só o campo singular legado (targetCompetencyName) foi gravado — colunas
+ *  singulares são espelho do 1º item, mas um PATCH antigo pode ter mexido só
+ *  nelas sem tocar o array. Ver comentário do schema em learning-catalog.ts. */
+function hasLinkedCompetency(item: {
+  targetCompetencies?: { name: string; type: string; level: number }[] | null;
+  targetCompetencyName?: string | null;
+}): boolean {
+  return (
+    Boolean(item.targetCompetencies && item.targetCompetencies.length > 0) ||
+    Boolean(item.targetCompetencyName)
+  );
+}
 /** Quantos badges de norma cabem no cabeçalho do card antes do "+N". */
 const NORM_BADGES_ON_CARD = 2;
 
@@ -769,10 +783,7 @@ export default function CatalogoPage() {
                     </Badge>
                   ) : null}
                   {evidenceProves(trainingOptions, item.evidenceType) &&
-                  !(
-                    item.targetCompetencies &&
-                    item.targetCompetencies.length > 0
-                  ) ? (
+                  !hasLinkedCompetency(item) ? (
                     <Badge
                       title="Este tipo de evidência comprova competência, mas nenhuma foi vinculada ainda"
                       className="flex items-center gap-1 bg-amber-50 text-amber-700"
