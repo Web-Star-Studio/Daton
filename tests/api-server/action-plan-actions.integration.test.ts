@@ -304,7 +304,9 @@ describe("ações do plano", () => {
         ],
       })
       .expect(201);
-    expect(created.body.howTasks).toEqual([{ id: "a", text: "Comprar filtros", done: false }]);
+    expect(created.body.howTasks).toEqual([
+      { id: "a", text: "Comprar filtros", done: false, assigneeUserId: null, assigneeUserName: null },
+    ]);
 
     // Marca o passo como concluído — o servidor carimba QUANDO e QUEM.
     const patched = await request(app)

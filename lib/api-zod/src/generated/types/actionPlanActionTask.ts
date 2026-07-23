@@ -7,12 +7,15 @@
  */
 
 /**
- * Item de checklist do campo Como de uma ação (5W2H). Os campos doneAt/ doneBy* são carimbados pelo servidor ao marcar (ignorados no request) e limpos ao desmarcar.
+ * Item de checklist do campo Como de uma ação (5W2H). O responsável da ação designa cada passo (via assigneeUserId). Os campos doneAt/doneBy* e assigneeUserName são preenchidos pelo servidor (ignorados no request): os carimbos ao marcar/desmarcar, e assigneeUserName resolvido do id na leitura.
  */
 export interface ActionPlanActionTask {
   id: string;
   text: string;
   done: boolean;
+  /** Dono do passo (id de usuário). null = passo do próprio responsável da ação. */
+  assigneeUserId?: number | null;
+  assigneeUserName?: string | null;
   doneAt?: string | null;
   doneByUserId?: number | null;
   doneByUserName?: string | null;

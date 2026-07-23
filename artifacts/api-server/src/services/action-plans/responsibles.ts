@@ -1,11 +1,18 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { actionPlanActionsTable, actionPlanResponsiblesTable, db, usersTable } from "@workspace/db";
+import { collectTaskAssigneeIds } from "./how-tasks";
 
 /**
  * Acesso aos **co-responsáveis** de um plano — os "outros responsáveis", além do
  * ponto focal. O ponto focal é `action_plans.responsible_user_id` e nunca aparece
  * nesta lista; o conjunto completo de responsáveis do plano é
  * `[ponto focal, ...co-responsáveis]`.
+ *
+ * Desde o "Como" com dono por passo, esta lista é **derivada**, não digitada: é a
+ * união de quem responde por alguma AÇÃO do plano com quem recebeu algum PASSO do
+ * "Como", menos o ponto focal. `recomputePlanResponsiblesMirror` é o único escritor
+ * do caminho vivo; `setPlanCoResponsibles` continua exposto para o caminho legado da
+ * rota do plano (dormente — o front não envia mais co-responsável à mão).
  */
 
 export type PlanCoResponsible = { userId: number; name: string };
@@ -60,10 +67,10 @@ export async function setPlanCoResponsibles(
   orgId: number,
   planId: number,
   userIds: number[],
-): Promise<void> {
+): Promise<{ added: number[]; removed: number[] }> {
   const desired = [...new Set(userIds)];
 
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     const current = (
       await tx
         .select({ userId: actionPlanResponsiblesTable.userId })
@@ -88,7 +95,51 @@ export async function setPlanCoResponsibles(
         .values(toAdd.map((userId) => ({ organizationId: orgId, actionPlanId: planId, userId })))
         .onConflictDoNothing();
     }
+    // Delta devolvido para que o chamador notifique só QUEM ENTROU (o autosave
+    // recalcula o espelho a cada gravação — sem o delta, viraria e-mail repetido).
+    return { added: toAdd, removed: toRemove };
   });
+}
+
+/**
+ * Recalcula o espelho de co-responsáveis a partir da execução: união de quem
+ * responde por alguma AÇÃO do plano com quem recebeu algum PASSO do "Como", menos
+ * o ponto focal (ninguém é responsável duas vezes). É o único escritor do caminho
+ * vivo — chamado após criar/editar/excluir ação e ao trocar o ponto focal do plano.
+ * Devolve o delta de `setPlanCoResponsibles` para a notificação de quem entrou.
+ */
+export async function recomputePlanResponsiblesMirror(
+  orgId: number,
+  planId: number,
+  pontoFocalUserId: number | null,
+): Promise<{ added: number[]; removed: number[] }> {
+  const rows = await db
+    .select({
+      responsibleUserId: actionPlanActionsTable.responsibleUserId,
+      howTasks: actionPlanActionsTable.howTasks,
+    })
+    .from(actionPlanActionsTable)
+    .where(eq(actionPlanActionsTable.actionPlanId, planId));
+
+  const derived = new Set<number>();
+  for (const r of rows) {
+    if (r.responsibleUserId != null) derived.add(r.responsibleUserId);
+    for (const id of collectTaskAssigneeIds(r.howTasks)) derived.add(id);
+  }
+  if (pontoFocalUserId != null) derived.delete(pontoFocalUserId);
+
+  return setPlanCoResponsibles(orgId, planId, [...derived]);
+}
+
+/** True quando o usuário é dono de ALGUM passo do "Como" de alguma ação do plano.
+ *  Espelha `isPlanActionAssignee`: executar um passo dá o mesmo acesso estreito
+ *  (abre a ficha, marca só o próprio passo) — não conduz o plano. */
+export async function isPlanTaskAssignee(planId: number, userId: number): Promise<boolean> {
+  const rows = await db
+    .select({ howTasks: actionPlanActionsTable.howTasks })
+    .from(actionPlanActionsTable)
+    .where(eq(actionPlanActionsTable.actionPlanId, planId));
+  return rows.some((r) => collectTaskAssigneeIds(r.howTasks).includes(userId));
 }
 
 /** True quando o usuário é co-responsável do plano. Não cobre o ponto focal —

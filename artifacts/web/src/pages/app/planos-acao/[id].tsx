@@ -26,8 +26,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
-import { buildCoResponsibleOptions, buildResponsibleOptions } from "./_components/responsible-options";
+import { buildResponsibleOptions } from "./_components/responsible-options";
 import { mergeDraftIntoForm } from "./_components/merge-draft";
 import { diffActionPlanPayload } from "./_components/payload-diff";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -170,7 +169,6 @@ export default function ActionPlanFichaPage() {
     status: "open" as ActionPlanStatus,
     priority: "medium" as ActionPlanPriority,
     responsibleUserId: "",
-    coResponsibleUserIds: [] as number[],
     dueDate: "",
     correctiveActionDescription: "",
     correctiveActionCompletedAt: "",
@@ -237,7 +235,6 @@ export default function ActionPlanFichaPage() {
       status: plan.status,
       priority: plan.priority,
       responsibleUserId: plan.responsibleUserId != null ? String(plan.responsibleUserId) : "",
-      coResponsibleUserIds: plan.coResponsibles.map((r) => r.userId),
       dueDate: storageIsoToCalendarDate(plan.dueDate),
       correctiveActionDescription: plan.correctiveActionDescription ?? "",
       correctiveActionCompletedAt: storageIsoToCalendarDate(plan.correctiveActionCompletedAt),
@@ -269,7 +266,8 @@ export default function ActionPlanFichaPage() {
       status: f.status,
       priority: f.priority,
       responsibleUserId: f.responsibleUserId ? Number(f.responsibleUserId) : null,
-      coResponsibleUserIds: f.coResponsibleUserIds,
+      // coResponsibleUserIds NÃO é mais enviado: os co-responsáveis são derivados das
+      // ações/passos no servidor. Enviar aqui sobrescreveria o espelho derivado.
       dueDate: f.dueDate ? calendarDateToStorageIso(f.dueDate) : null,
       correctiveActionDescription: f.correctiveActionDescription.trim() || null,
       correctiveActionCompletedAt: f.correctiveActionCompletedAt ? calendarDateToStorageIso(f.correctiveActionCompletedAt) : null,
@@ -711,26 +709,26 @@ export default function ActionPlanFichaPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Co-responsáveis</Label>
-                  <SearchableMultiSelect
-                    options={buildCoResponsibleOptions(
-                      orgUsers,
-                      plan.coResponsibles,
-                      form.responsibleUserId ? Number(form.responsibleUserId) : null,
-                    )}
-                    selected={form.coResponsibleUserIds}
-                    onToggle={(id) =>
-                      patch(
-                        "coResponsibleUserIds",
-                        form.coResponsibleUserIds.includes(id)
-                          ? form.coResponsibleUserIds.filter((v) => v !== id)
-                          : [...form.coResponsibleUserIds, id],
-                      )
-                    }
-                    placeholder="Ninguém além do ponto focal"
-                    searchPlaceholder="Buscar usuário..."
-                    emptyMessage="Nenhum usuário encontrado"
-                    disabled={!canEdit}
-                  />
+                  {/* Derivado, não digitado: são os responsáveis das ações e os donos de
+                      passo do "Como". Some daqui o campo manual — quem entra no "Como" já
+                      vira co-responsável. Leitura apenas. */}
+                  {plan.coResponsibles.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {plan.coResponsibles.map((r) => (
+                        <span
+                          key={r.userId}
+                          className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs text-foreground"
+                        >
+                          {r.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="py-1.5 text-xs text-muted-foreground">
+                      Definidos pelas ações — quem responde por uma ação ou recebe um passo do
+                      "Como" aparece aqui.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Prazo</Label>
@@ -903,7 +901,7 @@ export default function ActionPlanFichaPage() {
               canEvaluate={isAdmin || (plan.effectivenessEvaluatorUserId != null && plan.effectivenessEvaluatorUserId === user?.id)}
               canAssignEvaluator={isAdmin}
               responsibleUserId={form.responsibleUserId}
-              coResponsibleUserIds={form.coResponsibleUserIds}
+              coResponsibleUserIds={plan.coResponsibles.map((r) => r.userId)}
             />
           </Section>
 

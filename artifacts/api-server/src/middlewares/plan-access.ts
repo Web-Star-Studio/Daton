@@ -6,7 +6,11 @@ import { Request, Response, NextFunction } from "express";
 import { and, eq } from "drizzle-orm";
 import { actionPlansTable, db, type ActionPlanSourceModule } from "@workspace/db";
 import { userHasModuleAccess, type AppModule, type AuthPayload } from "./auth";
-import { isPlanCoResponsible, isPlanActionAssignee } from "../services/action-plans/responsibles";
+import {
+  isPlanActionAssignee,
+  isPlanCoResponsible,
+  isPlanTaskAssignee,
+} from "../services/action-plans/responsibles";
 
 /**
  * Module that owns each action-plan origin. The hub (`actionPlans`) sees every
@@ -39,13 +43,17 @@ type PlanAccessRow = {
 };
 
 /**
- * Acesso de NÍVEL DE PLANO: ponto focal, avaliador da eficácia, módulo do hub, módulo da
- * origem, ou co-responsável. É o conjunto de quem pode CONDUZIR o plano — editar/excluir o
- * plano e qualquer ação dele. NÃO inclui quem só executa uma ação: esse tem acesso mais
- * estreito (leitura do plano + escrita na própria ação), via `allowActionAssignee` abaixo e
- * a checagem de dono-da-ação na rota PATCH da ação.
+ * Acesso de NÍVEL DE PLANO: ponto focal, avaliador da eficácia, módulo do hub ou módulo
+ * da origem. É o conjunto de quem pode CONDUZIR o plano — editar/excluir o plano e
+ * qualquer ação dele.
+ *
+ * NÃO inclui co-responsável: desde o "Como" com dono por passo, co-responsável é
+ * DERIVADO da execução (responde por uma ação ou recebeu um passo) e tem acesso
+ * ESTREITO — abre a ficha e mexe só no que é dele —, não conduz o plano. Esse alcance
+ * estreito entra por `allowActionAssignee` (leitura) + a trava de dono na rota PATCH da
+ * ação. Promover todo executante a condutor seria escalada de privilégio.
  */
-async function hasPlanLevelAccess(auth: AuthPayload, plan: PlanAccessRow, planId: number): Promise<boolean> {
+async function hasPlanLevelAccess(auth: AuthPayload, plan: PlanAccessRow, _planId: number): Promise<boolean> {
   const userId = auth.userId;
   // Ordem importa: os checks de módulo saem do cache de auth (30s), então o
   // curto-circuito evita a consulta à junção para quem já entra pelo módulo.
@@ -53,8 +61,7 @@ async function hasPlanLevelAccess(auth: AuthPayload, plan: PlanAccessRow, planId
     plan.responsibleUserId === userId ||
     plan.effectivenessEvaluatorUserId === userId ||
     (await userHasModuleAccess(auth, "actionPlans")) ||
-    (await userHasModuleAccess(auth, SOURCE_MODULE_OWNER[plan.sourceModule])) ||
-    (await isPlanCoResponsible(planId, userId))
+    (await userHasModuleAccess(auth, SOURCE_MODULE_OWNER[plan.sourceModule]))
   );
 }
 
@@ -115,7 +122,15 @@ export function requirePlanAccess(options?: { allowActionAssignee?: boolean }) {
     const userId = req.auth!.userId;
     const allowed =
       (await hasPlanLevelAccess(req.auth!, plan, planId)) ||
-      (options?.allowActionAssignee === true && (await isPlanActionAssignee(planId, userId)));
+      // Alcance ESTREITO (só leitura): abre a ficha para agir na sua parte, mesmo sem o
+      // módulo. Cobre quem executa uma AÇÃO ou um PASSO do "Como" (fonte da verdade,
+      // varre as ações direto), e quem está no espelho de co-responsáveis — inclusive
+      // quem entrou pelo caminho manual legado, evitando que a pendência vire um beco.
+      // NÃO é acesso de condução: editar/excluir o plano exige `hasPlanLevelAccess`.
+      (options?.allowActionAssignee === true &&
+        ((await isPlanActionAssignee(planId, userId)) ||
+          (await isPlanTaskAssignee(planId, userId)) ||
+          (await isPlanCoResponsible(planId, userId))));
     if (!allowed) { res.status(403).json({ error: "Sem acesso a este plano de ação" }); return; }
 
     next();

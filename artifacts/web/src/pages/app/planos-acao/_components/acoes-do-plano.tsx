@@ -602,6 +602,7 @@ export function AcoesDoPlano({
                         <TasksChecklist
                           tasks={draft.howTasks}
                           canEdit={canEdit}
+                          orgUsers={orgUsers}
                           focusTaskRef={focusTaskRef}
                           onAdd={() => addTask(action.id, draft.howTasks)}
                           onToggle={(taskId, done) =>
@@ -619,6 +620,15 @@ export function AcoesDoPlano({
                               "howTasks",
                               draft.howTasks.map((t) =>
                                 t.id === taskId ? { ...t, text } : t,
+                              ),
+                            )
+                          }
+                          onAssign={(taskId, assigneeUserId) =>
+                            patchField(
+                              action.id,
+                              "howTasks",
+                              draft.howTasks.map((t) =>
+                                t.id === taskId ? { ...t, assigneeUserId } : t,
                               ),
                             )
                           }
@@ -714,18 +724,22 @@ function Field({
 function TasksChecklist({
   tasks,
   canEdit,
+  orgUsers,
   focusTaskRef,
   onAdd,
   onToggle,
   onText,
+  onAssign,
   onRemove,
 }: {
   tasks: ActionPlanActionTask[];
   canEdit: boolean;
+  orgUsers: { id: number; name: string }[];
   focusTaskRef: MutableRefObject<string | null>;
   onAdd: () => void;
   onToggle: (taskId: string, done: boolean) => void;
   onText: (taskId: string, text: string) => void;
+  onAssign: (taskId: string, assigneeUserId: number | null) => void;
   onRemove: (taskId: string) => void;
 }) {
   const filled = tasks.filter((t) => t.text.trim() !== "");
@@ -798,6 +812,39 @@ function TasksChecklist({
                 </Button>
               )}
               </div>
+              {/* Dono do passo: o responsável da ação designa quem executa cada linha.
+                  Opcional — sem dono, o passo é do próprio responsável da ação. Só
+                  aparece em passo que já tem texto (o vazio ainda não "existe"). */}
+              {task.text.trim() !== "" && (canEdit || task.assigneeUserId != null) && (
+                <div className="flex items-center gap-1.5 pl-6">
+                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Resp.
+                  </span>
+                  {canEdit ? (
+                    <div className="min-w-0 flex-1">
+                      <SearchableSelect
+                        value={task.assigneeUserId != null ? String(task.assigneeUserId) : ""}
+                        onChange={(v) => onAssign(task.id, v ? Number(v) : null)}
+                        options={
+                          task.assigneeUserId != null
+                            ? [
+                                { value: "", label: "Remover responsável" },
+                                ...buildResponsibleOptions(orgUsers, task.assigneeUserId, task.assigneeUserName ?? null),
+                              ]
+                            : buildResponsibleOptions(orgUsers, null, null)
+                        }
+                        placeholder="Responsável do passo (opcional)"
+                        searchPlaceholder="Buscar usuário..."
+                        emptyMessage="Nenhum usuário encontrado"
+                      />
+                    </div>
+                  ) : (
+                    <span className="truncate text-[11px] text-muted-foreground">
+                      {task.assigneeUserName ?? "Responsável definido"}
+                    </span>
+                  )}
+                </div>
+              )}
               {/* Carimbo de conclusão: quando e quem marcou (vem do servidor). */}
               {task.done && task.doneAt && (
                 <p className="pl-6 text-[11px] text-muted-foreground">

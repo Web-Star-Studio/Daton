@@ -48,7 +48,17 @@ export function serializeComment(
 export function serializeAction(
   a: DbActionPlanAction,
   responsibleUserName: string | null = null,
+  /** Nomes resolvidos dos donos de passo (id → nome). O dono é guardado só por id no
+   *  jsonb; o nome é composto na leitura, como o `responsibleUserName` da ação. */
+  taskAssigneeNames: Map<number, string> | null = null,
 ) {
+  const howTasks = a.howTasks
+    ? a.howTasks.map((t) => ({
+        ...t,
+        assigneeUserName:
+          t.assigneeUserId != null ? taskAssigneeNames?.get(t.assigneeUserId) ?? null : null,
+      }))
+    : null;
   return {
     id: a.id,
     actionPlanId: a.actionPlanId,
@@ -56,7 +66,7 @@ export function serializeAction(
     why: a.why ?? null,
     whereAt: a.whereAt ?? null,
     how: a.how ?? null,
-    howTasks: a.howTasks ?? null,
+    howTasks,
     howMuch: a.howMuch ?? null,
     responsibleUserId: a.responsibleUserId ?? null,
     responsibleUserName,
