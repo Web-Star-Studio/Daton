@@ -37,6 +37,8 @@ function getNotificationLink(notification: NotificationItem): string | null {
       return `/governanca/planejamento/${notification.relatedEntityId}`;
     case "action_plan":
       return `/planos-acao/${notification.relatedEntityId}`;
+    case "employee_gap":
+      return `/aprendizagem/colaboradores/${notification.relatedEntityId}`;
     default:
       return null;
   }
