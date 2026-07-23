@@ -116,9 +116,13 @@ export default function TurmasPage() {
 
   const [statusFilter, setStatusFilter] = useState("");
   const [unitFilter, setUnitFilter] = useState("");
+  // "Minhas turmas como responsável": filtra pelo usuário logado como
+  // responsável de alguma filial (via training_class_units).
+  const [mineOnly, setMineOnly] = useState(false);
   const listParams = {
     status: statusFilter || undefined,
     unitId: unitFilter ? Number(unitFilter) : undefined,
+    responsibleUserId: mineOnly ? user?.id : undefined,
   };
   const { data: result, isLoading } = useListTrainingClasses(
     orgId ?? 0,
@@ -358,6 +362,16 @@ export default function TurmasPage() {
             </option>
           ))}
         </Select>
+        <Button
+          type="button"
+          variant={mineOnly ? "default" : "outline"}
+          size="sm"
+          onClick={() => setMineOnly((v) => !v)}
+          aria-pressed={mineOnly}
+          title="Mostrar apenas as turmas em que você é responsável por alguma filial"
+        >
+          Minhas como responsável
+        </Button>
         <span className="ml-auto text-sm text-muted-foreground">
           {classes.length} turma{classes.length !== 1 ? "s" : ""}
         </span>

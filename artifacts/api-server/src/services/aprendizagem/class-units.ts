@@ -87,16 +87,37 @@ export async function validateClassUnits(
   return null;
 }
 
+/** Um usuário que passou a ser responsável por uma filial nesta gravação. */
+export type NewResponsibleAssignment = { userId: number; unitName: string };
+
 /**
  * Substitui a lista inteira de filiais da turma (replace-all) e sincroniza o
  * espelho legado `training_classes.unit_id`. Precisa rodar dentro da mesma
  * transação da escrita da turma.
+ *
+ * Devolve as atribuições de responsável que são NOVAS em relação ao estado
+ * anterior (mesmo par filial↔usuário que já existia não gera aviso repetido) —
+ * é o que alimenta a notificação sem pingar quem já era responsável.
  */
 export async function replaceClassUnits(
   tx: Tx,
   classId: number,
   units: ClassUnitInput[],
-): Promise<void> {
+): Promise<NewResponsibleAssignment[]> {
+  // Estado anterior (antes do delete): par filial↔responsável já existente.
+  const prior = await tx
+    .select({
+      unitId: trainingClassUnitsTable.unitId,
+      responsibleUserId: trainingClassUnitsTable.responsibleUserId,
+    })
+    .from(trainingClassUnitsTable)
+    .where(eq(trainingClassUnitsTable.classId, classId));
+  const priorPairs = new Set(
+    prior
+      .filter((p) => p.responsibleUserId != null)
+      .map((p) => `${p.unitId}:${p.responsibleUserId}`),
+  );
+
   await tx
     .delete(trainingClassUnitsTable)
     .where(eq(trainingClassUnitsTable.classId, classId));
@@ -115,6 +136,33 @@ export async function replaceClassUnits(
     .update(trainingClassesTable)
     .set({ unitId: units[0]?.unitId ?? null })
     .where(eq(trainingClassesTable.id, classId));
+
+  // Pares novos (filial↔responsável) que ganharam responsável agora.
+  const newPairs = units.filter(
+    (u) =>
+      u.responsibleUserId != null &&
+      !priorPairs.has(`${u.unitId}:${u.responsibleUserId}`),
+  );
+  if (newPairs.length === 0) return [];
+
+  const unitNameById = new Map(
+    (
+      await tx
+        .select({ id: unitsTable.id, name: unitsTable.name })
+        .from(unitsTable)
+        .where(
+          inArray(
+            unitsTable.id,
+            newPairs.map((u) => u.unitId),
+          ),
+        )
+    ).map((u) => [u.id, u.name]),
+  );
+
+  return newPairs.map((u) => ({
+    userId: u.responsibleUserId!,
+    unitName: unitNameById.get(u.unitId) ?? `#${u.unitId}`,
+  }));
 }
 
 /**

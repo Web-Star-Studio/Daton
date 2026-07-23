@@ -5,6 +5,7 @@ import { actionPlanActionPendenciaProvider } from "./providers/action-plan-actio
 import { nonconformityPendenciaProvider } from "./providers/nonconformities";
 import { regulatoryDocumentPendenciaProvider } from "./providers/regulatory-documents";
 import { trainingEffectivenessPendenciaProvider } from "./providers/training-effectiveness";
+import { trainingClassResponsiblePendenciaProvider } from "./providers/training-class-responsible";
 
 /**
  * Ponto único de extensão: um módulo novo com "responsável + prazo" entra aqui
@@ -17,4 +18,5 @@ export const pendenciaProviders: PendenciaProvider[] = [
   nonconformityPendenciaProvider,
   regulatoryDocumentPendenciaProvider,
   trainingEffectivenessPendenciaProvider,
+  trainingClassResponsiblePendenciaProvider,
 ];

@@ -33,8 +33,10 @@ import {
   replaceClassUnits,
   resolveUnitsFromBody,
   validateClassUnits,
+  type NewResponsibleAssignment,
   type SerializedClassUnit,
 } from "../services/aprendizagem/class-units";
+import { notifyClassResponsibleAssignments } from "../services/aprendizagem/notify-class-responsible";
 
 const router: IRouter = Router();
 
@@ -66,6 +68,15 @@ function serializeParticipant(
     ...(employeeName !== undefined ? { employeeName } : {}),
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+/** Título do treinamento (catálogo) para os textos de notificação. */
+async function catalogTitleFor(catalogItemId: number): Promise<string> {
+  const [item] = await db
+    .select({ title: trainingCatalogTable.title })
+    .from(trainingCatalogTable)
+    .where(eq(trainingCatalogTable.id, catalogItemId));
+  return item?.title ?? "Turma";
 }
 
 async function loadDetail(orgId: number, classId: number) {
@@ -162,6 +173,26 @@ router.get(
             ),
         ),
       );
+    // "Minhas turmas como responsável": turma em que o usuário é responsável por
+    // ALGUMA filial.
+    const responsibleFilter = query.data.responsibleUserId;
+    if (responsibleFilter)
+      conditions.push(
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(trainingClassUnitsTable)
+            .where(
+              and(
+                eq(trainingClassUnitsTable.classId, trainingClassesTable.id),
+                eq(
+                  trainingClassUnitsTable.responsibleUserId,
+                  responsibleFilter,
+                ),
+              ),
+            ),
+        ),
+      );
     if (query.data.catalogItemId)
       conditions.push(
         eq(trainingClassesTable.catalogItemId, query.data.catalogItemId),
@@ -252,6 +283,7 @@ router.post(
       return;
     }
 
+    let newAssignments: NewResponsibleAssignment[] = [];
     const row = await db.transaction(async (tx) => {
       const [created] = await tx
         .insert(trainingClassesTable)
@@ -274,9 +306,23 @@ router.post(
           attachments: body.data.attachments ?? [],
         })
         .returning();
-      await replaceClassUnits(tx, created.id, units);
+      newAssignments = await replaceClassUnits(tx, created.id, units);
       return { ...created, unitId: units[0]?.unitId ?? null };
     });
+
+    // Notifica os responsáveis recém-vinculados (in-app + e-mail). Best-effort:
+    // fora da transação, não bloqueia a resposta, não derruba o create.
+    void notifyClassResponsibleAssignments(
+      {
+        classId: row.id,
+        organizationId: row.organizationId,
+        trainingTitle: await catalogTitleFor(row.catalogItemId),
+        code: row.code,
+        startDate: row.startDate,
+      },
+      newAssignments,
+      req.auth!.userId,
+    );
 
     const unitsByClass = await loadClassUnits([row.id]);
     res
@@ -363,6 +409,7 @@ router.patch(
       eq(trainingClassesTable.id, params.data.id),
       eq(trainingClassesTable.organizationId, params.data.orgId),
     );
+    let newAssignments: NewResponsibleAssignment[] = [];
     const row = await db.transaction(async (tx) => {
       // drizzle rejeita .set({}) — um PATCH vazio só relê a turma.
       const [updated] = Object.keys(updates).length
@@ -374,12 +421,27 @@ router.patch(
         : await tx.select().from(trainingClassesTable).where(scope);
       if (!updated) return null;
       if (units === undefined) return updated;
-      await replaceClassUnits(tx, updated.id, units);
+      newAssignments = await replaceClassUnits(tx, updated.id, units);
       return { ...updated, unitId: units[0]?.unitId ?? null };
     });
     if (!row) {
       res.status(404).json({ error: "Turma não encontrada" });
       return;
+    }
+    // Avisa só quem virou responsável AGORA (replaceClassUnits já filtrou os
+    // pares novos). Best-effort, fora da transação.
+    if (newAssignments.length > 0) {
+      void notifyClassResponsibleAssignments(
+        {
+          classId: row.id,
+          organizationId: row.organizationId,
+          trainingTitle: await catalogTitleFor(row.catalogItemId),
+          code: row.code,
+          startDate: row.startDate,
+        },
+        newAssignments,
+        req.auth!.userId,
+      );
     }
     const unitsByClass = await loadClassUnits([row.id]);
     res.json(

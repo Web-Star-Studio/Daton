@@ -10727,6 +10727,15 @@ paths:
           required: false
           schema:
             type: integer
+        - name: responsibleUserId
+          in: query
+          required: false
+          description: >-
+            Filtra turmas em que este usuário é responsável por ALGUMA filial
+            (via training_class_units). Usado pela aba "Minhas turmas como
+            responsável".
+          schema:
+            type: integer
       responses:
         "200":
           description: Training classes

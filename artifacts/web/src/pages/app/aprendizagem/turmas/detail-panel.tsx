@@ -175,6 +175,30 @@ export function TurmaDetailPanel({
               {detail.endDate ? `–${detail.endDate}` : ""} ·{" "}
               {participants.length} inscrito(s)
             </p>
+            {detail.units && detail.units.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {detail.units.map((u) => (
+                  <span
+                    key={u.unitId}
+                    className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[11px]"
+                    title={
+                      u.responsibleUserName
+                        ? `Responsável: ${u.responsibleUserName}`
+                        : "Sem responsável definido"
+                    }
+                  >
+                    <span className="font-medium text-foreground">
+                      {u.unitName ?? `#${u.unitId}`}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {u.responsibleUserName
+                        ? `· ${u.responsibleUserName}`
+                        : "· sem responsável"}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
           {canWrite ? (
             <Button

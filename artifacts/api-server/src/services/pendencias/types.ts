@@ -4,7 +4,8 @@ export type PendenciaSource =
   | "action_plan_action"
   | "nonconformity"
   | "regulatory_document"
-  | "training_effectiveness";
+  | "training_effectiveness"
+  | "training_class_responsible";
 
 export type PendenciaUrgency = "overdue" | "due_soon" | "upcoming" | "no_due";
 export type PendenciaPriority = "p1" | "p2" | "p3";
@@ -54,6 +55,7 @@ export const SOURCE_LABELS: Record<PendenciaSource, string> = {
   nonconformity: "Não conformidade",
   regulatory_document: "Documento regulatório",
   training_effectiveness: "Eficácia de treinamento",
+  training_class_responsible: "Turma sob sua responsabilidade",
 };
 
 function startOfDay(d: Date): Date {

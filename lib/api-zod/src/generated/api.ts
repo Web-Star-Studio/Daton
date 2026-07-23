@@ -23722,6 +23722,12 @@ export const ListTrainingClassesQueryParams = zod.object({
   status: zod.coerce.string().optional(),
   unitId: zod.coerce.number().optional(),
   catalogItemId: zod.coerce.number().optional(),
+  responsibleUserId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      'Filtra turmas em que este usuário é responsável por ALGUMA filial (via training_class_units). Usado pela aba \"Minhas turmas como responsável\".',
+    ),
 });
 
 export const listTrainingClassesResponseDataItemAttachmentsItemFileSizeMax = 20971520;
