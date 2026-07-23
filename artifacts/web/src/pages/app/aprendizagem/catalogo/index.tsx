@@ -768,6 +768,19 @@ export default function CatalogoPage() {
                       {item.status}
                     </Badge>
                   ) : null}
+                  {evidenceProves(trainingOptions, item.evidenceType) &&
+                  !(
+                    item.targetCompetencies &&
+                    item.targetCompetencies.length > 0
+                  ) ? (
+                    <Badge
+                      title="Este tipo de evidência comprova competência, mas nenhuma foi vinculada ainda"
+                      className="flex items-center gap-1 bg-amber-50 text-amber-700"
+                    >
+                      <AlertTriangle className="h-3 w-3" />
+                      Sem competência vinculada
+                    </Badge>
+                  ) : null}
                 </div>
                 {canWrite ? (
                   <div
