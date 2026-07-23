@@ -347,7 +347,9 @@ describe("FormacaoQualificacoes — prazo de regularização de gap", () => {
         conformance={null}
       />,
     );
-    expect(screen.queryByText(/Prazo para regularização/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Prazo para regularização/i),
+    ).not.toBeInTheDocument();
   });
 
   it("editable: mostra o campo de data e salva ao escolher uma data", async () => {
