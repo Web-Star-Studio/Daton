@@ -8,6 +8,7 @@ import {
   jsonb,
   timestamp,
   uniqueIndex,
+  index,
   numeric,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -15,6 +16,7 @@ import { organizationsTable } from "./organizations";
 import { positionsTable } from "./departments";
 import { unitsTable } from "./units";
 import { employeesTable, type EmployeeRecordAttachment } from "./employees";
+import { usersTable } from "./users";
 
 /**
  * Catálogo de treinamentos (definições reutilizáveis) — ISO 10015.
@@ -200,6 +202,10 @@ export const trainingClassesTable = pgTable("training_classes", {
   code: text("code"),
   startDate: date("start_date").notNull(),
   endDate: date("end_date"),
+  // LEGADO/derivado: a turma passou a abranger N filiais (training_class_units).
+  // Esta coluna é mantida como espelho da PRIMEIRA filial vinculada — escrita
+  // sempre pelo mesmo helper que grava os vínculos (replaceClassUnits), nunca
+  // isoladamente, para não divergir da lista. Leia `units`, não este campo.
   unitId: integer("unit_id").references(() => unitsTable.id, {
     onDelete: "set null",
   }),
@@ -227,6 +233,38 @@ export const trainingClassesTable = pgTable("training_classes", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+/**
+ * Filiais de uma turma (N:N turma ↔ filial). Uma mesma turma pode atender
+ * várias filiais (treino corporativo/EAD), e cada filial pode ter o seu próprio
+ * responsável local — daí o vínculo ser uma linha e não um array de ids.
+ *
+ * `responsibleUserId` aponta para `users` (convenção do projeto: "responsável"
+ * é sempre um usuário com login, para receber notificação/e-mail).
+ */
+export const trainingClassUnitsTable = pgTable(
+  "training_class_units",
+  {
+    id: serial("id").primaryKey(),
+    classId: integer("class_id")
+      .notNull()
+      .references(() => trainingClassesTable.id, { onDelete: "cascade" }),
+    unitId: integer("unit_id")
+      .notNull()
+      .references(() => unitsTable.id, { onDelete: "cascade" }),
+    responsibleUserId: integer("responsible_user_id").references(
+      () => usersTable.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("training_class_unit_uq").on(table.classId, table.unitId),
+    index("training_class_units_unit_idx").on(table.unitId),
+  ],
+);
 
 export const trainingClassParticipantsTable = pgTable(
   "training_class_participants",
@@ -257,6 +295,7 @@ export const trainingClassParticipantsTable = pgTable(
 );
 
 export type TrainingClass = typeof trainingClassesTable.$inferSelect;
+export type TrainingClassUnit = typeof trainingClassUnitsTable.$inferSelect;
 export type TrainingClassParticipant =
   typeof trainingClassParticipantsTable.$inferSelect;
 

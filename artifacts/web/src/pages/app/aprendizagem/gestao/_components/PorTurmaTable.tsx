@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import type { TrainingClass } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, CLASS_STATUS_BADGE, CLASS_STATUS_LABEL } from "../_lib/format";
+import { formatClassUnitsLabel } from "../../_components/class-units";
 
 /** Tabela "Por turma" — Inscritos/Confirmados/Realizados vêm sempre com valor
  *  (default 0 quando ausentes): o backend sempre emite `approvedCount` no
@@ -65,8 +66,11 @@ export function PorTurmaTable({
               <td className="px-4 py-2 text-muted-foreground">
                 {formatDate(c.startDate)}
               </td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {c.unitId ? (unitNameById.get(c.unitId) ?? "—") : "—"}
+              <td
+                className="px-4 py-2 text-muted-foreground"
+                title={formatClassUnitsLabel(c, unitNameById).title}
+              >
+                {formatClassUnitsLabel(c, unitNameById).text}
               </td>
               <td className="px-4 py-2 tabular-nums">{c.participantCount ?? 0}</td>
               <td className="px-4 py-2 tabular-nums">{c.confirmedCount ?? 0}</td>

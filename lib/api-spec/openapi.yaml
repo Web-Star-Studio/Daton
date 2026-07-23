@@ -11607,6 +11607,16 @@ components:
         unitId:
           type: integer
           nullable: true
+          description: >-
+            LEGADO — espelho da primeira filial de `units`, mantido para
+            compatibilidade. Use `units`, que é a lista completa.
+        units:
+          type: array
+          description: >-
+            Filiais atendidas pela turma, cada uma com o seu responsável local.
+            Lista vazia = turma sem filial definida.
+          items:
+            $ref: "#/components/schemas/TrainingClassUnit"
         location:
           type: string
           nullable: true
@@ -11662,8 +11672,38 @@ components:
         - startDate
         - status
         - attachments
+        - units
         - createdAt
         - updatedAt
+
+    TrainingClassUnit:
+      type: object
+      description: "Vínculo turma ↔ filial, com o responsável local da turma naquela filial."
+      properties:
+        unitId:
+          type: integer
+        unitName:
+          type: string
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+      required:
+        - unitId
+
+    TrainingClassUnitInput:
+      type: object
+      properties:
+        unitId:
+          type: integer
+        responsibleUserId:
+          type: integer
+          nullable: true
+      required:
+        - unitId
 
     TrainingClassParticipant:
       type: object
@@ -11725,6 +11765,15 @@ components:
           type: string
         unitId:
           type: integer
+          description: >-
+            LEGADO — atalho para uma única filial. Ignorado quando `units` vem
+            no mesmo corpo.
+        units:
+          type: array
+          maxItems: 200
+          description: "Filiais da turma, cada uma com o responsável local (opcional)."
+          items:
+            $ref: "#/components/schemas/TrainingClassUnitInput"
         location:
           type: string
         instructor:
@@ -11764,6 +11813,17 @@ components:
         unitId:
           type: integer
           nullable: true
+          description: >-
+            LEGADO — substitui a lista de filiais por esta única (ou por
+            nenhuma, quando null). Ignorado quando `units` vem no mesmo corpo.
+        units:
+          type: array
+          maxItems: 200
+          description: >-
+            Substitui a lista inteira de filiais da turma (replace-all).
+            Omitir mantém as filiais atuais; `[]` remove todas.
+          items:
+            $ref: "#/components/schemas/TrainingClassUnitInput"
         location:
           type: string
         instructor:

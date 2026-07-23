@@ -244,6 +244,16 @@ export interface TrainingRequirementPreview {
   requirements: TrainingRequirement[];
 }
 
+/**
+ * Vínculo turma ↔ filial, com o responsável local da turma naquela filial.
+ */
+export interface TrainingClassUnit {
+  unitId: number;
+  unitName?: string | null;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+}
+
 export interface EmployeeRecordAttachment {
   fileName: string;
   /** @maximum 20971520 */
@@ -263,7 +273,10 @@ export interface TrainingClass {
   code?: string | null;
   startDate: string;
   endDate?: string | null;
+  /** LEGADO — espelho da primeira filial de `units`, mantido para compatibilidade. Use `units`, que é a lista completa. */
   unitId?: number | null;
+  /** Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida. */
+  units: TrainingClassUnit[];
   location?: string | null;
   instructor?: string | null;
   modality?: string | null;
@@ -280,6 +293,11 @@ export interface TrainingClass {
   confirmedCount?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TrainingClassUnitInput {
+  unitId: number;
+  responsibleUserId?: number | null;
 }
 
 export interface TrainingClassParticipant {
@@ -307,7 +325,13 @@ export interface CreateTrainingClassBody {
   code?: string;
   startDate: string;
   endDate?: string;
+  /** LEGADO — atalho para uma única filial. Ignorado quando `units` vem no mesmo corpo. */
   unitId?: number;
+  /**
+   * Filiais da turma, cada uma com o responsável local (opcional).
+   * @maxItems 200
+   */
+  units?: TrainingClassUnitInput[];
   location?: string;
   instructor?: string;
   modality?: string;
@@ -328,7 +352,13 @@ export interface UpdateTrainingClassBody {
   code?: string;
   startDate?: string;
   endDate?: string;
+  /** LEGADO — substitui a lista de filiais por esta única (ou por nenhuma, quando null). Ignorado quando `units` vem no mesmo corpo. */
   unitId?: number | null;
+  /**
+   * Substitui a lista inteira de filiais da turma (replace-all). Omitir mantém as filiais atuais; `[]` remove todas.
+   * @maxItems 200
+   */
+  units?: TrainingClassUnitInput[];
   location?: string;
   instructor?: string;
   modality?: string;

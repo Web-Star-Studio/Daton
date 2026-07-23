@@ -10,6 +10,7 @@ import type {
   TrainingClass,
 } from "@workspace/api-client-react";
 import type { CatalogMeta } from "./_lib/catalog-meta";
+import { classUnitNames } from "../_components/class-units";
 import {
   formatDate,
   trainingDeadline,
@@ -63,7 +64,9 @@ export function buildTurmaRows(
     Turma: c.code ?? "",
     Treinamento: catalogTitleById.get(c.catalogItemId) ?? `#${c.catalogItemId}`,
     Data: formatDate(c.startDate).replace("—", ""),
-    Filial: c.unitId ? (unitNameById.get(c.unitId) ?? "") : "",
+    // Na planilha vão TODAS as filiais por extenso (a tela resume em
+    // "N filiais" por falta de espaço; aqui espaço não falta).
+    Filial: classUnitNames(c, unitNameById).join("; "),
     Inscritos: c.participantCount ?? 0,
     Confirmados: c.confirmedCount ?? 0,
     Realizados: c.approvedCount ?? 0,

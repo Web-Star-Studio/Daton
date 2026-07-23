@@ -6,13 +6,20 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
+import type { TrainingClassUnitInput } from "./trainingClassUnitInput";
 
 export interface CreateTrainingClassBody {
   catalogItemId: number;
   code?: string;
   startDate: string;
   endDate?: string;
+  /** LEGADO — atalho para uma única filial. Ignorado quando `units` vem no mesmo corpo. */
   unitId?: number;
+  /**
+   * Filiais da turma, cada uma com o responsável local (opcional).
+   * @maxItems 200
+   */
+  units?: TrainingClassUnitInput[];
   location?: string;
   instructor?: string;
   modality?: string;

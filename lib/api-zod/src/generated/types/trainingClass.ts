@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
+import type { TrainingClassUnit } from "./trainingClassUnit";
 
 /**
  * Turma — instância agendada de um item do catálogo.
@@ -17,7 +18,10 @@ export interface TrainingClass {
   code?: string | null;
   startDate: string;
   endDate?: string | null;
+  /** LEGADO — espelho da primeira filial de `units`, mantido para compatibilidade. Use `units`, que é a lista completa. */
   unitId?: number | null;
+  /** Filiais atendidas pela turma, cada uma com o seu responsável local. Lista vazia = turma sem filial definida. */
+  units: TrainingClassUnit[];
   location?: string | null;
   instructor?: string | null;
   modality?: string | null;

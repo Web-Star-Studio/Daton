@@ -553,6 +553,8 @@ export * from "./trainingCatalogOptionKind";
 export * from "./trainingClass";
 export * from "./trainingClassDetail";
 export * from "./trainingClassParticipant";
+export * from "./trainingClassUnit";
+export * from "./trainingClassUnitInput";
 export * from "./trainingEffectivenessCriteria";
 export * from "./trainingEffectivenessDraft";
 export * from "./trainingEffectivenessReview";

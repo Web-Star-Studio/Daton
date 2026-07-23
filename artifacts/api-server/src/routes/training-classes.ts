@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, exists, inArray, sql, type SQL } from "drizzle-orm";
 import {
   db,
   employeesTable,
@@ -7,6 +7,7 @@ import {
   trainingCatalogTable,
   trainingClassesTable,
   trainingClassParticipantsTable,
+  trainingClassUnitsTable,
   unitsTable,
 } from "@workspace/db";
 import {
@@ -27,6 +28,13 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 import { completeTrainingClass } from "../services/aprendizagem/complete-class";
+import {
+  loadClassUnits,
+  replaceClassUnits,
+  resolveUnitsFromBody,
+  validateClassUnits,
+  type SerializedClassUnit,
+} from "../services/aprendizagem/class-units";
 
 const router: IRouter = Router();
 
@@ -35,10 +43,12 @@ function serializeClass(
   participantCount?: number,
   approvedCount?: number,
   confirmedCount?: number,
+  units: SerializedClassUnit[] = [],
 ) {
   return {
     ...row,
     attachments: row.attachments ?? [],
+    units,
     ...(participantCount !== undefined ? { participantCount } : {}),
     ...(approvedCount !== undefined ? { approvedCount } : {}),
     ...(confirmedCount !== undefined ? { confirmedCount } : {}),
@@ -81,8 +91,15 @@ async function loadDetail(orgId: number, classId: number) {
     )
     .where(eq(trainingClassParticipantsTable.classId, classId))
     .orderBy(asc(trainingClassParticipantsTable.id));
+  const unitsByClass = await loadClassUnits([classId]);
   return {
-    ...serializeClass(cls, rows.length),
+    ...serializeClass(
+      cls,
+      rows.length,
+      undefined,
+      undefined,
+      unitsByClass.get(classId) ?? [],
+    ),
     participants: rows.map((r) =>
       serializeParticipant(r.participant, r.employeeName),
     ),
@@ -128,8 +145,23 @@ router.get(
     ];
     if (query.data.status)
       conditions.push(eq(trainingClassesTable.status, query.data.status));
-    if (query.data.unitId)
-      conditions.push(eq(trainingClassesTable.unitId, query.data.unitId));
+    // A filial da turma virou N:N (training_class_units) — o filtro casa se a
+    // turma INCLUIR a filial, não só quando ela é a primeira/única.
+    const unitFilter = query.data.unitId;
+    if (unitFilter)
+      conditions.push(
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(trainingClassUnitsTable)
+            .where(
+              and(
+                eq(trainingClassUnitsTable.classId, trainingClassesTable.id),
+                eq(trainingClassUnitsTable.unitId, unitFilter),
+              ),
+            ),
+        ),
+      );
     if (query.data.catalogItemId)
       conditions.push(
         eq(trainingClassesTable.catalogItemId, query.data.catalogItemId),
@@ -161,11 +193,18 @@ router.get(
           .groupBy(trainingClassParticipantsTable.classId)
       : [];
     const countByClass = new Map(counts.map((c) => [c.classId, c]));
+    const unitsByClass = await loadClassUnits(classIds);
 
     res.json({
       data: rows.map((r) => {
         const c = countByClass.get(r.id);
-        return serializeClass(r, c?.n ?? 0, c?.approved ?? 0, c?.confirmed ?? 0);
+        return serializeClass(
+          r,
+          c?.n ?? 0,
+          c?.approved ?? 0,
+          c?.confirmed ?? 0,
+          unitsByClass.get(r.id) ?? [],
+        );
       }),
     });
   },
@@ -205,42 +244,46 @@ router.post(
       res.status(400).json({ error: "Item do catálogo não encontrado" });
       return;
     }
-    if (body.data.unitId != null) {
-      const [unit] = await db
-        .select({ id: unitsTable.id })
-        .from(unitsTable)
-        .where(
-          and(
-            eq(unitsTable.id, body.data.unitId),
-            eq(unitsTable.organizationId, params.data.orgId),
-          ),
-        );
-      if (!unit) {
-        res.status(400).json({ error: "Filial não encontrada" });
-        return;
-      }
+    // Filiais da turma (N:N). `unitId` continua aceito como atalho legado.
+    const units = resolveUnitsFromBody(body.data) ?? [];
+    const unitsError = await validateClassUnits(params.data.orgId, units);
+    if (unitsError) {
+      res.status(400).json({ error: unitsError });
+      return;
     }
-    const [row] = await db
-      .insert(trainingClassesTable)
-      .values({
-        organizationId: params.data.orgId,
-        catalogItemId: body.data.catalogItemId,
-        code: body.data.code ?? null,
-        startDate: body.data.startDate,
-        endDate: body.data.endDate ?? null,
-        unitId: body.data.unitId ?? null,
-        location: body.data.location ?? null,
-        instructor: body.data.instructor ?? null,
-        modality: body.data.modality ?? null,
-        workloadHours: body.data.workloadHours ?? null,
-        capacity: body.data.capacity ?? null,
-        minScore: body.data.minScore ?? null,
-        status: body.data.status ?? "agendada",
-        notes: body.data.notes ?? null,
-        attachments: body.data.attachments ?? [],
-      })
-      .returning();
-    res.status(201).json(serializeClass(row, 0));
+
+    const row = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(trainingClassesTable)
+        .values({
+          organizationId: params.data.orgId,
+          catalogItemId: body.data.catalogItemId,
+          code: body.data.code ?? null,
+          startDate: body.data.startDate,
+          endDate: body.data.endDate ?? null,
+          // Espelho legado — replaceClassUnits reescreve a partir da lista.
+          unitId: null,
+          location: body.data.location ?? null,
+          instructor: body.data.instructor ?? null,
+          modality: body.data.modality ?? null,
+          workloadHours: body.data.workloadHours ?? null,
+          capacity: body.data.capacity ?? null,
+          minScore: body.data.minScore ?? null,
+          status: body.data.status ?? "agendada",
+          notes: body.data.notes ?? null,
+          attachments: body.data.attachments ?? [],
+        })
+        .returning();
+      await replaceClassUnits(tx, created.id, units);
+      return { ...created, unitId: units[0]?.unitId ?? null };
+    });
+
+    const unitsByClass = await loadClassUnits([row.id]);
+    res
+      .status(201)
+      .json(
+        serializeClass(row, 0, undefined, undefined, unitsByClass.get(row.id) ?? []),
+      );
   },
 );
 
@@ -288,19 +331,13 @@ router.patch(
       return;
     }
     const b = body.data;
-    // isolamento multi-tenant: validar unitId antes de atualizar.
-    if (b.unitId != null) {
-      const [unit] = await db
-        .select({ id: unitsTable.id })
-        .from(unitsTable)
-        .where(
-          and(
-            eq(unitsTable.id, b.unitId),
-            eq(unitsTable.organizationId, params.data.orgId),
-          ),
-        );
-      if (!unit) {
-        res.status(400).json({ error: "Filial não encontrada" });
+    // Filiais: `units` é replace-all; `unitId` é o atalho legado. Omitir os dois
+    // mantém as filiais atuais. Validação multi-tenant antes de gravar.
+    const units = resolveUnitsFromBody(b);
+    if (units !== undefined) {
+      const unitsError = await validateClassUnits(params.data.orgId, units);
+      if (unitsError) {
+        res.status(400).json({ error: unitsError });
         return;
       }
     }
@@ -308,7 +345,8 @@ router.patch(
     if (b.code !== undefined) updates.code = b.code;
     if (b.startDate !== undefined) updates.startDate = b.startDate;
     if (b.endDate !== undefined) updates.endDate = b.endDate;
-    if (b.unitId !== undefined) updates.unitId = b.unitId;
+    // `unitId` NÃO entra aqui: o espelho legado é escrito por replaceClassUnits,
+    // sempre a partir da mesma lista — é o que impede os dois divergirem.
     if (b.location !== undefined) updates.location = b.location;
     if (b.instructor !== undefined) updates.instructor = b.instructor;
     if (b.modality !== undefined) updates.modality = b.modality;
@@ -318,22 +356,41 @@ router.patch(
     if (b.status !== undefined) updates.status = b.status;
     if (b.notes !== undefined) updates.notes = b.notes;
     if (b.attachments !== undefined) updates.attachments = b.attachments;
+    // Trocar só as filiais também é uma alteração da turma.
+    if (units !== undefined) updates.updatedAt = new Date();
 
-    const [row] = await db
-      .update(trainingClassesTable)
-      .set(updates)
-      .where(
-        and(
-          eq(trainingClassesTable.id, params.data.id),
-          eq(trainingClassesTable.organizationId, params.data.orgId),
-        ),
-      )
-      .returning();
+    const scope = and(
+      eq(trainingClassesTable.id, params.data.id),
+      eq(trainingClassesTable.organizationId, params.data.orgId),
+    );
+    const row = await db.transaction(async (tx) => {
+      // drizzle rejeita .set({}) — um PATCH vazio só relê a turma.
+      const [updated] = Object.keys(updates).length
+        ? await tx
+            .update(trainingClassesTable)
+            .set(updates)
+            .where(scope)
+            .returning()
+        : await tx.select().from(trainingClassesTable).where(scope);
+      if (!updated) return null;
+      if (units === undefined) return updated;
+      await replaceClassUnits(tx, updated.id, units);
+      return { ...updated, unitId: units[0]?.unitId ?? null };
+    });
     if (!row) {
       res.status(404).json({ error: "Turma não encontrada" });
       return;
     }
-    res.json(serializeClass(row));
+    const unitsByClass = await loadClassUnits([row.id]);
+    res.json(
+      serializeClass(
+        row,
+        undefined,
+        undefined,
+        undefined,
+        unitsByClass.get(row.id) ?? [],
+      ),
+    );
   },
 );
 
