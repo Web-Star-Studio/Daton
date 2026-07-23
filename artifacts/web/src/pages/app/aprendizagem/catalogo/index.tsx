@@ -62,13 +62,34 @@ import {
 } from "@/components/ui/searchable-select";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Copy, Pencil, Trash2, Settings } from "lucide-react";
+import {
+  AlertTriangle,
+  Plus,
+  Copy,
+  Pencil,
+  Trash2,
+  Settings,
+} from "lucide-react";
 
 /** Rótulo descritivo de um tipo de evidência derivado das flags do catálogo. */
 function evidenceOptionLabel(o: TrainingCatalogOption): string {
   if (o.provesCompetency)
     return `${o.label} — comprova competência${o.requiresValidity ? " (com validade)" : ""}`;
   return `${o.label} — não comprova competência`;
+}
+
+/** Um item tem competência vinculada se a lista canônica não está vazia OU se
+ *  só o campo singular legado (targetCompetencyName) foi gravado — colunas
+ *  singulares são espelho do 1º item, mas um PATCH antigo pode ter mexido só
+ *  nelas sem tocar o array. Ver comentário do schema em learning-catalog.ts. */
+function hasLinkedCompetency(item: {
+  targetCompetencies?: { name: string; type: string; level: number }[] | null;
+  targetCompetencyName?: string | null;
+}): boolean {
+  return (
+    Boolean(item.targetCompetencies && item.targetCompetencies.length > 0) ||
+    Boolean(item.targetCompetencyName?.trim())
+  );
 }
 /** Quantos badges de norma cabem no cabeçalho do card antes do "+N". */
 const NORM_BADGES_ON_CARD = 2;
@@ -761,6 +782,16 @@ export default function CatalogoPage() {
                       {item.status}
                     </Badge>
                   ) : null}
+                  {evidenceProves(trainingOptions, item.evidenceType) &&
+                  !hasLinkedCompetency(item) ? (
+                    <Badge
+                      title="Este tipo de evidência comprova competência, mas nenhuma foi vinculada ainda"
+                      className="flex items-center gap-1 bg-amber-50 text-amber-700"
+                    >
+                      <AlertTriangle className="h-3 w-3" />
+                      Sem competência vinculada
+                    </Badge>
+                  ) : null}
                 </div>
                 {canWrite ? (
                   <div
@@ -854,10 +885,7 @@ export default function CatalogoPage() {
         {fichaItem ? (
           <div className="space-y-4 text-sm">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Info
-                label="Tipo de treinamento"
-                value={fichaItem.category}
-              />
+              <Info label="Tipo de treinamento" value={fichaItem.category} />
               <Info
                 label="Carga horária"
                 value={
@@ -1142,6 +1170,15 @@ export default function CatalogoPage() {
                 {form.evidenceType
                   ? "Este tipo de evidência não comprova competência — o vínculo fica desabilitado."
                   : "Escolha um tipo de evidência que comprova competência para vincular o que este treino comprova."}
+              </p>
+            ) : form.targetCompetencies.length === 0 ? (
+              <p className="mt-1 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-0.5" />
+                <span>
+                  Este tipo de evidência comprova competência, mas nenhuma foi
+                  vinculada ainda — sem isso, a conclusão deste treinamento não
+                  conta automaticamente para nenhum requisito de cargo.
+                </span>
               </p>
             ) : null}
           </Field>
