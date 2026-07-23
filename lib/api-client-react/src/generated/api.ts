@@ -52,6 +52,7 @@ import type {
   AuthResponse,
   BulkDeletePositions200,
   BulkDeletePositionsBody,
+  ClearGapDeadlineParams,
   CompetencyCatalogItem,
   CompleteOrganizationOnboardingBody,
   CompleteTrainingClass200,
@@ -155,6 +156,7 @@ import type {
   EmployeeTraining,
   ErrorResponse,
   ExternalActionItem,
+  GapDeadline,
   GetDocumentAttachmentFileParams,
   GetLearningDashboardSummaryParams,
   GetUnitQuestionnaireResponses200,
@@ -368,6 +370,7 @@ import type {
   UpdateUserModulesBody,
   UpdateUserRoleBody,
   UpdateWorkEnvironmentControlBody,
+  UpsertGapDeadlineBody,
   UpsertKpiValuesBody,
   UpsertKpiYearConfigBody,
   UserOption,
@@ -5625,6 +5628,196 @@ export const useCreateCompetencyRequirementEvidence = <
   return useMutation(
     getCreateCompetencyRequirementEvidenceMutationOptions(options),
   );
+};
+
+/**
+ * @summary Set (or replace) the regularization deadline of an education or competency gap
+ */
+export const getUpsertGapDeadlineUrl = (orgId: number, empId: number) => {
+  return `/api/organizations/${orgId}/employees/${empId}/gaps/deadline`;
+};
+
+export const upsertGapDeadline = async (
+  orgId: number,
+  empId: number,
+  upsertGapDeadlineBody: UpsertGapDeadlineBody,
+  options?: RequestInit,
+): Promise<GapDeadline> => {
+  return customFetch<GapDeadline>(getUpsertGapDeadlineUrl(orgId, empId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertGapDeadlineBody),
+  });
+};
+
+export const getUpsertGapDeadlineMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertGapDeadline>>,
+    TError,
+    { orgId: number; empId: number; data: BodyType<UpsertGapDeadlineBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertGapDeadline>>,
+  TError,
+  { orgId: number; empId: number; data: BodyType<UpsertGapDeadlineBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertGapDeadline"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertGapDeadline>>,
+    { orgId: number; empId: number; data: BodyType<UpsertGapDeadlineBody> }
+  > = (props) => {
+    const { orgId, empId, data } = props ?? {};
+
+    return upsertGapDeadline(orgId, empId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertGapDeadlineMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertGapDeadline>>
+>;
+export type UpsertGapDeadlineMutationBody = BodyType<UpsertGapDeadlineBody>;
+export type UpsertGapDeadlineMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set (or replace) the regularization deadline of an education or competency gap
+ */
+export const useUpsertGapDeadline = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertGapDeadline>>,
+    TError,
+    { orgId: number; empId: number; data: BodyType<UpsertGapDeadlineBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertGapDeadline>>,
+  TError,
+  { orgId: number; empId: number; data: BodyType<UpsertGapDeadlineBody> },
+  TContext
+> => {
+  return useMutation(getUpsertGapDeadlineMutationOptions(options));
+};
+
+/**
+ * @summary Remove the regularization deadline of an education or competency gap
+ */
+export const getClearGapDeadlineUrl = (
+  orgId: number,
+  empId: number,
+  params: ClearGapDeadlineParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/employees/${empId}/gaps/deadline?${stringifiedParams}`
+    : `/api/organizations/${orgId}/employees/${empId}/gaps/deadline`;
+};
+
+export const clearGapDeadline = async (
+  orgId: number,
+  empId: number,
+  params: ClearGapDeadlineParams,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getClearGapDeadlineUrl(orgId, empId, params), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getClearGapDeadlineMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearGapDeadline>>,
+    TError,
+    { orgId: number; empId: number; params: ClearGapDeadlineParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearGapDeadline>>,
+  TError,
+  { orgId: number; empId: number; params: ClearGapDeadlineParams },
+  TContext
+> => {
+  const mutationKey = ["clearGapDeadline"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearGapDeadline>>,
+    { orgId: number; empId: number; params: ClearGapDeadlineParams }
+  > = (props) => {
+    const { orgId, empId, params } = props ?? {};
+
+    return clearGapDeadline(orgId, empId, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearGapDeadlineMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearGapDeadline>>
+>;
+
+export type ClearGapDeadlineMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove the regularization deadline of an education or competency gap
+ */
+export const useClearGapDeadline = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearGapDeadline>>,
+    TError,
+    { orgId: number; empId: number; params: ClearGapDeadlineParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clearGapDeadline>>,
+  TError,
+  { orgId: number; empId: number; params: ClearGapDeadlineParams },
+  TContext
+> => {
+  return useMutation(getClearGapDeadlineMutationOptions(options));
 };
 
 /**

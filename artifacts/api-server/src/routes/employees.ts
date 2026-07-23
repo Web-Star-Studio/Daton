@@ -95,6 +95,10 @@ import {
   LinkEmployeeUnitParams,
   LinkEmployeeUnitBody,
   UnlinkEmployeeUnitParams,
+  UpsertGapDeadlineParams,
+  UpsertGapDeadlineBody,
+  ClearGapDeadlineParams,
+  ClearGapDeadlineQueryParams,
 } from "@workspace/api-zod";
 import {
   requireAuth,
@@ -108,6 +112,15 @@ import {
   computeTrainingCompletionByEmployee,
 } from "../services/aprendizagem/employee-learning-aggregates";
 import { resolveEmployeeCompetencies } from "../services/aprendizagem/competency-resolver";
+import { compareEducation } from "../services/aprendizagem/education-conformance";
+import {
+  buildGapRequirementKey,
+  clearGapDeadline,
+  formatGapDeadline,
+  loadGapDeadlinesForEmployee,
+  resolveGapDeadlinesForEmployee,
+  upsertGapDeadline,
+} from "../services/aprendizagem/gap-deadlines";
 import {
   ObjectNotFoundError,
   ObjectStorageService,
@@ -2873,14 +2886,6 @@ router.get(
       [{ id: rows[0].id, position: rows[0].position }],
     );
     const resolvedConformance = conformanceByEmployee.get(rows[0].id) ?? null;
-    const competencyConformance =
-      resolvedConformance && resolvedConformance.positionName !== null
-        ? {
-            positionName: resolvedConformance.positionName,
-            requirements: resolvedConformance.requirements,
-            gapStatus: resolvedConformance.gapStatus,
-          }
-        : null;
     // Marca cada competência atestada que corresponde a um requisito do
     // cargo (mesma chave do resolvedor) — a ficha usa isso para diferenciar
     // "Requisitos do cargo" de "Outras competências" sem duplicar consulta.
@@ -2888,6 +2893,63 @@ router.get(
       (resolvedConformance?.requirements ?? []).map((r) =>
         buildCompetencyKey(r.competencyName, r.competencyType),
       ),
+    );
+
+    // Prazo de regularização (Fase 1, feat/prazo-regularizacao-gap): a mesma
+    // leitura que já recomputa conformidade também self-heala prazos abertos
+    // cujo gap não existe mais — sem job separado. Regra: só resolve por
+    // confirmação POSITIVA de "atende"; qualquer outro estado (gap,
+    // nao_classificado, nao_informado/sem_requisito) mantém o prazo aberto.
+    // Achado do revisor: resolver por "!== gap" apagava o prazo por
+    // engano sempre que a leitura ficasse ambígua — ex.: o cargo é renomeado
+    // e o match por nome (employee.position === position.name) para de
+    // bater, resolvedConformance vira null, e um prazo real desapareceria
+    // silenciosamente sem o gap ter sido atendido de verdade. Por isso, sem
+    // `positionMatched` (cargo não identificado nesta leitura), a autocura
+    // nem roda — os prazos existentes ficam como estão, nunca resolvidos por
+    // incerteza.
+    const positionMatched =
+      resolvedConformance !== null && resolvedConformance.positionName !== null;
+    if (positionMatched) {
+      const openGapKeys = new Set(
+        resolvedConformance!.requirements
+          .filter((r) => r.status !== "atende")
+          .map(
+            (r) =>
+              `competency::${buildCompetencyKey(r.competencyName, r.competencyType)}`,
+          ),
+      );
+      const educationVeredito = compareEducation(
+        rows[0].education,
+        resolvedConformance!.positionEducation,
+      );
+      if (educationVeredito !== "atende") {
+        openGapKeys.add(`education::${buildGapRequirementKey("education")}`);
+      }
+      await resolveGapDeadlinesForEmployee(db, params.data.empId, openGapKeys);
+    }
+    const deadlinesByKey = await loadGapDeadlinesForEmployee(
+      db,
+      params.data.empId,
+    );
+
+    const competencyConformance =
+      resolvedConformance && resolvedConformance.positionName !== null
+        ? {
+            positionName: resolvedConformance.positionName,
+            requirements: resolvedConformance.requirements.map((r) => ({
+              ...r,
+              deadline: formatGapDeadline(
+                deadlinesByKey.get(
+                  `competency::${buildCompetencyKey(r.competencyName, r.competencyType)}`,
+                ),
+              ),
+            })),
+            gapStatus: resolvedConformance.gapStatus,
+          }
+        : null;
+    const educationDeadline = formatGapDeadline(
+      deadlinesByKey.get(`education::${buildGapRequirementKey("education")}`),
     );
 
     res.json({
@@ -2911,6 +2973,7 @@ router.get(
       professionalExperiences: profileItems.professionalExperiences,
       educationCertifications: profileItems.educationCertifications,
       competencyConformance,
+      educationDeadline,
     });
   },
 );
@@ -3404,6 +3467,113 @@ router.post(
     });
 
     res.status(isNew ? 201 : 200).json(formatCompetencyRecord(comp));
+  },
+);
+
+router.post(
+  "/organizations/:orgId/employees/:empId/gaps/deadline",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = UpsertGapDeadlineParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    if (
+      !(await verifyEmployeeOwnership(params.data.empId, params.data.orgId))
+    ) {
+      res.status(404).json({ error: "Colaborador não encontrado" });
+      return;
+    }
+
+    const body = UpsertGapDeadlineBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+    if (
+      body.data.requirementType === "competency" &&
+      (!body.data.competencyName || !body.data.competencyType)
+    ) {
+      res.status(400).json({
+        error:
+          "competencyName e competencyType são obrigatórios quando requirementType=competency",
+      });
+      return;
+    }
+
+    const requirementKey = buildGapRequirementKey(
+      body.data.requirementType,
+      body.data.competencyName,
+      body.data.competencyType,
+    );
+    const row = await upsertGapDeadline(db, {
+      orgId: params.data.orgId,
+      employeeId: params.data.empId,
+      requirementType: body.data.requirementType,
+      requirementKey,
+      dueDate: body.data.dueDate,
+      userId: req.auth!.userId,
+    });
+
+    res.json(formatGapDeadline(row));
+  },
+);
+
+router.delete(
+  "/organizations/:orgId/employees/:empId/gaps/deadline",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = ClearGapDeadlineParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    if (
+      !(await verifyEmployeeOwnership(params.data.empId, params.data.orgId))
+    ) {
+      res.status(404).json({ error: "Colaborador não encontrado" });
+      return;
+    }
+
+    const query = ClearGapDeadlineQueryParams.safeParse(req.query);
+    if (!query.success) {
+      res.status(400).json({ error: query.error.message });
+      return;
+    }
+    if (
+      query.data.requirementType === "competency" &&
+      (!query.data.competencyName || !query.data.competencyType)
+    ) {
+      res.status(400).json({
+        error:
+          "competencyName e competencyType são obrigatórios quando requirementType=competency",
+      });
+      return;
+    }
+
+    const requirementKey = buildGapRequirementKey(
+      query.data.requirementType,
+      query.data.competencyName,
+      query.data.competencyType,
+    );
+    await clearGapDeadline(db, {
+      employeeId: params.data.empId,
+      requirementType: query.data.requirementType,
+      requirementKey,
+    });
+
+    res.status(204).end();
   },
 );
 

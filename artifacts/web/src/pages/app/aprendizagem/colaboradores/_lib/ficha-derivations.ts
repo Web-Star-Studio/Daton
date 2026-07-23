@@ -106,27 +106,41 @@ export type EscolaridadeVeredito =
   | "nao_informado"
   | "sem_requisito";
 
-// Ordem crescente dos níveis conhecidos. Valores fora daqui (ex.: "Não
-// Aplicável") não têm ordem -> não geram veredito.
-const EDUCATION_ORDER = [
-  "fundamental incompleto",
-  "fundamental completo",
-  "médio incompleto",
-  "medio incompleto",
-  "médio completo",
-  "medio completo",
-  "superior incompleto",
-  "superior completo",
-  "pós-graduação",
-  "pos-graduacao",
-  "pós graduação",
-  "mestrado",
-  "doutorado",
+// Ordem crescente dos níveis conhecidos. Cargo (EDUCATION_OPTIONS em
+// position-form-dialog.tsx) e colaborador (colaboradores/index.tsx) usam
+// vocabulários DIFERENTES para escolaridade — ex.: cargo tem "Ensino Médio
+// Completo"/"Técnico", colaborador tem "Médio Completo"/"Superior
+// Incompleto". Antes, este mapa só reconhecia o vocabulário do colaborador:
+// qualquer cargo com escolaridade mínima "Ensino Fundamental", "Ensino
+// Médio Completo" ou "Técnico" (3 das 5 opções do form de cargo) caía em
+// eduRank(requerido) === -1 e o veredito virava "sem_requisito" — a ficha
+// mostrava só "Possui: X", sem comparar com o requisito do cargo e sem
+// nenhum "Gap" (achado da cliente: cargo exigia Ensino Médio Completo,
+// colaborador tinha Fundamental Incompleto, nada acusou). Cada nível abaixo
+// lista as grafias equivalentes dos dois lados. Valores fora daqui (ex.:
+// "Não Aplicável") não têm ordem -> não geram veredito.
+const EDUCATION_LEVELS: string[][] = [
+  ["fundamental incompleto"],
+  ["fundamental completo", "ensino fundamental"],
+  ["médio incompleto", "medio incompleto"],
+  [
+    "médio completo",
+    "medio completo",
+    "ensino médio completo",
+    "ensino medio completo",
+  ],
+  ["técnico", "tecnico"],
+  ["superior incompleto"],
+  ["superior completo"],
+  ["pós-graduação", "pos-graduacao", "pós graduação", "pos graduacao"],
+  ["mestrado"],
+  ["doutorado"],
 ];
 
 function eduRank(value: string | null | undefined): number {
   if (!value) return -1;
-  return EDUCATION_ORDER.indexOf(value.trim().toLowerCase());
+  const normalized = value.trim().toLowerCase();
+  return EDUCATION_LEVELS.findIndex((aliases) => aliases.includes(normalized));
 }
 
 export function compareEducation(

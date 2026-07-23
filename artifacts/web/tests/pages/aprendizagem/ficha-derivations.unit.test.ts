@@ -94,6 +94,43 @@ describe("compareEducation", () => {
   });
 });
 
+// Achado da cliente: cargo "Auxiliar de Pessoal" exigia escolaridade mínima
+// "Ensino Médio Completo" (vocabulário de EDUCATION_OPTIONS em
+// position-form-dialog.tsx); colaborador cadastrado com "Fundamental
+// Incompleto" (vocabulário de colaboradores/index.tsx). O mapa de ordem só
+// reconhecia o vocabulário do colaborador -> eduRank("Ensino Médio
+// Completo") === -1 -> "sem_requisito" -> a ficha não acusava o gap. Cobre
+// as 3 opções de cargo que não tinham correspondência exata no vocabulário
+// do colaborador ("Ensino Fundamental", "Ensino Médio Completo", "Técnico").
+describe("compareEducation — vocabulário do cargo (EDUCATION_OPTIONS)", () => {
+  it("cargo exige Ensino Médio Completo, colaborador tem Fundamental Incompleto -> gap (caso relatado pela cliente)", () => {
+    expect(
+      compareEducation("Fundamental Incompleto", "Ensino Médio Completo"),
+    ).toBe("gap");
+  });
+  it("cargo exige Ensino Fundamental, colaborador tem Fundamental Completo -> atende", () => {
+    expect(compareEducation("Fundamental Completo", "Ensino Fundamental")).toBe(
+      "atende",
+    );
+  });
+  it("cargo exige Ensino Fundamental, colaborador tem Fundamental Incompleto -> gap", () => {
+    expect(
+      compareEducation("Fundamental Incompleto", "Ensino Fundamental"),
+    ).toBe("gap");
+  });
+  it("cargo exige Técnico, colaborador tem Médio Completo -> gap", () => {
+    expect(compareEducation("Médio Completo", "Técnico")).toBe("gap");
+  });
+  it("cargo exige Técnico, colaborador tem Superior Completo -> atende", () => {
+    expect(compareEducation("Superior Completo", "Técnico")).toBe("atende");
+  });
+  it("colaborador tem Técnico, cargo exige Ensino Médio Completo -> atende", () => {
+    expect(compareEducation("Técnico", "Ensino Médio Completo")).toBe(
+      "atende",
+    );
+  });
+});
+
 // Achado 1 do revisor (fix/tipo-competencia-fonte-unica): openEdit() do form de
 // edição de competência do colaborador inicializava `form.type` com o valor cru
 // do backend. Há 7 linhas legadas de `employee_competencies` em produção com

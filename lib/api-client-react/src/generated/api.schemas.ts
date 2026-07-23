@@ -1333,6 +1333,19 @@ export const EmployeeCompetencyConformanceRequirementsItemSource = {
   treinamento: "treinamento",
 } as const;
 
+/**
+ * Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.
+ */
+export interface GapDeadline {
+  /** Data-limite (AAAA-MM-DD). */
+  dueDate: string;
+  /** Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado. */
+  resolvedAt: string | null;
+  overdue: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type EmployeeCompetencyConformanceGapStatus =
   (typeof EmployeeCompetencyConformanceGapStatus)[keyof typeof EmployeeCompetencyConformanceGapStatus];
 
@@ -1363,6 +1376,8 @@ export type EmployeeCompetencyConformanceRequirementsItem = {
   critical: boolean;
   /** Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é "treinamento" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave. */
   manualCompetencyId?: number | null;
+  /** Prazo de regularização deste requisito, quando definido (POST /employees/:empId/gaps/deadline com requirementType=competency). */
+  deadline?: GapDeadline | null;
 };
 
 /**
@@ -1401,6 +1416,8 @@ export interface Employee {
   competencyGapStatus?: EmployeeCompetencyGapStatus;
   /** Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por /competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET /employees/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado. */
   competencyConformance?: EmployeeCompetencyConformance | null;
+  /** Prazo de regularização do gap de escolaridade, quando definido (POST /employees/:empId/gaps/deadline com requirementType=education). Presente apenas na resposta de GET /employees/:empId (detalhe). */
+  educationDeadline?: GapDeadline | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -2018,6 +2035,38 @@ export interface CreateCompetencyRequirementEvidenceBody {
   /** @minLength 1 */
   evidence: string;
   attachments?: EmployeeRecordAttachment[];
+}
+
+export type UpsertGapDeadlineBodyRequirementType =
+  (typeof UpsertGapDeadlineBodyRequirementType)[keyof typeof UpsertGapDeadlineBodyRequirementType];
+
+export const UpsertGapDeadlineBodyRequirementType = {
+  education: "education",
+  competency: "competency",
+} as const;
+
+export type UpsertGapDeadlineBodyCompetencyType =
+  (typeof UpsertGapDeadlineBodyCompetencyType)[keyof typeof UpsertGapDeadlineBodyCompetencyType];
+
+export const UpsertGapDeadlineBodyCompetencyType = {
+  conhecimento: "conhecimento",
+  habilidade: "habilidade",
+  atitude: "atitude",
+} as const;
+
+/**
+ * `competencyName`/`competencyType` são obrigatórios quando requirementType=competency (identificam qual requisito do cargo, mesma chave normalizada usada pelo resolvedor de competência) e ignorados quando requirementType=education (a escolaridade é um único gap por colaborador).
+ */
+export interface UpsertGapDeadlineBody {
+  requirementType: UpsertGapDeadlineBodyRequirementType;
+  /** @minLength 1 */
+  competencyName?: string;
+  competencyType?: UpsertGapDeadlineBodyCompetencyType;
+  /**
+   * Data-limite (AAAA-MM-DD).
+   * @minLength 1
+   */
+  dueDate: string;
 }
 
 export type CreateTrainingBodyTargetCompetencyType =
@@ -7424,6 +7473,29 @@ export type ListEmployeeCompetencyGapsParams = {
    */
   pageSize?: number;
 };
+
+export type ClearGapDeadlineParams = {
+  requirementType: ClearGapDeadlineRequirementType;
+  competencyName?: string;
+  competencyType?: ClearGapDeadlineCompetencyType;
+};
+
+export type ClearGapDeadlineRequirementType =
+  (typeof ClearGapDeadlineRequirementType)[keyof typeof ClearGapDeadlineRequirementType];
+
+export const ClearGapDeadlineRequirementType = {
+  education: "education",
+  competency: "competency",
+} as const;
+
+export type ClearGapDeadlineCompetencyType =
+  (typeof ClearGapDeadlineCompetencyType)[keyof typeof ClearGapDeadlineCompetencyType];
+
+export const ClearGapDeadlineCompetencyType = {
+  conhecimento: "conhecimento",
+  habilidade: "habilidade",
+  atitude: "atitude",
+} as const;
 
 export type LinkEmployeeUnitBody = {
   unitId: number;
