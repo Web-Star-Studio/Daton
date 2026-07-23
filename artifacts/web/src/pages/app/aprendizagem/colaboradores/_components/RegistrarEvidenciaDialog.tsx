@@ -60,8 +60,10 @@ export function RegistrarEvidenciaDialog({
 
   const createMutation = useCreateCompetencyRequirementEvidence();
   const isPending = createMutation.isPending;
+  const evidenceEmpty = !evidence.trim();
 
   const handleSubmit = async () => {
+    if (evidenceEmpty) return;
     try {
       await createMutation.mutateAsync({
         orgId,
@@ -71,7 +73,7 @@ export function RegistrarEvidenciaDialog({
           competencyType: requirement.competencyType,
           requiredLevel: requirement.requiredLevel,
           acquiredLevel,
-          evidence: evidence.trim() || undefined,
+          evidence: evidence.trim(),
           attachments,
         },
       });
@@ -128,7 +130,7 @@ export function RegistrarEvidenciaDialog({
 
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">
-            Evidência
+            Evidência *
           </Label>
           <Input
             value={evidence}
@@ -136,6 +138,11 @@ export function RegistrarEvidenciaDialog({
             className="mt-1"
             placeholder="Ex: Certificado XYZ"
           />
+          {evidenceEmpty && (
+            <p className="mt-1 text-[11px] text-destructive">
+              Evidência é obrigatória
+            </p>
+          )}
         </div>
 
         <ProfileItemAttachmentsField
@@ -177,7 +184,7 @@ export function RegistrarEvidenciaDialog({
           size="sm"
           onClick={handleSubmit}
           isLoading={createMutation.isPending || isUploading}
-          disabled={isPending || isUploading}
+          disabled={isPending || isUploading || evidenceEmpty}
         >
           Salvar
         </Button>

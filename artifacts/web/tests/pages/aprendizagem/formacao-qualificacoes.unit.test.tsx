@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormacaoQualificacoes } from "@/pages/app/aprendizagem/colaboradores/_components/FormacaoQualificacoes";
 
@@ -314,5 +314,155 @@ describe("FormacaoQualificacoes", () => {
     // 1/1 -> 100%, escondendo o requisito ainda sem evidência.
     expect(screen.getByText("1/3 requisitos atendidos")).toBeInTheDocument();
     expect(screen.getByText("33%")).toBeInTheDocument();
+  });
+});
+
+// Achado da cliente: cargo exigia escolaridade mínima e a ficha não acusava
+// nada quando o colaborador ficava abaixo — nem indicação visual, nem forma
+// de definir um prazo para regularizar. Cobre o bloco de gap redesenhado
+// (Possui/Requerido + "Não atende") e o prazo de regularização, nos dois
+// lugares onde ele aparece: escolaridade e requisito de competência.
+describe("FormacaoQualificacoes — prazo de regularização de gap", () => {
+  it("escolaridade em gap: mostra o alerta 'Não atende' com Possui/Requerido", () => {
+    render(
+      <FormacaoQualificacoes
+        education="Fundamental Incompleto"
+        requiredEducation="Ensino Médio Completo"
+        conformance={null}
+      />,
+    );
+    expect(
+      screen.getByText("Escolaridade não atende o requisito do cargo"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Não atende")).toBeInTheDocument();
+    expect(screen.getByText("Fundamental Incompleto")).toBeInTheDocument();
+    expect(screen.getByText("Ensino Médio Completo")).toBeInTheDocument();
+  });
+
+  it("não editable e sem prazo definido: não mostra input nem texto de prazo", () => {
+    render(
+      <FormacaoQualificacoes
+        education="Fundamental Incompleto"
+        requiredEducation="Ensino Médio Completo"
+        conformance={null}
+      />,
+    );
+    expect(screen.queryByText(/Prazo para regularização/i)).not.toBeInTheDocument();
+  });
+
+  it("editable: mostra o campo de data e salva ao escolher uma data", async () => {
+    const onSetEducationDeadline = vi.fn();
+    render(
+      <FormacaoQualificacoes
+        education="Fundamental Incompleto"
+        requiredEducation="Ensino Médio Completo"
+        conformance={null}
+        editable
+        onSetEducationDeadline={onSetEducationDeadline}
+      />,
+    );
+    const dateInput = screen.getByDisplayValue("");
+    expect(dateInput).toHaveAttribute("type", "date");
+
+    fireEvent.change(dateInput, { target: { value: "2026-08-01" } });
+    expect(onSetEducationDeadline).toHaveBeenCalledWith("2026-08-01");
+  });
+
+  it("prazo já definido e vencido: mostra 'Vencido' e o selo escala para 'Gaps vencidos'", () => {
+    render(
+      <FormacaoQualificacoes
+        education="Fundamental Incompleto"
+        requiredEducation="Ensino Médio Completo"
+        educationDeadline={{
+          dueDate: "2020-01-01",
+          resolvedAt: null,
+          overdue: true,
+          createdAt: "2020-01-01T00:00:00Z",
+          updatedAt: "2020-01-01T00:00:00Z",
+        }}
+        conformance={null}
+      />,
+    );
+    expect(screen.getByText(/Vencido há/i)).toBeInTheDocument();
+    expect(screen.getByText("Gaps vencidos")).toBeInTheDocument();
+    expect(screen.queryByText("Gaps encontrados")).not.toBeInTheDocument();
+  });
+
+  it("prazo definido e não vencido, editable: mostra a data no input e permite remover", async () => {
+    const user = userEvent.setup();
+    const onClearEducationDeadline = vi.fn();
+    render(
+      <FormacaoQualificacoes
+        education="Fundamental Incompleto"
+        requiredEducation="Ensino Médio Completo"
+        educationDeadline={{
+          dueDate: "2027-01-01",
+          resolvedAt: null,
+          overdue: false,
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+        }}
+        conformance={null}
+        editable
+        onClearEducationDeadline={onClearEducationDeadline}
+      />,
+    );
+    expect(screen.getByDisplayValue("2027-01-01")).toBeInTheDocument();
+    expect(screen.queryByText(/Vencido/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Remover prazo/i }));
+    expect(onClearEducationDeadline).toHaveBeenCalledTimes(1);
+  });
+
+  it("requisito de competência em gap, editable: também tem campo de prazo, e o de 'atende' não tem", () => {
+    render(
+      <FormacaoQualificacoes
+        education="Superior Completo"
+        requiredEducation="Médio Completo"
+        conformance={conformance}
+        editable
+      />,
+    );
+    // "Comp B" está em gap (deadline ainda não definido) -> um campo de data
+    // aparece; "Comp A" atende -> nenhum campo de data para ela.
+    const dateInputs = document.querySelectorAll('input[type="date"]');
+    // 1 da linha de competência em gap (a escolaridade aqui é "atende", sem
+    // campo de data próprio).
+    expect(dateInputs).toHaveLength(1);
+  });
+
+  it("requisito de competência com prazo vencido: aparece 'Vencido' na própria linha", () => {
+    const conformanceWithOverdue = {
+      positionName: "Analista",
+      gapStatus: "critical",
+      requirements: [
+        {
+          competencyName: "Comp Vencida",
+          competencyType: "habilidade",
+          requiredLevel: 3,
+          acquiredLevel: 1,
+          status: "gap",
+          source: "manual",
+          evidence: null,
+          deadline: {
+            dueDate: "2020-01-01",
+            resolvedAt: null,
+            overdue: true,
+            createdAt: "2020-01-01T00:00:00Z",
+            updatedAt: "2020-01-01T00:00:00Z",
+          },
+        },
+      ],
+    } as never;
+
+    render(
+      <FormacaoQualificacoes
+        education="Superior Completo"
+        requiredEducation="Médio Completo"
+        conformance={conformanceWithOverdue}
+      />,
+    );
+    expect(screen.getByText(/Vencido há/i)).toBeInTheDocument();
+    expect(screen.getByText("Gaps vencidos")).toBeInTheDocument();
   });
 });

@@ -1615,6 +1615,69 @@ paths:
               schema:
                 $ref: "#/components/schemas/EmployeeCompetency"
 
+  /organizations/{orgId}/employees/{empId}/gaps/deadline:
+    post:
+      operationId: upsertGapDeadline
+      tags: [employees]
+      summary: Set (or replace) the regularization deadline of an education or competency gap
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertGapDeadlineBody"
+      responses:
+        "200":
+          description: Deadline created or updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GapDeadline"
+    delete:
+      operationId: clearGapDeadline
+      tags: [employees]
+      summary: Remove the regularization deadline of an education or competency gap
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: requirementType
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [education, competency]
+        - name: competencyName
+          in: query
+          schema:
+            type: string
+        - name: competencyType
+          in: query
+          schema:
+            type: string
+            enum: [conhecimento, habilidade, atitude]
+      responses:
+        "204":
+          description: Deadline removed (no-op if none existed)
+
   /organizations/{orgId}/employees/{empId}/trainings:
     get:
       operationId: listTrainings
@@ -13198,6 +13261,14 @@ components:
             resposta de GET /employees/:empId (detalhe); `null` quando o
             colaborador não tem cargo (texto livre) casado com um Position
             cadastrado.
+        educationDeadline:
+          allOf:
+            - $ref: "#/components/schemas/GapDeadline"
+          nullable: true
+          description: >-
+            Prazo de regularização do gap de escolaridade, quando definido
+            (POST /employees/:empId/gaps/deadline com requirementType=education).
+            Presente apenas na resposta de GET /employees/:empId (detalhe).
         createdAt:
           type: string
           format: date-time
@@ -13281,6 +13352,14 @@ components:
                   inclusive quando source é "treinamento" (o treino vence como
                   fonte, mas o atestado manual segue editável pelo id). null só
                   quando não há atestado manual para a chave.
+              deadline:
+                allOf:
+                  - $ref: "#/components/schemas/GapDeadline"
+                nullable: true
+                description: >-
+                  Prazo de regularização deste requisito, quando definido
+                  (POST /employees/:empId/gaps/deadline com
+                  requirementType=competency).
             required:
               - competencyName
               - competencyType
@@ -13298,6 +13377,41 @@ components:
         - positionName
         - requirements
         - gapStatus
+
+    GapDeadline:
+      type: object
+      description: >-
+        Prazo de regularização de um gap (escolaridade ou competência do
+        cargo) — dá visibilidade e uma data-limite para o colaborador
+        atender o requisito. `overdue` é calculado pelo servidor (dueDate no
+        passado e ainda não resolvido) para evitar divergência de fuso entre
+        cliente e servidor.
+      properties:
+        dueDate:
+          type: string
+          description: Data-limite (AAAA-MM-DD).
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Preenchido automaticamente quando uma leitura subsequente
+            encontra o gap já atendido (compose-on-read) — histórico
+            preservado, não apagado.
+        overdue:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - dueDate
+        - resolvedAt
+        - overdue
+        - createdAt
+        - updatedAt
 
     EmployeeProfileItemAttachment:
       type: object
@@ -14335,7 +14449,8 @@ components:
 
     CreateCompetencyRequirementEvidenceBody:
       type: object
-      required: [competencyName, competencyType, requiredLevel, acquiredLevel]
+      required:
+        [competencyName, competencyType, requiredLevel, acquiredLevel, evidence]
       properties:
         competencyName:
           type: string
@@ -14353,11 +14468,35 @@ components:
           maximum: 5
         evidence:
           type: string
-          nullable: true
+          minLength: 1
         attachments:
           type: array
           items:
             $ref: "#/components/schemas/EmployeeRecordAttachment"
+
+    UpsertGapDeadlineBody:
+      type: object
+      required: [requirementType, dueDate]
+      description: >-
+        `competencyName`/`competencyType` são obrigatórios quando
+        requirementType=competency (identificam qual requisito do cargo,
+        mesma chave normalizada usada pelo resolvedor de competência) e
+        ignorados quando requirementType=education (a escolaridade é um
+        único gap por colaborador).
+      properties:
+        requirementType:
+          type: string
+          enum: [education, competency]
+        competencyName:
+          type: string
+          minLength: 1
+        competencyType:
+          type: string
+          enum: [conhecimento, habilidade, atitude]
+        dueDate:
+          type: string
+          description: Data-limite (AAAA-MM-DD).
+          minLength: 1
 
     CreateTrainingBody:
       type: object

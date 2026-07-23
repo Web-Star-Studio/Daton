@@ -1614,6 +1614,27 @@ export const ListEmployeesResponse = zod.object({
                 .describe(
                   'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
                 ),
+              deadline: zod
+                .object({
+                  dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                  resolvedAt: zod
+                    .string()
+                    .datetime({})
+                    .nullable()
+                    .describe(
+                      "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                    ),
+                  overdue: zod.boolean(),
+                  createdAt: zod.string().datetime({}),
+                  updatedAt: zod.string().datetime({}),
+                })
+                .describe(
+                  "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+                )
+                .nullish()
+                .describe(
+                  "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+                ),
             }),
           ),
           gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -1624,6 +1645,27 @@ export const ListEmployeesResponse = zod.object({
         .nullish()
         .describe(
           "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+        ),
+      educationDeadline: zod
+        .object({
+          dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+          resolvedAt: zod
+            .string()
+            .datetime({})
+            .nullable()
+            .describe(
+              "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+            ),
+          overdue: zod.boolean(),
+          createdAt: zod.string().datetime({}),
+          updatedAt: zod.string().datetime({}),
+        })
+        .describe(
+          "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+        )
+        .nullish()
+        .describe(
+          "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
         ),
       createdAt: zod.string().datetime({}),
       updatedAt: zod.string().datetime({}),
@@ -2418,6 +2460,27 @@ export const GetEmployeeResponse = zod
               .describe(
                 'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
               ),
+            deadline: zod
+              .object({
+                dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                resolvedAt: zod
+                  .string()
+                  .datetime({})
+                  .nullable()
+                  .describe(
+                    "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                  ),
+                overdue: zod.boolean(),
+                createdAt: zod.string().datetime({}),
+                updatedAt: zod.string().datetime({}),
+              })
+              .describe(
+                "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+              )
+              .nullish()
+              .describe(
+                "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+              ),
           }),
         ),
         gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -2428,6 +2491,27 @@ export const GetEmployeeResponse = zod
       .nullish()
       .describe(
         "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+      ),
+    educationDeadline: zod
+      .object({
+        dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+        resolvedAt: zod
+          .string()
+          .datetime({})
+          .nullable()
+          .describe(
+            "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+          ),
+        overdue: zod.boolean(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      })
+      .describe(
+        "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+      )
+      .nullish()
+      .describe(
+        "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
       ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
@@ -2877,6 +2961,27 @@ export const UpdateEmployeeResponse = zod.object({
             .describe(
               'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
             ),
+          deadline: zod
+            .object({
+              dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+              resolvedAt: zod
+                .string()
+                .datetime({})
+                .nullable()
+                .describe(
+                  "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                ),
+              overdue: zod.boolean(),
+              createdAt: zod.string().datetime({}),
+              updatedAt: zod.string().datetime({}),
+            })
+            .describe(
+              "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+            )
+            .nullish()
+            .describe(
+              "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+            ),
         }),
       ),
       gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -2887,6 +2992,27 @@ export const UpdateEmployeeResponse = zod.object({
     .nullish()
     .describe(
       "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+    ),
+  educationDeadline: zod
+    .object({
+      dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+      resolvedAt: zod
+        .string()
+        .datetime({})
+        .nullable()
+        .describe(
+          "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+        ),
+      overdue: zod.boolean(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
+    })
+    .describe(
+      "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+    )
+    .nullish()
+    .describe(
+      "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
     ),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
@@ -3141,7 +3267,7 @@ export const CreateCompetencyRequirementEvidenceBody = zod.object({
     .number()
     .min(createCompetencyRequirementEvidenceBodyAcquiredLevelMin)
     .max(createCompetencyRequirementEvidenceBodyAcquiredLevelMax),
-  evidence: zod.string().nullish(),
+  evidence: zod.string().min(1),
   attachments: zod
     .array(
       zod.object({
@@ -3207,6 +3333,61 @@ export const CreateCompetencyRequirementEvidenceResponse = zod.object({
   isPositionRequirement: zod.boolean().optional(),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary Set (or replace) the regularization deadline of an education or competency gap
+ */
+export const UpsertGapDeadlineParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+export const UpsertGapDeadlineBody = zod
+  .object({
+    requirementType: zod.enum(["education", "competency"]),
+    competencyName: zod.string().min(1).optional(),
+    competencyType: zod
+      .enum(["conhecimento", "habilidade", "atitude"])
+      .optional(),
+    dueDate: zod.string().min(1).describe("Data-limite (AAAA-MM-DD)."),
+  })
+  .describe(
+    "`competencyName`\/`competencyType` são obrigatórios quando requirementType=competency (identificam qual requisito do cargo, mesma chave normalizada usada pelo resolvedor de competência) e ignorados quando requirementType=education (a escolaridade é um único gap por colaborador).",
+  );
+
+export const UpsertGapDeadlineResponse = zod
+  .object({
+    dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+    resolvedAt: zod
+      .string()
+      .datetime({})
+      .nullable()
+      .describe(
+        "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+      ),
+    overdue: zod.boolean(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe(
+    "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+  );
+
+/**
+ * @summary Remove the regularization deadline of an education or competency gap
+ */
+export const ClearGapDeadlineParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+export const ClearGapDeadlineQueryParams = zod.object({
+  requirementType: zod.enum(["education", "competency"]),
+  competencyName: zod.coerce.string().optional(),
+  competencyType: zod
+    .enum(["conhecimento", "habilidade", "atitude"])
+    .optional(),
 });
 
 /**
@@ -5294,6 +5475,27 @@ export const GetDocumentResponse = zod.object({
                   .describe(
                     'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
                   ),
+                deadline: zod
+                  .object({
+                    dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                    resolvedAt: zod
+                      .string()
+                      .datetime({})
+                      .nullable()
+                      .describe(
+                        "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                      ),
+                    overdue: zod.boolean(),
+                    createdAt: zod.string().datetime({}),
+                    updatedAt: zod.string().datetime({}),
+                  })
+                  .describe(
+                    "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+                  )
+                  .nullish()
+                  .describe(
+                    "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -5304,6 +5506,27 @@ export const GetDocumentResponse = zod.object({
           .nullish()
           .describe(
             "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
+        educationDeadline: zod
+          .object({
+            dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+            resolvedAt: zod
+              .string()
+              .datetime({})
+              .nullable()
+              .describe(
+                "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+              ),
+            overdue: zod.boolean(),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          })
+          .describe(
+            "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+          )
+          .nullish()
+          .describe(
+            "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
           ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -5635,6 +5858,27 @@ export const UpdateDocumentResponse = zod.object({
                   .describe(
                     'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
                   ),
+                deadline: zod
+                  .object({
+                    dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                    resolvedAt: zod
+                      .string()
+                      .datetime({})
+                      .nullable()
+                      .describe(
+                        "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                      ),
+                    overdue: zod.boolean(),
+                    createdAt: zod.string().datetime({}),
+                    updatedAt: zod.string().datetime({}),
+                  })
+                  .describe(
+                    "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+                  )
+                  .nullish()
+                  .describe(
+                    "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -5645,6 +5889,27 @@ export const UpdateDocumentResponse = zod.object({
           .nullish()
           .describe(
             "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
+        educationDeadline: zod
+          .object({
+            dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+            resolvedAt: zod
+              .string()
+              .datetime({})
+              .nullable()
+              .describe(
+                "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+              ),
+            overdue: zod.boolean(),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          })
+          .describe(
+            "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+          )
+          .nullish()
+          .describe(
+            "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
           ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -6023,6 +6288,27 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
                   .describe(
                     'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
                   ),
+                deadline: zod
+                  .object({
+                    dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                    resolvedAt: zod
+                      .string()
+                      .datetime({})
+                      .nullable()
+                      .describe(
+                        "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                      ),
+                    overdue: zod.boolean(),
+                    createdAt: zod.string().datetime({}),
+                    updatedAt: zod.string().datetime({}),
+                  })
+                  .describe(
+                    "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+                  )
+                  .nullish()
+                  .describe(
+                    "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -6033,6 +6319,27 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
           .nullish()
           .describe(
             "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
+        educationDeadline: zod
+          .object({
+            dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+            resolvedAt: zod
+              .string()
+              .datetime({})
+              .nullable()
+              .describe(
+                "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+              ),
+            overdue: zod.boolean(),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          })
+          .describe(
+            "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+          )
+          .nullish()
+          .describe(
+            "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
           ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -6426,6 +6733,27 @@ export const SubmitDocumentForReviewResponse = zod.object({
                   .describe(
                     'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
                   ),
+                deadline: zod
+                  .object({
+                    dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                    resolvedAt: zod
+                      .string()
+                      .datetime({})
+                      .nullable()
+                      .describe(
+                        "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                      ),
+                    overdue: zod.boolean(),
+                    createdAt: zod.string().datetime({}),
+                    updatedAt: zod.string().datetime({}),
+                  })
+                  .describe(
+                    "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+                  )
+                  .nullish()
+                  .describe(
+                    "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -6436,6 +6764,27 @@ export const SubmitDocumentForReviewResponse = zod.object({
           .nullish()
           .describe(
             "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
+        educationDeadline: zod
+          .object({
+            dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+            resolvedAt: zod
+              .string()
+              .datetime({})
+              .nullable()
+              .describe(
+                "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+              ),
+            overdue: zod.boolean(),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          })
+          .describe(
+            "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+          )
+          .nullish()
+          .describe(
+            "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
           ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -6745,6 +7094,27 @@ export const ApproveDocumentResponse = zod.object({
                   .describe(
                     'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
                   ),
+                deadline: zod
+                  .object({
+                    dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                    resolvedAt: zod
+                      .string()
+                      .datetime({})
+                      .nullable()
+                      .describe(
+                        "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                      ),
+                    overdue: zod.boolean(),
+                    createdAt: zod.string().datetime({}),
+                    updatedAt: zod.string().datetime({}),
+                  })
+                  .describe(
+                    "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+                  )
+                  .nullish()
+                  .describe(
+                    "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -6755,6 +7125,27 @@ export const ApproveDocumentResponse = zod.object({
           .nullish()
           .describe(
             "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
+        educationDeadline: zod
+          .object({
+            dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+            resolvedAt: zod
+              .string()
+              .datetime({})
+              .nullable()
+              .describe(
+                "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+              ),
+            overdue: zod.boolean(),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          })
+          .describe(
+            "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+          )
+          .nullish()
+          .describe(
+            "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
           ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -7064,6 +7455,27 @@ export const RejectDocumentResponse = zod.object({
                   .describe(
                     'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
                   ),
+                deadline: zod
+                  .object({
+                    dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                    resolvedAt: zod
+                      .string()
+                      .datetime({})
+                      .nullable()
+                      .describe(
+                        "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                      ),
+                    overdue: zod.boolean(),
+                    createdAt: zod.string().datetime({}),
+                    updatedAt: zod.string().datetime({}),
+                  })
+                  .describe(
+                    "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+                  )
+                  .nullish()
+                  .describe(
+                    "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -7074,6 +7486,27 @@ export const RejectDocumentResponse = zod.object({
           .nullish()
           .describe(
             "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
+        educationDeadline: zod
+          .object({
+            dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+            resolvedAt: zod
+              .string()
+              .datetime({})
+              .nullable()
+              .describe(
+                "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+              ),
+            overdue: zod.boolean(),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          })
+          .describe(
+            "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+          )
+          .nullish()
+          .describe(
+            "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
           ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -7379,6 +7812,27 @@ export const ReviseDocumentResponse = zod.object({
                   .describe(
                     'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
                   ),
+                deadline: zod
+                  .object({
+                    dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                    resolvedAt: zod
+                      .string()
+                      .datetime({})
+                      .nullable()
+                      .describe(
+                        "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                      ),
+                    overdue: zod.boolean(),
+                    createdAt: zod.string().datetime({}),
+                    updatedAt: zod.string().datetime({}),
+                  })
+                  .describe(
+                    "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+                  )
+                  .nullish()
+                  .describe(
+                    "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -7389,6 +7843,27 @@ export const ReviseDocumentResponse = zod.object({
           .nullish()
           .describe(
             "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
+        educationDeadline: zod
+          .object({
+            dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+            resolvedAt: zod
+              .string()
+              .datetime({})
+              .nullable()
+              .describe(
+                "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+              ),
+            overdue: zod.boolean(),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          })
+          .describe(
+            "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+          )
+          .nullish()
+          .describe(
+            "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
           ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -7694,6 +8169,27 @@ export const DistributeDocumentResponse = zod.object({
                   .describe(
                     'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
                   ),
+                deadline: zod
+                  .object({
+                    dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                    resolvedAt: zod
+                      .string()
+                      .datetime({})
+                      .nullable()
+                      .describe(
+                        "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                      ),
+                    overdue: zod.boolean(),
+                    createdAt: zod.string().datetime({}),
+                    updatedAt: zod.string().datetime({}),
+                  })
+                  .describe(
+                    "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+                  )
+                  .nullish()
+                  .describe(
+                    "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -7704,6 +8200,27 @@ export const DistributeDocumentResponse = zod.object({
           .nullish()
           .describe(
             "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
+        educationDeadline: zod
+          .object({
+            dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+            resolvedAt: zod
+              .string()
+              .datetime({})
+              .nullable()
+              .describe(
+                "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+              ),
+            overdue: zod.boolean(),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          })
+          .describe(
+            "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+          )
+          .nullish()
+          .describe(
+            "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
           ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
@@ -8029,6 +8546,27 @@ export const UpdateDocumentContentResponse = zod.object({
                   .describe(
                     'Id do employee_competency que atesta este requisito à mão, quando existe. Populado sempre que há atestado manual casado — inclusive quando source é \"treinamento\" (o treino vence como fonte, mas o atestado manual segue editável pelo id). null só quando não há atestado manual para a chave.',
                   ),
+                deadline: zod
+                  .object({
+                    dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+                    resolvedAt: zod
+                      .string()
+                      .datetime({})
+                      .nullable()
+                      .describe(
+                        "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+                      ),
+                    overdue: zod.boolean(),
+                    createdAt: zod.string().datetime({}),
+                    updatedAt: zod.string().datetime({}),
+                  })
+                  .describe(
+                    "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+                  )
+                  .nullish()
+                  .describe(
+                    "Prazo de regularização deste requisito, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=competency).",
+                  ),
               }),
             ),
             gapStatus: zod.enum(["ok", "gap", "critical", "indeterminado"]),
@@ -8039,6 +8577,27 @@ export const UpdateDocumentContentResponse = zod.object({
           .nullish()
           .describe(
             "Conformidade de competência do colaborador contra os requisitos do cargo, vinda do mesmo resolvedor usado pela listagem e por \/competency-gaps (resolveEmployeeCompetencies). Presente apenas na resposta de GET \/employees\/:empId (detalhe); `null` quando o colaborador não tem cargo (texto livre) casado com um Position cadastrado.",
+          ),
+        educationDeadline: zod
+          .object({
+            dueDate: zod.string().describe("Data-limite (AAAA-MM-DD)."),
+            resolvedAt: zod
+              .string()
+              .datetime({})
+              .nullable()
+              .describe(
+                "Preenchido automaticamente quando uma leitura subsequente encontra o gap já atendido (compose-on-read) — histórico preservado, não apagado.",
+              ),
+            overdue: zod.boolean(),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          })
+          .describe(
+            "Prazo de regularização de um gap (escolaridade ou competência do cargo) — dá visibilidade e uma data-limite para o colaborador atender o requisito. `overdue` é calculado pelo servidor (dueDate no passado e ainda não resolvido) para evitar divergência de fuso entre cliente e servidor.",
+          )
+          .nullish()
+          .describe(
+            "Prazo de regularização do gap de escolaridade, quando definido (POST \/employees\/:empId\/gaps\/deadline com requirementType=education). Presente apenas na resposta de GET \/employees\/:empId (detalhe).",
           ),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),

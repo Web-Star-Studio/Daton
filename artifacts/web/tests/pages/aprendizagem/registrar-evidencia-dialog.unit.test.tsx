@@ -100,7 +100,38 @@ describe("RegistrarEvidenciaDialog — modo anexar", () => {
     expect(onSuccess).toHaveBeenCalledTimes(1);
   });
 
-  it("desabilita o botão Salvar enquanto a mutation está pendente", () => {
+  it("mantém o botão Salvar desabilitado e mostra erro enquanto a evidência estiver vazia", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <RegistrarEvidenciaDialog
+        open
+        onOpenChange={() => {}}
+        requirement={requirement}
+        orgId={1}
+        empId={2}
+        onSuccess={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /salvar/i })).toBeDisabled();
+    expect(screen.getByText(/evidência é obrigatória/i)).toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText(/certificado/i),
+      "Certificado ABC",
+    );
+
+    expect(screen.getByRole("button", { name: /salvar/i })).toBeEnabled();
+    expect(
+      screen.queryByText(/evidência é obrigatória/i),
+    ).not.toBeInTheDocument();
+
+    expect(createMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("desabilita o botão Salvar enquanto a mutation está pendente", async () => {
+    const user = userEvent.setup();
     createMock.mockReturnValue({
       mutateAsync: createMutateAsync,
       isPending: true,
@@ -115,6 +146,11 @@ describe("RegistrarEvidenciaDialog — modo anexar", () => {
         empId={2}
         onSuccess={() => {}}
       />,
+    );
+
+    await user.type(
+      screen.getByPlaceholderText(/certificado/i),
+      "Certificado ABC",
     );
 
     expect(screen.getByRole("button", { name: /salvar/i })).toBeDisabled();
